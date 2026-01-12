@@ -1,0 +1,955 @@
+"use client";
+
+import React, { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useParams, useSearchParams } from "next/navigation";
+import AddProductModal from "./add-product-modal";
+import AddClientModal from "./add-client-modal";
+import EditBuildingModal from "./edit-building-modal";
+
+const BRAND = "rgb(8, 117, 56)";
+
+type Building = {
+  coreId: number;
+  name: string;
+  address: string;
+  city: string;
+  clientCount: number;
+  workOrderCount: number;
+  products: Record<string, number>;
+  updatedAt: string;
+};
+
+type Asset = {
+  coreId: number;
+  type: string;
+  name: string;
+  ip: string;
+  status: "ONLINE" | "OFFLINE" | "UNKNOWN";
+  updatedAt: string;
+};
+
+type Client = {
+  coreId: number;
+  firstName: string;
+  lastName: string;
+  idNumber: string;
+  paymentId: string;
+  primaryPhone: string;
+  secondaryPhone: string;
+  updatedAt: string;
+};
+
+type Tab = "overview" | "products" | "clients" | "work-orders";
+
+const ASSET_TYPE_LABELS: Record<string, string> = {
+  ELEVATOR: "Elevator",
+  ENTRANCE_DOOR: "Entrance Door",
+  INTERCOM: "Intercom",
+  SMART_GSM_GATE: "Smart GSM Gate",
+  SMART_DOOR_GSM: "Smart Door GSM",
+  BOOM_BARRIER: "Boom Barrier",
+  OTHER: "Other",
+};
+
+const TYPE_ORDER = [
+  "ELEVATOR",
+  "ENTRANCE_DOOR",
+  "INTERCOM",
+  "SMART_GSM_GATE",
+  "SMART_DOOR_GSM",
+  "BOOM_BARRIER",
+  "OTHER",
+];
+
+function typeLabel(type: string) {
+  return ASSET_TYPE_LABELS[type] || type;
+}
+
+function typeRank(type: string) {
+  const idx = TYPE_ORDER.indexOf(type);
+  return idx >= 0 ? idx : 999;
+}
+
+function getStatusDotColor(status: string) {
+  if (status === "ONLINE") return "bg-emerald-500";
+  if (status === "OFFLINE") return "bg-rose-500";
+  return "bg-zinc-400";
+}
+
+function getStatusPill(status: string) {
+  if (status === "ONLINE") return "bg-emerald-50 text-emerald-700 ring-emerald-200";
+  if (status === "OFFLINE") return "bg-rose-50 text-rose-700 ring-rose-200";
+  return "bg-zinc-50 text-zinc-700 ring-zinc-200";
+}
+
+export default function BuildingDetailPage() {
+  const params = useParams();
+  const searchParams = useSearchParams();
+  const buildingId = params?.buildingId as string;
+
+  const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [building, setBuilding] = useState<Building | null>(null);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+
+  const [showAddProductModal, setShowAddProductModal] = useState(false);
+  const [showAddClientModal, setShowAddClientModal] = useState(false);
+  const [showEditBuildingModal, setShowEditBuildingModal] = useState(false);
+
+  // Handle URL query param for tab
+  useEffect(() => {
+    const tab = searchParams?.get("tab");
+    if (tab === "products" || tab === "clients" || tab === "work-orders") {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
+  // Fetch building + assets + clients
+  const fetchData = React.useCallback(async () => {
+    if (!buildingId) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Fetch building info
+      const buildingsRes = await fetch("http://localhost:3000/v1/buildings", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!buildingsRes.ok) throw new Error("Failed to fetch buildings");
+
+      const allBuildings = (await buildingsRes.json()) as Building[];
+      const foundBuilding = allBuildings.find((b) => String(b.coreId) === buildingId);
+
+      if (!foundBuilding) {
+        throw new Error(`Building ${buildingId} not found`);
+      }
+
+      // Fetch assets
+      const assetsRes = await fetch(`http://localhost:3000/v1/buildings/${buildingId}/assets`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const assetsData = assetsRes.ok ? ((await assetsRes.json()) as Asset[]) : [];
+
+      // Fetch clients
+      const clientsRes = await fetch(`http://localhost:3000/v1/buildings/${buildingId}/clients`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const clientsData = clientsRes.ok ? ((await clientsRes.json()) as Client[]) : [];
+
+      setBuilding(foundBuilding);
+      setAssets(assetsData);
+      setClients(clientsData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load data");
+    } finally {
+      setLoading(false);
+    }
+  }, [buildingId]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Calculate statistics
+  const stats = React.useMemo(() => {
+    if (!building || !assets) return null;
+    const offlineDevices = assets.filter((a) => a.status === "OFFLINE");
+
+    return {
+      offlineDevices: offlineDevices.length,
+      offlineDevicesList: offlineDevices,
+      activeWorkOrders: building.workOrderCount,
+    };
+  }, [building, assets]);
+
+  // Calculate product counts for Products tab
+  const productCounts = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    assets.forEach((asset) => {
+      const t = asset.type || "OTHER";
+      counts[t] = (counts[t] || 0) + 1;
+    });
+    return counts;
+  }, [assets]);
+
+  async function handleProductSuccess() {
+    await fetchData();
+    setShowAddProductModal(false);
+    setActiveTab("products");
+  }
+
+  async function handleClientSuccess() {
+    await fetchData();
+    setShowAddClientModal(false);
+    setActiveTab("clients");
+  }
+
+  if (loading) {
+    return (
+      <div className="w-full">
+        <div className="mx-auto w-full px-4 py-6 md:px-6 md:py-8">
+          <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200">
+            <div className="py-12 text-center text-sm text-zinc-600">
+              Loading building details...
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !building) {
+    return (
+      <div className="w-full">
+        <div className="mx-auto w-full px-4 py-6 md:px-6 md:py-8">
+          <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200">
+            <div className="rounded-2xl bg-red-50 p-6 ring-1 ring-red-200">
+              <div className="text-sm font-semibold text-red-900">Error loading building</div>
+              <div className="mt-1 text-sm text-red-700">{error}</div>
+              <Link
+                href="/app/buildings"
+                className="mt-3 inline-block rounded-2xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+              >
+                Back to Buildings
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full">
+      <div className="mx-auto w-full px-4 py-6 md:px-6 md:py-8">
+        {/* Header */}
+        <div className="mb-6 flex flex-col gap-4 md:mb-8">
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-2 text-sm text-zinc-600">
+            <Link href="/app/buildings" className="hover:text-zinc-900">
+              Buildings
+            </Link>
+            <span>→</span>
+            <span className="text-zinc-900">{building.name}</span>
+          </div>
+
+          {/* Title Row */}
+          <div className="relative rounded-3xl bg-white p-5 shadow-sm ring-1 ring-zinc-200 md:p-6">
+            {/* Top-right Edit (small, at edge) */}
+            <button
+              type="button"
+              onClick={() => setShowEditBuildingModal(true)}
+              className={[
+                "absolute right-4 top-4 md:right-6 md:top-6",
+                "inline-flex items-center gap-2",
+                "rounded-2xl bg-white px-3 py-2 text-xs font-semibold text-zinc-900",
+                "shadow-sm ring-1 ring-zinc-200 hover:bg-zinc-50",
+              ].join(" ")}
+              title="Edit building"
+            >
+              <span className="grid h-7 w-7 place-items-center rounded-xl bg-emerald-50 ring-1 ring-emerald-200">
+                <IconEditSmall />
+              </span>
+              Edit
+            </button>
+
+            {/* Building Info */}
+            <div className="pr-0 md:pr-28">
+              <div className="inline-flex items-center gap-2 rounded-full bg-zinc-50 px-3 py-1 text-xs text-zinc-700 ring-1 ring-zinc-200">
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: BRAND }} />
+                Building #{building.coreId}
+              </div>
+
+              <h1 className="mt-2 text-2xl font-semibold tracking-tight text-zinc-900 md:text-3xl">
+                {building.name}
+              </h1>
+
+              <p className="mt-1 text-sm text-zinc-600">
+                {building.city} • {building.address}
+              </p>
+            </div>
+
+            {/* Alerts layout: Work Orders LEFT, Offline RIGHT (under edit) */}
+            {stats && (
+              <div className="mt-5 grid gap-3 md:grid-cols-2 md:items-start">
+                {/* LEFT: Work Orders */}
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("work-orders")}
+                  className="group flex w-full items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-zinc-200 hover:bg-blue-50 hover:ring-blue-300 transition"
+                >
+                  <div className="grid h-11 w-11 place-items-center rounded-2xl bg-blue-50 text-blue-600 ring-1 ring-blue-200">
+                    <IconWorkOrdersLg />
+                  </div>
+                  <div className="min-w-0 text-left">
+                    <div className="text-xs text-zinc-600">Work Orders</div>
+                    <div className="text-lg font-semibold text-zinc-900 tabular-nums">
+                      {stats.activeWorkOrders}
+                    </div>
+                  </div>
+                  <span className="ml-auto text-zinc-400 transition-transform group-hover:translate-x-0.5">
+                    →
+                  </span>
+                </button>
+
+                {/* RIGHT: Offline Alert (only if exists) */}
+                <div className="md:justify-self-end">
+                  {stats.offlineDevices > 0 ? (
+                    <OfflineDevicesAlert count={stats.offlineDevices} devices={stats.offlineDevicesList} />
+                  ) : null}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2 overflow-x-auto">
+            <TabButton label="Overview" active={activeTab === "overview"} onClick={() => setActiveTab("overview")} />
+            <TabButton
+              label={`Products (${assets.length})`}
+              active={activeTab === "products"}
+              onClick={() => setActiveTab("products")}
+            />
+            <TabButton
+              label={`Clients (${clients.length})`}
+              active={activeTab === "clients"}
+              onClick={() => setActiveTab("clients")}
+            />
+            <TabButton
+              label={`Work Orders (${building.workOrderCount})`}
+              active={activeTab === "work-orders"}
+              onClick={() => setActiveTab("work-orders")}
+            />
+          </div>
+        </div>
+
+        {/* Tab Content */}
+        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200">
+          {activeTab === "overview" && <OverviewTab building={building} />}
+          {activeTab === "products" && (
+            <ProductsTab
+              buildingId={buildingId}
+              assets={assets}
+              productCounts={productCounts}
+              onAddClick={() => setShowAddProductModal(true)}
+            />
+          )}
+          {activeTab === "clients" && <ClientsTab clients={clients} onAddClick={() => setShowAddClientModal(true)} />}
+          {activeTab === "work-orders" && <WorkOrdersTab />}
+        </div>
+      </div>
+
+      {/* Add Product Modal */}
+      <AddProductModal
+        buildingCoreId={buildingId}
+        open={showAddProductModal}
+        onClose={() => setShowAddProductModal(false)}
+        onSuccess={handleProductSuccess}
+      />
+
+      {/* Add Client Modal */}
+      <AddClientModal
+        buildingCoreId={buildingId}
+        open={showAddClientModal}
+        onClose={() => setShowAddClientModal(false)}
+        onSuccess={handleClientSuccess}
+      />
+
+      {/* Edit Building Modal */}
+      <EditBuildingModal
+        building={building}
+        open={showEditBuildingModal}
+        onClose={() => setShowEditBuildingModal(false)}
+        onSuccess={() => {
+          fetchData();
+          setShowEditBuildingModal(false);
+        }}
+      />
+    </div>
+  );
+}
+
+/* ========== OFFLINE ALERT (RED, MODERN) ========== */
+function OfflineDevicesAlert({ count, devices }: { count: number; devices: Asset[] }) {
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  return (
+    <div
+      className={[
+        "relative w-full md:w-[360px]",
+        "flex items-center gap-3",
+        "rounded-2xl px-4 py-3",
+        "bg-gradient-to-br from-rose-50 via-white to-rose-50",
+        "ring-1 ring-rose-200 shadow-sm",
+      ].join(" ")}
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+      role="status"
+      aria-label="Offline devices alert"
+    >
+      <div className="grid h-11 w-11 place-items-center rounded-2xl bg-rose-100 text-rose-700 ring-1 ring-rose-200">
+        <IconOfflineLg />
+      </div>
+
+      <div className="min-w-0">
+        <div className="flex items-center gap-2">
+          <div className="text-xs font-semibold text-rose-700 uppercase tracking-wide">Alert</div>
+          <span className="h-1 w-1 rounded-full bg-rose-300" />
+          <div className="text-xs text-zinc-600">Offline devices</div>
+        </div>
+
+        <div className="mt-1 flex items-end gap-2">
+          <div className="text-lg font-semibold text-zinc-900 tabular-nums">{count}</div>
+          <div className="text-xs text-zinc-600">need attention</div>
+        </div>
+      </div>
+
+      <div className="ml-auto">
+        <span className="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-700 ring-1 ring-rose-200">
+          OFFLINE
+        </span>
+      </div>
+
+      {/* Tooltip */}
+      {showTooltip && devices.length > 0 && (
+        <div className="absolute right-0 top-full z-50 mt-2 w-[360px] rounded-2xl bg-white p-4 shadow-2xl ring-1 ring-zinc-200">
+          <div className="mb-2 text-xs font-semibold text-zinc-900">Offline Devices ({count})</div>
+          <div className="max-h-56 space-y-2 overflow-y-auto">
+            {devices.map((device) => (
+              <div key={device.coreId} className="rounded-xl bg-zinc-50 p-2 text-xs ring-1 ring-zinc-200">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="font-semibold text-zinc-900">{device.name}</div>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-700 ring-1 ring-rose-200">
+                    <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                    Offline
+                  </span>
+                </div>
+                <div className="mt-0.5 text-zinc-600">{typeLabel(device.type)}</div>
+                {device.ip && <div className="mt-0.5 font-mono text-zinc-500">IP: {device.ip}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ========== TAB BUTTON ========== */
+function TabButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        "rounded-2xl px-4 py-2.5 text-sm font-medium transition whitespace-nowrap",
+        active ? "bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200" : "text-zinc-600 hover:text-zinc-900 hover:bg-white/50",
+      ].join(" ")}
+    >
+      {label}
+    </button>
+  );
+}
+
+/* ========== OVERVIEW TAB ========== */
+function OverviewTab({ building }: { building: Building }) {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold text-zinc-900">Building Information</h2>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <InfoCard label="Building ID" value={`#${building.coreId}`} />
+          <InfoCard label="Name" value={building.name} />
+          <InfoCard label="City" value={building.city} />
+          <InfoCard label="Address" value={building.address} />
+          <InfoCard label="Clients" value={String(building.clientCount)} />
+          <InfoCard label="Work Orders" value={String(building.workOrderCount)} />
+        </div>
+      </div>
+
+      <div className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
+        <div className="text-sm font-semibold text-emerald-900">Core Sync Status</div>
+        <div className="mt-1 text-xs text-emerald-700">
+          Last synced: {new Date(building.updatedAt).toLocaleString()}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InfoCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-zinc-50 p-4 ring-1 ring-zinc-200">
+      <div className="text-xs text-zinc-600">{label}</div>
+      <div className="mt-1 text-sm font-semibold text-zinc-900">{value}</div>
+    </div>
+  );
+}
+
+/* ========== PRODUCTS TAB (FILTERS + SORT BY TYPE + TABLE) ========== */
+function ProductsTab({
+  buildingId,
+  assets,
+  productCounts,
+  onAddClick,
+}: {
+  buildingId: string;
+  assets: Asset[];
+  productCounts: Record<string, number>;
+  onAddClick: () => void;
+}) {
+  const allTypes = useMemo(() => {
+    const keys = Object.keys(productCounts);
+    return keys.sort((a, b) => typeRank(a) - typeRank(b) || a.localeCompare(b));
+  }, [productCounts]);
+
+  const [selectedTypes, setSelectedTypes] = useState<Record<string, boolean>>({});
+  const [offlineOnly, setOfflineOnly] = useState(false);
+
+  // init / refresh selection when types change
+  useEffect(() => {
+    setSelectedTypes((prev) => {
+      const next: Record<string, boolean> = {};
+      for (const t of allTypes) next[t] = prev[t] ?? true;
+      return next;
+    });
+  }, [allTypes]);
+
+  const allMarked = allTypes.length > 0 && allTypes.every((t) => selectedTypes[t] !== false);
+
+  function setAll(mark: boolean) {
+    const next: Record<string, boolean> = {};
+    for (const t of allTypes) next[t] = mark;
+    setSelectedTypes(next);
+  }
+
+  const filteredAssets = useMemo(() => {
+    const list = assets.filter((a) => {
+      const t = a.type || "OTHER";
+      if (!selectedTypes[t]) return false;
+      if (offlineOnly && a.status !== "OFFLINE") return false;
+      return true;
+    });
+
+    // sort by type, then by name, then by coreId
+    return list.sort((a, b) => {
+      const ta = a.type || "OTHER";
+      const tb = b.type || "OTHER";
+      const r = typeRank(ta) - typeRank(tb);
+      if (r !== 0) return r;
+      const n = (a.name || "").localeCompare(b.name || "");
+      if (n !== 0) return n;
+      return a.coreId - b.coreId;
+    });
+  }, [assets, selectedTypes, offlineOnly]);
+
+  // group by type
+  const grouped = useMemo(() => {
+    const map = new Map<string, Asset[]>();
+    for (const a of filteredAssets) {
+      const t = a.type || "OTHER";
+      if (!map.has(t)) map.set(t, []);
+      map.get(t)!.push(a);
+    }
+    const orderedTypes = Array.from(map.keys()).sort((a, b) => typeRank(a) - typeRank(b) || a.localeCompare(b));
+    return orderedTypes.map((t) => ({ type: t, items: map.get(t)! }));
+  }, [filteredAssets]);
+
+  const offlineCount = useMemo(() => assets.filter((a) => a.status === "OFFLINE").length, [assets]);
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold text-zinc-900">Products ({assets.length})</h2>
+          <div className="mt-1 text-xs text-zinc-600">
+            Use filters to show specific product categories. Table is grouped by type.
+          </div>
+        </div>
+
+        <button
+          type="button"
+          className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+          style={{ backgroundColor: BRAND }}
+          onClick={onAddClick}
+        >
+          + Add Product
+        </button>
+      </div>
+
+      {/* Filter toolbar */}
+      <div className="rounded-3xl bg-zinc-50 p-4 ring-1 ring-zinc-200">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Mark all */}
+            <FilterPill
+              label="Mark all"
+              count={allTypes.length}
+              checked={allMarked}
+              onChange={(v) => setAll(v)}
+              tone="neutral"
+            />
+
+            {/* Offline */}
+            <FilterPill
+              label="Offline"
+              count={offlineCount}
+              checked={offlineOnly}
+              onChange={(v) => setOfflineOnly(v)}
+              tone="danger"
+            />
+          </div>
+
+          <div className="text-xs text-zinc-600">
+            Showing{" "}
+            <span className="font-semibold text-zinc-900 tabular-nums">{filteredAssets.length}</span>{" "}
+            of{" "}
+            <span className="font-semibold text-zinc-900 tabular-nums">{assets.length}</span>
+          </div>
+        </div>
+
+        {/* Type chips (counts) as checkable filters */}
+        {allTypes.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {allTypes.map((t) => (
+              <FilterPill
+                key={t}
+                label={typeLabel(t)}
+                count={productCounts[t] ?? 0}
+                checked={selectedTypes[t] !== false}
+                onChange={(v) => setSelectedTypes((prev) => ({ ...prev, [t]: v }))}
+                tone="brand"
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Products Table grouped by type */}
+      {filteredAssets.length === 0 ? (
+        <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
+          <div className="text-sm text-zinc-600">No products match your filters.</div>
+          <div className="mt-2 text-xs text-zinc-500">
+            Try “Mark all”, or turn off “Offline” filter.
+          </div>
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-2xl ring-1 ring-zinc-200">
+          <div className="overflow-x-auto">
+            <table className="min-w-[980px] w-full border-separate border-spacing-0">
+              <thead className="bg-white sticky top-0">
+                <tr className="text-left text-xs text-zinc-600 bg-zinc-50">
+                  <th className="px-4 py-3 font-medium">Name</th>
+                  <th className="px-4 py-3 font-medium">Type</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium">IP</th>
+                  <th className="px-4 py-3 font-medium">Actions</th>
+                </tr>
+              </thead>
+
+              <tbody className="bg-white">
+                {grouped.map((g) => (
+                  <React.Fragment key={g.type}>
+                    {/* Group header row */}
+                    <tr>
+                      <td colSpan={5} className="px-4 py-3 bg-white">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold text-zinc-900 ring-1 ring-zinc-200">
+                            <span className="h-2 w-2 rounded-full bg-zinc-300" />
+                            {typeLabel(g.type)}
+                          </div>
+                          <div className="text-xs text-zinc-500 tabular-nums">{g.items.length} items</div>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {g.items.map((asset) => (
+                      <tr
+                        key={`${asset.type}-${asset.coreId}`}
+                        className="group transition-colors hover:bg-emerald-50/60"
+                      >
+                        <td className="px-4 py-3 align-middle">
+                          <div className="text-sm font-semibold text-zinc-900">{asset.name}</div>
+                          <div className="mt-0.5 text-xs text-zinc-500">Core ID: {asset.coreId}</div>
+                        </td>
+
+                        <td className="px-4 py-3 align-middle">
+                          <span className="inline-flex items-center rounded-full bg-white px-3 py-1 text-xs font-semibold text-zinc-800 ring-1 ring-zinc-200">
+                            {typeLabel(asset.type)}
+                          </span>
+                        </td>
+
+                        <td className="px-4 py-3 align-middle">
+                          <span
+                            className={[
+                              "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold",
+                              "ring-1",
+                              getStatusPill(asset.status),
+                            ].join(" ")}
+                          >
+                            <span className={["h-1.5 w-1.5 rounded-full", getStatusDotColor(asset.status)].join(" ")} />
+                            {asset.status}
+                          </span>
+                        </td>
+
+                        <td className="px-4 py-3 align-middle">
+                          <span className="inline-flex items-center rounded-2xl bg-white px-3 py-2 text-sm text-zinc-900 ring-1 ring-zinc-200">
+                            {asset.ip ? (
+                              <span className="font-mono tabular-nums">{asset.ip}</span>
+                            ) : (
+                              <span className="text-zinc-500">—</span>
+                            )}
+                          </span>
+                        </td>
+
+                        <td className="px-4 py-3 align-middle">
+                          <Link
+                            href={`/app/buildings/${buildingId}/assets/${asset.coreId}`}
+                            className="inline-flex items-center gap-1 rounded-2xl bg-white px-3 py-2 text-xs font-semibold text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50"
+                          >
+                            View
+                            <span className="transition-transform group-hover:translate-x-0.5">→</span>
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FilterPill({
+  label,
+  count,
+  checked,
+  onChange,
+  tone,
+}: {
+  label: string;
+  count: number;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  tone: "neutral" | "brand" | "danger";
+}) {
+  const pill =
+    tone === "danger"
+      ? checked
+        ? "bg-rose-50 text-rose-700 ring-rose-200"
+        : "bg-white text-zinc-700 ring-zinc-200 hover:bg-rose-50/60"
+      : tone === "brand"
+      ? checked
+        ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+        : "bg-white text-zinc-700 ring-zinc-200 hover:bg-emerald-50/60"
+      : checked
+      ? "bg-zinc-100 text-zinc-900 ring-zinc-200"
+      : "bg-white text-zinc-700 ring-zinc-200 hover:bg-zinc-50";
+
+  const box =
+    tone === "danger"
+      ? checked
+        ? "bg-rose-600 ring-rose-700"
+        : "bg-white ring-zinc-300"
+      : tone === "brand"
+      ? checked
+        ? "bg-emerald-600 ring-emerald-700"
+        : "bg-white ring-zinc-300"
+      : checked
+      ? "bg-zinc-800 ring-zinc-900"
+      : "bg-white ring-zinc-300";
+
+  return (
+    <label
+      className={[
+        "inline-flex items-center gap-2 rounded-2xl px-3 py-2",
+        "ring-1 shadow-sm select-none cursor-pointer transition",
+        pill,
+      ].join(" ")}
+      title={label}
+    >
+      <span className={["grid h-5 w-5 place-items-center rounded-lg ring-1", box].join(" ")}>
+        {checked ? <CheckIcon /> : null}
+      </span>
+      <span className="text-xs font-semibold">{label}</span>
+      <span className="ml-1 rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-semibold text-zinc-800 ring-1 ring-zinc-200 tabular-nums">
+        {count}
+      </span>
+
+      <input
+        type="checkbox"
+        className="sr-only"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+    </label>
+  );
+}
+
+/* ========== CLIENTS TAB ========== */
+function ClientsTab({ clients, onAddClick }: { clients: Client[]; onAddClick: () => void }) {
+  return (
+    <div className="space-y-4">
+      {/* Header + Add Button */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-zinc-900">Clients ({clients.length})</h2>
+        <button
+          type="button"
+          className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+          style={{ backgroundColor: BRAND }}
+          onClick={onAddClick}
+        >
+          + Add Client
+        </button>
+      </div>
+
+      {/* Clients Table */}
+      {clients.length === 0 ? (
+        <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
+          <div className="text-sm text-zinc-600">No clients yet. Click "Add Client" to create one.</div>
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-2xl ring-1 ring-zinc-200">
+          <table className="w-full border-separate border-spacing-0">
+            <thead className="bg-zinc-50">
+              <tr className="text-left text-xs text-zinc-600">
+                <th className="px-4 py-3 font-medium">Client</th>
+                <th className="px-4 py-3 font-medium">ID Number</th>
+                <th className="px-4 py-3 font-medium">Payment ID</th>
+                <th className="px-4 py-3 font-medium">Primary Phone</th>
+                <th className="px-4 py-3 font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white">
+              {clients.map((client) => (
+                <tr key={client.coreId} className="group transition-colors hover:bg-emerald-50/60">
+                  <td className="px-4 py-3 align-middle">
+                    <div className="text-sm font-semibold text-zinc-900">
+                      {client.firstName} {client.lastName}
+                    </div>
+                    <div className="text-xs text-zinc-500">ID: {client.coreId}</div>
+                  </td>
+                  <td className="px-4 py-3 align-middle text-sm text-zinc-700">{client.idNumber}</td>
+                  <td className="px-4 py-3 align-middle text-sm text-zinc-700">{client.paymentId}</td>
+                  <td className="px-4 py-3 align-middle text-sm text-zinc-700">{client.primaryPhone}</td>
+                  <td className="px-4 py-3 align-middle">
+                    <Link
+                      href={`/app/clients/${client.coreId}`}
+                      className="inline-flex items-center gap-1 rounded-2xl bg-white px-3 py-1.5 text-xs font-medium text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50"
+                    >
+                      View
+                      <span className="transition-transform group-hover:translate-x-0.5">→</span>
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ========== WORK ORDERS TAB ========== */
+function WorkOrdersTab() {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-zinc-900">Work Orders</h2>
+        <button
+          type="button"
+          className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+          style={{ backgroundColor: BRAND }}
+          onClick={() => alert("Create Work Order — coming in later phase")}
+        >
+          + Create Work Order
+        </button>
+      </div>
+
+      <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
+        <div className="text-sm text-zinc-600">Work Orders module coming in Phase 4.</div>
+      </div>
+    </div>
+  );
+}
+
+/* ========== ICONS ========== */
+function IconEditSmall() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function IconOfflineLg() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <path d="M12 9v4M12 17h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconWorkOrdersLg() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M9 4h6l1 2h3v15a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6h3l1-2Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <path d="M9 4a2 2 0 0 0 0 4h6a2 2 0 0 0 0-4" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M9 12h6M9 16h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M20 6 9 17l-5-5"
+        stroke="white"
+        strokeWidth="2.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
