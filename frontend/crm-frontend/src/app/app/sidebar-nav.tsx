@@ -17,10 +17,8 @@ export default function SidebarNav() {
   const items: NavItem[] = [
     { href: "/app/dashboard", label: "Dashboard", icon: <IconDashboard /> },
     { href: "/app/buildings", label: "Buildings", icon: <IconBuilding /> },
-
-    // ✅ NEW: Clients (global directory)
     { href: "/app/clients", label: "Clients", icon: <IconClients /> },
-
+    { href: "/app/incidents", label: "Incidents", icon: <IconIncident /> },
     { href: "/app/assets", label: "Assets", icon: <IconWrench /> },
     { href: "/app/work-orders", label: "Work Orders", icon: <IconClipboard /> },
     { href: "/app/inventory", label: "Inventory", icon: <IconBox /> },
@@ -187,6 +185,25 @@ function IconClients() {
       />
       <path
         d="M20 8.5a3 3 0 0 1 0 5.8"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function IconIncident() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M12 9v4M12 17h.01"
         stroke="currentColor"
         strokeWidth="1.8"
         strokeLinecap="round"
