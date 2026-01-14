@@ -22,7 +22,8 @@ export default function SidebarNav() {
     { href: "/app/assets", label: "Assets", icon: <IconWrench /> },
     { href: "/app/work-orders", label: "Work Orders", icon: <IconClipboard /> },
     { href: "/app/inventory", label: "Inventory", icon: <IconBox /> },
-    { href: "/app/admin/users", label: "Users", icon: <IconUsers /> },
+    { href: "/app/employees", label: "Employees", icon: <IconEmployees /> },
+    { href: "/app/admin", label: "Admin", icon: <IconAdmin /> },
   ];
 
   const settingsHref = "/app/settings";
@@ -275,6 +276,30 @@ function IconBox() {
   );
 }
 
+function IconEmployees() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <path
+        d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      <path
+        d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 function IconUsers() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
@@ -291,6 +316,31 @@ function IconUsers() {
       />
       <path
         d="M20 8.5a3 3 0 0 1 0 5.8"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function IconAdmin() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M12 2L2 7l10 5 10-5-10-5z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M2 17l10 5 10-5M2 12l10 5 10-5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M12 2v5M12 12v5"
         stroke="currentColor"
         strokeWidth="1.8"
         strokeLinecap="round"

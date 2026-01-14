@@ -4,6 +4,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import ReportIncidentModal from "../../incidents/report-incident-modal";
+import ModalDialog from "../../../modal-dialog";
+import IncidentDetailContent from "../../incidents/incident-detail-content";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -191,6 +193,7 @@ export default function ClientDetailPage() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
 
   const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -299,6 +302,11 @@ export default function ClientDetailPage() {
     // reload incidents only
     setShowReportModal(false);
     // quick refresh (simple + reliable)
+    window.location.reload();
+  }
+
+  function handleStatusChange() {
+    // Refresh incidents after status update
     window.location.reload();
   }
 
@@ -521,10 +529,11 @@ export default function ClientDetailPage() {
           ) : (
             <div className="mt-5 grid gap-3">
               {incidents.map((inc) => (
-                <Link
+                <button
                   key={inc.id}
-                  href={`/app/incidents/${inc.id}`}
-                  className="group block rounded-3xl bg-white p-5 ring-1 ring-zinc-200 transition hover:bg-emerald-50/50 hover:ring-emerald-300"
+                  type="button"
+                  onClick={() => setSelectedIncidentId(inc.id)}
+                  className="group block w-full text-left rounded-3xl bg-white p-5 ring-1 ring-zinc-200 transition hover:bg-emerald-50/50 hover:ring-emerald-300 cursor-pointer"
                 >
                   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div className="min-w-0">
@@ -583,7 +592,7 @@ export default function ClientDetailPage() {
                       </div>
                     </div>
                   </div>
-                </Link>
+                </button>
               ))}
             </div>
           )}
@@ -603,6 +612,21 @@ export default function ClientDetailPage() {
   lockClient={true}
   allowedBuildingCoreIds={(client.buildings ?? []).map((b) => b.coreId)}
 />
+
+      {/* Incident Detail Modal */}
+      <ModalDialog
+        open={selectedIncidentId !== null}
+        onClose={() => setSelectedIncidentId(null)}
+        title="Incident Details"
+        maxWidth="4xl"
+      >
+        {selectedIncidentId && (
+          <IncidentDetailContent
+            incidentId={selectedIncidentId}
+            onStatusChange={handleStatusChange}
+          />
+        )}
+      </ModalDialog>
     </div>
   );
 }

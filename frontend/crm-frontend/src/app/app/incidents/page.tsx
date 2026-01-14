@@ -3,6 +3,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import ReportIncidentModal from "./report-incident-modal";
+import ModalDialog from "../../modal-dialog";
+import IncidentDetailContent from "./incident-detail-content";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -145,6 +147,7 @@ export default function IncidentsPage() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
 
   const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
 
   async function loadIncidents() {
     try {
@@ -248,6 +251,11 @@ export default function IncidentsPage() {
 
   function handleReportSuccess() {
     // Refresh list after creating incident
+    loadIncidents();
+  }
+
+  function handleStatusChange() {
+    // Refresh list after status update
     loadIncidents();
   }
 
@@ -489,25 +497,30 @@ export default function IncidentsPage() {
                             <tr
                               key={incident.id}
                               className={[
-                                "group transition-all duration-200 ease-out",
+                                "group transition-all duration-200 ease-out cursor-pointer",
                                 "hover:bg-emerald-50/60",
                                 "hover:shadow-lg hover:-translate-y-0.5 hover:z-10",
                                 !isLast && "border-b border-zinc-100",
                               ].join(" ")}
+                              onClick={() => setSelectedIncidentId(incident.id)}
                             >
                               <td className="px-4 py-4 align-middle">
-                                <Link href={`/app/incidents/${incident.id}`} className="block">
+                                <div className="block">
                                   <div className="text-sm font-semibold text-zinc-900 underline-offset-2 group-hover:underline">
                                     #{incident.incidentNumber}
                                   </div>
                                   <div className="mt-0.5 text-xs text-zinc-500">
                                     {incident.incidentType}
                                   </div>
-                                </Link>
+                                </div>
                               </td>
 
                               <td className="px-4 py-4 align-middle">
-                                <Link href={`/app/clients/${incident.clientId}`} className="block group/client">
+                                <Link
+                                  href={`/app/clients/${incident.clientId}`}
+                                  className="block group/client"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
                                   <div className="text-sm font-semibold text-zinc-900 group-hover/client:underline">
                                     {incident.clientName}
                                   </div>
@@ -518,7 +531,11 @@ export default function IncidentsPage() {
                               </td>
 
                               <td className="px-4 py-4 align-middle">
-                                <Link href={`/app/buildings/${incident.buildingId}`} className="block group/building">
+                                <Link
+                                  href={`/app/buildings/${incident.buildingId}`}
+                                  className="block group/building"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
                                   <div className="text-sm font-semibold text-zinc-900 group-hover/building:underline">
                                     {incident.buildingName}
                                   </div>
@@ -577,13 +594,17 @@ export default function IncidentsPage() {
                               </td>
 
                               <td className="px-4 py-4 align-middle text-right">
-                                <Link
-                                  href={`/app/incidents/${incident.id}`}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedIncidentId(incident.id);
+                                  }}
                                   className="inline-flex items-center gap-1 rounded-2xl bg-white px-3 py-1.5 text-xs font-semibold text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50"
                                 >
                                   View
                                   <span className="transition-transform group-hover:translate-x-0.5">→</span>
-                                </Link>
+                                </button>
                               </td>
                             </tr>
                           );
@@ -632,6 +653,20 @@ export default function IncidentsPage() {
         onClose={() => setShowReportModal(false)}
         onSuccess={handleReportSuccess}
       />
+
+      <ModalDialog
+        open={selectedIncidentId !== null}
+        onClose={() => setSelectedIncidentId(null)}
+        title="Incident Details"
+        maxWidth="4xl"
+      >
+        {selectedIncidentId && (
+          <IncidentDetailContent
+            incidentId={selectedIncidentId}
+            onStatusChange={handleStatusChange}
+          />
+        )}
+      </ModalDialog>
     </div>
   );
 }

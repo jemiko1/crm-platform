@@ -6,6 +6,8 @@ import { useParams, useSearchParams } from "next/navigation";
 import AddProductModal from "./add-product-modal";
 import AddClientModal from "./add-client-modal";
 import EditBuildingModal from "./edit-building-modal";
+import ModalDialog from "../../../modal-dialog";
+import IncidentDetailContent from "../../incidents/incident-detail-content";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -40,7 +42,25 @@ type Client = {
   updatedAt: string;
 };
 
-type Tab = "overview" | "products" | "clients" | "work-orders";
+type Tab = "overview" | "products" | "clients" | "work-orders" | "incidents";
+
+type Incident = {
+  id: string;
+  incidentNumber: string;
+  clientId: number;
+  clientName: string;
+  buildingId: number;
+  buildingName: string;
+  productsAffected: string[];
+  status: "CREATED" | "IN_PROGRESS" | "COMPLETED" | "WORK_ORDER_INITIATED";
+  priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  incidentType: string;
+  contactMethod: string;
+  description: string;
+  reportedBy: string;
+  createdAt: string;
+  updatedAt: string;
+};
 
 const ASSET_TYPE_LABELS: Record<string, string> = {
   ELEVATOR: "Elevator",
@@ -95,15 +115,18 @@ export default function BuildingDetailPage() {
   const [building, setBuilding] = useState<Building | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [incidentsLoading, setIncidentsLoading] = useState(false);
 
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [showAddClientModal, setShowAddClientModal] = useState(false);
   const [showEditBuildingModal, setShowEditBuildingModal] = useState(false);
+  const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
 
   // Handle URL query param for tab
   useEffect(() => {
     const tab = searchParams?.get("tab");
-    if (tab === "products" || tab === "clients" || tab === "work-orders") {
+    if (tab === "products" || tab === "clients" || tab === "work-orders" || tab === "incidents") {
       setActiveTab(tab);
     }
   }, [searchParams]);
@@ -144,9 +167,17 @@ export default function BuildingDetailPage() {
       });
       const clientsData = clientsRes.ok ? ((await clientsRes.json()) as Client[]) : [];
 
+      // Fetch incidents count (for tab label)
+      const incidentsRes = await fetch(`http://localhost:3000/v1/buildings/${buildingId}/incidents`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const incidentsData = incidentsRes.ok ? ((await incidentsRes.json()) as Incident[]) : [];
+
       setBuilding(foundBuilding);
       setAssets(assetsData);
       setClients(clientsData);
+      setIncidents(Array.isArray(incidentsData) ? incidentsData : Array.isArray(incidentsData?.items) ? incidentsData.items : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load data");
     } finally {
@@ -190,6 +221,39 @@ export default function BuildingDetailPage() {
     await fetchData();
     setShowAddClientModal(false);
     setActiveTab("clients");
+  }
+
+  // Fetch incidents for this building (force refresh)
+  const fetchIncidents = React.useCallback(async () => {
+    if (!buildingId) return;
+
+    try {
+      setIncidentsLoading(true);
+
+      const res = await fetch(`http://localhost:3000/v1/buildings/${buildingId}/incidents`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      if (!res.ok) {
+        setIncidents([]);
+        return;
+      }
+
+      const data = await res.json();
+      const arr = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
+      setIncidents(arr);
+    } catch (err) {
+      console.error("Failed to load incidents:", err);
+      setIncidents([]);
+    } finally {
+      setIncidentsLoading(false);
+    }
+  }, [buildingId]);
+
+  function handleStatusChange() {
+    // Refresh incidents after status update
+    fetchIncidents();
   }
 
   if (loading) {
@@ -330,6 +394,11 @@ export default function BuildingDetailPage() {
               active={activeTab === "work-orders"}
               onClick={() => setActiveTab("work-orders")}
             />
+            <TabButton
+              label={`Incidents (${incidents.length})`}
+              active={activeTab === "incidents"}
+              onClick={() => setActiveTab("incidents")}
+            />
           </div>
         </div>
 
@@ -346,6 +415,13 @@ export default function BuildingDetailPage() {
           )}
           {activeTab === "clients" && <ClientsTab clients={clients} onAddClick={() => setShowAddClientModal(true)} />}
           {activeTab === "work-orders" && <WorkOrdersTab />}
+          {activeTab === "incidents" && (
+            <IncidentsTab
+              incidents={incidents}
+              loading={incidentsLoading}
+              onIncidentClick={(incidentId) => setSelectedIncidentId(incidentId)}
+            />
+          )}
         </div>
       </div>
 
@@ -375,6 +451,21 @@ export default function BuildingDetailPage() {
           setShowEditBuildingModal(false);
         }}
       />
+
+      {/* Incident Detail Modal */}
+      <ModalDialog
+        open={selectedIncidentId !== null}
+        onClose={() => setSelectedIncidentId(null)}
+        title="Incident Details"
+        maxWidth="4xl"
+      >
+        {selectedIncidentId && (
+          <IncidentDetailContent
+            incidentId={selectedIncidentId}
+            onStatusChange={handleStatusChange}
+          />
+        )}
+      </ModalDialog>
     </div>
   );
 }
@@ -885,6 +976,168 @@ function WorkOrdersTab() {
       <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
         <div className="text-sm text-zinc-600">Work Orders module coming in Phase 4.</div>
       </div>
+    </div>
+  );
+}
+
+/* ========== INCIDENTS TAB ========== */
+function IncidentsTab({
+  incidents,
+  loading,
+  onIncidentClick,
+}: {
+  incidents: Incident[];
+  loading: boolean;
+  onIncidentClick: (incidentId: string) => void;
+}) {
+  function getStatusBadge(status: Incident["status"]) {
+    const styles = {
+      CREATED: "bg-blue-50 text-blue-700 ring-blue-200",
+      IN_PROGRESS: "bg-amber-50 text-amber-700 ring-amber-200",
+      COMPLETED: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+      WORK_ORDER_INITIATED: "bg-purple-50 text-purple-700 ring-purple-200",
+    };
+    return styles[status];
+  }
+
+  function getStatusLabel(status: Incident["status"]) {
+    const labels = {
+      CREATED: "Created",
+      IN_PROGRESS: "In Progress",
+      COMPLETED: "Completed",
+      WORK_ORDER_INITIATED: "Work Order Created",
+    };
+    return labels[status];
+  }
+
+  function getPriorityBadge(priority: Incident["priority"]) {
+    const styles = {
+      LOW: "bg-zinc-50 text-zinc-700 ring-zinc-200",
+      MEDIUM: "bg-blue-50 text-blue-700 ring-blue-200",
+      HIGH: "bg-amber-50 text-amber-700 ring-amber-200",
+      CRITICAL: "bg-rose-50 text-rose-700 ring-rose-200",
+    };
+    return styles[priority];
+  }
+
+  function getPriorityDot(priority: Incident["priority"]) {
+    const colors = {
+      LOW: "bg-zinc-400",
+      MEDIUM: "bg-blue-500",
+      HIGH: "bg-amber-500",
+      CRITICAL: "bg-rose-500",
+    };
+    return colors[priority];
+  }
+
+  function formatDate(iso: string) {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "—";
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    const hh = String(d.getHours()).padStart(2, "0");
+    const min = String(d.getMinutes()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-zinc-900">Incidents ({incidents.length})</h2>
+      </div>
+
+      {loading ? (
+        <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
+          <div className="text-sm text-zinc-600">Loading incidents...</div>
+        </div>
+      ) : incidents.length === 0 ? (
+        <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
+          <div className="text-sm text-zinc-600">No incidents reported for this building yet.</div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {incidents.map((incident) => (
+            <button
+              key={incident.id}
+              type="button"
+              onClick={() => onIncidentClick(incident.id)}
+              className="group block w-full text-left rounded-3xl bg-white p-5 ring-1 ring-zinc-200 transition hover:bg-emerald-50/50 hover:ring-emerald-300 cursor-pointer"
+            >
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="text-sm font-semibold text-zinc-900 group-hover:underline">
+                      #{incident.incidentNumber}
+                    </div>
+
+                    <span
+                      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 ${getStatusBadge(
+                        incident.status
+                      )}`}
+                    >
+                      {getStatusLabel(incident.status)}
+                    </span>
+
+                    <span
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ${getPriorityBadge(
+                        incident.priority
+                      )}`}
+                    >
+                      <span className={`h-1.5 w-1.5 rounded-full ${getPriorityDot(incident.priority)}`} />
+                      {incident.priority}
+                    </span>
+                  </div>
+
+                  <div className="mt-1 text-xs text-zinc-600">
+                    <span className="font-medium text-zinc-800">{incident.incidentType}</span>
+                    <span className="mx-2 text-zinc-300">•</span>
+                    Client:{" "}
+                    <Link
+                      href={`/app/clients/${incident.clientId}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="font-medium text-emerald-700 hover:underline"
+                    >
+                      {incident.clientName}
+                    </Link>
+                  </div>
+
+                  {incident.description ? (
+                    <div className="mt-2 line-clamp-2 text-sm text-zinc-700">{incident.description}</div>
+                  ) : null}
+
+                  <div className="mt-3 flex flex-wrap items-center gap-1">
+                    {(incident.productsAffected || []).slice(0, 3).map((p, idx) => (
+                      <span
+                        key={`${incident.id}-p-${idx}`}
+                        className="inline-flex items-center rounded-full bg-white px-2 py-1 text-xs font-semibold text-zinc-700 ring-1 ring-zinc-200"
+                      >
+                        {p}
+                      </span>
+                    ))}
+                    {(incident.productsAffected?.length ?? 0) > 3 && (
+                      <span className="inline-flex items-center rounded-full bg-zinc-50 px-2 py-1 text-xs font-semibold text-zinc-600 ring-1 ring-zinc-200">
+                        +{incident.productsAffected.length - 3}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="shrink-0 text-right">
+                  <div className="text-xs text-zinc-500">Created</div>
+                  <div className="mt-0.5 text-xs font-semibold text-zinc-900 tabular-nums">
+                    {formatDate(incident.createdAt)}
+                  </div>
+                  <div className="mt-1 text-xs text-zinc-500">by {incident.reportedBy}</div>
+                  <div className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-zinc-900">
+                    View <span className="transition-transform group-hover:translate-x-0.5">→</span>
+                  </div>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
