@@ -1,16 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { apiGet, apiPost } from "@/lib/api";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { apiPost } from "@/lib/api";
 
 const BRAND = "rgb(8, 117, 56)";
-
-type RoleGroup = {
-  id: string;
-  name: string;
-  code: string;
-};
 
 type Department = {
   id: string;
@@ -18,61 +12,59 @@ type Department = {
   code: string;
 };
 
-type AddPositionModalProps = {
-  open: boolean;
-  onClose: () => void;
-  onSuccess: () => void;
+type Employee = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
 };
 
-export default function AddPositionModal({
+type AddDepartmentModalProps = {
+  open: boolean;
+  onClose: () => void;
+  onCreated: (dept: Department) => void;
+  departments: Department[];
+  employees: Employee[];
+  initialParentId?: string | null;
+  initialParentName?: string | null;
+};
+
+export default function AddDepartmentModal({
   open,
   onClose,
-  onSuccess,
-}: AddPositionModalProps) {
+  onCreated,
+  departments,
+  employees,
+  initialParentId = null,
+  initialParentName = null,
+}: AddDepartmentModalProps) {
+  const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [roleGroups, setRoleGroups] = useState<RoleGroup[]>([]);
-  const [loadingRoleGroups, setLoadingRoleGroups] = useState(true);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [loadingDepartments, setLoadingDepartments] = useState(true);
-  const [mounted, setMounted] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    description: "",
+    parentId: "",
+    headId: "",
+    isActive: true,
+  });
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const [formData, setFormData] = useState({
-    name: "",
-    code: "",
-    description: "",
-    level: "",
-    roleGroupId: "",
-    departmentId: "",
-    isActive: true,
-  });
-
-  // Load role groups and departments
   useEffect(() => {
     if (open) {
-      apiGet<RoleGroup[]>("/v1/role-groups")
-        .then((data) => {
-          setRoleGroups(data);
-          setLoadingRoleGroups(false);
-        })
-        .catch(() => {
-          setLoadingRoleGroups(false);
-        });
-
-      apiGet<Department[]>("/v1/departments")
-        .then((data) => {
-          setDepartments(data);
-          setLoadingDepartments(false);
-        })
-        .catch(() => {
-          setLoadingDepartments(false);
-        });
+      setError(null);
+      setFormData({
+        name: "",
+        description: "",
+        parentId: initialParentId || "",
+        headId: "",
+        isActive: true,
+      });
     }
-  }, [open]);
+  }, [open, initialParentId]);
 
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -91,29 +83,17 @@ export default function AddPositionModal({
     setError(null);
 
     try {
-      await apiPost("/v1/positions", {
+      const created = await apiPost<Department>("/v1/departments", {
         name: formData.name,
-        code: formData.code,
         description: formData.description || undefined,
-        level: formData.level ? Number(formData.level) : undefined,
-        roleGroupId: formData.roleGroupId,
-        departmentId: formData.departmentId || undefined,
+        parentId: formData.parentId || undefined,
+        headId: formData.headId || undefined,
         isActive: formData.isActive,
       });
-
-      onSuccess();
-      setFormData({
-        name: "",
-        code: "",
-        description: "",
-        level: "",
-        roleGroupId: "",
-        departmentId: "",
-        isActive: true,
-      });
+      onCreated(created);
       onClose();
     } catch (err: any) {
-      setError(err.message || "Failed to create position");
+      setError(err.message || "Failed to create department");
     } finally {
       setLoading(false);
     }
@@ -123,27 +103,25 @@ export default function AddPositionModal({
 
   const modalContent = (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-      {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/40 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Modal */}
       <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div
           className="w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-zinc-200"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="border-b border-zinc-200 px-6 py-4">
+          <div className="sticky top-0 z-10 border-b border-zinc-200 bg-white px-6 py-4">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-zinc-900">
-                  Add New Position
+                  Add Department
                 </h2>
                 <p className="mt-1 text-xs text-zinc-600">
-                  Create a new company position
+                  Create a new department in your company structure
                 </p>
               </div>
               <button
@@ -166,7 +144,7 @@ export default function AddPositionModal({
             <div className="space-y-4">
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-zinc-700">
-                  Position Name <span className="text-rose-500">*</span>
+                  Department Name <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -175,22 +153,7 @@ export default function AddPositionModal({
                   onChange={handleChange}
                   required
                   className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                  placeholder="e.g., CEO, IT Manager"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-zinc-700">
-                  Code <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="code"
-                  value={formData.code}
-                  onChange={handleChange}
-                  required
-                  className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm font-mono text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                  placeholder="e.g., CEO, IT_MGR"
+                  placeholder="e.g., Company, IT Department"
                 />
               </div>
 
@@ -202,91 +165,65 @@ export default function AddPositionModal({
                   name="description"
                   value={formData.description}
                   onChange={handleChange}
-                  rows={2}
+                  rows={3}
                   className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                  placeholder="Brief description of this position"
+                  placeholder="Optional department description"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-zinc-700">
-                    Level
-                  </label>
-                  <input
-                    type="number"
-                    name="level"
-                    value={formData.level}
-                    onChange={handleChange}
-                    min="1"
-                    max="100"
-                    className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                    placeholder="1-100"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-zinc-700">
-                    Role Group <span className="text-rose-500">*</span>
-                  </label>
-                  {loadingRoleGroups ? (
-                    <div className="rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-500">
-                      Loading...
-                    </div>
-                  ) : (
-                    <select
-                      name="roleGroupId"
-                      value={formData.roleGroupId}
-                      onChange={handleChange}
-                      required
-                      className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                    >
-                      <option value="">Select role group...</option>
-                      {roleGroups.map((rg) => (
-                        <option key={rg.id} value={rg.id}>
-                          {rg.name} ({rg.code})
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-              </div>
-
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-zinc-700">
-                Department
-              </label>
-              {loadingDepartments ? (
-                <div className="rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-500">
-                  Loading...
-                </div>
-              ) : (
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-zinc-700">
+                  Parent Department
+                </label>
                 <select
-                  name="departmentId"
-                  value={formData.departmentId}
+                  name="parentId"
+                  value={formData.parentId}
                   onChange={handleChange}
                   className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                 >
-                  <option value="">No department</option>
+                  <option value="">None (Root level)</option>
                   {departments.map((dept) => (
                     <option key={dept.id} value={dept.id}>
                       {dept.name}
                     </option>
                   ))}
                 </select>
-              )}
-            </div>
+                {initialParentName && (
+                  <div className="mt-1 text-xs text-zinc-500">
+                    Preselected: {initialParentName}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-zinc-700">
+                  Department Head
+                </label>
+                <select
+                  name="headId"
+                  value={formData.headId}
+                  onChange={handleChange}
+                  className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                >
+                  <option value="">No head assigned</option>
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.firstName} {emp.lastName} ({emp.email})
+                    </option>
+                  ))}
+                </select>
+              </div>
 
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
                   name="isActive"
-                  id="isActive"
+                  id="deptActive"
                   checked={formData.isActive}
                   onChange={handleChange}
                   className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
                 />
-                <label htmlFor="isActive" className="text-sm text-zinc-700">
+                <label htmlFor="deptActive" className="text-sm text-zinc-700">
                   Active
                 </label>
               </div>
@@ -306,7 +243,7 @@ export default function AddPositionModal({
                 className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
                 style={{ backgroundColor: BRAND }}
               >
-                {loading ? "Creating..." : "Create Position"}
+                {loading ? "Creating..." : "Create Department"}
               </button>
             </div>
           </form>

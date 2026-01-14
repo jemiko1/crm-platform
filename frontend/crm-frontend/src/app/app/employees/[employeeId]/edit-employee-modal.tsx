@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { apiPatch } from "@/lib/api";
+import { apiGet, apiPatch } from "@/lib/api";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -21,6 +21,7 @@ type Employee = {
   country: string | null;
   emergencyContact: string | null;
   emergencyPhone: string | null;
+  positionId?: string | null;
   departmentId: string | null;
   roleId: string | null;
   managerId: string | null;
@@ -41,6 +42,8 @@ export default function EditEmployeeModal({
 }: EditEmployeeModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [positions, setPositions] = useState<Array<{ id: string; name: string; code: string }>>([]);
+  const [loadingPositions, setLoadingPositions] = useState(true);
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -57,7 +60,22 @@ export default function EditEmployeeModal({
     country: "Georgia",
     emergencyContact: "",
     emergencyPhone: "",
+    positionId: "",
   });
+
+  // Load positions
+  useEffect(() => {
+    if (open) {
+      apiGet<Array<{ id: string; name: string; code: string }>>("/v1/positions")
+        .then((data) => {
+          setPositions(data);
+          setLoadingPositions(false);
+        })
+        .catch(() => {
+          setLoadingPositions(false);
+        });
+    }
+  }, [open]);
 
   // Populate form when employee changes
   useEffect(() => {
@@ -77,6 +95,7 @@ export default function EditEmployeeModal({
         country: employee.country || "Georgia",
         emergencyContact: employee.emergencyContact || "",
         emergencyPhone: employee.emergencyPhone || "",
+        positionId: employee.positionId || "",
       });
     }
   }, [employee]);
@@ -111,6 +130,7 @@ export default function EditEmployeeModal({
         country: formData.country || "Georgia",
         emergencyContact: formData.emergencyContact || undefined,
         emergencyPhone: formData.emergencyPhone || undefined,
+        positionId: formData.positionId || undefined,
       };
 
       // Only include password if provided
@@ -296,6 +316,29 @@ export default function EditEmployeeModal({
                     onChange={handleChange}
                     className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-zinc-900">Position</label>
+                  {loadingPositions ? (
+                    <div className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-500">
+                      Loading positions...
+                    </div>
+                  ) : (
+                    <select
+                      name="positionId"
+                      value={formData.positionId}
+                      onChange={handleChange}
+                      className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    >
+                      <option value="">No position</option>
+                      {positions.map((pos) => (
+                        <option key={pos.id} value={pos.id}>
+                          {pos.name} ({pos.code})
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div>

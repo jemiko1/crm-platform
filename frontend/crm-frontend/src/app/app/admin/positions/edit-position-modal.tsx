@@ -11,6 +11,12 @@ type RoleGroup = {
   code: string;
 };
 
+type Department = {
+  id: string;
+  name: string;
+  code: string;
+};
+
 type Position = {
   id: string;
   name: string;
@@ -18,6 +24,7 @@ type Position = {
   description: string | null;
   level: number | null;
   roleGroupId: string;
+  departmentId?: string | null;
   isActive: boolean;
 };
 
@@ -38,6 +45,8 @@ export default function EditPositionModal({
   const [error, setError] = useState<string | null>(null);
   const [roleGroups, setRoleGroups] = useState<RoleGroup[]>([]);
   const [loadingRoleGroups, setLoadingRoleGroups] = useState(true);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [loadingDepartments, setLoadingDepartments] = useState(true);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -45,10 +54,11 @@ export default function EditPositionModal({
     description: "",
     level: "",
     roleGroupId: "",
+    departmentId: "",
     isActive: true,
   });
 
-  // Load role groups
+  // Load role groups and departments
   useEffect(() => {
     if (open) {
       apiGet<RoleGroup[]>("/v1/role-groups")
@@ -58,6 +68,15 @@ export default function EditPositionModal({
         })
         .catch(() => {
           setLoadingRoleGroups(false);
+        });
+
+      apiGet<Department[]>("/v1/departments")
+        .then((data) => {
+          setDepartments(data);
+          setLoadingDepartments(false);
+        })
+        .catch(() => {
+          setLoadingDepartments(false);
         });
     }
   }, [open]);
@@ -71,6 +90,7 @@ export default function EditPositionModal({
         description: position.description || "",
         level: position.level?.toString() || "",
         roleGroupId: position.roleGroupId,
+        departmentId: position.departmentId || "",
         isActive: position.isActive,
       });
     }
@@ -101,6 +121,7 @@ export default function EditPositionModal({
         description: formData.description || undefined,
         level: formData.level ? Number(formData.level) : undefined,
         roleGroupId: formData.roleGroupId,
+        departmentId: formData.departmentId || undefined,
         isActive: formData.isActive,
       });
 
@@ -238,6 +259,31 @@ export default function EditPositionModal({
                     </select>
                   )}
                 </div>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-zinc-700">
+                  Department
+                </label>
+                {loadingDepartments ? (
+                  <div className="rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-500">
+                    Loading...
+                  </div>
+                ) : (
+                  <select
+                    name="departmentId"
+                    value={formData.departmentId}
+                    onChange={handleChange}
+                    className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  >
+                    <option value="">No department</option>
+                    {departments.map((dept) => (
+                      <option key={dept.id} value={dept.id}>
+                        {dept.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               <div className="flex items-center gap-2">

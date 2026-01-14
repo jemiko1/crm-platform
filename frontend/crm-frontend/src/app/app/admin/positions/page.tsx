@@ -15,6 +15,11 @@ type Position = {
   description: string | null;
   level: number | null;
   isActive: boolean;
+  department: {
+    id: string;
+    name: string;
+    code: string;
+  } | null;
   roleGroup: {
     id: string;
     name: string;
@@ -137,6 +142,9 @@ export default function PositionsPage() {
                   Role Group
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
+                  Department
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
                   Level
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
@@ -172,6 +180,13 @@ export default function PositionsPage() {
                     <div className="text-xs text-zinc-500 font-mono">
                       {position.roleGroup.code}
                     </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {position.department ? (
+                      <div className="text-sm text-zinc-900">{position.department.name}</div>
+                    ) : (
+                      <span className="text-xs text-zinc-400">—</span>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {position.level !== null ? (
