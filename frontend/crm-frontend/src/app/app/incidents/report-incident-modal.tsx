@@ -307,7 +307,7 @@ export default function ReportIncidentModal({
 
   async function handleSubmit() {
     if (!formData.buildingId) return setError("Building is required");
-    if (!formData.clientId) return setError("Client is required");
+    // Client is now optional - no validation needed
     if (!formData.contactMethod) return setError("Contact method is required");
     if (!formData.incidentType) return setError("Incident type is required");
     if (!formData.priority) return setError("Priority is required");
@@ -317,19 +317,25 @@ export default function ReportIncidentModal({
       setLoading(true);
       setError(null);
 
+      const payload: any = {
+        buildingId: formData.buildingId,
+        assetIds: formData.productIds,
+        contactMethod: formData.contactMethod,
+        incidentType: formData.incidentType,
+        priority: formData.priority,
+        description: formData.description,
+      };
+
+      // Only include clientId if it was provided
+      if (formData.clientId !== null) {
+        payload.clientId = formData.clientId;
+      }
+
       const res = await fetch("http://localhost:3000/v1/incidents", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          buildingId: formData.buildingId,
-          clientId: formData.clientId,
-          assetIds: formData.productIds,
-          contactMethod: formData.contactMethod,
-          incidentType: formData.incidentType,
-          priority: formData.priority,
-          description: formData.description,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -524,13 +530,28 @@ export default function ReportIncidentModal({
                 )}
               </div>
 
-              <button
-                type="button"
-                onClick={() => setStep(1)}
-                className="text-xs text-zinc-600 hover:text-zinc-900 underline"
-              >
-                ← Back to building selection
-              </button>
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="text-xs text-zinc-600 hover:text-zinc-900 underline"
+                >
+                  ← Back to building selection
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedClient(null);
+                    setClientSearch("");
+                    setFormData((prev) => ({ ...prev, clientId: null }));
+                    setStep(3);
+                  }}
+                  className="rounded-2xl bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-200"
+                >
+                  Skip - Unknown Client →
+                </button>
+              </div>
             </div>
           )}
 
@@ -547,7 +568,7 @@ export default function ReportIncidentModal({
                       ? fullNameOf(presetClient)
                       : selectedClient
                         ? fullNameOf(selectedClient)
-                        : "—"}
+                        : "Unknown Client"}
                   </div>
                 </div>
               </div>
@@ -625,7 +646,7 @@ export default function ReportIncidentModal({
                       ? fullNameOf(presetClient)
                       : selectedClient
                         ? fullNameOf(selectedClient)
-                        : "—"}
+                        : "Unknown Client"}
                   </div>
                   <div>Products: {selectedProducts.length > 0 ? `${selectedProducts.length} selected` : "None"}</div>
                 </div>
