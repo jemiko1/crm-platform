@@ -43,7 +43,6 @@ export default function AddPositionModal({
 
   const [formData, setFormData] = useState({
     name: "",
-    code: "",
     description: "",
     level: "",
     roleGroupId: "",
@@ -93,7 +92,6 @@ export default function AddPositionModal({
     try {
       await apiPost("/v1/positions", {
         name: formData.name,
-        code: formData.code,
         description: formData.description || undefined,
         level: formData.level ? Number(formData.level) : undefined,
         roleGroupId: formData.roleGroupId,
@@ -104,7 +102,6 @@ export default function AddPositionModal({
       onSuccess();
       setFormData({
         name: "",
-        code: "",
         description: "",
         level: "",
         roleGroupId: "",
@@ -176,21 +173,6 @@ export default function AddPositionModal({
                   required
                   className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                   placeholder="e.g., CEO, IT Manager"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-zinc-700">
-                  Code <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="code"
-                  value={formData.code}
-                  onChange={handleChange}
-                  required
-                  className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm font-mono text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                  placeholder="e.g., CEO, IT_MGR"
                 />
               </div>
 

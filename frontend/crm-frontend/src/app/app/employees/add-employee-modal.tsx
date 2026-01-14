@@ -19,7 +19,9 @@ export default function AddEmployeeModal({
 }: AddEmployeeModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [positions, setPositions] = useState<Array<{ id: string; name: string; code: string }>>([]);
+  const [departments, setDepartments] = useState<Array<{ id: string; name: string; code: string }>>([]);
+  const [positions, setPositions] = useState<Array<{ id: string; name: string; code: string; departmentId: string | null }>>([]);
+  const [loadingDepartments, setLoadingDepartments] = useState(true);
   const [loadingPositions, setLoadingPositions] = useState(true);
   const [mounted, setMounted] = useState(false);
 
@@ -33,21 +35,35 @@ export default function AddEmployeeModal({
     email: "",
     password: "",
     phone: "",
-    employeeId: "",
-    jobTitle: "",
-    hireDate: "",
+    extensionNumber: "",
+    birthday: "",
     address: "",
     city: "",
     country: "Georgia",
     emergencyContact: "",
     emergencyPhone: "",
+    departmentId: "",
     positionId: "",
   });
 
-  // Load positions
+  // Load departments
   useEffect(() => {
     if (open) {
-      apiGet<Array<{ id: string; name: string; code: string }>>("/v1/positions")
+      apiGet<Array<{ id: string; name: string; code: string }>>("/v1/departments")
+        .then((data) => {
+          setDepartments(data);
+          setLoadingDepartments(false);
+        })
+        .catch(() => {
+          setLoadingDepartments(false);
+        });
+    }
+  }, [open]);
+
+  // Load positions (filtered by department if selected)
+  useEffect(() => {
+    if (open) {
+      apiGet<Array<{ id: string; name: string; code: string; departmentId: string | null }>>("/v1/positions")
         .then((data) => {
           setPositions(data);
           setLoadingPositions(false);
@@ -57,6 +73,18 @@ export default function AddEmployeeModal({
         });
     }
   }, [open]);
+
+  // Filter positions by selected department
+  const availablePositions = formData.departmentId
+    ? positions.filter((pos) => pos.departmentId === formData.departmentId)
+    : [];
+
+  // Reset position when department changes
+  useEffect(() => {
+    if (formData.departmentId) {
+      setFormData((prev) => ({ ...prev, positionId: "" }));
+    }
+  }, [formData.departmentId]);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
     setFormData((prev) => ({
@@ -77,14 +105,14 @@ export default function AddEmployeeModal({
         email: formData.email,
         password: formData.password,
         phone: formData.phone || undefined,
-        employeeId: formData.employeeId || undefined,
-        jobTitle: formData.jobTitle,
-        hireDate: formData.hireDate,
+        extensionNumber: formData.extensionNumber || undefined,
+        birthday: formData.birthday || undefined,
         address: formData.address || undefined,
         city: formData.city || undefined,
         country: formData.country || "Georgia",
         emergencyContact: formData.emergencyContact || undefined,
         emergencyPhone: formData.emergencyPhone || undefined,
+        departmentId: formData.departmentId || undefined,
         positionId: formData.positionId || undefined,
       });
 
@@ -95,14 +123,14 @@ export default function AddEmployeeModal({
         email: "",
         password: "",
         phone: "",
-        employeeId: "",
-        jobTitle: "",
-        hireDate: "",
+        extensionNumber: "",
+        birthday: "",
         address: "",
         city: "",
         country: "Georgia",
         emergencyContact: "",
         emergencyPhone: "",
+        departmentId: "",
         positionId: "",
       });
     } catch (err: any) {
@@ -229,6 +257,29 @@ export default function AddEmployeeModal({
                 className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
               />
             </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-zinc-900">Extension Number</label>
+              <input
+                type="text"
+                name="extensionNumber"
+                value={formData.extensionNumber}
+                onChange={handleChange}
+                placeholder="1234"
+                className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-zinc-900">Birthday</label>
+              <input
+                type="date"
+                name="birthday"
+                value={formData.birthday}
+                onChange={handleChange}
+                className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              />
+            </div>
           </div>
         </div>
 
@@ -238,45 +289,27 @@ export default function AddEmployeeModal({
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <label className="block text-sm font-semibold text-zinc-900">
-                Employee ID <span className="text-zinc-500 text-xs">(optional, auto-generated)</span>
+                Department
               </label>
-              <input
-                type="text"
-                name="employeeId"
-                value={formData.employeeId}
-                onChange={handleChange}
-                placeholder="EMP-001"
-                className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-zinc-900">
-                Job Title <span className="text-rose-600">*</span>
-              </label>
-              <input
-                type="text"
-                name="jobTitle"
-                required
-                value={formData.jobTitle}
-                onChange={handleChange}
-                placeholder="უფროსი ტექნიკოსი"
-                className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-zinc-900">
-                Hire Date <span className="text-rose-600">*</span>
-              </label>
-              <input
-                type="date"
-                name="hireDate"
-                required
-                value={formData.hireDate}
-                onChange={handleChange}
-                className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-              />
+              {loadingDepartments ? (
+                <div className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-500">
+                  Loading departments...
+                </div>
+              ) : (
+                <select
+                  name="departmentId"
+                  value={formData.departmentId}
+                  onChange={handleChange}
+                  className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                >
+                  <option value="">Select department...</option>
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.id}>
+                      {dept.name} ({dept.code})
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             <div>
@@ -292,10 +325,13 @@ export default function AddEmployeeModal({
                   name="positionId"
                   value={formData.positionId}
                   onChange={handleChange}
-                  className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  disabled={!formData.departmentId}
+                  className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 disabled:bg-zinc-100 disabled:cursor-not-allowed"
                 >
-                  <option value="">Select position...</option>
-                  {positions.map((pos) => (
+                  <option value="">
+                    {formData.departmentId ? "Select position..." : "Select department first"}
+                  </option>
+                  {availablePositions.map((pos) => (
                     <option key={pos.id} value={pos.id}>
                       {pos.name} ({pos.code})
                     </option>

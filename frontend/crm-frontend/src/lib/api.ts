@@ -107,10 +107,12 @@ export async function apiPut<T>(
 
 export async function apiDelete<T>(
   path: string,
+  body?: unknown,
   init?: RequestInit,
 ): Promise<T> {
   return apiRequest<T>(path, {
     method: "DELETE",
+    body: body ? JSON.stringify(body) : undefined,
     ...init,
   });
 }

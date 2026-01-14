@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { apiGet, apiPatch } from "@/lib/api";
+import { createPortal } from "react-dom";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -17,6 +18,15 @@ type Department = {
   code: string;
 };
 
+type Employee = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  employeeId: string;
+  status: string;
+};
+
 type Position = {
   id: string;
   name: string;
@@ -26,6 +36,7 @@ type Position = {
   roleGroupId: string;
   departmentId?: string | null;
   isActive: boolean;
+  employees?: Employee[];
 };
 
 type EditPositionModalProps = {
@@ -47,6 +58,7 @@ export default function EditPositionModal({
   const [loadingRoleGroups, setLoadingRoleGroups] = useState(true);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loadingDepartments, setLoadingDepartments] = useState(true);
+  const [employees, setEmployees] = useState<Employee[]>([]);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -81,20 +93,27 @@ export default function EditPositionModal({
     }
   }, [open]);
 
-  // Populate form when position changes
+  // Load position details when modal opens
   useEffect(() => {
-    if (position) {
-      setFormData({
-        name: position.name,
-        code: position.code,
-        description: position.description || "",
-        level: position.level?.toString() || "",
-        roleGroupId: position.roleGroupId,
-        departmentId: position.departmentId || "",
-        isActive: position.isActive,
-      });
+    if (open && position) {
+      apiGet<Position>(`/v1/positions/${position.id}`)
+        .then((data) => {
+          setFormData({
+            name: data.name,
+            code: data.code,
+            description: data.description || "",
+            level: data.level?.toString() || "",
+            roleGroupId: data.roleGroupId,
+            departmentId: data.departmentId || "",
+            isActive: data.isActive,
+          });
+          setEmployees(data.employees || []);
+        })
+        .catch(() => {
+          setError("Failed to load position details");
+        });
     }
-  }, [position]);
+  }, [open, position]);
 
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -117,7 +136,6 @@ export default function EditPositionModal({
     try {
       await apiPatch(`/v1/positions/${position.id}`, {
         name: formData.name,
-        code: formData.code,
         description: formData.description || undefined,
         level: formData.level ? Number(formData.level) : undefined,
         roleGroupId: formData.roleGroupId,
@@ -134,17 +152,25 @@ export default function EditPositionModal({
     }
   }
 
-  if (!open || !position) return null;
+  const [mounted, setMounted] = useState(false);
 
-  return (
-    <>
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!open || !mounted || !position) return null;
+
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      {/* Backdrop */}
       <div
-        className="fixed inset-0 z-[9998] bg-black/40 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      {/* Modal */}
+      <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div
           className="w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-zinc-200"
           onClick={(e) => e.stopPropagation()}
@@ -193,16 +219,17 @@ export default function EditPositionModal({
 
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-zinc-700">
-                  Code <span className="text-rose-500">*</span>
+                  Code
                 </label>
                 <input
                   type="text"
-                  name="code"
                   value={formData.code}
-                  onChange={handleChange}
-                  required
-                  className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm font-mono text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  disabled
+                  className="w-full rounded-xl border border-zinc-300 bg-zinc-50 px-4 py-2.5 text-sm font-mono text-zinc-600 cursor-not-allowed"
                 />
+                <div className="mt-1 text-xs text-zinc-500">
+                  Code is auto-generated and cannot be changed
+                </div>
               </div>
 
               <div>
@@ -301,6 +328,35 @@ export default function EditPositionModal({
               </div>
             </div>
 
+            {/* Employees Using This Position */}
+            {employees.length > 0 && (
+              <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+                <div className="text-sm font-semibold text-zinc-900 mb-2">
+                  Employees Using This Position ({employees.length})
+                </div>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {employees
+                    .filter((emp) => emp.status === "ACTIVE")
+                    .map((emp) => (
+                      <div
+                        key={emp.id}
+                        className="rounded-lg bg-white px-3 py-2 text-sm text-zinc-700 border border-zinc-200"
+                      >
+                        <span className="font-medium">
+                          {emp.firstName} {emp.lastName}
+                        </span>
+                        <span className="text-zinc-500 ml-2">
+                          ({emp.employeeId})
+                        </span>
+                      </div>
+                    ))}
+                </div>
+                <div className="mt-3 text-xs text-zinc-600">
+                  Note: Changing the name will not affect these employees. The position code remains unchanged.
+                </div>
+              </div>
+            )}
+
             <div className="mt-6 flex gap-3">
               <button
                 type="button"
@@ -321,8 +377,10 @@ export default function EditPositionModal({
           </form>
         </div>
       </div>
-    </>
+    </div>
   );
+
+  return createPortal(modalContent, document.body);
 }
 
 function IconClose() {

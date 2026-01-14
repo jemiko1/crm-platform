@@ -22,6 +22,7 @@ type Incident = {
   contactMethod: string;
   description: string;
   reportedBy: string;
+  reportedByEmployeeId?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -64,6 +65,68 @@ function getPriorityDot(priority: Incident["priority"]) {
     CRITICAL: "bg-rose-500",
   };
   return colors[priority];
+}
+
+function StatusProgressBar({ status }: { status: Incident["status"] }) {
+  const stages: Array<{ key: Incident["status"]; label: string; color: string }> = [
+    { key: "CREATED", label: "Created", color: "bg-blue-500" },
+    { key: "IN_PROGRESS", label: "In Progress", color: "bg-amber-500" },
+    { key: "COMPLETED", label: "Completed", color: "bg-emerald-500" },
+    { key: "WORK_ORDER_INITIATED", label: "Work Order", color: "bg-purple-500" },
+  ];
+
+  const currentIndex = stages.findIndex((s) => s.key === status);
+  const currentStage = stages[currentIndex] || stages[0];
+
+  return (
+    <div className="flex flex-col gap-2">
+      {/* Progress Bar */}
+      <div className="relative flex h-2 w-full items-center rounded-full bg-zinc-200">
+        {stages.map((stage, index) => {
+          const isActive = index <= currentIndex;
+          const isCurrent = index === currentIndex;
+          return (
+            <div
+              key={stage.key}
+              className={`h-full flex-1 rounded-full transition-all ${
+                isActive ? stage.color : "bg-zinc-200"
+              } ${isCurrent ? "ring-2 ring-offset-1 ring-offset-white ring-zinc-300" : ""}`}
+              style={{
+                marginRight: index < stages.length - 1 ? "2px" : "0",
+              }}
+            />
+          );
+        })}
+      </div>
+
+      {/* Stage Labels */}
+      <div className="flex items-center justify-between gap-1">
+        {stages.map((stage, index) => {
+          const isActive = index <= currentIndex;
+          const isCurrent = index === currentIndex;
+          return (
+            <div
+              key={stage.key}
+              className={`flex-1 text-center text-[10px] font-semibold transition-all ${
+                isCurrent
+                  ? "text-zinc-900"
+                  : isActive
+                  ? "text-zinc-600"
+                  : "text-zinc-400"
+              }`}
+            >
+              <div
+                className={`mx-auto mb-0.5 h-1.5 w-1.5 rounded-full ${
+                  isCurrent ? stage.color : isActive ? "bg-zinc-400" : "bg-zinc-300"
+                }`}
+              />
+              <div className="truncate">{stage.label}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function safeStr(v: unknown, fallback = "—") {
@@ -130,6 +193,7 @@ function normalizeIncident(raw: any): Incident {
     contactMethod: safeStr(raw?.contactMethod, "—"),
     description: safeStr(raw?.description, ""),
     reportedBy: safeStr(raw?.reportedBy ?? raw?.reportedByName ?? raw?.createdBy, "—"),
+    reportedByEmployeeId: raw?.reportedByEmployeeId ?? null,
     createdAt,
     updatedAt,
   };
@@ -464,27 +528,29 @@ export default function IncidentsPage() {
               ) : (
                 <div className="overflow-hidden rounded-2xl ring-1 ring-zinc-200">
                   <div className="overflow-x-auto">
-                    <table className="min-w-[1400px] w-full border-separate border-spacing-0">
+                    <table className="min-w-[1600px] w-full border-separate border-spacing-0">
                       <colgroup>
-                        <col style={{ width: "140px" }} />
-                        <col style={{ width: "280px" }} />
-                        <col style={{ width: "220px" }} />
+                        <col style={{ width: "340px" }} />
                         <col style={{ width: "200px" }} />
-                        <col style={{ width: "140px" }} />
+                        <col style={{ width: "200px" }} />
+                        <col style={{ width: "220px" }} />
+                        <col style={{ width: "280px" }} />
+                        <col style={{ width: "160px" }} />
                         <col style={{ width: "120px" }} />
-                        <col />
+                        <col style={{ width: "180px" }} />
                         <col style={{ width: "100px" }} />
                       </colgroup>
 
                       <thead className="bg-zinc-50">
                         <tr className="text-left text-xs text-zinc-600">
-                          <th className="px-4 py-3 font-medium">Incident #</th>
-                          <th className="px-4 py-3 font-medium">Client</th>
-                          <th className="px-4 py-3 font-medium">Building</th>
+                          <th className="px-5 py-3 font-medium">Incident #</th>
+                          <th className="px-4 py-3 font-medium border-l border-zinc-200">Status</th>
                           <th className="px-4 py-3 font-medium">Products Affected</th>
-                          <th className="px-4 py-3 font-medium">Status</th>
+                          <th className="px-4 py-3 font-medium">Building</th>
+                          <th className="px-4 py-3 font-medium">Client</th>
+                          <th className="px-4 py-3 font-medium">Created On</th>
                           <th className="px-4 py-3 font-medium">Priority</th>
-                          <th className="px-4 py-3 font-medium">Created</th>
+                          <th className="px-4 py-3 font-medium">Created By</th>
                           <th className="px-4 py-3 font-medium text-right">Actions</th>
                         </tr>
                       </thead>
@@ -504,47 +570,29 @@ export default function IncidentsPage() {
                               ].join(" ")}
                               onClick={() => setSelectedIncidentId(incident.id)}
                             >
-                              <td className="px-4 py-4 align-middle">
-                                <div className="block">
-                                  <div className="text-sm font-semibold text-zinc-900 underline-offset-2 group-hover:underline">
-                                    #{incident.incidentNumber}
+                              {/* Incident # */}
+                              <td className="px-5 py-4 align-middle">
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <div className="text-[15px] font-semibold text-zinc-900 underline-offset-2 group-hover:underline">
+                                      #{incident.incidentNumber}
+                                    </div>
+                                    <div className="mt-1 text-xs text-zinc-500 truncate">
+                                      {incident.incidentType}
+                                    </div>
                                   </div>
-                                  <div className="mt-0.5 text-xs text-zinc-500">
-                                    {incident.incidentType}
-                                  </div>
+                                  <span className="text-zinc-400 transition-transform group-hover:translate-x-0.5">
+                                    →
+                                  </span>
                                 </div>
                               </td>
 
-                              <td className="px-4 py-4 align-middle">
-                                <Link
-                                  href={`/app/clients/${incident.clientId}`}
-                                  className="block group/client"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <div className="text-sm font-semibold text-zinc-900 group-hover/client:underline">
-                                    {incident.clientName}
-                                  </div>
-                                  <div className="mt-0.5 text-xs text-zinc-500">
-                                    Client #{incident.clientId}
-                                  </div>
-                                </Link>
+                              {/* Status - Progress Bar */}
+                              <td className="px-4 py-4 align-middle border-l border-zinc-200">
+                                <StatusProgressBar status={incident.status} />
                               </td>
 
-                              <td className="px-4 py-4 align-middle">
-                                <Link
-                                  href={`/app/buildings/${incident.buildingId}`}
-                                  className="block group/building"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <div className="text-sm font-semibold text-zinc-900 group-hover/building:underline">
-                                    {incident.buildingName}
-                                  </div>
-                                  <div className="mt-0.5 text-xs text-zinc-500">
-                                    Building #{incident.buildingId}
-                                  </div>
-                                </Link>
-                              </td>
-
+                              {/* Products Affected */}
                               <td className="px-4 py-4 align-middle">
                                 <div className="flex flex-wrap gap-1">
                                   {(incident.productsAffected ?? []).slice(0, 2).map((prod, i) => (
@@ -563,14 +611,36 @@ export default function IncidentsPage() {
                                 </div>
                               </td>
 
+                              {/* Building */}
                               <td className="px-4 py-4 align-middle">
-                                <span
-                                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ${getStatusBadge(
-                                    incident.status
-                                  )}`}
+                                <Link
+                                  href={`/app/buildings/${incident.buildingId}`}
+                                  className="block group/building"
+                                  onClick={(e) => e.stopPropagation()}
                                 >
-                                  {getStatusLabel(incident.status)}
-                                </span>
+                                  <div className="text-sm font-semibold text-zinc-900 group-hover/building:underline">
+                                    {incident.buildingName}
+                                  </div>
+                                  <div className="mt-0.5 text-xs text-zinc-500">
+                                    Building #{incident.buildingId}
+                                  </div>
+                                </Link>
+                              </td>
+
+                              {/* Client */}
+                              <td className="px-4 py-4 align-middle">
+                                <Link
+                                  href={`/app/clients/${incident.clientId}`}
+                                  className="block group/client"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <div className="text-sm font-semibold text-zinc-900 group-hover/client:underline">
+                                    {incident.clientName}
+                                  </div>
+                                  <div className="mt-0.5 text-xs text-zinc-500">
+                                    Client #{incident.clientId}
+                                  </div>
+                                </Link>
                               </td>
 
                               <td className="px-4 py-4 align-middle">
@@ -590,7 +660,35 @@ export default function IncidentsPage() {
 
                               <td className="px-4 py-4 align-middle text-sm text-zinc-700">
                                 <div className="text-xs">{formatDate(incident.createdAt)}</div>
-                                <div className="mt-0.5 text-xs text-zinc-500">by {incident.reportedBy}</div>
+                              </td>
+
+                              <td className="px-4 py-4 align-middle">
+                                {incident.reportedByEmployeeId ? (
+                                  <Link
+                                    href={`/app/employees/${incident.reportedByEmployeeId}`}
+                                    className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100 hover:ring-emerald-300 transition-all"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <svg
+                                      width="12"
+                                      height="12"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="2"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                    >
+                                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                                      <circle cx="12" cy="7" r="4" />
+                                    </svg>
+                                    {incident.reportedBy}
+                                  </Link>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-50 px-3 py-1.5 text-xs font-medium text-zinc-600 ring-1 ring-zinc-200">
+                                    {incident.reportedBy}
+                                  </span>
+                                )}
                               </td>
 
                               <td className="px-4 py-4 align-middle text-right">

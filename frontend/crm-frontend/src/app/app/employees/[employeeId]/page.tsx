@@ -15,10 +15,10 @@ type Employee = {
   email: string;
   phone: string | null;
   employeeId: string;
-  jobTitle: string;
+  jobTitle?: string | null;
+  extensionNumber?: string | null;
+  birthday?: string | null;
   status: "ACTIVE" | "INACTIVE" | "ON_LEAVE" | "TERMINATED";
-  hireDate: string;
-  exitDate: string | null;
   avatar: string | null;
   address: string | null;
   city: string | null;
@@ -32,6 +32,11 @@ type Employee = {
     isActive: boolean;
   } | null;
   department: {
+    id: string;
+    name: string;
+    code: string;
+  } | null;
+  position: {
     id: string;
     name: string;
     code: string;
@@ -295,8 +300,10 @@ export default function EmployeeDetailPage() {
                 <div className="mt-1 text-sm font-semibold text-zinc-900">{employee.employeeId}</div>
               </div>
               <div>
-                <label className="text-xs font-medium text-zinc-500">Job Title</label>
-                <div className="mt-1 text-sm font-semibold text-zinc-900">{employee.jobTitle}</div>
+                <label className="text-xs font-medium text-zinc-500">Position</label>
+                <div className="mt-1 text-sm font-semibold text-zinc-900">
+                  {employee.position?.name || employee.jobTitle || "—"}
+                </div>
               </div>
               <div>
                 <label className="text-xs font-medium text-zinc-500">Department</label>
@@ -304,6 +311,19 @@ export default function EmployeeDetailPage() {
                   {employee.department ? employee.department.name : "—"}
                 </div>
               </div>
+              {employee.extensionNumber && (
+                <div>
+                  <label className="text-xs font-medium text-zinc-500">Extension</label>
+                  <div className="mt-1">
+                    <a
+                      href={`tel:${employee.extensionNumber}`}
+                      className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100"
+                    >
+                      {employee.extensionNumber}
+                    </a>
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="text-xs font-medium text-zinc-500">Role</label>
                 <div className="mt-1 text-sm font-semibold text-zinc-900">

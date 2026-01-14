@@ -35,7 +35,8 @@ type Employee = {
   firstName: string;
   lastName: string;
   email: string;
-  jobTitle: string;
+  jobTitle?: string | null; // Auto-generated from position
+  extensionNumber?: string | null;
   status: string;
   departmentId?: string | null;
   positionId?: string | null;
@@ -299,12 +300,10 @@ export default function DepartmentsPage() {
 
       {viewMode === "tree" ? (
         <div className="rounded-3xl bg-white/85 backdrop-blur-xl border border-white/60 shadow-[0_30px_70px_-22px_rgba(0,0,0,0.25)] p-6">
-          <TreeView
+          <OrgChartView
             departments={hierarchy}
             employees={employees}
-            expandedNodes={expandedNodes}
             selectedId={selectedId ?? undefined}
-            onToggleExpand={toggleExpand}
             onSelect={(dept) => setSelectedId(dept.id)}
             onAddChild={(dept) => {
               setAddParentId(dept.id);
@@ -433,8 +432,18 @@ export default function DepartmentsPage() {
                                   {emp.firstName} {emp.lastName}
                                 </div>
                                 <div className="text-xs text-zinc-500">
-                                  {emp.jobTitle}
+                                  {emp.position?.name || emp.jobTitle || "No position"}
                                 </div>
+                                {emp.extensionNumber && (
+                                  <div className="mt-1">
+                                    <a
+                                      href={`tel:${emp.extensionNumber}`}
+                                      className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100"
+                                    >
+                                      Ext: {emp.extensionNumber}
+                                    </a>
+                                  </div>
+                                )}
                                 <div className="text-xs text-zinc-500">
                                   {emp.email}
                                 </div>
@@ -583,6 +592,143 @@ function TreeView({
   return (
     <div className="space-y-2">
       {departments.map((dept) => renderDepartment(dept))}
+    </div>
+  );
+}
+
+function OrgChartView({
+  departments,
+  employees,
+  selectedId,
+  onSelect,
+  onAddChild,
+}: {
+  departments: Department[];
+  employees: Employee[];
+  selectedId?: string;
+  onSelect: (dept: Department) => void;
+  onAddChild?: (dept: Department) => void;
+}) {
+  function getEmployeeCount(deptId: string): number {
+    return employees.filter(
+      (emp) =>
+        emp.department?.id === deptId ||
+        emp.departmentId === deptId ||
+        emp.position?.department?.id === deptId ||
+        emp.position?.departmentId === deptId
+    ).length;
+  }
+
+  function renderOrgNode(dept: Department, level: number = 0): JSX.Element {
+    const hasChildren = dept.children && dept.children.length > 0;
+    const isSelected = selectedId === dept.id;
+    const employeeCount = getEmployeeCount(dept.id);
+    const children = dept.children || [];
+
+    return (
+      <div className="flex flex-col items-center">
+        {/* Department Card */}
+        <div
+          className={`relative rounded-2xl border-2 p-5 min-w-[220px] max-w-[280px] cursor-pointer transition-all hover:scale-105 ${
+            isSelected
+              ? "bg-emerald-50 border-emerald-500 shadow-xl ring-4 ring-emerald-500/20"
+              : "bg-white border-zinc-300 shadow-lg hover:shadow-xl hover:border-emerald-300"
+          }`}
+          onClick={() => onSelect(dept)}
+        >
+          <div className="text-center">
+            <div className="font-bold text-lg text-zinc-900 mb-1.5">
+              {dept.name}
+            </div>
+            {dept.description && (
+              <div className="text-xs text-zinc-500 mb-3 line-clamp-2 min-h-[2.5rem]">
+                {dept.description}
+              </div>
+            )}
+            <div className="flex items-center justify-center gap-2 text-xs text-zinc-600 mt-3 pt-3 border-t border-zinc-200">
+              <span className="font-semibold text-emerald-700">
+                {employeeCount} {employeeCount === 1 ? "employee" : "employees"}
+              </span>
+              {hasChildren && (
+                <>
+                  <span className="text-zinc-300">•</span>
+                  <span className="text-zinc-500">
+                    {dept._count?.children ?? 0} {dept._count?.children === 1 ? "sub-dept" : "sub-depts"}
+                  </span>
+                </>
+              )}
+            </div>
+            {!dept.isActive && (
+              <div className="mt-2">
+                <span className="inline-flex rounded-full bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700 ring-1 ring-rose-200">
+                  Inactive
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Add Sub-department Button */}
+          {onAddChild && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddChild(dept);
+              }}
+              className="absolute -bottom-3 left-1/2 -translate-x-1/2 rounded-full border-2 border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 shadow-md z-10"
+            >
+              + Add Sub
+            </button>
+          )}
+        </div>
+
+        {/* Connecting Lines and Children */}
+        {hasChildren && (
+          <div className="flex flex-col items-center w-full mt-6">
+            {/* Vertical Line Down from Parent */}
+            <div className="w-0.5 h-6 bg-zinc-300"></div>
+
+            {/* Horizontal Line and Children Container */}
+            <div className="relative w-full flex items-start justify-center" style={{ minHeight: "60px" }}>
+              {/* Horizontal Connecting Line - spans across all children */}
+              {children.length > 0 && (
+                <div
+                  className="absolute top-0 h-0.5 bg-zinc-300"
+                  style={{
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    width: children.length > 1 ? `${Math.max((children.length - 1) * 300, 400)}px` : "0px",
+                  }}
+                ></div>
+              )}
+
+              {/* Children Nodes */}
+              <div className="flex items-start justify-center gap-8 relative z-10">
+                {children.map((child, index) => (
+                  <div key={child.id} className="flex flex-col items-center">
+                    {/* Vertical Line Up to Horizontal */}
+                    <div className="w-0.5 h-6 bg-zinc-300 mb-2"></div>
+                    {/* Recursive render child */}
+                    {renderOrgNode(child, level + 1)}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto py-8">
+      <div className="flex justify-center min-w-full">
+        {departments.map((dept) => (
+          <div key={dept.id}>
+            {renderOrgNode(dept)}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

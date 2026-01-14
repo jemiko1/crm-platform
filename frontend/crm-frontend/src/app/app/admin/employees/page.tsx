@@ -13,10 +13,15 @@ type Employee = {
   email: string;
   phone: string | null;
   employeeId: string;
-  jobTitle: string;
+  jobTitle?: string | null;
+  extensionNumber?: string | null;
   status: "ACTIVE" | "INACTIVE" | "ON_LEAVE" | "TERMINATED";
-  hireDate: string;
   avatar: string | null;
+  position?: {
+    id: string;
+    name: string;
+    code: string;
+  } | null;
   createdAt: string;
 };
 
@@ -163,13 +168,13 @@ export default function EmployeesPage() {
                   Employee ID
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-zinc-900">
-                  Job Title
+                  Position
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-zinc-900">
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-zinc-900">
-                  Hire Date
+                  Extension
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-semibold text-zinc-900">
                   Actions
@@ -191,7 +196,19 @@ export default function EmployeesPage() {
                     {emp.employeeId}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-sm text-zinc-900">
-                    {emp.jobTitle}
+                    {emp.position?.name || emp.jobTitle || "No position"}
+                  </td>
+                  <td className="whitespace-nowrap px-6 py-4 text-sm text-zinc-600">
+                    {emp.extensionNumber ? (
+                      <a
+                        href={`tel:${emp.extensionNumber}`}
+                        className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100"
+                      >
+                        Ext: {emp.extensionNumber}
+                      </a>
+                    ) : (
+                      <span className="text-zinc-400">—</span>
+                    )}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4">
                     <span

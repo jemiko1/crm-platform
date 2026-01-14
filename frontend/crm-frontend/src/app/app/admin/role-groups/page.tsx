@@ -4,7 +4,9 @@ import { useState, useEffect } from "react";
 import { apiGet } from "@/lib/api";
 import Link from "next/link";
 import AddRoleGroupModal from "./add-role-group-modal";
+import EditRoleGroupModal from "./edit-role-group-modal";
 import AssignPermissionsModal from "./assign-permissions-modal";
+import DeleteRoleGroupDialog from "./delete-role-group-dialog";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -22,6 +24,11 @@ type RoleGroup = {
       description: string | null;
     };
   }>;
+  positions?: Array<{
+    id: string;
+    name: string;
+    code: string;
+  }>;
   _count: {
     positions: number;
   };
@@ -34,6 +41,8 @@ export default function RoleGroupsPage() {
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedRoleGroup, setSelectedRoleGroup] = useState<RoleGroup | null>(null);
 
   async function fetchRoleGroups() {
@@ -56,7 +65,6 @@ export default function RoleGroupsPage() {
   const filtered = roleGroups.filter((rg) => {
     const matchesSearch =
       rg.name.toLowerCase().includes(search.toLowerCase()) ||
-      rg.code.toLowerCase().includes(search.toLowerCase()) ||
       (rg.description?.toLowerCase().includes(search.toLowerCase()) ?? false);
     return matchesSearch;
   });
@@ -132,16 +140,13 @@ export default function RoleGroupsPage() {
                   Role Group
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
-                  Code
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
                   Permissions
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
                   Positions
                 </th>
                 <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-zinc-600">
-                  Status
+                  Actions
                 </th>
               </tr>
             </thead>
@@ -158,9 +163,17 @@ export default function RoleGroupsPage() {
                         {roleGroup.description}
                       </div>
                     )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm font-mono text-zinc-600">{roleGroup.code}</span>
+                    <div className="mt-1">
+                      <span
+                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${
+                          roleGroup.isActive
+                            ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                            : "bg-zinc-50 text-zinc-700 ring-zinc-200"
+                        }`}
+                      >
+                        {roleGroup.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm text-zinc-900">
@@ -184,22 +197,39 @@ export default function RoleGroupsPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-zinc-600">
-                      {roleGroup._count.positions} position
-                      {roleGroup._count.positions !== 1 ? "s" : ""}
-                    </span>
+                    <div className="group relative">
+                      <span className="text-sm text-zinc-600 cursor-help">
+                        {roleGroup._count.positions} position
+                        {roleGroup._count.positions !== 1 ? "s" : ""}
+                      </span>
+                      {roleGroup.positions && roleGroup.positions.length > 0 && (
+                        <div className="absolute left-0 top-full mt-2 z-10 hidden group-hover:block">
+                          <div className="rounded-lg bg-zinc-900 text-white text-xs p-2 shadow-lg min-w-[200px]">
+                            <div className="font-semibold mb-1">Used by:</div>
+                            <div className="space-y-1">
+                              {roleGroup.positions.map((pos) => (
+                                <div key={pos.id} className="text-zinc-300">
+                                  {pos.name} ({pos.code})
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${
-                          roleGroup.isActive
-                            ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-                            : "bg-zinc-50 text-zinc-700 ring-zinc-200"
-                        }`}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedRoleGroup(roleGroup);
+                          setShowEditModal(true);
+                        }}
+                        className="rounded-lg px-3 py-1.5 text-xs font-medium text-zinc-700 bg-white border border-zinc-300 transition hover:bg-zinc-50"
                       >
-                        {roleGroup.isActive ? "Active" : "Inactive"}
-                      </span>
+                        Edit
+                      </button>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -210,6 +240,16 @@ export default function RoleGroupsPage() {
                         style={{ backgroundColor: BRAND }}
                       >
                         Permissions
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedRoleGroup(roleGroup);
+                          setShowDeleteDialog(true);
+                        }}
+                        className="rounded-lg px-3 py-1.5 text-xs font-medium text-rose-700 bg-rose-50 border border-rose-200 transition hover:bg-rose-100"
+                      >
+                        Delete
                       </button>
                     </div>
                   </td>
@@ -230,6 +270,20 @@ export default function RoleGroupsPage() {
         }}
       />
 
+      <EditRoleGroupModal
+        roleGroup={selectedRoleGroup}
+        open={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setSelectedRoleGroup(null);
+        }}
+        onSuccess={() => {
+          fetchRoleGroups();
+          setShowEditModal(false);
+          setSelectedRoleGroup(null);
+        }}
+      />
+
       <AssignPermissionsModal
         roleGroup={selectedRoleGroup}
         open={showPermissionsModal}
@@ -240,6 +294,20 @@ export default function RoleGroupsPage() {
         onSuccess={() => {
           fetchRoleGroups();
           setShowPermissionsModal(false);
+          setSelectedRoleGroup(null);
+        }}
+      />
+
+      <DeleteRoleGroupDialog
+        roleGroup={selectedRoleGroup}
+        open={showDeleteDialog}
+        onClose={() => {
+          setShowDeleteDialog(false);
+          setSelectedRoleGroup(null);
+        }}
+        onSuccess={() => {
+          fetchRoleGroups();
+          setShowDeleteDialog(false);
           setSelectedRoleGroup(null);
         }}
       />

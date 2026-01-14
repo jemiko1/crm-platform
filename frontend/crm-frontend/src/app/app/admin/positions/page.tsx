@@ -5,6 +5,7 @@ import { apiGet, apiDelete } from "@/lib/api";
 import Link from "next/link";
 import AddPositionModal from "./add-position-modal";
 import EditPositionModal from "./edit-position-modal";
+import DeletePositionDialog from "./delete-position-dialog";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -26,6 +27,14 @@ type Position = {
     code: string;
     _count: { permissions: number };
   };
+  employees?: Array<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    employeeId: string;
+    status: string;
+  }>;
   _count: {
     employees: number;
   };
@@ -38,6 +47,7 @@ export default function PositionsPage() {
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
 
   async function fetchPositions() {
@@ -60,7 +70,6 @@ export default function PositionsPage() {
   const filtered = positions.filter((pos) => {
     const matchesSearch =
       pos.name.toLowerCase().includes(search.toLowerCase()) ||
-      pos.code.toLowerCase().includes(search.toLowerCase()) ||
       (pos.description?.toLowerCase().includes(search.toLowerCase()) ?? false);
     return matchesSearch;
   });
@@ -136,9 +145,6 @@ export default function PositionsPage() {
                   Position
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
-                  Code
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
                   Role Group
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
@@ -154,7 +160,7 @@ export default function PositionsPage() {
                   Permissions
                 </th>
                 <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-zinc-600">
-                  Status
+                  Actions
                 </th>
               </tr>
             </thead>
@@ -171,9 +177,17 @@ export default function PositionsPage() {
                         {position.description}
                       </div>
                     )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm font-mono text-zinc-600">{position.code}</span>
+                    <div className="mt-1">
+                      <span
+                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${
+                          position.isActive
+                            ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                            : "bg-zinc-50 text-zinc-700 ring-zinc-200"
+                        }`}
+                      >
+                        {position.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-zinc-900">{position.roleGroup.name}</div>
@@ -196,9 +210,28 @@ export default function PositionsPage() {
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-zinc-600">
-                      {position._count.employees}
-                    </span>
+                    <div className="group relative">
+                      <span className="text-sm text-zinc-600 cursor-help">
+                        {position._count.employees} employee
+                        {position._count.employees !== 1 ? "s" : ""}
+                      </span>
+                      {position.employees && position.employees.length > 0 && (
+                        <div className="absolute left-0 top-full mt-2 z-10 hidden group-hover:block">
+                          <div className="rounded-lg bg-zinc-900 text-white text-xs p-2 shadow-lg min-w-[200px] max-h-48 overflow-y-auto">
+                            <div className="font-semibold mb-1">Active employees:</div>
+                            <div className="space-y-1">
+                              {position.employees
+                                .filter((emp) => emp.status === "ACTIVE")
+                                .map((emp) => (
+                                  <div key={emp.id} className="text-zinc-300">
+                                    {emp.firstName} {emp.lastName} ({emp.employeeId})
+                                  </div>
+                                ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="text-sm text-zinc-600">
@@ -207,24 +240,25 @@ export default function PositionsPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${
-                          position.isActive
-                            ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-                            : "bg-zinc-50 text-zinc-700 ring-zinc-200"
-                        }`}
-                      >
-                        {position.isActive ? "Active" : "Inactive"}
-                      </span>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedPosition(position);
                           setShowEditModal(true);
                         }}
-                        className="rounded-lg px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 transition"
+                        className="rounded-lg px-3 py-1.5 text-xs font-medium text-zinc-700 bg-white border border-zinc-300 transition hover:bg-zinc-50"
                       >
                         Edit
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedPosition(position);
+                          setShowDeleteDialog(true);
+                        }}
+                        className="rounded-lg px-3 py-1.5 text-xs font-medium text-rose-700 bg-rose-50 border border-rose-200 transition hover:bg-rose-100"
+                      >
+                        Delete
                       </button>
                     </div>
                   </td>
@@ -255,6 +289,20 @@ export default function PositionsPage() {
         onSuccess={() => {
           fetchPositions();
           setShowEditModal(false);
+          setSelectedPosition(null);
+        }}
+      />
+
+      <DeletePositionDialog
+        position={selectedPosition}
+        open={showDeleteDialog}
+        onClose={() => {
+          setShowDeleteDialog(false);
+          setSelectedPosition(null);
+        }}
+        onSuccess={() => {
+          fetchPositions();
+          setShowDeleteDialog(false);
           setSelectedPosition(null);
         }}
       />
