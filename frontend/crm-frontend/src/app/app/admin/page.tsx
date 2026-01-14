@@ -15,6 +15,20 @@ type AdminSection = {
 
 const adminSections: AdminSection[] = [
   {
+    id: "positions",
+    title: "Positions",
+    description: "Manage company positions and role group assignments",
+    icon: <IconPositions />,
+    href: "/app/admin/positions",
+  },
+  {
+    id: "role-groups",
+    title: "Role Groups",
+    description: "Manage permission bundles assigned to positions",
+    icon: <IconRoleGroups />,
+    href: "/app/admin/role-groups",
+  },
+  {
     id: "departments",
     title: "Departments",
     description: "Organize company structure and department hierarchy",
@@ -23,8 +37,8 @@ const adminSections: AdminSection[] = [
   },
   {
     id: "roles",
-    title: "Roles & Permissions",
-    description: "Configure user roles and access permissions",
+    title: "Legacy Roles",
+    description: "Legacy role system (deprecated - use Positions instead)",
     icon: <IconRoles />,
     href: "/app/admin/roles",
   },
@@ -162,6 +176,37 @@ function IconRoles() {
         strokeWidth="2"
         strokeLinejoin="round"
       />
+    </svg>
+  );
+}
+
+function IconPositions() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M12 2L2 7l10 5 10-5-10-5z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M2 17l10 5 10-5M2 12l10 5 10-5"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="7" r="2" fill="currentColor" />
+    </svg>
+  );
+}
+
+function IconRoleGroups() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" />
+      <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" />
+      <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" />
+      <rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" />
     </svg>
   );
 }

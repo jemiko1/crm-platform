@@ -10,20 +10,35 @@ const BRAND_GREEN = "rgb(8,117,56)";
 type UserInfo = {
   email: string;
   role: string;
-  firstName?: string;
-  lastName?: string;
-  avatarUrl?: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  avatarUrl?: string | null;
+  position?: {
+    name: string;
+    code: string;
+  } | null;
+  department?: {
+    name: string;
+    code: string;
+  } | null;
+  isSuperAdmin?: boolean;
 };
 
-function initialsOf(name?: string, surname?: string) {
+function initialsOf(name?: string | null, surname?: string | null) {
   const a = (name ?? "").trim().slice(0, 1).toUpperCase();
   const b = (surname ?? "").trim().slice(0, 1).toUpperCase();
   const v = (a + b).trim();
   return v || "U";
 }
 
-function roleLabelOf(role?: string) {
-  const r = (role ?? "").toUpperCase();
+function roleLabelOf(userInfo: UserInfo) {
+  if (userInfo.isSuperAdmin) {
+    return "Super Admin";
+  }
+  if (userInfo.position?.name) {
+    return userInfo.position.name;
+  }
+  const r = (userInfo.role ?? "").toUpperCase();
   if (r === "CALL_CENTER") return "Call Center";
   if (r === "TECHNICIAN") return "Technician";
   if (r === "WAREHOUSE") return "Warehouse";
@@ -47,11 +62,14 @@ export default function ProfileMenu() {
 
   const [loadingMe, setLoadingMe] = useState(true);
   const [me, setMe] = useState<UserInfo>({
-    email: "admin@crm.local",
-    role: "ADMIN",
-    firstName: "Admin",
-    lastName: "User",
-    avatarUrl: undefined,
+    email: "",
+    role: "",
+    firstName: null,
+    lastName: null,
+    avatarUrl: null,
+    position: null,
+    department: null,
+    isSuperAdmin: false,
   });
 
   const btnRef = useRef<HTMLButtonElement | null>(null);
@@ -71,12 +89,18 @@ export default function ProfileMenu() {
         if (!res.ok) throw new Error("Failed /auth/me");
         const data = await res.json();
 
+        // Extract user data from response
+        const userData = data?.user || data;
+
         const next: UserInfo = {
-          email: data?.email ?? "admin@crm.local",
-          role: data?.role ?? "ADMIN",
-          firstName: data?.firstName ?? "Admin",
-          lastName: data?.lastName ?? "User",
-          avatarUrl: data?.avatarUrl ?? undefined,
+          email: userData?.email ?? "",
+          role: userData?.role ?? "",
+          firstName: userData?.firstName ?? null,
+          lastName: userData?.lastName ?? null,
+          avatarUrl: userData?.avatarUrl ?? null,
+          position: userData?.position ?? null,
+          department: userData?.department ?? null,
+          isSuperAdmin: userData?.isSuperAdmin ?? false,
         };
 
         if (!cancelled) setMe(next);
@@ -98,7 +122,7 @@ export default function ProfileMenu() {
     return full || me.email;
   }, [me]);
 
-  const roleLabel = useMemo(() => roleLabelOf(me.role), [me.role]);
+  const roleLabel = useMemo(() => roleLabelOf(me), [me]);
 
   function computePosition() {
     const el = btnRef.current;
@@ -243,9 +267,16 @@ export default function ProfileMenu() {
                     </div>
                     <div className="mt-1 text-xs text-zinc-600">{me.email}</div>
 
-                    <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                      {roleLabel}
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                        {roleLabel}
+                      </div>
+                      {me.department && (
+                        <div className="inline-flex items-center gap-2 rounded-full bg-zinc-50 px-3 py-1 text-xs font-medium text-zinc-700 ring-1 ring-zinc-200">
+                          {me.department.name}
+                        </div>
+                      )}
                     </div>
                   </div>
 

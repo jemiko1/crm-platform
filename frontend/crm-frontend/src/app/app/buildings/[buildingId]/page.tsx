@@ -912,7 +912,9 @@ function ClientsTab({ clients, onAddClick }: { clients: Client[]; onAddClick: ()
       {/* Clients Table */}
       {clients.length === 0 ? (
         <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
-          <div className="text-sm text-zinc-600">No clients yet. Click "Add Client" to create one.</div>
+          <div className="text-sm text-zinc-600">
+            No clients yet.
+          </div>
         </div>
       ) : (
         <div className="overflow-hidden rounded-2xl ring-1 ring-zinc-200">

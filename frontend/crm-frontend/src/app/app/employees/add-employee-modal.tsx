@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
-import { apiPost } from "@/lib/api";
+import React, { useState, useEffect } from "react";
+import { apiGet, apiPost } from "@/lib/api";
+import { createPortal } from "react-dom";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -18,6 +19,13 @@ export default function AddEmployeeModal({
 }: AddEmployeeModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [positions, setPositions] = useState<Array<{ id: string; name: string; code: string }>>([]);
+  const [loadingPositions, setLoadingPositions] = useState(true);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -33,9 +41,24 @@ export default function AddEmployeeModal({
     country: "Georgia",
     emergencyContact: "",
     emergencyPhone: "",
+    positionId: "",
   });
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
+  // Load positions
+  useEffect(() => {
+    if (open) {
+      apiGet<Array<{ id: string; name: string; code: string }>>("/v1/positions")
+        .then((data) => {
+          setPositions(data);
+          setLoadingPositions(false);
+        })
+        .catch(() => {
+          setLoadingPositions(false);
+        });
+    }
+  }, [open]);
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
     setFormData((prev) => ({
       ...prev,
       [e.target.name]: e.target.value,
@@ -62,6 +85,7 @@ export default function AddEmployeeModal({
         country: formData.country || "Georgia",
         emergencyContact: formData.emergencyContact || undefined,
         emergencyPhone: formData.emergencyPhone || undefined,
+        positionId: formData.positionId || undefined,
       });
 
       onSuccess();
@@ -79,6 +103,7 @@ export default function AddEmployeeModal({
         country: "Georgia",
         emergencyContact: "",
         emergencyPhone: "",
+        positionId: "",
       });
     } catch (err: any) {
       setError(err.message || "Failed to create employee");
@@ -87,21 +112,21 @@ export default function AddEmployeeModal({
     }
   }
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
-    <>
-      {/* Overlay */}
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      {/* Backdrop */}
       <div
-        className="fixed inset-0 z-[9998] bg-black/40 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden="true"
       />
 
       {/* Modal */}
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto">
         <div
-          className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white shadow-2xl ring-1 ring-zinc-200"
+          className="w-full max-w-3xl overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-zinc-200"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -253,6 +278,31 @@ export default function AddEmployeeModal({
                 className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
               />
             </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-zinc-900">
+                Position
+              </label>
+              {loadingPositions ? (
+                <div className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-500">
+                  Loading positions...
+                </div>
+              ) : (
+                <select
+                  name="positionId"
+                  value={formData.positionId}
+                  onChange={handleChange}
+                  className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                >
+                  <option value="">Select position...</option>
+                  {positions.map((pos) => (
+                    <option key={pos.id} value={pos.id}>
+                      {pos.name} ({pos.code})
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
           </div>
         </div>
 
@@ -340,8 +390,10 @@ export default function AddEmployeeModal({
           </form>
         </div>
       </div>
-    </>
+    </div>
   );
+
+  return createPortal(modalContent, document.body);
 }
 
 function IconClose() {

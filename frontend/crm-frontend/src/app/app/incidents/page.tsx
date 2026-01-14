@@ -434,15 +434,15 @@ export default function IncidentsPage() {
                     <div className="mt-1 text-xs text-zinc-600">
                       When customers report issues, they will appear here.
                     </div>
-                    <button
-                      type="button"
-                      className="mt-5 inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-                      style={{ backgroundColor: BRAND }}
-                      onClick={() => setShowReportModal(true)}
-                    >
-                      <IconPlus />
-                      Report First Incident
-                    </button>
+                      <button
+                        type="button"
+                        className="mt-5 inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+                        style={{ backgroundColor: BRAND }}
+                        onClick={() => setShowReportModal(true)}
+                      >
+                        <IconPlus />
+                        Report First Incident
+                      </button>
                   </div>
                 </div>
               ) : filtered.length === 0 ? (

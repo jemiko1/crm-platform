@@ -38,3 +38,8 @@ Thumbs.db
 
 # Backups (optional - you might want to commit these)
 # C:\CRM-Backups/
+
+# Temporary files
+tmpclaude-*/
+**/tmpclaude-*
+*.tmp

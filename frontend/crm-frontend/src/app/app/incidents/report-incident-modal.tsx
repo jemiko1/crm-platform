@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -51,7 +52,12 @@ export default function ReportIncidentModal({
   lockClient?: boolean;
   allowedBuildingCoreIds?: number[];
 }) {
+  const [mounted, setMounted] = useState(false);
   const isClientLocked = Boolean(lockClient && presetClient);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Steps:
   // - Normal: 1 Building → 2 Client → 3 Products → 4 Details
@@ -364,11 +370,19 @@ export default function ReportIncidentModal({
     onClose();
   }
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white shadow-2xl">
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={handleClose}
+        aria-hidden="true"
+      />
+      
+      {/* Modal */}
+      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white shadow-2xl ring-1 ring-zinc-200">
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-200 bg-white px-6 py-4">
           <div>
@@ -726,6 +740,8 @@ export default function ReportIncidentModal({
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }
 
 function IconClose() {
