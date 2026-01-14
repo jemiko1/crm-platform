@@ -185,6 +185,41 @@ Use custom modal implementation when you need:
 
 ---
 
+## Known Issues & TODO
+
+### Incident Creation Without Client (2025-01-15)
+
+**Status**: ⚠️ **IN PROGRESS - NEEDS FIX**
+
+**Issue**: When creating an incident without selecting a client (using "Continue without client" option), the backend throws a null constraint violation error.
+
+**Error**: `Null constraint violation on the (not available)` in `incidents.service.ts:234`
+
+**Attempted Fixes**:
+1. Made `clientId` nullable in Prisma schema ✅
+2. Updated DTO to make `clientId` optional with `@IsOptional()` ✅
+3. Added conditional `clientId` inclusion in service (only include if client exists) ⚠️ **Still failing**
+
+**Current State**:
+- Frontend: Correctly omits `clientId` from payload when no client selected
+- Backend DTO: `clientId` is optional and nullable
+- Backend Service: Conditionally includes `clientId` only when client exists
+- Database Schema: `clientId` is nullable (`String?`)
+
+**Next Steps**:
+- Investigate Prisma client generation - ensure schema changes are reflected
+- Check database migration status - verify `clientId` column is actually nullable
+- Test with explicit `null` vs omitting field entirely
+- Consider using Prisma's `connect` pattern instead of direct `clientId` assignment
+
+**Related Files**:
+- `backend/crm-backend/src/incidents/dto/create-incident.dto.ts`
+- `backend/crm-backend/src/incidents/incidents.service.ts`
+- `backend/crm-backend/prisma/schema.prisma`
+- `frontend/crm-frontend/src/app/app/incidents/report-incident-modal.tsx`
+
+---
+
 ## Future Guidelines
 
 This section will be expanded with additional development guidelines as needed:
