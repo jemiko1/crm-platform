@@ -220,11 +220,444 @@ Use custom modal implementation when you need:
 
 ---
 
+## Performance Optimization Guidelines
+
+### Overview
+
+This section provides performance best practices learned from optimizing the CRM Platform. Follow these patterns to ensure optimal performance as you build new features.
+
+---
+
+### Backend Performance (NestJS + Prisma)
+
+#### 1. **Avoid N+1 Query Problems**
+
+**❌ BAD - N+1 Query:**
+```typescript
+// Loads all related data into memory, then counts in application
+const buildings = await this.prisma.building.findMany({
+  include: {
+    assets: { select: { type: true } }, // Loads ALL assets
+  },
+});
+
+return buildings.map((b) => {
+  // Counting in application code
+  const products: Record<string, number> = {};
+  for (const a of b.assets) products[a.type] = (products[a.type] ?? 0) + 1;
+  return { ...b, products };
+});
+```
+
+**✅ GOOD - Optimized with groupBy:**
+```typescript
+// Fetch buildings
+const buildings = await this.prisma.building.findMany({
+  include: {
+    _count: { select: { clientBuildings: true, assets: true } },
+  },
+});
+
+// Single aggregation query
+const assetCounts = await this.prisma.asset.groupBy({
+  by: ['buildingId', 'type'],
+  _count: { type: true },
+});
+
+// Map to buildings (O(1) lookup)
+const countsByBuilding = new Map<string, Record<string, number>>();
+for (const ac of assetCounts) {
+  if (!countsByBuilding.has(ac.buildingId)) {
+    countsByBuilding.set(ac.buildingId, {});
+  }
+  countsByBuilding.get(ac.buildingId)![ac.type] = ac._count.type;
+}
+
+return buildings.map((b) => ({
+  ...b,
+  products: countsByBuilding.get(b.id) ?? {},
+}));
+```
+
+**Impact**: 10x fewer queries, 5-10x faster response time.
+
+---
+
+#### 2. **Use Parallel Queries for Independent Data**
+
+**❌ BAD - Sequential Queries:**
+```typescript
+// Each query waits for previous to complete
+const building = await this.prisma.building.findUnique({ where: { id } });
+const asset = await this.prisma.asset.findUnique({ where: { id: assetId } });
+const client = await this.prisma.client.findUnique({ where: { id: clientId } });
+```
+
+**✅ GOOD - Parallel Queries:**
+```typescript
+// All queries execute simultaneously
+const [building, asset, client] = await Promise.all([
+  this.prisma.building.findUnique({ where: { id } }),
+  this.prisma.asset.findUnique({ where: { id: assetId } }),
+  this.prisma.client.findUnique({ where: { id: clientId } }),
+]);
+```
+
+**Impact**: 3x faster when queries take 100ms each (300ms → 100ms).
+
+---
+
+#### 3. **Add Database Indexes for Frequently Queried Fields**
+
+**Always add indexes for:**
+- Foreign keys used in JOINs
+- Fields used in WHERE clauses
+- Fields used in ORDER BY
+- Unique identifiers beyond the primary key
+- Compound indexes for common query patterns
+
+**Example:**
+```prisma
+model Incident {
+  // ... fields ...
+
+  @@index([buildingId])       // Foreign key
+  @@index([clientId])         // Foreign key
+  @@index([status])           // WHERE filter
+  @@index([priority])         // WHERE filter
+  @@index([createdAt])        // ORDER BY
+  @@index([incidentNumber])   // Search field
+  @@index([incidentType])     // Filter field
+}
+
+model StockTransaction {
+  // ... fields ...
+
+  @@index([productId, createdAt])  // Compound index for common query
+}
+```
+
+**Impact**: 3-5x faster queries on large datasets.
+
+---
+
+#### 4. **Use Select to Limit Data Transfer**
+
+**❌ BAD - Fetches entire objects:**
+```typescript
+const incidents = await this.prisma.incident.findMany({
+  include: {
+    building: true,  // All building fields
+    client: true,    // All client fields
+  },
+});
+```
+
+**✅ GOOD - Only fetch needed fields:**
+```typescript
+const incidents = await this.prisma.incident.findMany({
+  select: {
+    id: true,
+    incidentNumber: true,
+    status: true,
+    building: {
+      select: { coreId: true, name: true },  // Only needed fields
+    },
+    client: {
+      select: { coreId: true, firstName: true, lastName: true },
+    },
+  },
+});
+```
+
+**Impact**: Reduces data transfer, faster JSON serialization.
+
+---
+
+### Frontend Performance (Next.js 14)
+
+#### 1. **Use Centralized API Client**
+
+**❌ BAD - Hardcoded URLs:**
+```typescript
+const res = await fetch("http://localhost:3000/v1/buildings", {
+  credentials: "include",
+  cache: "no-store",
+});
+if (!res.ok) throw new Error("Failed");
+const data = await res.json();
+```
+
+**✅ GOOD - Centralized Client:**
+```typescript
+import { apiGet } from "@/lib/api";
+
+const data = await apiGet<Building[]>("/v1/buildings", {
+  cache: "no-store",
+});
+```
+
+**Benefits:**
+- Single source of truth for API base URL
+- Consistent error handling via `ApiError` class
+- Easier to add authentication, retry logic, interceptors
+- Better TypeScript support
+
+---
+
+#### 2. **Parallelize Independent API Calls**
+
+**❌ BAD - Sequential Fetches (Waterfall):**
+```typescript
+const buildings = await fetch("/v1/buildings").then(r => r.json());
+const assets = await fetch("/v1/assets").then(r => r.json());
+const clients = await fetch("/v1/clients").then(r => r.json());
+const incidents = await fetch("/v1/incidents").then(r => r.json());
+// Total: 400ms (4 × 100ms)
+```
+
+**✅ GOOD - Parallel Fetches:**
+```typescript
+const [buildings, assets, clients, incidents] = await Promise.all([
+  apiGet<Building[]>("/v1/buildings"),
+  apiGet<Asset[]>("/v1/assets"),
+  apiGet<Client[]>("/v1/clients"),
+  apiGet<Incident[]>("/v1/incidents"),
+]);
+// Total: 100ms (all execute simultaneously)
+```
+
+**Impact**: 4x faster page load.
+
+---
+
+#### 3. **Implement Proper Caching Strategy**
+
+**❌ BAD - No caching:**
+```typescript
+fetch(url, {
+  cache: "no-store",  // Refetches on every navigation
+});
+```
+
+**✅ GOOD - Strategic caching:**
+```typescript
+// Static data (buildings, products) - cache for 5 minutes
+apiGet("/v1/buildings", {
+  next: { revalidate: 300 },
+});
+
+// Dynamic data (incidents, work orders) - cache for 1 minute
+apiGet("/v1/incidents", {
+  next: { revalidate: 60 },
+});
+
+// Real-time data - no cache
+apiGet("/v1/live-feed", {
+  cache: "no-store",
+});
+```
+
+**Impact**: 90% reduction in unnecessary network requests.
+
+---
+
+#### 4. **Use React Memoization**
+
+**❌ BAD - Re-renders on every parent render:**
+```typescript
+function BuildingCard({ building, onClick }) {
+  return (
+    <div onClick={() => onClick(building.id)}>
+      {building.name}
+    </div>
+  );
+}
+```
+
+**✅ GOOD - Memoized component:**
+```typescript
+import { memo, useCallback } from "react";
+
+const BuildingCard = memo(function BuildingCard({ building, onNavigate }) {
+  const handleClick = useCallback(() => {
+    onNavigate(building.id);
+  }, [building.id, onNavigate]);
+
+  return (
+    <div onClick={handleClick}>
+      {building.name}
+    </div>
+  );
+});
+
+// In parent component
+const handleNavigate = useCallback((id: number) => {
+  router.push(`/buildings/${id}`);
+}, [router]);
+```
+
+**Impact**: 50% fewer re-renders in large lists.
+
+---
+
+#### 5. **Lazy Load Modal Components**
+
+**❌ BAD - All modals in initial bundle:**
+```typescript
+import AddBuildingModal from "./add-building-modal";
+import EditBuildingModal from "./edit-building-modal";
+import DeleteBuildingModal from "./delete-building-modal";
+```
+
+**✅ GOOD - Load modals on demand:**
+```typescript
+import dynamic from "next/dynamic";
+
+const AddBuildingModal = dynamic(() => import("./add-building-modal"), {
+  loading: () => <div>Loading...</div>,
+  ssr: false,  // Modals don't need SSR
+});
+```
+
+**Impact**: 30-40% smaller initial bundle size.
+
+---
+
+#### 6. **Move Heavy Filtering to Backend**
+
+**❌ BAD - Filter 1000 items on every keystroke:**
+```typescript
+const filtered = useMemo(() => {
+  const query = searchQuery.trim().toLowerCase();
+  return incidents.filter((inc) => {
+    const searchText = [
+      inc.incidentNumber,
+      inc.clientName,
+      inc.description,
+      // ... 10 more fields
+    ].join(" ").toLowerCase();
+    return searchText.includes(query);
+  });
+}, [incidents, searchQuery]);  // Runs on every keystroke
+```
+
+**✅ GOOD - Debounced backend search:**
+```typescript
+import { useDebounce } from "@/hooks/use-debounce";
+
+const debouncedSearch = useDebounce(searchQuery, 300);
+
+useEffect(() => {
+  const params = new URLSearchParams({
+    q: debouncedSearch,
+    status: statusFilter,
+    page: String(page),
+  });
+
+  apiGet(`/v1/incidents?${params}`);
+}, [debouncedSearch, statusFilter, page]);
+
+// Backend handles filtering with database indexes
+```
+
+**Impact**: Instant search on large datasets.
+
+---
+
+### Context-Aware Modal Patterns
+
+#### Pre-filling Modal Forms from Context
+
+When opening modals from specific contexts (e.g., creating an incident from a building page), pre-fill and lock relevant fields:
+
+**✅ GOOD - Context-aware modal:**
+```typescript
+// In building detail page
+<ReportIncidentModal
+  open={showModal}
+  onClose={() => setShowModal(false)}
+  onSuccess={handleSuccess}
+  presetBuilding={building}  // Pre-fill building
+  lockBuilding={true}        // Lock building selection
+/>
+
+// In incident modal
+export default function ReportIncidentModal({
+  presetBuilding,
+  lockBuilding,
+}: {
+  presetBuilding?: Building;
+  lockBuilding?: boolean;
+}) {
+  useEffect(() => {
+    if (!open) return;
+
+    // Skip building step if locked
+    setStep(lockBuilding ? 2 : 1);
+
+    if (lockBuilding && presetBuilding) {
+      setSelectedBuilding(presetBuilding);
+      setFormData((prev) => ({
+        ...prev,
+        buildingId: presetBuilding.coreId
+      }));
+    }
+  }, [open, lockBuilding, presetBuilding]);
+}
+```
+
+**Benefits:**
+- Better UX (fewer steps)
+- Prevents user errors
+- Maintains context awareness
+
+---
+
+### Performance Testing Checklist
+
+Before committing new features, verify:
+
+- [ ] No N+1 queries (check Prisma query logs)
+- [ ] Independent queries run in parallel
+- [ ] Proper database indexes on filtered/sorted fields
+- [ ] API calls use centralized client
+- [ ] Parallel frontend API calls where possible
+- [ ] Appropriate caching strategy
+- [ ] Large lists use memoization
+- [ ] Modals are lazy loaded
+- [ ] Heavy operations debounced
+- [ ] No hardcoded API URLs
+
+---
+
+### Reference Implementations
+
+**Optimized Backend Services:**
+- `backend/crm-backend/src/buildings/buildings.service.ts` - groupBy aggregation
+- `backend/crm-backend/src/work-orders/work-orders.service.ts` - parallel validation
+
+**Optimized Frontend Pages:**
+- `frontend/crm-frontend/src/app/app/buildings/[buildingId]/page.tsx` - parallel API calls
+- `frontend/crm-frontend/src/app/app/buildings/page.tsx` - centralized API client
+
+**Context-Aware Modals:**
+- `frontend/crm-frontend/src/app/app/incidents/report-incident-modal.tsx` - preset support
+
+---
+
+### Performance Documentation
+
+For detailed optimization plans and analysis:
+- `PERFORMANCE_ANALYSIS.md` - Complete audit with metrics
+- `OPTIMIZATION_IMPLEMENTATION_PLAN.md` - Week-by-week implementation guide
+
+---
+
 ## Future Guidelines
 
 This section will be expanded with additional development guidelines as needed:
 
-- [ ] API Endpoint Patterns
 - [ ] Form Validation Patterns
 - [ ] Error Handling Patterns
 - [ ] Permission Checks
