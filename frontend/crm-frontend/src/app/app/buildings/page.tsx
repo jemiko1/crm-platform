@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { apiGet } from "@/lib/api";
 import AddBuildingModal from "./add-building-modal";
 
 type Building = {
@@ -120,17 +121,9 @@ export default function BuildingsPage() {
         setLoading(true);
         setError(null);
 
-        const res = await fetch("http://localhost:3000/v1/buildings", {
-          method: "GET",
-          credentials: "include",
+        const data = await apiGet<Building[]>("/v1/buildings", {
           cache: "no-store",
         });
-
-        if (!res.ok) {
-          throw new Error(`API error: ${res.status}`);
-        }
-
-        const data = (await res.json()) as Building[];
 
         if (!cancelled) {
           const rows: BuildingRow[] = data.map((b) => ({
