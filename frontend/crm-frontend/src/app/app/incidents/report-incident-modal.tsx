@@ -43,6 +43,10 @@ export default function ReportIncidentModal({
   presetClient,
   lockClient,
   allowedBuildingCoreIds,
+
+  // When opened from Building detail page:
+  presetBuilding,
+  lockBuilding,
 }: {
   open: boolean;
   onClose: () => void;
@@ -51,9 +55,13 @@ export default function ReportIncidentModal({
   presetClient?: Client;
   lockClient?: boolean;
   allowedBuildingCoreIds?: number[];
+
+  presetBuilding?: Building;
+  lockBuilding?: boolean;
 }) {
   const [mounted, setMounted] = useState(false);
   const isClientLocked = Boolean(lockClient && presetClient);
+  const isBuildingLocked = Boolean(lockBuilding && presetBuilding);
 
   useEffect(() => {
     setMounted(true);
@@ -128,8 +136,19 @@ export default function ReportIncidentModal({
     if (!open) return;
 
     // Start clean each open
-    setStep(1);
+    setStep(isBuildingLocked ? 2 : 1); // Skip building step if building is locked
     setError(null);
+
+    // If building locked, preset it
+    if (isBuildingLocked && presetBuilding) {
+      setSelectedBuilding(presetBuilding);
+      setBuildingSearch(`${presetBuilding.name} - ${presetBuilding.city}`);
+      setFormData((prev) => ({ ...prev, buildingId: presetBuilding.coreId }));
+    } else {
+      setSelectedBuilding(null);
+      setBuildingSearch("");
+      setFormData((prev) => ({ ...prev, buildingId: null }));
+    }
 
     // If client locked, preset it
     if (isClientLocked && presetClient) {
@@ -141,7 +160,7 @@ export default function ReportIncidentModal({
       setClientSearch("");
       setFormData((prev) => ({ ...prev, clientId: null }));
     }
-  }, [open, isClientLocked, presetClient]);
+  }, [open, isClientLocked, presetClient, isBuildingLocked, presetBuilding]);
 
   // Fetch buildings on open
   useEffect(() => {

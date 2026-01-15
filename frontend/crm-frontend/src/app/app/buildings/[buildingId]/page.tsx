@@ -7,6 +7,7 @@ import { apiGet } from "@/lib/api";
 import AddProductModal from "./add-product-modal";
 import AddClientModal from "./add-client-modal";
 import EditBuildingModal from "./edit-building-modal";
+import ReportIncidentModal from "../../incidents/report-incident-modal";
 import ModalDialog from "../../../modal-dialog";
 import IncidentDetailContent from "../../incidents/incident-detail-content";
 
@@ -122,6 +123,7 @@ export default function BuildingDetailPage() {
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [showAddClientModal, setShowAddClientModal] = useState(false);
   const [showEditBuildingModal, setShowEditBuildingModal] = useState(false);
+  const [showReportIncidentModal, setShowReportIncidentModal] = useState(false);
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
 
   // Handle URL query param for tab
@@ -400,6 +402,7 @@ export default function BuildingDetailPage() {
               incidents={incidents}
               loading={incidentsLoading}
               onIncidentClick={(incidentId) => setSelectedIncidentId(incidentId)}
+              onAddClick={() => setShowReportIncidentModal(true)}
             />
           )}
         </div>
@@ -430,6 +433,18 @@ export default function BuildingDetailPage() {
           fetchData();
           setShowEditBuildingModal(false);
         }}
+      />
+
+      {/* Report Incident Modal */}
+      <ReportIncidentModal
+        open={showReportIncidentModal}
+        onClose={() => setShowReportIncidentModal(false)}
+        onSuccess={() => {
+          fetchData(); // Refresh incidents list
+          setShowReportIncidentModal(false);
+        }}
+        presetBuilding={building ? { coreId: building.coreId, name: building.name, city: building.city, address: building.address } : undefined}
+        lockBuilding={true}
       />
 
       {/* Incident Detail Modal */}
@@ -967,10 +982,12 @@ function IncidentsTab({
   incidents,
   loading,
   onIncidentClick,
+  onAddClick,
 }: {
   incidents: Incident[];
   loading: boolean;
   onIncidentClick: (incidentId: string) => void;
+  onAddClick: () => void;
 }) {
   function getStatusBadge(status: Incident["status"]) {
     const styles = {
@@ -1027,6 +1044,12 @@ function IncidentsTab({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-zinc-900">Incidents ({incidents.length})</h2>
+        <button
+          onClick={onAddClick}
+          className="rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition"
+        >
+          Report Incident
+        </button>
       </div>
 
       {loading ? (
