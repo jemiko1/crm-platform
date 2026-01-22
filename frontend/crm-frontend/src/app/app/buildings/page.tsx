@@ -187,7 +187,7 @@ export default function BuildingsPage() {
               Buildings Directory
             </h1>
             <p className="mt-1 text-sm text-zinc-600">
-              Synced from your core system via API. Buildings and products are read-only in this CRM.
+              Synced from your core system via API. Buildings and devices are read-only in this CRM.
             </p>
           </div>
 
@@ -250,7 +250,7 @@ export default function BuildingsPage() {
                       <tr className="text-left text-xs text-zinc-600">
                         <th className="px-4 py-3 font-medium">Building</th>
                         <th className="px-4 py-3 font-medium">Clients</th>
-                        <th className="px-4 py-3 font-medium">Products</th>
+                        <th className="px-4 py-3 font-medium">Devices</th>
                         <th className="px-4 py-3 font-medium">Work Orders</th>
                         <th className="px-4 py-3 font-medium">Last Update</th>
                       </tr>
@@ -309,12 +309,12 @@ export default function BuildingsPage() {
                                 </Link>
                               </td>
 
-                              {/* Products */}
+                              {/* Devices */}
                               <td className="px-4 py-4 align-middle">
                                 <Link
-                                  href={`/app/buildings/${b.coreId}?tab=products`}
+                                  href={`/app/buildings/${b.coreId}?tab=devices`}
                                   className="block"
-                                  title="Open products"
+                                  title="Open devices"
                                 >
                                   <div className="group-hover:opacity-95">
                                     <ProductIcons p={b.products} />

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { useListItems } from "@/hooks/useListItems";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -63,13 +64,18 @@ export default function ReportIncidentModal({
   const isClientLocked = Boolean(lockClient && presetClient);
   const isBuildingLocked = Boolean(lockBuilding && presetBuilding);
 
+  // Fetch dynamic list items
+  const { items: contactMethods, loading: loadingContactMethods } = useListItems("CONTACT_METHOD", open);
+  const { items: incidentTypes, loading: loadingIncidentTypes } = useListItems("INCIDENT_TYPE", open);
+  const { items: priorities, loading: loadingPriorities } = useListItems("INCIDENT_PRIORITY", open);
+
   useEffect(() => {
     setMounted(true);
   }, []);
 
   // Steps:
-  // - Normal: 1 Building → 2 Client → 3 Products → 4 Details
-  // - Client-locked: 1 Building → 3 Products → 4 Details
+  // - Normal: 1 Building → 2 Client → 3 Devices → 4 Details
+  // - Client-locked: 1 Building → 3 Devices → 4 Details
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
 
   const [loading, setLoading] = useState(false);
@@ -122,12 +128,12 @@ export default function ReportIncidentModal({
   function stepLabel(s: 1 | 2 | 3 | 4) {
     if (isClientLocked) {
       if (s === 1) return "Select Building";
-      if (s === 3) return "Select Products";
+      if (s === 3) return "Select Devices";
       return "Incident Details";
     }
     if (s === 1) return "Select Building";
     if (s === 2) return "Select Client";
-    if (s === 3) return "Select Products";
+    if (s === 3) return "Select Devices";
     return "Incident Details";
   }
 
@@ -593,15 +599,15 @@ export default function ReportIncidentModal({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-zinc-900">Select Affected Products (Optional)</label>
-                <p className="mt-0.5 text-xs text-zinc-600">Select products if the incident affects specific equipment</p>
+                <label className="block text-sm font-medium text-zinc-900">Select Affected Devices (Optional)</label>
+                <p className="mt-0.5 text-xs text-zinc-600">Select devices if the incident affects specific equipment</p>
               </div>
 
               <div className="space-y-2">
                 {buildingAssets.length === 0 ? (
                   <div className="rounded-2xl bg-zinc-50 p-6 text-center ring-1 ring-zinc-200">
-                    <div className="text-sm text-zinc-600">No products found in this building</div>
-                    <p className="mt-2 text-xs text-zinc-500">You can continue without selecting products</p>
+                    <div className="text-sm text-zinc-600">No devices found in this building</div>
+                    <p className="mt-2 text-xs text-zinc-500">You can continue without selecting devices</p>
                   </div>
                 ) : (
                   buildingAssets.map((asset) => {
@@ -622,7 +628,7 @@ export default function ReportIncidentModal({
                         <div className="flex-1">
                           <div className="text-sm font-semibold text-zinc-900">{asset.name}</div>
                           <div className="mt-0.5 text-xs text-zinc-500">
-                            {asset.type} • Product #{asset.coreId}
+                            {asset.type} • Device #{asset.coreId}
                           </div>
                         </div>
                       </label>
@@ -667,7 +673,7 @@ export default function ReportIncidentModal({
                         ? fullNameOf(selectedClient)
                         : "Unknown Client"}
                   </div>
-                  <div>Products: {selectedProducts.length > 0 ? `${selectedProducts.length} selected` : "None"}</div>
+                  <div>Devices: {selectedProducts.length > 0 ? `${selectedProducts.length} selected` : "None"}</div>
                 </div>
               </div>
 
@@ -678,13 +684,19 @@ export default function ReportIncidentModal({
                 <select
                   value={formData.contactMethod ?? ""}
                   onChange={(e) => setFormData((prev) => ({ ...prev, contactMethod: e.target.value as any }))}
-                  className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/70"
+                  disabled={loadingContactMethods}
+                  className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/70 disabled:opacity-50"
                 >
                   <option value="">Select contact method</option>
-                  <option value="PHONE">Phone</option>
-                  <option value="EMAIL">Email</option>
-                  <option value="IN_PERSON">In-Person</option>
-                  <option value="OTHER">Other</option>
+                  {loadingContactMethods ? (
+                    <option disabled>Loading...</option>
+                  ) : (
+                    contactMethods.map((method) => (
+                      <option key={method.id} value={method.value}>
+                        {method.displayName}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
 
@@ -695,15 +707,19 @@ export default function ReportIncidentModal({
                 <select
                   value={formData.incidentType ?? ""}
                   onChange={(e) => setFormData((prev) => ({ ...prev, incidentType: e.target.value }))}
-                  className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/70"
+                  disabled={loadingIncidentTypes}
+                  className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/70 disabled:opacity-50"
                 >
                   <option value="">Select incident type</option>
-                  <option value="Hardware Failure">Hardware Failure</option>
-                  <option value="Software/System Issue">Software/System Issue</option>
-                  <option value="Access Problem">Access Problem</option>
-                  <option value="Maintenance Request">Maintenance Request</option>
-                  <option value="Safety Concern">Safety Concern</option>
-                  <option value="Other">Other</option>
+                  {loadingIncidentTypes ? (
+                    <option disabled>Loading...</option>
+                  ) : (
+                    incidentTypes.map((type) => (
+                      <option key={type.id} value={type.value}>
+                        {type.displayName}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
 
@@ -711,35 +727,33 @@ export default function ReportIncidentModal({
                 <label className="block text-sm font-medium text-zinc-900">
                   Priority <span className="text-rose-500">*</span>
                 </label>
-                <div className="mt-2 grid grid-cols-4 gap-2">
-                  {(["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const).map((priority) => {
-                    const isSelected = formData.priority === priority;
-                    const colors: Record<typeof priority, string> = {
-                      LOW: "ring-zinc-200 hover:bg-zinc-50",
-                      MEDIUM: "ring-blue-200 hover:bg-blue-50",
-                      HIGH: "ring-amber-200 hover:bg-amber-50",
-                      CRITICAL: "ring-rose-200 hover:bg-rose-50",
-                    };
-                    const activeColors: Record<typeof priority, string> = {
-                      LOW: "bg-zinc-50 ring-zinc-300 text-zinc-900",
-                      MEDIUM: "bg-blue-50 ring-blue-300 text-blue-900",
-                      HIGH: "bg-amber-50 ring-amber-300 text-amber-900",
-                      CRITICAL: "bg-rose-50 ring-rose-300 text-rose-900",
-                    };
-                    return (
-                      <button
-                        key={priority}
-                        type="button"
-                        onClick={() => setFormData((prev) => ({ ...prev, priority }))}
-                        className={`rounded-2xl px-3 py-2 text-xs font-semibold ring-1 transition ${
-                          isSelected ? activeColors[priority] : `bg-white ${colors[priority]}`
-                        }`}
-                      >
-                        {priority}
-                      </button>
-                    );
-                  })}
-                </div>
+                {loadingPriorities ? (
+                  <div className="mt-2 text-sm text-zinc-500">Loading priorities...</div>
+                ) : (
+                  <div className="mt-2 grid grid-cols-4 gap-2">
+                    {priorities.map((priority) => {
+                      const isSelected = formData.priority === priority.value;
+                      const hexColor = priority.colorHex || "#6b7280";
+
+                      return (
+                        <button
+                          key={priority.id}
+                          type="button"
+                          onClick={() => setFormData((prev) => ({ ...prev, priority: priority.value as any }))}
+                          className="rounded-2xl px-3 py-2 text-xs font-semibold ring-1 transition"
+                          style={{
+                            backgroundColor: isSelected ? `${hexColor}20` : "white",
+                            borderColor: isSelected ? hexColor : "#e5e7eb",
+                            color: isSelected ? hexColor : "#18181b",
+                            ringColor: hexColor,
+                          }}
+                        >
+                          {priority.displayName}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div>

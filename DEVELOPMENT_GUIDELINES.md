@@ -6,8 +6,204 @@ This document contains guidelines and best practices for developing features in 
 
 ## Table of Contents
 
-1. [Modal/Popup Implementation](#modalpopup-implementation)
-2. [Future Guidelines](#future-guidelines)
+1. [Dynamic List Items (Dropdowns/Enums)](#dynamic-list-items-dropdownsenums)
+2. [Modal/Popup Implementation](#modalpopup-implementation)
+3. [Future Guidelines](#future-guidelines)
+
+---
+
+## Dynamic List Items (Dropdowns/Enums)
+
+### Overview
+
+**CRITICAL:** All dropdown values, categories, and enum-like lists MUST be fetched dynamically from the SystemLists API. **NEVER hardcode dropdown options** as this prevents administrators from managing values without code deployments.
+
+### ❌ INCORRECT - Hardcoded Lists (DO NOT DO THIS)
+
+```tsx
+// BAD - Hardcoded values
+const CATEGORIES = [
+  { value: "ROUTER", label: "Router" },
+  { value: "CONTROLLER", label: "Controller" },
+];
+
+<select>
+  {CATEGORIES.map((cat) => (
+    <option key={cat.value} value={cat.value}>
+      {cat.label}
+    </option>
+  ))}
+</select>
+```
+
+### ✅ CORRECT - Dynamic Lists (ALWAYS DO THIS)
+
+```tsx
+"use client";
+
+import { useListItems } from "@/hooks/useListItems";
+
+export default function YourComponent() {
+  // Fetch dynamic list items by category code
+  const { items: categories, loading } = useListItems("PRODUCT_CATEGORY");
+
+  return (
+    <select disabled={loading}>
+      {loading ? (
+        <option>Loading...</option>
+      ) : (
+        categories.map((cat) => (
+          <option key={cat.id} value={cat.value}>
+            {cat.displayName}
+          </option>
+        ))
+      )}
+    </select>
+  );
+}
+```
+
+### Available List Categories
+
+Use these exact category codes with `useListItems()`:
+
+#### User-Editable Lists (Admins can modify)
+- `ASSET_TYPE` - Building asset/product types (ELEVATOR, INTERCOM, etc.)
+- `CONTACT_METHOD` - How incidents are reported (PHONE, EMAIL, etc.)
+- `INCIDENT_TYPE` - Types of incidents (Hardware Failure, etc.)
+- `INCIDENT_PRIORITY` - Incident severity (LOW, MEDIUM, HIGH, CRITICAL) - includes colors
+- `PRODUCT_CATEGORY` - Inventory categories (ROUTER, SENSOR, etc.)
+- `PRODUCT_UNIT` - Measurement units (PIECE, METER, KG, etc.)
+- `WORK_ORDER_TYPE` - Work order categories (INSTALL, REPAIR, etc.)
+
+#### System-Managed Lists (Read-only for admins)
+- `WORK_ORDER_STATUS` - Work order lifecycle states - includes colors
+- `INCIDENT_STATUS` - Incident lifecycle states - includes colors
+- `DEVICE_STATUS` - Asset monitoring status - includes colors
+- `PURCHASE_ORDER_STATUS` - Purchase order states - includes colors
+- `STOCK_TRANSACTION_TYPE` - Inventory transaction types
+
+### useListItems Hook API
+
+```tsx
+import { useListItems } from "@/hooks/useListItems";
+
+const {
+  items,        // ListItem[] - Filtered active items, sorted by sortOrder
+  loading,      // boolean - Loading state
+  error,        // string | null - Error message
+  refresh,      // () => Promise<void> - Manually refresh the list
+} = useListItems(categoryCode, fetchOnMount);
+
+// ListItem type:
+type ListItem = {
+  id: string;
+  value: string;          // Backend value (e.g., "ELEVATOR")
+  displayName: string;    // UI label (e.g., "Elevator")
+  isActive: boolean;      // Always true (inactive items filtered out)
+  isDefault: boolean;     // True if this is the default selection
+  sortOrder: number;      // Display order
+  colorHex?: string;      // Optional color (for priorities/statuses)
+  icon?: string;          // Optional icon/emoji
+};
+```
+
+### Using Colors (Priorities/Statuses)
+
+For items with colors (priorities, statuses), use the `colorHex` field:
+
+```tsx
+const { items: priorities } = useListItems("INCIDENT_PRIORITY");
+
+<div className="grid grid-cols-4 gap-2">
+  {priorities.map((priority) => (
+    <button
+      key={priority.id}
+      style={{
+        backgroundColor: `${priority.colorHex}20`,  // 20% opacity
+        borderColor: priority.colorHex,
+        color: priority.colorHex,
+      }}
+    >
+      {priority.displayName}
+    </button>
+  ))}
+</div>
+```
+
+### Setting Default Values
+
+```tsx
+useEffect(() => {
+  if (!loading && items.length > 0) {
+    const defaultItem = items.find((i) => i.isDefault) || items[0];
+    setFormData((prev) => ({ ...prev, fieldName: defaultItem.value }));
+  }
+}, [loading, items]);
+```
+
+### When Creating New Forms
+
+**ALWAYS check if the form uses ANY dropdown/enum values:**
+
+1. Identify all dropdown fields
+2. Check if there's a corresponding SystemList category (see list above)
+3. Use `useListItems()` to fetch the values
+4. If creating a NEW type of dropdown:
+   - Add the category to SystemLists via migration
+   - Seed initial values
+   - Update this documentation
+   - Use the hook in your component
+
+### Adding New List Categories
+
+If you need to create a new dropdown category:
+
+1. **Update Prisma Schema:**
+```prisma
+// No schema changes needed - use existing SystemListCategory/SystemListItem
+```
+
+2. **Create Seed Data:** (in `prisma/seed-system-lists.ts`)
+```typescript
+{
+  code: 'YOUR_CATEGORY',
+  name: 'Your Category Name',
+  description: 'Description of what this is for',
+  tableName: 'YourModel',  // Which database table uses this
+  fieldName: 'yourField',   // Which field in that table
+  isUserEditable: true,     // Can admins edit this?
+  sortOrder: 10,
+  items: [
+    { value: 'VALUE_1', displayName: 'Value 1', sortOrder: 1, isDefault: true },
+    { value: 'VALUE_2', displayName: 'Value 2', sortOrder: 2 },
+  ],
+}
+```
+
+3. **Run Migration & Seed:**
+```bash
+cd backend/crm-backend
+npx prisma migrate dev --name add_your_category
+npx ts-node prisma/seed-system-lists.ts
+```
+
+4. **Update This Documentation:** Add your category code to the list above.
+
+5. **Use in Components:**
+```tsx
+const { items } = useListItems("YOUR_CATEGORY");
+```
+
+### Benefits
+
+✅ **No Code Deployments** - Admins modify values via UI
+✅ **Consistent Naming** - Changes reflect everywhere instantly
+✅ **No Duplicates** - Single source of truth
+✅ **Sortable** - Admins control display order
+✅ **Deactivation** - Hide without deleting historical data
+✅ **Default Values** - Auto-select preferred options
+✅ **Colors/Icons** - Visual indicators for priorities/statuses
 
 ---
 

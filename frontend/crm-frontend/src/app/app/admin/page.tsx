@@ -36,6 +36,13 @@ const adminSections: AdminSection[] = [
     href: "/app/admin/departments",
   },
   {
+    id: "list-items",
+    title: "List Items",
+    description: "Manage dropdown values, categories, and system lists",
+    icon: <IconListItems />,
+    href: "/app/admin/list-items",
+  },
+  {
     id: "roles",
     title: "Legacy Roles",
     description: "Legacy role system (deprecated - use Positions instead)",
@@ -231,6 +238,22 @@ function IconUsers() {
         strokeWidth="2"
         strokeLinecap="round"
       />
+    </svg>
+  );
+}
+
+function IconListItems() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M3 6h18M3 12h18M3 18h18"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <circle cx="7" cy="6" r="1.5" fill="currentColor" />
+      <circle cx="7" cy="12" r="1.5" fill="currentColor" />
+      <circle cx="7" cy="18" r="1.5" fill="currentColor" />
     </svg>
   );
 }

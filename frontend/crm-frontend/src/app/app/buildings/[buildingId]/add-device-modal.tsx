@@ -2,51 +2,50 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useListItems } from "@/hooks/useListItems";
 
 const BRAND = "rgb(8, 117, 56)";
 
-type AssetType =
-  | "ELEVATOR"
-  | "ENTRANCE_DOOR"
-  | "INTERCOM"
-  | "SMART_GSM_GATE"
-  | "SMART_DOOR_GSM"
-  | "BOOM_BARRIER"
-  | "OTHER";
-
-const ASSET_TYPES: { value: AssetType; label: string }[] = [
-  { value: "ELEVATOR", label: "Elevator" },
-  { value: "ENTRANCE_DOOR", label: "Entrance Door" },
-  { value: "INTERCOM", label: "Intercom" },
-  { value: "SMART_GSM_GATE", label: "Smart GSM Gate" },
-  { value: "SMART_DOOR_GSM", label: "Smart Door GSM" },
-  { value: "BOOM_BARRIER", label: "Boom Barrier" },
-  { value: "OTHER", label: "Other" },
-];
-
-type AddProductModalProps = {
+type AddDeviceModalProps = {
   buildingCoreId: string;
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
 };
 
-export default function AddProductModal({
+export default function AddDeviceModal({
   buildingCoreId,
   open,
   onClose,
   onSuccess,
-}: AddProductModalProps) {
+}: AddDeviceModalProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const { items: assetTypes, loading: loadingAssetTypes } = useListItems("ASSET_TYPE", open);
+  const { items: deviceStatuses, loading: loadingStatuses } = useListItems("DEVICE_STATUS", open);
+
   const [formData, setFormData] = useState({
-    type: "ELEVATOR" as AssetType,
+    type: "",
     name: "",
     ip: "",
-    status: "ONLINE" as "ONLINE" | "OFFLINE" | "UNKNOWN",
+    status: "",
   });
+
+  // Set default values when lists load
+  useEffect(() => {
+    if (!loadingAssetTypes && !loadingStatuses && assetTypes.length > 0 && deviceStatuses.length > 0) {
+      const defaultType = assetTypes.find((t) => t.isDefault) || assetTypes[0];
+      const defaultStatus = deviceStatuses.find((s) => s.isDefault) || deviceStatuses[0];
+
+      setFormData((prev) => ({
+        ...prev,
+        type: defaultType?.value || "",
+        status: defaultStatus?.value || "",
+      }));
+    }
+  }, [loadingAssetTypes, loadingStatuses, assetTypes, deviceStatuses]);
 
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -76,19 +75,28 @@ export default function AddProductModal({
         throw new Error(errData?.message || `API error: ${res.status}`);
       }
 
-      // Success
-      setFormData({ type: "ELEVATOR", name: "", ip: "", status: "ONLINE" });
+      // Success - reset form
+      const defaultType = assetTypes.find((t) => t.isDefault) || assetTypes[0];
+      const defaultStatus = deviceStatuses.find((s) => s.isDefault) || deviceStatuses[0];
+      setFormData({
+        type: defaultType?.value || "",
+        name: "",
+        ip: "",
+        status: defaultStatus?.value || "",
+      });
       onSuccess();
       router.refresh();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create product");
+      setError(err instanceof Error ? err.message : "Failed to create device");
     } finally {
       setLoading(false);
     }
   }
 
   if (!open) return null;
+
+  const isLoadingLists = loadingAssetTypes || loadingStatuses;
 
   return (
     <>
@@ -110,10 +118,10 @@ export default function AddProductModal({
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-zinc-900">
-                  Add New Product
+                  Add New Device
                 </h2>
                 <p className="mt-1 text-xs text-zinc-600">
-                  Create a new asset for Building #{buildingCoreId}
+                  Create a new device for Building #{buildingCoreId}
                 </p>
               </div>
               <button
@@ -130,30 +138,35 @@ export default function AddProductModal({
           {/* Form */}
           <form onSubmit={handleSubmit} className="p-6">
             <div className="space-y-4">
-              {/* Type */}
+              {/* Device Type */}
               <div>
                 <label className="mb-1 block text-xs font-medium text-zinc-700">
-                  Product Type <span className="text-red-600">*</span>
+                  Device Type <span className="text-red-600">*</span>
                 </label>
                 <select
                   name="type"
                   value={formData.type}
                   onChange={handleChange}
                   required
-                  className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                  disabled={isLoadingLists}
+                  className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 disabled:opacity-50"
                 >
-                  {ASSET_TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
+                  {isLoadingLists ? (
+                    <option>Loading...</option>
+                  ) : (
+                    assetTypes.map((t) => (
+                      <option key={t.id} value={t.value}>
+                        {t.displayName}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
 
-              {/* Name */}
+              {/* Device Name */}
               <div>
                 <label className="mb-1 block text-xs font-medium text-zinc-700">
-                  Name <span className="text-red-600">*</span>
+                  Device Name <span className="text-red-600">*</span>
                 </label>
                 <input
                   type="text"
@@ -181,21 +194,28 @@ export default function AddProductModal({
                 />
               </div>
 
-              {/* Status */}
+              {/* Device Status */}
               <div>
                 <label className="mb-1 block text-xs font-medium text-zinc-700">
-                  Status <span className="text-red-600">*</span>
+                  Device Status <span className="text-red-600">*</span>
                 </label>
                 <select
                   name="status"
                   value={formData.status}
                   onChange={handleChange}
                   required
-                  className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                  disabled={isLoadingLists}
+                  className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 disabled:opacity-50"
                 >
-                  <option value="ONLINE">Online</option>
-                  <option value="OFFLINE">Offline</option>
-                  <option value="UNKNOWN">Unknown</option>
+                  {isLoadingLists ? (
+                    <option>Loading...</option>
+                  ) : (
+                    deviceStatuses.map((s) => (
+                      <option key={s.id} value={s.value}>
+                        {s.displayName}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
             </div>
@@ -219,11 +239,11 @@ export default function AddProductModal({
               </button>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || isLoadingLists}
                 className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-50"
                 style={{ backgroundColor: BRAND }}
               >
-                {loading ? "Creating..." : "Create Product"}
+                {loading ? "Creating..." : "Create Device"}
               </button>
             </div>
           </form>

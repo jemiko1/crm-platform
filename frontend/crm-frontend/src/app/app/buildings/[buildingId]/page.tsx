@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { apiGet } from "@/lib/api";
-import AddProductModal from "./add-product-modal";
+import AddDeviceModal from "./add-device-modal";
 import AddClientModal from "./add-client-modal";
 import EditBuildingModal from "./edit-building-modal";
 import ReportIncidentModal from "../../incidents/report-incident-modal";
@@ -44,7 +44,7 @@ type Client = {
   updatedAt: string;
 };
 
-type Tab = "overview" | "products" | "clients" | "work-orders" | "incidents";
+type Tab = "overview" | "devices" | "clients" | "work-orders" | "incidents";
 
 type Incident = {
   id: string;
@@ -120,7 +120,7 @@ export default function BuildingDetailPage() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [incidentsLoading, setIncidentsLoading] = useState(false);
 
-  const [showAddProductModal, setShowAddProductModal] = useState(false);
+  const [showAddDeviceModal, setShowAddDeviceModal] = useState(false);
   const [showAddClientModal, setShowAddClientModal] = useState(false);
   const [showEditBuildingModal, setShowEditBuildingModal] = useState(false);
   const [showReportIncidentModal, setShowReportIncidentModal] = useState(false);
@@ -129,7 +129,7 @@ export default function BuildingDetailPage() {
   // Handle URL query param for tab
   useEffect(() => {
     const tab = searchParams?.get("tab");
-    if (tab === "products" || tab === "clients" || tab === "work-orders" || tab === "incidents") {
+    if (tab === "devices" || tab === "clients" || tab === "work-orders" || tab === "incidents") {
       setActiveTab(tab);
     }
   }, [searchParams]);
@@ -183,8 +183,8 @@ export default function BuildingDetailPage() {
     };
   }, [building, assets]);
 
-  // Calculate product counts for Products tab
-  const productCounts = React.useMemo(() => {
+  // Calculate device counts for Devices tab
+  const deviceCounts = React.useMemo(() => {
     const counts: Record<string, number> = {};
     assets.forEach((asset) => {
       const t = asset.type || "OTHER";
@@ -193,10 +193,10 @@ export default function BuildingDetailPage() {
     return counts;
   }, [assets]);
 
-  async function handleProductSuccess() {
+  async function handleDeviceSuccess() {
     await fetchData();
-    setShowAddProductModal(false);
-    setActiveTab("products");
+    setShowAddDeviceModal(false);
+    setActiveTab("devices");
   }
 
   async function handleClientSuccess() {
@@ -362,9 +362,9 @@ export default function BuildingDetailPage() {
           <div className="flex items-center gap-2 overflow-x-auto">
             <TabButton label="Overview" active={activeTab === "overview"} onClick={() => setActiveTab("overview")} />
             <TabButton
-              label={`Products (${assets.length})`}
-              active={activeTab === "products"}
-              onClick={() => setActiveTab("products")}
+              label={`Devices (${assets.length})`}
+              active={activeTab === "devices"}
+              onClick={() => setActiveTab("devices")}
             />
             <TabButton
               label={`Clients (${clients.length})`}
@@ -387,12 +387,12 @@ export default function BuildingDetailPage() {
         {/* Tab Content */}
         <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200">
           {activeTab === "overview" && <OverviewTab building={building} />}
-          {activeTab === "products" && (
-            <ProductsTab
+          {activeTab === "devices" && (
+            <DevicesTab
               buildingId={buildingId}
               assets={assets}
-              productCounts={productCounts}
-              onAddClick={() => setShowAddProductModal(true)}
+              deviceCounts={deviceCounts}
+              onAddClick={() => setShowAddDeviceModal(true)}
             />
           )}
           {activeTab === "clients" && <ClientsTab clients={clients} onAddClick={() => setShowAddClientModal(true)} />}
@@ -408,12 +408,12 @@ export default function BuildingDetailPage() {
         </div>
       </div>
 
-      {/* Add Product Modal */}
-      <AddProductModal
+      {/* Add Device Modal */}
+      <AddDeviceModal
         buildingCoreId={buildingId}
-        open={showAddProductModal}
-        onClose={() => setShowAddProductModal(false)}
-        onSuccess={handleProductSuccess}
+        open={showAddDeviceModal}
+        onClose={() => setShowAddDeviceModal(false)}
+        onSuccess={handleDeviceSuccess}
       />
 
       {/* Add Client Modal */}
@@ -582,22 +582,22 @@ function InfoCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-/* ========== PRODUCTS TAB (FILTERS + SORT BY TYPE + TABLE) ========== */
-function ProductsTab({
+/* ========== DEVICES TAB (FILTERS + SORT BY TYPE + TABLE) ========== */
+function DevicesTab({
   buildingId,
   assets,
-  productCounts,
+  deviceCounts,
   onAddClick,
 }: {
   buildingId: string;
   assets: Asset[];
-  productCounts: Record<string, number>;
+  deviceCounts: Record<string, number>;
   onAddClick: () => void;
 }) {
   const allTypes = useMemo(() => {
-    const keys = Object.keys(productCounts);
+    const keys = Object.keys(deviceCounts);
     return keys.sort((a, b) => typeRank(a) - typeRank(b) || a.localeCompare(b));
-  }, [productCounts]);
+  }, [deviceCounts]);
 
   const [selectedTypes, setSelectedTypes] = useState<Record<string, boolean>>({});
   const [offlineOnly, setOfflineOnly] = useState(false);
@@ -658,9 +658,9 @@ function ProductsTab({
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h2 className="text-lg font-semibold text-zinc-900">Products ({assets.length})</h2>
+          <h2 className="text-lg font-semibold text-zinc-900">Devices ({assets.length})</h2>
           <div className="mt-1 text-xs text-zinc-600">
-            Use filters to show specific product categories. Table is grouped by type.
+            Use filters to show specific device categories. Table is grouped by type.
           </div>
         </div>
 
@@ -670,7 +670,7 @@ function ProductsTab({
           style={{ backgroundColor: BRAND }}
           onClick={onAddClick}
         >
-          + Add Product
+          + Add Device
         </button>
       </div>
 
@@ -712,7 +712,7 @@ function ProductsTab({
               <FilterPill
                 key={t}
                 label={typeLabel(t)}
-                count={productCounts[t] ?? 0}
+                count={deviceCounts[t] ?? 0}
                 checked={selectedTypes[t] !== false}
                 onChange={(v) => setSelectedTypes((prev) => ({ ...prev, [t]: v }))}
                 tone="brand"
@@ -722,10 +722,10 @@ function ProductsTab({
         )}
       </div>
 
-      {/* Products Table grouped by type */}
+      {/* Devices Table grouped by type */}
       {filteredAssets.length === 0 ? (
         <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
-          <div className="text-sm text-zinc-600">No products match your filters.</div>
+          <div className="text-sm text-zinc-600">No devices match your filters.</div>
           <div className="mt-2 text-xs text-zinc-500">
             Try “Mark all”, or turn off “Offline” filter.
           </div>

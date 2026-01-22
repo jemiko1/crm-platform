@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import ModalDialog from "../../modal-dialog";
+import { apiGet } from "@/lib/api";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -11,37 +12,75 @@ type AddProductModalProps = {
   onSuccess: () => void;
 };
 
-const CATEGORIES = [
-  { value: "ROUTER", label: "Router" },
-  { value: "CONTROLLER", label: "Controller" },
-  { value: "SENSOR", label: "Sensor" },
-  { value: "CABLE", label: "Cable" },
-  { value: "ACCESSORY", label: "Accessory" },
-  { value: "HARDWARE", label: "Hardware" },
-  { value: "SOFTWARE", label: "Software" },
-  { value: "OTHER", label: "Other" },
-];
+type ListItem = {
+  id: string;
+  value: string;
+  displayName: string;
+  isActive: boolean;
+  isDefault: boolean;
+};
 
-const UNITS = [
-  { value: "PIECE", label: "Piece" },
-  { value: "METER", label: "Meter" },
-  { value: "KG", label: "Kilogram" },
-  { value: "BOX", label: "Box" },
-  { value: "SET", label: "Set" },
-];
+type ListCategory = {
+  id: string;
+  code: string;
+  name: string;
+  items: ListItem[];
+};
 
 export default function AddProductModal({ open, onClose, onSuccess }: AddProductModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [categories, setCategories] = useState<ListItem[]>([]);
+  const [units, setUnits] = useState<ListItem[]>([]);
+  const [loadingLists, setLoadingLists] = useState(true);
+
   const [formData, setFormData] = useState({
     sku: "",
     name: "",
     description: "",
-    category: "ROUTER",
-    unit: "PIECE",
+    category: "",
+    unit: "",
     lowStockThreshold: "10",
   });
+
+  // Fetch dynamic list items when modal opens
+  useEffect(() => {
+    if (open) {
+      fetchListItems();
+    }
+  }, [open]);
+
+  async function fetchListItems() {
+    try {
+      setLoadingLists(true);
+      const [categoryData, unitData] = await Promise.all([
+        apiGet<ListCategory>("/v1/system-lists/categories/code/PRODUCT_CATEGORY"),
+        apiGet<ListCategory>("/v1/system-lists/categories/code/PRODUCT_UNIT"),
+      ]);
+
+      const activeCategories = categoryData.items.filter((item) => item.isActive);
+      const activeUnits = unitData.items.filter((item) => item.isActive);
+
+      setCategories(activeCategories);
+      setUnits(activeUnits);
+
+      // Set default values
+      const defaultCategory = activeCategories.find((c) => c.isDefault) || activeCategories[0];
+      const defaultUnit = activeUnits.find((u) => u.isDefault) || activeUnits[0];
+
+      setFormData((prev) => ({
+        ...prev,
+        category: defaultCategory?.value || "",
+        unit: defaultUnit?.value || "",
+      }));
+    } catch (err) {
+      console.error("Failed to load list items:", err);
+      setError("Failed to load dropdown options");
+    } finally {
+      setLoadingLists(false);
+    }
+  }
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
     setFormData((prev) => ({
@@ -131,13 +170,18 @@ export default function AddProductModal({ open, onClose, onSuccess }: AddProduct
               required
               value={formData.category}
               onChange={handleChange}
-              className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              disabled={loadingLists}
+              className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-50"
             >
-              {CATEGORIES.map((cat) => (
-                <option key={cat.value} value={cat.value}>
-                  {cat.label}
-                </option>
-              ))}
+              {loadingLists ? (
+                <option>Loading...</option>
+              ) : (
+                categories.map((cat) => (
+                  <option key={cat.id} value={cat.value}>
+                    {cat.displayName}
+                  </option>
+                ))
+              )}
             </select>
           </div>
         </div>
@@ -182,13 +226,18 @@ export default function AddProductModal({ open, onClose, onSuccess }: AddProduct
               required
               value={formData.unit}
               onChange={handleChange}
-              className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              disabled={loadingLists}
+              className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-50"
             >
-              {UNITS.map((unit) => (
-                <option key={unit.value} value={unit.value}>
-                  {unit.label}
-                </option>
-              ))}
+              {loadingLists ? (
+                <option>Loading...</option>
+              ) : (
+                units.map((unit) => (
+                  <option key={unit.id} value={unit.value}>
+                    {unit.displayName}
+                  </option>
+                ))
+              )}
             </select>
           </div>
         </div>
