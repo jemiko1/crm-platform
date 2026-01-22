@@ -1,9 +1,11 @@
 # CRM Platform - Project Snapshot
 
 **Last Updated**: 2026-01-15
-**Tech Stack**: NestJS (Backend) + Next.js 14 (Frontend) + PostgreSQL + Prisma
-**Status**: Buildings, Clients, and Incidents modules complete and optimized
+**Version**: v1.0.0
+**Tech Stack**: NestJS (Backend) + Next.js 15 (Frontend) + PostgreSQL + Prisma
+**Status**: Buildings, Clients, Incidents, and Admin modules complete and optimized
 **Performance**: Week 1 optimizations complete (4-10x faster)
+**Latest Changes**: Devices terminology, Permissions restoration, List Items Management
 
 ---
 
@@ -69,6 +71,10 @@ frontend/crm-frontend/
 │   │   │   ├── profile-menu.tsx
 │   │   │   ├── dashboard/
 │   │   │   ├── buildings/
+│   │   │   │   ├── page.tsx
+│   │   │   │   └── [buildingId]/
+│   │   │   │       ├── page.tsx
+│   │   │   │       └── add-device-modal.tsx
 │   │   │   ├── clients/
 │   │   │   ├── incidents/
 │   │   │   ├── work-orders/
@@ -76,11 +82,16 @@ frontend/crm-frontend/
 │   │   │   ├── employees/
 │   │   │   ├── admin/
 │   │   │   │   ├── page.tsx
+│   │   │   │   ├── list-items/
+│   │   │   │   │   ├── page.tsx
+│   │   │   │   │   └── [categoryId]/
 │   │   │   │   ├── positions/
 │   │   │   │   ├── role-groups/
 │   │   │   │   └── departments/
 │   │   │   └── assets/
 │   │   └── modal-dialog.tsx
+│   ├── hooks/
+│   │   └── useListItems.ts
 │   └── lib/
 │       ├── api.ts
 │       ├── use-permissions.ts
@@ -205,7 +216,26 @@ frontend/crm-frontend/
 - **API Client**: Centralized `apiGet/apiPost/apiPatch/apiDelete` from `lib/api.ts`
 - **Performance**: N+1 queries eliminated, parallel API calls, strategic caching
 
-### Performance Optimizations (2026-01-15)
+### Recent Updates (v1.0.0 - 2026-01-15)
+
+**Terminology Changes:**
+- ✅ Renamed "Products" to "Devices" in Buildings context for clarity
+- ✅ Updated all UI labels, modals, and components
+- ✅ Separated terminology: "Devices" (building assets) vs "Products" (inventory items)
+
+**Permissions System:**
+- ✅ Restored permissions database (49 permissions seeded)
+- ✅ Permissions list now visible in Admin panel
+- ✅ All CRUD permissions for Buildings, Clients, Incidents, Work Orders, Inventory, Employees, etc.
+
+**List Items Management:**
+- ✅ Admin panel for managing dropdown values dynamically
+- ✅ System Lists API integration (`/v1/system-lists/*`)
+- ✅ `useListItems` hook for frontend consumption
+- ✅ Categories: ASSET_TYPE, DEVICE_STATUS, INCIDENT_TYPE, INCIDENT_PRIORITY, etc.
+- ✅ Support for default values, sorting, colors, and deactivation
+
+**Performance Optimizations (2026-01-15):**
 
 **Backend (NestJS + Prisma):**
 - ✅ Buildings N+1 query fixed with `groupBy` (10x fewer queries)
@@ -213,7 +243,7 @@ frontend/crm-frontend/
 - ✅ Database indexes added for Incident, WorkOrder, User, PurchaseOrder, StockTransaction
 - ✅ TypeScript errors fixed for optional client handling
 
-**Frontend (Next.js 14):**
+**Frontend (Next.js 15):**
 - ✅ Parallel API calls with `Promise.all` (4x faster page loads)
 - ✅ Centralized API client implementation
 - ✅ Strategic caching strategy (no-store vs revalidate)
@@ -229,16 +259,35 @@ frontend/crm-frontend/
 - `PERFORMANCE_ANALYSIS.md` - Complete audit with 12 frontend + 8 backend issues
 - `OPTIMIZATION_IMPLEMENTATION_PLAN.md` - 4-week step-by-step optimization guide
 - `DEVELOPMENT_GUIDELINES.md` - Performance patterns and best practices
+- `LIST_ITEMS_MANAGEMENT_DESIGN.md` - System Lists architecture
 
 ---
 
 ## Development Guidelines
 
 See `DEVELOPMENT_GUIDELINES.md` for:
-- Modal/Popup implementation patterns
-- **Performance optimization guidelines** (NEW)
+- **Dynamic List Items** - NEVER hardcode dropdowns, use `useListItems` hook
+- **Modal/Popup implementation patterns** - Always use `createPortal` to `document.body`
+- **Performance optimization guidelines**
   - Backend: Avoiding N+1 queries, parallel queries, database indexes
   - Frontend: API client, parallel fetching, caching, memoization, lazy loading
   - Context-aware modal patterns
+- **Terminology**: Use "Devices" for building assets, "Products" for inventory items
 - Performance testing checklist
 - Reference implementations
+
+## Key Technology Patterns
+
+### Dynamic Lists (CRITICAL)
+- **NEVER hardcode dropdown values** - Always use `useListItems(categoryCode)` hook
+- Available categories: `ASSET_TYPE`, `DEVICE_STATUS`, `INCIDENT_TYPE`, `INCIDENT_PRIORITY`, etc.
+- See `DEVELOPMENT_GUIDELINES.md` for complete list and usage patterns
+
+### API Client
+- Always use centralized `apiGet`, `apiPost`, `apiPatch`, `apiDelete` from `lib/api.ts`
+- Automatic cookie handling, error parsing, type-safe responses
+
+### Modals
+- Must use `createPortal` to `document.body` for proper centering
+- Require `mounted` state check for SSR compatibility
+- Use `z-[9999]` for modal container

@@ -1,7 +1,8 @@
 # CRM Platform - Complete Session Summary
 
-**Last Updated**: 2025-01-15  
-**Status**: Incident creation without client - IN PROGRESS (needs fix)
+**Last Updated**: 2026-01-15  
+**Version**: v1.0.0
+**Status**: ✅ All features complete and committed
 
 ---
 
@@ -17,14 +18,70 @@
 
 ## KEY FEATURES IMPLEMENTED
 
-### 1. MODAL/POPUP SYSTEM
+### 1. TERMINOLOGY STANDARDIZATION (v1.0.0)
+**Change**: Renamed "Products" to "Devices" in Buildings context  
+**Rationale**: Clear distinction between building assets (devices) and inventory items (products)  
+**Files Updated**:
+- `frontend/crm-frontend/src/app/app/buildings/[buildingId]/page.tsx` - Tab renamed, all references updated
+- `frontend/crm-frontend/src/app/app/buildings/[buildingId]/add-device-modal.tsx` - Renamed from add-product-modal
+- `frontend/crm-frontend/src/app/app/buildings/page.tsx` - Table header and links updated
+- `frontend/crm-frontend/src/app/app/incidents/report-incident-modal.tsx` - Device selection labels
+
+**Changes**:
+- Tab name: "Products" → "Devices"
+- Modal: "AddProductModal" → "AddDeviceModal"
+- Field labels: "Product Type" → "Device Type", "Name" → "Device Name", "Status" → "Device Status"
+- Variables: `productCounts` → `deviceCounts`, `showAddProductModal` → `showAddDeviceModal`
+- URL parameter: `tab=products` → `tab=devices`
+- Incident modal: "Select Products" → "Select Devices", "Products Affected" → "Devices Affected"
+
+### 2. PERMISSIONS RESTORATION (v1.0.0)
+**Issue**: Permissions list was empty after database migration  
+**Solution**: Ran `seed-permissions.ts` script to restore all 49 permissions  
+**Permissions Restored**:
+- Buildings: read, create, update, delete
+- Clients: read, create, update, delete
+- Incidents: read, create, update, assign, delete
+- Work Orders: read, create, update, assign, delete
+- Inventory: read, create, update, delete, purchase, adjust
+- Employees: read, create, update, delete, assign
+- Departments, Roles, Permissions: full CRUD
+- Reports: view, export
+- Admin: access, manage_users, manage_settings
+
+**Script**: `backend/crm-backend/prisma/seed-permissions.ts`  
+**Command**: `npx tsx prisma/seed-permissions.ts`
+
+### 3. LIST ITEMS MANAGEMENT (v1.0.0)
+**Feature**: Admin panel for managing dropdown values dynamically  
+**Location**: `/app/admin/list-items`  
+**Backend**: System Lists API (`/v1/system-lists/*`)  
+**Frontend Hook**: `useListItems(categoryCode)` in `src/hooks/useListItems.ts`
+
+**Categories Available**:
+- User-Editable: `ASSET_TYPE`, `CONTACT_METHOD`, `INCIDENT_TYPE`, `INCIDENT_PRIORITY`, `PRODUCT_CATEGORY`, `PRODUCT_UNIT`, `WORK_ORDER_TYPE`
+- System-Managed: `WORK_ORDER_STATUS`, `INCIDENT_STATUS`, `DEVICE_STATUS`, `PURCHASE_ORDER_STATUS`, `STOCK_TRANSACTION_TYPE`
+
+**Features**:
+- Create, edit, delete list items
+- Set default values
+- Sort order management
+- Color/icon support for statuses/priorities
+- Deactivation (hide without deleting)
+
+**Files**:
+- `frontend/crm-frontend/src/app/app/admin/list-items/page.tsx` - Category list
+- `frontend/crm-frontend/src/app/app/admin/list-items/[categoryId]/page.tsx` - Item management
+- `frontend/crm-frontend/src/app/app/admin/list-items/[categoryId]/delete-item-modal.tsx` - Delete with reassignment
+- `backend/crm-backend/src/system-lists/*` - Backend API
+
+### 4. MODAL/POPUP SYSTEM
 **Pattern**: All modals use `createPortal` from `react-dom` to `document.body`  
 **Requirements**: `mounted` state check, `z-[9999]`, fixed positioning, backdrop  
 **Files**: `frontend/crm-frontend/src/app/modal-dialog.tsx` (reference)  
-**Fixed**: Report incident, add building, add client, add role group, add position, add employee  
 **Status**: ✅ All modals properly centered and portal-rendered
 
-### 2. EMPLOYEE MANAGEMENT
+### 5. EMPLOYEE MANAGEMENT
 **Schema Changes**:
 - Added: `extensionNumber` (String?), `birthday` (DateTime?)
 - Removed: `hireDate`, `exitDate`
@@ -41,11 +98,7 @@
 - DTOs updated: `create-employee.dto.ts`, `update-employee.dto.ts`
 - Migration: `20260115012554_update_employee_fields`
 
-**Files**:
-- `frontend/crm-frontend/src/app/app/employees/*`
-- `backend/crm-backend/src/employees/*`
-
-### 3. DEPARTMENT MANAGEMENT
+### 6. DEPARTMENT MANAGEMENT
 **UI**: Two-pane layout (hierarchy tree left, details right) + modern org chart visualization  
 **Features**: Expand/collapse, select node highlights, create/edit/delete modals  
 **Tree View**: Shows employee counts (direct + via positions)  
@@ -54,7 +107,7 @@
 **Validation**: `headId` must be unique (one head per department)  
 **Files**: `frontend/crm-frontend/src/app/app/admin/departments/page.tsx`
 
-### 4. POSITION MANAGEMENT
+### 7. POSITION MANAGEMENT
 **Code Generation**: Auto-generate from `name` (backend), not editable  
 **Department Link**: Positions belong to departments (`departmentId` field)  
 **Delete Protection**: Cannot delete if active employees assigned, requires reassignment  
@@ -65,7 +118,7 @@
 - `backend/crm-backend/src/positions/*`
 - Migration: `20260114232520_add_position_department`
 
-### 5. ROLE GROUP MANAGEMENT
+### 8. ROLE GROUP MANAGEMENT
 **Code Generation**: Auto-generate from `name` (backend), not editable  
 **Delete Protection**: Cannot delete if positions use it, requires reassignment  
 **UI Changes**: Removed code column, code read-only in edit modal  
@@ -75,11 +128,11 @@
 - `frontend/crm-frontend/src/app/app/admin/role-groups/*`
 - `backend/crm-backend/src/role-groups/*`
 
-### 6. INCIDENT MANAGEMENT
+### 9. INCIDENT MANAGEMENT
 **Created By Field**: Populated from `req.user.id` (JWT auth), returns employee name  
 **Table UI**: Separated "Created On" and "Created By" columns  
 **Status Progress Bar**: Visual progress indicator showing all stages, highlights current  
-**Column Order**: Incident #, Status, Products Affected, Building, Client, Created On, Priority, Created By, Actions  
+**Column Order**: Incident #, Status, Devices Affected, Building, Client, Created On, Priority, Created By, Actions  
 **Employee Link**: Created By name clickable, opens employee detail page  
 **Created By Display**: Green badge with icon, modern styling  
 **Files**:
@@ -87,25 +140,10 @@
 - `backend/crm-backend/src/incidents/incidents.service.ts`
 - `backend/crm-backend/src/v1/incidents.controller.ts`
 
-### 7. INCIDENT CREATION WITHOUT CLIENT (IN PROGRESS)
-**Requirement**: Allow creating incidents without assigning a client  
-**Schema**: `clientId` made nullable (`String?`) in `Incident` model  
-**Migration**: `20260115020000_make_incident_clientid_nullable` (deleted, needs re-creation)  
-**Frontend**: "Continue without client" button on step 2, omits `clientId` from payload  
-**Backend DTO**: `clientId` optional with `@IsOptional()`, `@ValidateIf` for conditional validation  
-**Backend Service**: Conditionally includes `clientId` only if client exists  
-**Current Error**: `Null constraint violation` when creating without client  
-**Status**: ⚠️ **NEEDS FIX** - Prisma client may need regeneration, or database migration not applied  
-**Files**:
-- `frontend/crm-frontend/src/app/app/incidents/report-incident-modal.tsx`
-- `backend/crm-backend/src/incidents/dto/create-incident.dto.ts`
-- `backend/crm-backend/src/incidents/incidents.service.ts`
-- `backend/crm-backend/prisma/schema.prisma`
-
-### 8. BUILDING DETAIL PAGE - INCIDENT CREATION
-**Feature**: "Report Incident" button in Incidents tab  
-**Behavior**: Pre-fills building, locks building selection  
-**Implementation**: `presetBuilding` and `lockBuilding` props to `ReportIncidentModal`  
+### 10. BUILDING DETAIL PAGE - DEVICES TAB
+**Feature**: "Devices" tab (formerly "Products") showing building assets  
+**Modal**: "Add Device" button opens `AddDeviceModal`  
+**Features**: Filter by device type, offline status, grouped by type  
 **Files**: `frontend/crm-frontend/src/app/app/buildings/[buildingId]/page.tsx`
 
 ---
@@ -120,7 +158,7 @@
 
 ### SAFE DELETION WITH REASSIGNMENT
 **Pattern**: Check for active relationships before deletion, require reassignment  
-**Used In**: Positions (check employees), Role Groups (check positions)  
+**Used In**: Positions (check employees), Role Groups (check positions), List Items (check usage)  
 **Implementation**: `remove()` method checks count, throws if > 0, accepts `replacementId` in body  
 **Frontend**: Delete dialogs show active relationships, offer reassignment dropdown
 
@@ -135,6 +173,12 @@
 **Guards**: `JwtAuthGuard` (validates token), `PositionPermissionGuard` (checks permissions)  
 **Decorator**: `@RequirePermission('resource.action')` for endpoint protection  
 **User Context**: `req.user.id` available in controllers, passed to services
+
+### DYNAMIC LIST ITEMS
+**Pattern**: All dropdowns fetch from System Lists API, never hardcode  
+**Backend**: `SystemListsService` with categories and items  
+**Frontend**: `useListItems(categoryCode)` hook  
+**Categories**: Defined in `DEVELOPMENT_GUIDELINES.md`
 
 ---
 
@@ -152,6 +196,12 @@
 **Features**: Automatic credentials, error handling, JSON parsing  
 **DELETE with Body**: `apiDelete` accepts optional `body` parameter for reassignment
 
+### DYNAMIC LISTS HOOK
+**File**: `frontend/crm-frontend/src/hooks/useListItems.ts`  
+**Usage**: `const { items, loading, error, refresh } = useListItems(categoryCode)`  
+**Features**: Automatic caching, loading states, error handling  
+**CRITICAL**: Always use this hook, never hardcode dropdown values
+
 ### STATE MANAGEMENT
 **Pattern**: `useState` for local state, `useEffect` for data fetching  
 **Memoization**: `useMemo` for filtered lists, computed values  
@@ -159,7 +209,7 @@
 
 ### ROUTING
 **App Router**: Next.js 15 App Router with `app/` directory  
-**Dynamic Routes**: `[id]`, `[buildingId]`, `[employeeId]` folders  
+**Dynamic Routes**: `[id]`, `[buildingId]`, `[employeeId]`, `[categoryId]` folders  
 **Layouts**: Shared layouts in `app/app/layout.tsx`
 
 ---
@@ -176,6 +226,7 @@
 - **Incident** -> **Building** (many:1, required)
 - **Incident** -> **Client** (many:1, optional/nullable)
 - **Incident** -> **User** (many:1, optional, via `reportedById`)
+- **SystemListCategory** -> **SystemListItem** (1:many)
 
 ### NULLABLE FIELDS
 - `Incident.clientId`: Nullable (allows incidents without client)
@@ -203,24 +254,24 @@
 7. `20260112153813_add_incidents` - Incident model
 8. `20260112213805_client_building_many_to_many` - Client-Building relationship
 9. `20260113131633_add_inventory_system` - Inventory system
-10. `20260114212338_add_position_based_rbac_system` - RBAC system (had BOM character issue, fixed)
+10. `20260114212338_add_position_based_rbac_system` - RBAC system
 11. `20260114232520_add_position_department` - Position-Department link
 12. `20260115012554_update_employee_fields` - Employee field updates
-13. `20260115020000_make_incident_clientid_nullable` - **DELETED** (needs re-creation)
+13. `20260115140847_add_system_lists` - System Lists for dynamic dropdowns
 
 ---
 
-## KNOWN ISSUES
+## GIT COMMITS & VERSIONING
 
-### 1. INCIDENT CREATION WITHOUT CLIENT
-**Error**: `Null constraint violation` when `clientId` is omitted  
-**Attempted**: Schema nullable, DTO optional, conditional inclusion in service  
-**Next Steps**: Verify migration applied, regenerate Prisma client, test with explicit null vs omit
+**Current Version**: v1.0.0  
+**Latest Commit**: `7e0c3a8` - "feat: Rename Products to Devices in Buildings context and restore permissions"
 
-### 2. BOM CHARACTER IN MIGRATIONS
-**Issue**: Migration files sometimes have BOM character causing SQL syntax errors  
-**Fix**: Strip BOM using `Get-Content ... | Set-Content -Encoding utf8`  
-**Affected**: `20260114212338_add_position_based_rbac_system`, `20260114232520_add_position_department`
+**Recent Commits**:
+- `7e0c3a8` - feat: Rename Products to Devices in Buildings context and restore permissions
+- `b3239b5` - docs: Add comprehensive performance optimization guidelines
+- `421a38e` - feat: Add Report Incident button in building detail view
+- `7803cf1` - perf(frontend): Parallelize API calls and use centralized API client
+- `f6141a3` - docs: Add comprehensive session summary and documentation index
 
 ---
 
@@ -236,8 +287,10 @@
 - `src/positions/*` - Position service, DTOs, delete DTO
 - `src/role-groups/*` - Role group service, DTOs, delete DTO
 - `src/departments/*` - Department service, DTOs
+- `src/system-lists/*` - System Lists API for dynamic dropdowns
 - `prisma/schema.prisma` - Database schema
 - `prisma/migrations/*` - Database migrations
+- `prisma/seed-permissions.ts` - Permissions seed script
 
 ### FRONTEND
 - `src/app/app/layout.tsx` - Main app layout
@@ -246,9 +299,11 @@
 - `src/app/app/admin/departments/*` - Department management
 - `src/app/app/admin/positions/*` - Position management
 - `src/app/app/admin/role-groups/*` - Role group management
-- `src/app/app/buildings/*` - Building pages
+- `src/app/app/admin/list-items/*` - List Items Management
+- `src/app/app/buildings/*` - Building pages (Devices tab)
 - `src/app/modal-dialog.tsx` - Reusable modal component
 - `src/lib/api.ts` - API client utilities
+- `src/hooks/useListItems.ts` - Dynamic lists hook
 
 ---
 
@@ -277,27 +332,41 @@
 4. **Prisma client out of sync**: Run `npx prisma generate` after schema changes
 5. **Validation errors on optional fields**: Use `@IsOptional()` and conditional validation
 6. **Null constraint violations**: Use `null` not `undefined`, or omit field entirely
+7. **Hardcoded dropdowns**: Always use `useListItems(categoryCode)` hook
+8. **Permissions empty**: Run `npx tsx prisma/seed-permissions.ts` to restore
 
 ---
 
-## GIT COMMITS
+## TECHNOLOGY GUIDELINES SUMMARY
 
-Recent commits (2025-01-15):
-- `docs: Add known issue documentation for incident creation without client`
-- `Update backend submodule reference`
-- `WIP: Incident creation without client - partial implementation (needs fix)`
-- `Update departments UI to show employees via position relationships`
-- `feat(frontend): Update modals, add RBAC admin pages, and permission components`
+### CRITICAL RULES
+1. **NEVER hardcode dropdown values** - Always use `useListItems(categoryCode)`
+2. **Always use `createPortal`** for modals to `document.body`
+3. **Use centralized API client** - `apiGet`, `apiPost`, etc. from `lib/api.ts`
+4. **Terminology**: "Devices" for building assets, "Products" for inventory items
+5. **Auto-generate codes** - Never allow manual code entry for Departments, Positions, Role Groups
+
+### PERFORMANCE PATTERNS
+- Use `Promise.all` for parallel API calls
+- Implement proper caching strategies (no-store vs revalidate)
+- Avoid N+1 queries in backend (use `include` or `groupBy`)
+- Use `useMemo` for expensive computations
+- Lazy load heavy components
+
+### SECURITY PATTERNS
+- JWT tokens in httpOnly cookies
+- Permission checks on both frontend and backend
+- Use `@RequirePermission` decorator for protected endpoints
+- Validate all inputs with DTOs
 
 ---
 
 ## NEXT STEPS (TODO)
 
-1. **Fix incident creation without client**: Investigate Prisma client, verify migration, test null vs omit
-2. **Re-create migration**: `20260115020000_make_incident_clientid_nullable` was deleted
-3. **Test all modals**: Verify all use `createPortal` pattern
-4. **Document API patterns**: Add to DEVELOPMENT_GUIDELINES.md
-5. **Add error handling patterns**: Document in DEVELOPMENT_GUIDELINES.md
+1. ✅ **Devices terminology** - Complete
+2. ✅ **Permissions restoration** - Complete
+3. ✅ **List Items Management** - Complete
+4. **Continue feature development** - Ready for next session
 
 ---
 
