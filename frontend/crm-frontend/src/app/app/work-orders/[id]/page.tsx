@@ -14,6 +14,7 @@ const BRAND = "rgb(8, 117, 56)";
 
 type WorkOrderDetail = {
   id: string;
+  workOrderNumber: number;
   type:
     | "INSTALLATION"
     | "DIAGNOSTIC"
@@ -109,12 +110,14 @@ type WorkOrderDetail = {
   }>;
   parentWorkOrder?: {
     id: string;
+    workOrderNumber: number;
     title: string;
     type: string;
     status: string;
   } | null;
   childWorkOrders?: Array<{
     id: string;
+    workOrderNumber: number;
     title: string;
     type: string;
     status: string;
@@ -204,6 +207,9 @@ export default function WorkOrderDetailPage() {
   const [currentEmployee, setCurrentEmployee] = useState<any>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"details" | "timeline" | "workflow">("details");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [inventoryImpact, setInventoryImpact] = useState<any>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Fetch current user info
   useEffect(() => {
@@ -286,13 +292,46 @@ export default function WorkOrderDetailPage() {
   }, [id]);
 
   async function handleDelete() {
-    if (!id || !confirm("Are you sure you want to delete this work order?")) return;
+    if (!id) return;
 
     try {
-      await apiDelete(`/v1/work-orders/${id}`);
+      // Check inventory impact first
+      const impact = await apiGet(`/v1/work-orders/${id}/inventory-impact`);
+      setInventoryImpact(impact);
+      
+      if (impact.hasImpact) {
+        // Show confirmation dialog with options
+        setShowDeleteConfirm(true);
+      } else {
+        // No impact, simple confirmation
+        if (confirm("Are you sure you want to delete this work order?")) {
+          await performDelete(false);
+        }
+      }
+    } catch (err) {
+      // If check fails, proceed with simple confirmation
+      if (confirm("Are you sure you want to delete this work order?")) {
+        await performDelete(false);
+      }
+    }
+  }
+
+  async function performDelete(revertInventory: boolean) {
+    if (!id) return;
+
+    try {
+      setDeleteLoading(true);
+      const url = revertInventory 
+        ? `/v1/work-orders/${id}?revertInventory=true`
+        : `/v1/work-orders/${id}`;
+      
+      await apiDelete(url);
+      setShowDeleteConfirm(false);
       router.push("/app/work-orders");
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to delete work order");
+    } finally {
+      setDeleteLoading(false);
     }
   }
 
@@ -505,7 +544,7 @@ export default function WorkOrderDetailPage() {
         {activeTab === "workflow" && currentUser?.isSuperAdmin ? (
           <WorkflowTab workOrder={workOrder} />
         ) : activeTab === "timeline" ? (
-          <ActivityTimeline workOrderId={workOrder.id} />
+          <ActivityTimeline workOrderId={workOrder.workOrderNumber?.toString() || workOrder.id} />
         ) : (
           <div className="grid gap-6 lg:grid-cols-3">
           {/* Main Info */}
@@ -679,7 +718,7 @@ export default function WorkOrderDetailPage() {
                   {workOrder.childWorkOrders.map((child) => (
                     <Link
                       key={child.id}
-                      href={`/app/work-orders/${child.id}`}
+                      href={`/app/work-orders/${child.workOrderNumber}`}
                       className="block rounded-2xl bg-zinc-50 p-3 ring-1 ring-zinc-200 transition hover:bg-emerald-50/60 hover:ring-emerald-300"
                     >
                       <div className="text-sm font-semibold text-zinc-900">{child.title}</div>
@@ -696,7 +735,7 @@ export default function WorkOrderDetailPage() {
           {/* Product Usage Section - Only for INSTALLATION and REPAIR_CHANGE - Hidden for technical employees */}
           {!isTechnicalEmployee && (workOrder.type === "INSTALLATION" || workOrder.type === "REPAIR_CHANGE") && (
             <ProductUsageSection
-              workOrderId={workOrder.id}
+              workOrderId={workOrder.workOrderNumber?.toString() || workOrder.id}
               workOrderType={workOrder.type}
               workOrderStatus={workOrder.status}
               existingUsages={workOrder.productUsages}
@@ -709,7 +748,7 @@ export default function WorkOrderDetailPage() {
           {/* Deactivated Devices Section - Only for DEACTIVATE - Hidden for technical employees */}
           {!isTechnicalEmployee && workOrder.type === "DEACTIVATE" && (
             <DeactivatedDevicesSection
-              workOrderId={workOrder.id}
+              workOrderId={workOrder.workOrderNumber?.toString() || workOrder.id}
               workOrderStatus={workOrder.status}
               existingDevices={workOrder.deactivatedDevices}
               isAssignedEmployee={isAssignedEmployee || false}
@@ -729,7 +768,90 @@ export default function WorkOrderDetailPage() {
         workOrder={workOrder}
       />
 
-      {/* Assign Employees Modal - Removed, should be done in workspace */}
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && inventoryImpact && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-xl ring-1 ring-zinc-200">
+            <h2 className="text-xl font-semibold text-zinc-900 mb-2">
+              Delete Work Order with Inventory Impact
+            </h2>
+            <p className="text-sm text-zinc-600 mb-4">
+              This work order has already made changes to inventory stocks:
+            </p>
+
+            {inventoryImpact.approvedProductUsages > 0 && (
+              <div className="mb-4 rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200">
+                <div className="text-sm font-semibold text-amber-900 mb-2">
+                  Products Deducted ({inventoryImpact.approvedProductUsages}):
+                </div>
+                <ul className="space-y-1 text-xs text-amber-800">
+                  {inventoryImpact.productUsages?.map((pu: any, idx: number) => (
+                    <li key={idx}>
+                      • {pu.productName}: {pu.quantity} units
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {inventoryImpact.transferredDevices > 0 && (
+              <div className="mb-4 rounded-2xl bg-blue-50 p-4 ring-1 ring-blue-200">
+                <div className="text-sm font-semibold text-blue-900 mb-2">
+                  Devices Transferred to Stock ({inventoryImpact.transferredDevices}):
+                </div>
+                <ul className="space-y-1 text-xs text-blue-800">
+                  {inventoryImpact.deactivatedDevices?.map((dd: any, idx: number) => (
+                    <li key={idx}>
+                      • {dd.productName}: {dd.quantity} units
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="mb-6 rounded-2xl bg-zinc-50 p-4 ring-1 ring-zinc-200">
+              <p className="text-sm font-semibold text-zinc-900 mb-2">Choose an option:</p>
+              <div className="space-y-2 text-xs text-zinc-700">
+                <div>
+                  <strong>1. Delete and Revert Inventory:</strong> Restore all products to stock
+                  (reverse deductions and remove transferred devices), then delete the work order.
+                </div>
+                <div>
+                  <strong>2. Delete and Keep Changes:</strong> Delete the work order record but
+                  leave inventory changes as-is.
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleteLoading}
+                className="flex-1 rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => performDelete(false)}
+                disabled={deleteLoading}
+                className="flex-1 rounded-2xl bg-zinc-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-zinc-700 disabled:opacity-50"
+              >
+                {deleteLoading ? "Deleting..." : "Delete & Keep Changes"}
+              </button>
+              <button
+                type="button"
+                onClick={() => performDelete(true)}
+                disabled={deleteLoading}
+                className="flex-1 rounded-2xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleteLoading ? "Reverting..." : "Delete & Revert Inventory"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -887,7 +1009,7 @@ function WorkflowTab({ workOrder }: { workOrder: WorkOrderDetail }) {
         <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200">
           <h2 className="text-lg font-semibold text-zinc-900 mb-4">Parent Work Order</h2>
           <Link
-            href={`/app/work-orders/${workOrder.parentWorkOrder.id}`}
+            href={`/app/work-orders/${workOrder.parentWorkOrder.workOrderNumber}`}
             className="block rounded-2xl bg-zinc-50 p-4 ring-1 ring-zinc-200 transition hover:bg-emerald-50/60 hover:ring-emerald-300"
           >
             <div className="text-sm font-semibold text-zinc-900">
@@ -910,7 +1032,7 @@ function WorkflowTab({ workOrder }: { workOrder: WorkOrderDetail }) {
             {workOrder.childWorkOrders.map((child) => (
               <Link
                 key={child.id}
-                href={`/app/work-orders/${child.id}`}
+                href={`/app/work-orders/${child.workOrderNumber}`}
                 className="block rounded-2xl bg-zinc-50 p-4 ring-1 ring-zinc-200 transition hover:bg-emerald-50/60 hover:ring-emerald-300"
               >
                 <div className="text-sm font-semibold text-zinc-900">{child.title}</div>

@@ -1039,23 +1039,31 @@ function WorkOrdersTab({
             </div>
           ) : (
             <div className="space-y-2">
-              {workOrders.map((wo) => (
-                <Link
-                  key={wo.id}
-                  href={`/app/work-orders/${wo.id}`}
-                  className="block rounded-2xl bg-white p-4 ring-1 ring-zinc-200 transition hover:bg-emerald-50/60 hover:ring-emerald-300"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1">
-                      <div className="text-sm font-semibold text-zinc-900">{wo.title}</div>
-                      <div className="mt-1 text-xs text-zinc-500">
-                        {wo.type} • {wo.status} • {new Date(wo.createdAt).toLocaleDateString()}
+              {workOrders.map((wo) => {
+                // Use workOrderNumber if available, otherwise fall back to id
+                const workOrderId = wo.workOrderNumber ?? wo.id;
+                if (!workOrderId) {
+                  console.error("Work order missing both workOrderNumber and id:", wo);
+                  return null;
+                }
+                return (
+                  <Link
+                    key={wo.id || workOrderId}
+                    href={`/app/work-orders/${workOrderId}`}
+                    className="block rounded-2xl bg-white p-4 ring-1 ring-zinc-200 transition hover:bg-emerald-50/60 hover:ring-emerald-300"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <div className="text-sm font-semibold text-zinc-900">{wo.title}</div>
+                        <div className="mt-1 text-xs text-zinc-500">
+                          {wo.type} • {wo.status} • {new Date(wo.createdAt).toLocaleDateString()}
+                        </div>
                       </div>
+                      <span className="text-zinc-400">→</span>
                     </div>
-                    <span className="text-zinc-400">→</span>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                );
+              })}
             </div>
           )}
         </>

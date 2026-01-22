@@ -77,7 +77,13 @@ export default function WorkflowConfigPage() {
           apiGet<Position[]>("/v1/workflow/positions"),
         ]);
 
-        setSteps(stepsData);
+        // Only show Step 1 (ASSIGN_EMPLOYEES) and Step 5 (FINAL_APPROVAL)
+        // These are the only configurable steps - other steps are handled by assigned employees
+        const configurableSteps = stepsData.filter((step) =>
+          ["ASSIGN_EMPLOYEES", "FINAL_APPROVAL"].includes(step.stepKey)
+        );
+
+        setSteps(configurableSteps);
         setPositions(positionsData);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load workflow configuration");
@@ -107,6 +113,13 @@ export default function WorkflowConfigPage() {
     }
   }
 
+  // Helper to filter to only configurable steps (Step 1 and Step 5)
+  function filterConfigurableSteps(allSteps: WorkflowStep[]) {
+    return allSteps.filter((step) =>
+      ["ASSIGN_EMPLOYEES", "FINAL_APPROVAL"].includes(step.stepKey)
+    );
+  }
+
   async function handleSavePositions() {
     if (!selectedStep) return;
 
@@ -116,9 +129,9 @@ export default function WorkflowConfigPage() {
         positionIds: selectedPositions,
       });
 
-      // Refresh steps
+      // Refresh steps (filtered)
       const stepsData = await apiGet<WorkflowStep[]>("/v1/workflow/steps");
-      setSteps(stepsData);
+      setSteps(filterConfigurableSteps(stepsData));
 
       handleCloseEdit();
     } catch (err) {
@@ -132,9 +145,9 @@ export default function WorkflowConfigPage() {
     try {
       await apiPatch(`/v1/workflow/steps/${stepId}`, { isActive });
       
-      // Refresh steps
+      // Refresh steps (filtered)
       const stepsData = await apiGet<WorkflowStep[]>("/v1/workflow/steps");
-      setSteps(stepsData);
+      setSteps(filterConfigurableSteps(stepsData));
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to update step");
     }
@@ -179,10 +192,16 @@ export default function WorkflowConfigPage() {
 
       {/* Info Banner */}
       <div className="mb-6 rounded-3xl bg-blue-50 p-6 ring-1 ring-blue-200">
-        <h2 className="text-sm font-semibold text-blue-900 mb-2">📋 Work Order Workflow Steps</h2>
-        <p className="text-sm text-blue-700">
-          Each work order goes through these steps. Configure which employee positions should receive
-          tasks and notifications at each step.
+        <h2 className="text-sm font-semibold text-blue-900 mb-2">📋 Work Order Workflow Configuration</h2>
+        <p className="text-sm text-blue-700 mb-3">
+          Configure which positions receive tasks at each workflow step:
+        </p>
+        <ul className="text-sm text-blue-700 list-disc list-inside space-y-1">
+          <li><strong>Step 1 - Assign Employees:</strong> Receives new work orders and assigns technical employees</li>
+          <li><strong>Step 5 - Final Approval:</strong> Reviews completed work, approves products used, and finalizes the order</li>
+        </ul>
+        <p className="text-xs text-blue-600 mt-3">
+          💡 Steps 2-4 (Start Work, Submit Products, Submit Completion) are handled by the employees assigned in Step 1.
         </p>
       </div>
 

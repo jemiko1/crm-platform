@@ -172,8 +172,9 @@ export default function TaskDetailPage() {
   const [repairReason, setRepairReason] = useState("");
   const [showRepairRequestForm, setShowRepairRequestForm] = useState(false);
 
-  // Head of Technical Department review state
-  const [isHeadOfTechnical, setIsHeadOfTechnical] = useState(false);
+  // Workflow role state - separated by step
+  const [canAssignEmployees, setCanAssignEmployees] = useState(false); // Step 1: Can assign employees
+  const [canApprove, setCanApprove] = useState(false); // Step 5: Can approve/reject
   const [showApprovalForm, setShowApprovalForm] = useState(false);
   const [approvalComment, setApprovalComment] = useState("");
   const [cancelReason, setCancelReason] = useState("");
@@ -183,6 +184,27 @@ export default function TaskDetailPage() {
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [availableProducts, setAvailableProducts] = useState<Product[]>([]);
   const [productSearchQuery, setProductSearchQuery] = useState("");
+  const [workflowPositions, setWorkflowPositions] = useState<{step1: string[], step5: string[]}>({ step1: [], step5: [] });
+
+  // Fetch workflow step positions
+  useEffect(() => {
+    async function loadWorkflowPositions() {
+      try {
+        const steps = await apiGet<any[]>("/v1/workflow/steps");
+        const step1 = steps.find((s: any) => s.stepKey === "ASSIGN_EMPLOYEES");
+        const step5 = steps.find((s: any) => s.stepKey === "FINAL_APPROVAL");
+        
+        setWorkflowPositions({
+          step1: step1?.assignedPositions?.map((ap: any) => ap.position?.id) || [],
+          step5: step5?.assignedPositions?.map((ap: any) => ap.position?.id) || [],
+        });
+      } catch {
+        // Ignore - workflow may not be configured
+      }
+    }
+    
+    loadWorkflowPositions();
+  }, []);
 
   // Fetch current employee
   useEffect(() => {
@@ -200,15 +222,6 @@ export default function TaskDetailPage() {
           if (employees && employees.length > 0) {
             const emp = employees[0];
             setCurrentEmployee(emp);
-
-            // Check if Head of Technical Department
-            // Must have BOTH "head" AND ("tech" or "it") in name/code
-            const positionCode = emp.position?.code?.toLowerCase() || "";
-            const positionName = emp.position?.name?.toLowerCase() || "";
-            const hasHead = positionCode.includes("head") || positionName.includes("head");
-            const hasTechnical = positionCode.includes("tech") || positionName.includes("tech") ||
-                                 positionCode.includes("it") || positionName.includes("it ");
-            setIsHeadOfTechnical(hasHead && hasTechnical);
           }
         }
       } catch {
@@ -218,6 +231,18 @@ export default function TaskDetailPage() {
 
     loadEmployee();
   }, []);
+
+  // Check if current employee's position is assigned to workflow steps
+  useEffect(() => {
+    if (!currentEmployee?.position?.id) return;
+    
+    const positionId = currentEmployee.position.id;
+    const isInStep1 = workflowPositions.step1.includes(positionId);
+    const isInStep5 = workflowPositions.step5.includes(positionId);
+    
+    setCanAssignEmployees(isInStep1);
+    setCanApprove(isInStep5);
+  }, [currentEmployee, workflowPositions]);
 
   // Fetch task details
   useEffect(() => {
@@ -288,11 +313,11 @@ export default function TaskDetailPage() {
     }
   }, [task]);
 
-  // Initialize modified products when Head of Tech needs to review products
+  // Initialize modified products when Step 5 position needs to review products
   useEffect(() => {
     if (
       task &&
-      isHeadOfTechnical &&
+      canApprove &&
       task.status === "IN_PROGRESS" &&
       task.techEmployeeComment &&
       task.productUsages &&
@@ -308,7 +333,7 @@ export default function TaskDetailPage() {
         })),
       );
     }
-  }, [task, isHeadOfTechnical, modifiedProducts.length]);
+  }, [task, canApprove, modifiedProducts.length]);
 
   // Check if current employee is assigned
   const isAssigned = task?.assignments?.some((a) => a.employee.id === currentEmployee?.id);
@@ -543,11 +568,11 @@ export default function TaskDetailPage() {
   const canRequestRepair = task.type === "DIAGNOSTIC";
   const isCompleted = task.status === "COMPLETED" || task.status === "CANCELED";
   
-  // Head of Technical Department can review when:
-  // 1. CREATED status - need to assign employees
-  // 2. IN_PROGRESS with techEmployeeComment - tech employee submitted, need to review/approve
-  const canAssignEmployees = isHeadOfTechnical && task.status === "CREATED";
-  const needsHeadReview = isHeadOfTechnical && task.status === "IN_PROGRESS" && !!task.techEmployeeComment;
+  // Workflow step permissions:
+  // Step 1 positions - can assign employees for CREATED tasks
+  // Step 5 positions - can approve/reject IN_PROGRESS tasks with techEmployeeComment
+  const showAssignSection = canAssignEmployees && task.status === "CREATED";
+  const needsHeadReview = canApprove && task.status === "IN_PROGRESS" && !!task.techEmployeeComment;
   const techEmployeeSubmitted = task.status === "IN_PROGRESS" && !!task.techEmployeeComment;
 
   return (
@@ -1112,8 +1137,8 @@ export default function TaskDetailPage() {
               </div>
             )}
 
-            {/* Head of Technical Department - Assign Employees */}
-            {canAssignEmployees && (
+            {/* Step 1 Position - Assign Employees */}
+            {showAssignSection && (
               <div className="rounded-3xl bg-purple-50 p-6 shadow-sm ring-1 ring-purple-200">
                 <h2 className="text-lg font-semibold text-purple-900 mb-2">👥 Assign Employees</h2>
                 <p className="text-sm text-purple-700 mb-4">
@@ -1130,7 +1155,7 @@ export default function TaskDetailPage() {
               </div>
             )}
 
-            {/* Head of Technical Department - Review & Approve */}
+            {/* Step 5 Position - Review & Approve */}
             {needsHeadReview && (
               <div className="space-y-4">
                 {/* Tech Employee's Submission Info */}
@@ -1337,20 +1362,20 @@ export default function TaskDetailPage() {
             )}
 
             {/* Waiting for Review Notice (for tech employees) */}
-            {techEmployeeSubmitted && !isHeadOfTechnical && isAssigned && (
+            {techEmployeeSubmitted && !canApprove && isAssigned && (
               <div className="rounded-3xl bg-amber-50 p-6 shadow-sm ring-1 ring-amber-200">
                 <div className="text-center">
                   <div className="text-lg mb-2">⏳</div>
                   <div className="text-sm font-medium text-amber-900">Waiting for Review</div>
                   <div className="text-sm text-amber-700 mt-1">
-                    Your submission is being reviewed by the Head of Technical Department.
+                    Your submission is being reviewed for final approval.
                   </div>
                 </div>
               </div>
             )}
 
             {/* Not Assigned Notice */}
-            {!isAssigned && !isCompleted && !isHeadOfTechnical && (
+            {!isAssigned && !isCompleted && !canAssignEmployees && !canApprove && (
               <div className="rounded-3xl bg-zinc-50 p-6 shadow-sm ring-1 ring-zinc-200">
                 <div className="text-center">
                   <div className="text-lg mb-2">👀</div>
@@ -1370,7 +1395,7 @@ export default function TaskDetailPage() {
                   {task.childWorkOrders.map((child) => (
                     <Link
                       key={child.id}
-                      href={`/app/tasks/${child.id}`}
+                      href={`/app/tasks/${(child as any).workOrderNumber || child.id}`}
                       className="block rounded-2xl bg-zinc-50 p-3 ring-1 ring-zinc-200 transition hover:bg-emerald-50/60 hover:ring-emerald-300"
                     >
                       <div className="text-sm font-semibold text-zinc-900">{child.title}</div>
@@ -1395,7 +1420,7 @@ export default function TaskDetailPage() {
             setShowAssignModal(false);
             window.location.reload();
           }}
-          workOrderId={task.id}
+          workOrderId={task.workOrderNumber?.toString() || task.id}
           existingAssignments={task.assignments?.map((a) => a.employee.id) || []}
         />
       )}

@@ -11,6 +11,7 @@ const BRAND = "rgb(8, 117, 56)";
 
 type WorkOrderTask = {
   id: string;
+  workOrderNumber: number;
   title: string;
   type: string;
   status: string;
@@ -55,8 +56,11 @@ export default function TasksPage() {
   const [tasks, setTasks] = useState<WorkOrderTask[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [currentEmployee, setCurrentEmployee] = useState<any>(null);
-  const [isHeadOfTechnical, setIsHeadOfTechnical] = useState(false);
+  const [canAssignEmployees, setCanAssignEmployees] = useState(false); // Step 1: Can assign employees
+  const [canApprove, setCanApprove] = useState(false); // Step 5: Can approve/reject
+  const [isWorkflowManager, setIsWorkflowManager] = useState(false); // Either Step 1 or Step 5
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [workflowPositions, setWorkflowPositions] = useState<{step1: string[], step5: string[]}>({ step1: [], step5: [] });
 
   // Helper functions for labels
   function getTypeLabel(type: string): string {
@@ -82,6 +86,26 @@ export default function TasksPage() {
     return labels[status] || status;
   }
 
+  // Fetch workflow step positions
+  useEffect(() => {
+    async function loadWorkflowPositions() {
+      try {
+        const steps = await apiGet<any[]>("/v1/workflow/steps");
+        const step1 = steps.find((s: any) => s.stepKey === "ASSIGN_EMPLOYEES");
+        const step5 = steps.find((s: any) => s.stepKey === "FINAL_APPROVAL");
+        
+        setWorkflowPositions({
+          step1: step1?.assignedPositions?.map((ap: any) => ap.position?.id) || [],
+          step5: step5?.assignedPositions?.map((ap: any) => ap.position?.id) || [],
+        });
+      } catch {
+        // Ignore - workflow may not be configured
+      }
+    }
+    
+    loadWorkflowPositions();
+  }, []);
+
   // Get current employee
   useEffect(() => {
     let cancelled = false;
@@ -101,15 +125,6 @@ export default function TasksPage() {
             if (employees && employees.length > 0) {
               const emp = employees[0];
               setCurrentEmployee(emp);
-
-              // Check if Head of Technical Department
-              // Must have BOTH "head" AND ("tech" or "it") in name/code
-              const positionCode = emp.position?.code?.toLowerCase() || "";
-              const positionName = emp.position?.name?.toLowerCase() || "";
-              const hasHead = positionCode.includes("head") || positionName.includes("head");
-              const hasTechnical = positionCode.includes("tech") || positionName.includes("tech") ||
-                                   positionCode.includes("it") || positionName.includes("it ");
-              setIsHeadOfTechnical(hasHead && hasTechnical);
             }
           } catch {
             // Ignore
@@ -126,6 +141,19 @@ export default function TasksPage() {
       cancelled = true;
     };
   }, []);
+
+  // Check if current employee's position is assigned to workflow steps
+  useEffect(() => {
+    if (!currentEmployee?.position?.id) return;
+    
+    const positionId = currentEmployee.position.id;
+    const isInStep1 = workflowPositions.step1.includes(positionId);
+    const isInStep5 = workflowPositions.step5.includes(positionId);
+    
+    setCanAssignEmployees(isInStep1);
+    setCanApprove(isInStep5);
+    setIsWorkflowManager(isInStep1 || isInStep5);
+  }, [currentEmployee, workflowPositions]);
 
   // Fetch tasks
   useEffect(() => {
@@ -174,14 +202,20 @@ export default function TasksPage() {
   const [taskFilter, setTaskFilter] = useState<TaskFilter>("all");
 
   async function handleAssignEmployees(workOrderId: string) {
-    setSelectedTaskForAssign(workOrderId);
+    // Use workOrderNumber if available, otherwise use the provided ID
+    const task = tasks.find(t => t.id === workOrderId);
+    const idToUse = task?.workOrderNumber?.toString() || workOrderId;
+    setSelectedTaskForAssign(idToUse);
     setShowAssignModal(true);
   }
 
   async function handleStartWork(workOrderId: string) {
+    // Use workOrderNumber if available, otherwise use the provided ID
+    const task = tasks.find(t => t.id === workOrderId);
+    const idToUse = task?.workOrderNumber?.toString() || workOrderId;
     setActionLoading(workOrderId);
     try {
-      await apiPatch(`/v1/work-orders/${workOrderId}/start`);
+      await apiPatch(`/v1/work-orders/${idToUse}/start`);
       window.location.reload();
     } catch (err) {
       if (err instanceof ApiError) {
@@ -264,7 +298,7 @@ export default function TasksPage() {
           My Workspace
         </h1>
         <p className="mt-1 text-sm text-zinc-600">
-          {isHeadOfTechnical
+          {isWorkflowManager
             ? "Review and assign work orders to employees"
             : "View and manage your assigned tasks"}
         </p>
@@ -332,8 +366,8 @@ export default function TasksPage() {
         </div>
       </div>
 
-      {/* Filter Buttons (for Open Tasks, mainly useful for Head of Technical) */}
-      {activeTab === "open" && isHeadOfTechnical && (
+      {/* Filter Buttons (for Open Tasks, mainly useful for workflow managers) */}
+      {activeTab === "open" && isWorkflowManager && (
         <div className="mb-6 flex flex-wrap gap-2">
           <button
             type="button"
@@ -416,7 +450,8 @@ export default function TasksPage() {
               <TaskCard
                 key={task.id}
                 task={task}
-                isHeadOfTechnical={isHeadOfTechnical}
+                canAssignEmployees={canAssignEmployees}
+                canApprove={canApprove}
                 onAssign={activeTab === "open" ? () => handleAssignEmployees(task.id) : undefined}
                 onStart={activeTab === "open" ? () => handleStartWork(task.id) : undefined}
                 actionLoading={actionLoading === task.id}
@@ -453,7 +488,8 @@ export default function TasksPage() {
 
 function TaskCard({
   task,
-  isHeadOfTechnical,
+  canAssignEmployees,
+  canApprove,
   onAssign,
   onStart,
   actionLoading,
@@ -461,7 +497,8 @@ function TaskCard({
   getStatusLabel,
 }: {
   task: WorkOrderTask;
-  isHeadOfTechnical: boolean;
+  canAssignEmployees: boolean;
+  canApprove: boolean;
   onAssign?: () => void;
   onStart?: () => void;
   actionLoading?: boolean;
@@ -488,8 +525,10 @@ function TaskCard({
   const statusColor = statusColors[task.status] || "bg-zinc-100 text-zinc-800 ring-zinc-200";
   const typeIcon = typeIcons[task.type] || "📦";
 
-  const canAssign = isHeadOfTechnical && task.status === "CREATED";
-  const canStart = !isHeadOfTechnical && task.status === "LINKED_TO_GROUP";
+  // Step 1 positions can assign employees for CREATED tasks
+  const canAssign = canAssignEmployees && task.status === "CREATED";
+  // Non-workflow managers can start tasks that are LINKED_TO_GROUP
+  const canStart = !canAssignEmployees && !canApprove && task.status === "LINKED_TO_GROUP";
   const waitingApproval = task.status === "IN_PROGRESS" && !!task.techEmployeeComment;
   
   // Check if deadline is overdue
@@ -498,7 +537,7 @@ function TaskCard({
 
   return (
     <Link
-      href={`/app/tasks/${task.id}`}
+      href={`/app/tasks/${task.workOrderNumber || task.id}`}
       className={`block rounded-3xl bg-white p-6 shadow-sm ring-1 transition hover:shadow-md ${
         waitingApproval 
           ? "ring-amber-300 bg-amber-50/30" 
@@ -509,8 +548,8 @@ function TaskCard({
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
-          {/* Waiting for approval badge */}
-          {waitingApproval && isHeadOfTechnical && (
+          {/* Waiting for approval badge - only for Step 5 positions */}
+          {waitingApproval && canApprove && (
             <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
               <span className="animate-pulse">●</span>
               Waiting for your approval
@@ -614,7 +653,7 @@ function TaskCard({
             </button>
           )}
 
-          {waitingApproval && isHeadOfTechnical && (
+          {waitingApproval && canApprove && (
             <button
               type="button"
               onClick={(e) => {

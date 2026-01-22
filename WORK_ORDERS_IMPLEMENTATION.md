@@ -2,8 +2,8 @@
 
 **Created**: 2026-01-22  
 **Last Updated**: 2026-01-23  
-**Status**: Fully Implemented  
-**Module**: Work Orders Management System with Workflow Configuration
+**Status**: Fully Implemented & Production Ready  
+**Module**: Work Orders Management System with Dynamic Workflow Configuration
 
 ---
 
@@ -324,41 +324,45 @@ model WorkflowStepPosition {
 
 ### Configurable Workflow Steps
 
-The workflow is now fully configurable via the Admin Panel (`/app/admin/workflow`). Each step can have different positions assigned to handle tasks.
+The workflow is now fully configurable via the Admin Panel (`/app/admin/workflow`). **Only Step 1 and Step 5 are configurable** - Steps 2-4 are automatically handled by the employees assigned in Step 1.
 
-| Step | Key | Trigger Status | Default Position | Description |
-|------|-----|----------------|------------------|-------------|
-| 1 | `ASSIGN_EMPLOYEES` | CREATED | Head of Technical Department | Assign employees to the work order |
-| 2 | `START_WORK` | LINKED_TO_GROUP | Technical Employee | Start work on the order |
-| 3 | `SUBMIT_PRODUCTS` | IN_PROGRESS | Technical Employee | Submit products used (INSTALLATION, REPAIR_CHANGE) |
-| 4 | `SUBMIT_DEVICES` | IN_PROGRESS | Technical Employee | Submit deactivated devices (DEACTIVATE) |
-| 5 | `SUBMIT_COMPLETION` | IN_PROGRESS | Technical Employee | Submit work for review |
-| 6 | `FINAL_APPROVAL` | IN_PROGRESS | Head of Technical Department | Review and approve/cancel |
+| Step | Key | Trigger Status | Configurable | Default Position | Description |
+|------|-----|----------------|--------------|------------------|-------------|
+| 1 | `ASSIGN_EMPLOYEES` | CREATED | ✅ **Yes** | Head of Technical Department | Assign employees to the work order |
+| 2 | `START_WORK` | LINKED_TO_GROUP | ❌ No | Technical Employee | Start work on the order (handled by assigned employees) |
+| 3 | `SUBMIT_PRODUCTS` | IN_PROGRESS | ❌ No | Technical Employee | Submit products used (handled by assigned employees) |
+| 4 | `SUBMIT_DEVICES` | IN_PROGRESS | ❌ No | Technical Employee | Submit deactivated devices (handled by assigned employees) |
+| 5 | `SUBMIT_COMPLETION` | IN_PROGRESS | ❌ No | Technical Employee | Submit work for review (handled by assigned employees) |
+| 6 | `FINAL_APPROVAL` | IN_PROGRESS | ✅ **Yes** | Head of Technical Department | Review and approve/cancel |
+
+**Note**: Steps 2-4 are not shown in the admin panel as they are automatically handled by employees assigned in Step 1. Only Step 1 (who assigns employees) and Step 5 (who approves) are configurable.
 
 ### 1. CREATED (Initial State)
-- **Who sees it**: Head of Technical Department (via notifications)
+- **Who sees it**: Positions assigned to Step 1 (`ASSIGN_EMPLOYEES`) in workflow configuration (via notifications)
 - **Actions available**:
-  - Head of Technical Department: Assign employees (in workspace `/app/tasks/[taskId]`)
+  - Step 1 positions: Assign employees (in workspace `/app/tasks/[taskId]`)
   - Back office: View, Edit, Delete (read-only for technical employees)
+- **Configuration**: Admin can change which positions receive new work orders via `/app/admin/workflow` → Step 1
 
 ### 2. LINKED_TO_GROUP (Employees Assigned)
-- **Who sees it**: Assigned technical employees AND Head of Technical (in workspace)
+- **Who sees it**: Assigned technical employees AND Step 1 positions (in workspace)
 - **Actions available**:
   - Assigned employees: Start work
-  - Head of Technical Department: View assignments, monitor progress
+  - Step 1 positions: View assignments, monitor progress (tasks remain visible)
 
 ### 3. IN_PROGRESS (Work Started)
-- **Who sees it**: Assigned technical employees, Head of Technical Department
+- **Who sees it**: Assigned technical employees, Step 1 positions (monitoring), Step 5 positions (for approval)
 - **Actions available**:
   - Assigned employees:
     - Submit product usage (INSTALLATION, REPAIR_CHANGE)
     - Submit deactivated devices (DEACTIVATE)
     - Request repair classification (DIAGNOSTIC)
-    - Submit completion with comment
-  - Head of Technical Department: 
+    - Submit completion with comment (creates notification for Step 5 positions)
+  - Step 5 positions (Final Approval): 
     - Review products/devices
     - **Edit, delete, or add products** before approval
     - Approve or cancel with comments
+- **Configuration**: Admin can change which positions handle final approval via `/app/admin/workflow` → Step 5
 
 ### 4. COMPLETED (Approved)
 - **Final state**: Work order completed, products deducted from stock
@@ -624,7 +628,14 @@ The workflow is now fully configurable via the Admin Panel (`/app/admin/workflow
   - `AssignEmployeesModal` - Employee assignment modal
   - `AddProductModal` - Add product from inventory modal
 
-#### `/app/admin/workflow` - Workflow Configuration (Admin)
+#### `/app/admin/workflow` - Workflow Configuration (Admin Only)
+- **Description**: Configure which positions receive tasks at Step 1 (Assign Employees) and Step 5 (Final Approval)
+- **Features**:
+  - View Step 1 and Step 5 workflow steps
+  - Edit which positions are assigned to each step
+  - Enable/disable steps
+  - Steps 2-4 are hidden (automatically handled by assigned employees)
+- **Access**: Admin permissions required
 - **Purpose**: Configure workflow steps and position assignments
 - **Features**:
   - View all workflow steps
@@ -640,12 +651,15 @@ The workflow is now fully configurable via the Admin Panel (`/app/admin/workflow
 #### `CreateWorkOrderModal`
 - **Location**: `frontend/crm-frontend/src/app/app/work-orders/create-work-order-modal.tsx`
 - **Features**:
-  - Type selection (6 static types)
+  - Visual type selection cards (6 static types with icons)
+  - Two-column responsive layout
   - Conditional fields based on type
-  - Building selection
-  - Multiple device selection
-  - Employee notification selection
+  - Building search with results dropdown
+  - Multiple device selection with checkboxes
+  - Employee notification selection with tags
   - Auto-generates title if not provided
+  - Confirmation dialog to prevent data loss
+  - Modern, professional design
 
 #### `AssignEmployeesModal`
 - **Location**: `frontend/crm-frontend/src/app/app/work-orders/[id]/assign-employees-modal.tsx`
@@ -989,10 +1003,11 @@ frontend/crm-frontend/src/app/app/
 
 1. ✅ **Task Detail View in Workspace**: Full task detail page (`/app/tasks/[taskId]`) with all workflow actions
 2. ✅ **Workflow History**: Detailed activity log with timeline display
-3. ✅ **Workflow Configuration**: Admin panel to configure workflow steps and positions
-4. ✅ **Product Management**: Head of Technical can edit, delete, add products before approval
-5. ✅ **Task Filters**: Unassigned, In Progress, Waiting Approval filters for Head of Technical
+3. ✅ **Dynamic Workflow Configuration**: Admin panel to configure Step 1 (Assign Employees) and Step 5 (Final Approval) positions
+4. ✅ **Product Management**: Step 5 positions can edit, delete, add products before approval
+5. ✅ **Task Filters**: Unassigned, In Progress, Waiting Approval filters for workflow managers
 6. ✅ **Open/Closed Tabs**: Separate tabs for active and completed tasks in workspace
+7. ✅ **Visual Improvements**: Modern, professional create work order modal with improved UX
 
 ## 🚀 Future Enhancements
 
@@ -1017,9 +1032,11 @@ frontend/crm-frontend/src/app/app/
 - Sensitive data (amountGel) is hidden from technical employees
 - All workflow actions happen in workspace task detail (`/app/tasks/[taskId]`)
 - Activity timeline shows all workflow events for monitoring purposes
-- Workflow steps and position assignments are configurable via admin panel
-- Head of Technical Department can modify products before final approval
-- Products are deducted from inventory only after Head of Technical approves
+- Workflow Step 1 (Assign Employees) and Step 5 (Final Approval) positions are configurable via admin panel
+- Steps 2-4 are automatically handled by employees assigned in Step 1
+- Step 5 positions can modify products before final approval
+- Products are deducted from inventory only after Step 5 position approves
+- Work order creation modal has been visually improved with modern, professional design
 
 ---
 

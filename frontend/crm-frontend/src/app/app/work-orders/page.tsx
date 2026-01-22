@@ -10,6 +10,7 @@ const BRAND = "rgb(8, 117, 56)";
 
 type WorkOrder = {
   id: string;
+  workOrderNumber: number;
   type:
     | "INSTALLATION"
     | "DIAGNOSTIC"
@@ -285,7 +286,7 @@ export default function WorkOrdersPage() {
                             >
                               {/* Work Order */}
                               <td className="px-4 py-4 align-middle">
-                                <Link href={`/app/work-orders/${wo.id}`} className="block">
+                                <Link href={`/app/work-orders/${wo.workOrderNumber}`} className="block">
                                   <div className="min-w-0">
                                     <div className="flex items-center gap-2">
                                       <span className="text-sm font-semibold text-zinc-900 underline-offset-2 group-hover:underline">
@@ -346,7 +347,7 @@ export default function WorkOrdersPage() {
                               {/* Created */}
                               <td className="px-4 py-4 align-middle">
                                 <Link
-                                  href={`/app/work-orders/${wo.id}`}
+                                  href={`/app/work-orders/${wo.workOrderNumber}`}
                                   className="block"
                                   title="Open work order"
                                 >
