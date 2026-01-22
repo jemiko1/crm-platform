@@ -1,0 +1,58 @@
+{
+  "workOrders": {
+    "title": "Work Orders",
+    "create": "Create Work Order",
+    "types": {
+      "INSTALLATION": "Installation",
+      "DIAGNOSTIC": "Diagnostic",
+      "RESEARCH": "Research",
+      "DEACTIVATE": "Deactivate",
+      "REPAIR_CHANGE": "Repair/Change",
+      "ACTIVATE": "Activate"
+    },
+    "statuses": {
+      "CREATED": "Created",
+      "LINKED_TO_GROUP": "Linked To a Group",
+      "IN_PROGRESS": "In Progress",
+      "COMPLETED": "Completed",
+      "CANCELED": "Canceled"
+    },
+    "fields": {
+      "building": "Building",
+      "devices": "Devices",
+      "contactNumber": "Contact Number",
+      "deadline": "Deadline",
+      "description": "Description",
+      "amountGel": "Amount (GEL)",
+      "inventoryProcessingType": "Inventory Processing Type",
+      "employeesToNotify": "Employees To be Notified",
+      "type": "Type",
+      "status": "Status",
+      "title": "Title",
+      "notes": "Notes"
+    },
+    "actions": {
+      "create": "Create Work Order",
+      "edit": "Edit",
+      "delete": "Delete",
+      "assign": "Assign Employees",
+      "start": "Start Work",
+      "complete": "Complete",
+      "approve": "Approve",
+      "cancel": "Cancel",
+      "submitProducts": "Submit Products",
+      "submitDevices": "Submit Devices",
+      "requestRepair": "Request Repair Conversion"
+    },
+    "messages": {
+      "created": "Work order created successfully",
+      "updated": "Work order updated successfully",
+      "deleted": "Work order deleted successfully",
+      "assigned": "Employees assigned successfully",
+      "started": "Work started",
+      "completed": "Work completed",
+      "approved": "Work order approved",
+      "canceled": "Work order canceled"
+    }
+  }
+}

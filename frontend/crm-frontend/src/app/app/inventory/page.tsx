@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
+import { apiGet, apiPost } from "@/lib/api";
 import AddProductModal from "./add-product-modal";
 import EditProductModal from "./edit-product-modal";
 import CreatePurchaseOrderModal from "./create-purchase-order-modal";
@@ -8,7 +9,7 @@ import EditPurchaseOrderModal from "./edit-purchase-order-modal";
 
 const BRAND = "rgb(8, 117, 56)";
 
-type Tab = "products" | "purchase-orders" | "transactions";
+type Tab = "products" | "purchase-orders" | "transactions" | "deactivated-devices";
 
 type Product = {
   id: string;
@@ -220,6 +221,11 @@ export default function InventoryPage() {
             active={activeTab === "transactions"}
             onClick={() => setActiveTab("transactions")}
           />
+          <TabButton
+            label="Deactivated Devices"
+            active={activeTab === "deactivated-devices"}
+            onClick={() => setActiveTab("deactivated-devices")}
+          />
         </div>
       </div>
 
@@ -248,6 +254,7 @@ export default function InventoryPage() {
           />
         )}
         {activeTab === "transactions" && <TransactionsTab transactions={transactions} />}
+        {activeTab === "deactivated-devices" && <DeactivatedDevicesTab />}
       </div>
 
       {/* Modals */}
@@ -731,6 +738,142 @@ function TransactionsTab({ transactions }: { transactions: StockTransaction[] })
                   <div className="mt-0.5 text-xs font-medium text-zinc-700">{txn.performedBy}</div>
                 )}
               </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ========== DEACTIVATED DEVICES TAB ========== */
+function DeactivatedDevicesTab() {
+  const [loading, setLoading] = useState(true);
+  const [devices, setDevices] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchDevices() {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await apiGet("/v1/inventory/deactivated-devices?transferred=false");
+        if (!cancelled) setDevices(data);
+      } catch (err: any) {
+        if (!cancelled) {
+          setError(err.message || "Failed to load deactivated devices");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    fetchDevices();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold text-zinc-900">Deactivated Devices</h2>
+        <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
+          <div className="text-sm text-zinc-600">Loading deactivated devices...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold text-zinc-900">Deactivated Devices</h2>
+        <div className="rounded-2xl bg-red-50 p-4 ring-1 ring-red-200">
+          <div className="text-sm text-red-900">{error}</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (devices.length === 0) {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold text-zinc-900">Deactivated Devices</h2>
+        <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
+          <div className="text-sm text-zinc-600">No deactivated devices found.</div>
+          <p className="mt-2 text-xs text-zinc-500">
+            Devices from DEACTIVATE work orders will appear here.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-lg font-semibold text-zinc-900">
+        Deactivated Devices ({devices.length})
+      </h2>
+      <div className="space-y-2">
+        {devices.map((device) => (
+          <div
+            key={device.id}
+            className="rounded-2xl bg-white p-4 ring-1 ring-zinc-200 transition hover:bg-zinc-50"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-semibold text-zinc-900">{device.product?.name || "Unknown"}</div>
+                <div className="mt-1 text-xs text-zinc-500">
+                  Quantity: {device.quantity}
+                  {device.isWorkingCondition && (
+                    <span className="ml-2 text-emerald-600">✓ Working Condition</span>
+                  )}
+                  {device.transferredToStock && (
+                    <span className="ml-2 text-blue-600">✓ Transferred to Stock</span>
+                  )}
+                </div>
+              </div>
+              {!device.isWorkingCondition && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await apiPost(`/v1/inventory/deactivated-devices/${device.id}/mark-working`);
+                      window.location.reload();
+                    } catch (err: any) {
+                      alert(err.message || "Failed to mark as working condition");
+                    }
+                  }}
+                  className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+                  style={{ backgroundColor: BRAND }}
+                >
+                  Mark as Working
+                </button>
+              )}
+              {device.isWorkingCondition && !device.transferredToStock && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!confirm("Transfer this device to active stock?")) return;
+                    try {
+                      await apiPost(`/v1/inventory/deactivated-devices/${device.id}/transfer-to-stock`);
+                      window.location.reload();
+                    } catch (err: any) {
+                      alert(err.message || "Failed to transfer to stock");
+                    }
+                  }}
+                  className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+                  style={{ backgroundColor: BRAND }}
+                >
+                  Transfer to Stock
+                </button>
+              )}
             </div>
           </div>
         ))}

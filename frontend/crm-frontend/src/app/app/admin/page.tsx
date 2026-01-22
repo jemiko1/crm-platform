@@ -36,6 +36,13 @@ const adminSections: AdminSection[] = [
     href: "/app/admin/departments",
   },
   {
+    id: "workflow",
+    title: "Workflow Configuration",
+    description: "Configure work order workflow steps and position assignments",
+    icon: <IconWorkflow />,
+    href: "/app/admin/workflow",
+  },
+  {
     id: "list-items",
     title: "List Items",
     description: "Manage dropdown values, categories, and system lists",
@@ -254,6 +261,23 @@ function IconListItems() {
       <circle cx="7" cy="6" r="1.5" fill="currentColor" />
       <circle cx="7" cy="12" r="1.5" fill="currentColor" />
       <circle cx="7" cy="18" r="1.5" fill="currentColor" />
+    </svg>
+  );
+}
+
+function IconWorkflow() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <circle cx="5" cy="6" r="3" stroke="currentColor" strokeWidth="2" />
+      <circle cx="19" cy="6" r="3" stroke="currentColor" strokeWidth="2" />
+      <circle cx="12" cy="18" r="3" stroke="currentColor" strokeWidth="2" />
+      <path
+        d="M8 6h8M5 9v3l7 3M19 9v3l-7 3"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }

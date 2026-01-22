@@ -3,13 +3,32 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiGet, ApiError } from "@/lib/api";
+import { useI18n } from "@/hooks/useI18n";
+import CreateWorkOrderModal from "./create-work-order-modal";
 
 const BRAND = "rgb(8, 117, 56)";
 
 type WorkOrder = {
   id: string;
-  type: "INSTALL" | "DIAGNOSTIC" | "REPAIR";
-  status: "NEW" | "DISPATCHED" | "ACCEPTED" | "IN_PROGRESS" | "DONE" | "CANCELED";
+  type:
+    | "INSTALLATION"
+    | "DIAGNOSTIC"
+    | "RESEARCH"
+    | "DEACTIVATE"
+    | "REPAIR_CHANGE"
+    | "ACTIVATE"
+    | "INSTALL"
+    | "REPAIR"; // Legacy
+  status:
+    | "CREATED"
+    | "LINKED_TO_GROUP"
+    | "IN_PROGRESS"
+    | "COMPLETED"
+    | "CANCELED"
+    | "NEW"
+    | "DISPATCHED"
+    | "ACCEPTED"
+    | "DONE"; // Legacy
   title: string;
   notes: string | null;
   createdAt: string;
@@ -23,6 +42,13 @@ type WorkOrder = {
     name: string;
     type: string;
   } | null;
+  workOrderAssets?: Array<{
+    asset: {
+      coreId: number;
+      name: string;
+      type: string;
+    };
+  }>;
 };
 
 type WorkOrdersResponse = {
@@ -36,45 +62,61 @@ type WorkOrdersResponse = {
 };
 
 function getStatusBadge(status: WorkOrder["status"]) {
-  const styles: Record<WorkOrder["status"], string> = {
+  const styles: Record<string, string> = {
+    CREATED: "bg-blue-50 text-blue-700 ring-blue-200",
+    LINKED_TO_GROUP: "bg-amber-50 text-amber-700 ring-amber-200",
+    IN_PROGRESS: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+    COMPLETED: "bg-zinc-50 text-zinc-700 ring-zinc-200",
+    CANCELED: "bg-red-50 text-red-700 ring-red-200",
+    // Legacy statuses for backward compat
     NEW: "bg-blue-50 text-blue-700 ring-blue-200",
     DISPATCHED: "bg-amber-50 text-amber-700 ring-amber-200",
     ACCEPTED: "bg-purple-50 text-purple-700 ring-purple-200",
-    IN_PROGRESS: "bg-emerald-50 text-emerald-700 ring-emerald-200",
     DONE: "bg-zinc-50 text-zinc-700 ring-zinc-200",
-    CANCELED: "bg-red-50 text-red-700 ring-red-200",
   };
-  return styles[status];
+  return styles[status] || "bg-zinc-50 text-zinc-700 ring-zinc-200";
 }
 
-function getStatusLabel(status: WorkOrder["status"]) {
-  const labels: Record<WorkOrder["status"], string> = {
+function getStatusLabel(status: WorkOrder["status"], t: (key: string, fallback?: string) => string) {
+  const labels: Record<string, string> = {
+    CREATED: t("workOrders.statuses.CREATED", "Created"),
+    LINKED_TO_GROUP: t("workOrders.statuses.LINKED_TO_GROUP", "Linked To a Group"),
+    IN_PROGRESS: t("workOrders.statuses.IN_PROGRESS", "In Progress"),
+    COMPLETED: t("workOrders.statuses.COMPLETED", "Completed"),
+    CANCELED: t("workOrders.statuses.CANCELED", "Canceled"),
+    // Legacy
     NEW: "New",
     DISPATCHED: "Dispatched",
     ACCEPTED: "Accepted",
-    IN_PROGRESS: "In Progress",
     DONE: "Done",
-    CANCELED: "Canceled",
   };
-  return labels[status];
+  return labels[status] || status;
 }
 
-function getTypeLabel(type: WorkOrder["type"]) {
-  const labels: Record<WorkOrder["type"], string> = {
+function getTypeLabel(type: WorkOrder["type"], t: (key: string, fallback?: string) => string) {
+  const labels: Record<string, string> = {
+    INSTALLATION: t("workOrders.types.INSTALLATION", "Installation"),
+    DIAGNOSTIC: t("workOrders.types.DIAGNOSTIC", "Diagnostic"),
+    RESEARCH: t("workOrders.types.RESEARCH", "Research"),
+    DEACTIVATE: t("workOrders.types.DEACTIVATE", "Deactivate"),
+    REPAIR_CHANGE: t("workOrders.types.REPAIR_CHANGE", "Repair/Change"),
+    ACTIVATE: t("workOrders.types.ACTIVATE", "Activate"),
+    // Legacy
     INSTALL: "Install",
-    DIAGNOSTIC: "Diagnostic",
     REPAIR: "Repair",
   };
-  return labels[type];
+  return labels[type] || type;
 }
 
 export default function WorkOrdersPage() {
+  const { t } = useI18n();
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [meta, setMeta] = useState<WorkOrdersResponse["meta"] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const pageSize = 10;
 
@@ -129,14 +171,15 @@ export default function WorkOrdersPage() {
         wo.notes ?? "",
         wo.building.name,
         wo.asset?.name ?? "",
-        getStatusLabel(wo.status),
-        getTypeLabel(wo.type),
+        wo.workOrderAssets?.map((wa) => wa.asset.name).join(" ") ?? "",
+        getStatusLabel(wo.status, t),
+        getTypeLabel(wo.type, t),
       ]
         .join(" ")
         .toLowerCase();
       return hay.includes(query);
     });
-  }, [workOrders, q]);
+  }, [workOrders, q, t]);
 
   return (
     <div className="w-full">
@@ -146,15 +189,23 @@ export default function WorkOrdersPage() {
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs text-zinc-700 shadow-sm ring-1 ring-zinc-200">
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: BRAND }} />
-              Work Orders
+              {t("workOrders.title", "Work Orders")}
             </div>
             <h1 className="mt-3 text-2xl font-semibold tracking-tight text-zinc-900 md:text-3xl">
-              Work Orders Directory
+              {t("workOrders.title", "Work Orders")} Directory
             </h1>
             <p className="mt-1 text-sm text-zinc-600">
               Manage installation, diagnostic, and repair work orders across buildings.
             </p>
           </div>
+          <button
+            type="button"
+            onClick={() => setShowCreateModal(true)}
+            className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+            style={{ backgroundColor: BRAND }}
+          >
+            + {t("workOrders.actions.create", "Create Work Order")}
+          </button>
         </div>
 
         {/* Main Card */}
@@ -277,7 +328,7 @@ export default function WorkOrdersPage() {
                               {/* Type */}
                               <td className="px-4 py-4 align-middle">
                                 <span className="inline-flex items-center rounded-full bg-white px-3 py-1 text-xs font-semibold text-zinc-700 ring-1 ring-zinc-200">
-                                  {getTypeLabel(wo.type)}
+                                  {getTypeLabel(wo.type, t)}
                                 </span>
                               </td>
 
@@ -288,7 +339,7 @@ export default function WorkOrdersPage() {
                                     wo.status
                                   )}`}
                                 >
-                                  {getStatusLabel(wo.status)}
+                                  {getStatusLabel(wo.status, t)}
                                 </span>
                               </td>
 
@@ -349,6 +400,16 @@ export default function WorkOrdersPage() {
           )}
         </div>
       </div>
+
+      {/* Create Modal */}
+      <CreateWorkOrderModal
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={() => {
+          setShowCreateModal(false);
+          window.location.reload();
+        }}
+      />
     </div>
   );
 }

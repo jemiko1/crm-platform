@@ -1,0 +1,58 @@
+{
+  "workOrders": {
+    "title": "გამოძახების მოდული",
+    "create": "გამოძახების შექმნა",
+    "types": {
+      "INSTALLATION": "ინსტალაცია",
+      "DIAGNOSTIC": "დიაგნოსტიკა",
+      "RESEARCH": "მოკვლევა",
+      "DEACTIVATE": "დემონტაჟი",
+      "REPAIR_CHANGE": "შეცვლა",
+      "ACTIVATE": "ჩართვა"
+    },
+    "statuses": {
+      "CREATED": "შექმნილი",
+      "LINKED_TO_GROUP": "ჯგუფთან დაკავშირებული",
+      "IN_PROGRESS": "მიმდინარე",
+      "COMPLETED": "დასრულებული",
+      "CANCELED": "გაუქმებული"
+    },
+    "fields": {
+      "building": "შენობა",
+      "devices": "მოწყობილობები",
+      "contactNumber": "საკონტაქტო ნომერი",
+      "deadline": "ვადა",
+      "description": "აღწერა",
+      "amountGel": "თანხა (GEL)",
+      "inventoryProcessingType": "ინვენტარის დამუშავების ტიპი",
+      "employeesToNotify": "შეტყობინებების მიმღები თანამშრომლები",
+      "type": "ტიპი",
+      "status": "სტატუსი",
+      "title": "სათაური",
+      "notes": "შენიშვნები"
+    },
+    "actions": {
+      "create": "გამოძახების შექმნა",
+      "edit": "რედაქტირება",
+      "delete": "წაშლა",
+      "assign": "თანამშრომლების მინიჭება",
+      "start": "დაწყება",
+      "complete": "დასრულება",
+      "approve": "დამტკიცება",
+      "cancel": "გაუქმება",
+      "submitProducts": "პროდუქტების წარდგენა",
+      "submitDevices": "მოწყობილობების წარდგენა",
+      "requestRepair": "რემონტის მოთხოვნა"
+    },
+    "messages": {
+      "created": "გამოძახება წარმატებით შეიქმნა",
+      "updated": "გამოძახება წარმატებით განახლდა",
+      "deleted": "გამოძახება წარმატებით წაიშალა",
+      "assigned": "თანამშრომლები წარმატებით მიენიჭა",
+      "started": "სამუშაო დაიწყო",
+      "completed": "სამუშაო დასრულდა",
+      "approved": "გამოძახება დამტკიცდა",
+      "canceled": "გამოძახება გაუქმდა"
+    }
+  }
+}

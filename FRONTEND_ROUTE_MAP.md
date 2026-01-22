@@ -81,25 +81,64 @@ Complete frontend route documentation for CRM Platform.
 
 ## `/app/work-orders`
 
-**Files**: `work-orders/page.tsx`  
+**Files**: `work-orders/page.tsx`, `work-orders/create-work-order-modal.tsx`  
 **API Calls**:
 - `GET /v1/work-orders` - List work orders (with pagination/filters)
+- `POST /v1/work-orders` - Create work order
 
 **Status**: ✅ **Working**  
-**Notes**: List view with search, status filters, pagination.
+**Notes**: List view with search, status filters, pagination, status bar visualization.
 
 ---
 
 ## `/app/work-orders/[id]`
 
-**Files**: `work-orders/[id]/page.tsx`, `work-orders/[id]/edit-work-order-modal.tsx`  
+**Files**: `work-orders/[id]/page.tsx`, `work-orders/[id]/edit-work-order-modal.tsx`, `work-orders/[id]/assign-employees-modal.tsx`, `work-orders/[id]/product-usage-section.tsx`, `work-orders/[id]/deactivated-devices-section.tsx`  
 **API Calls**:
 - `GET /v1/work-orders/:id` - Get work order details
+- `GET /v1/work-orders/:id/activity` - Get activity log
 - `PATCH /v1/work-orders/:id` - Update work order
 - `DELETE /v1/work-orders/:id` - Delete work order
 
 **Status**: ✅ **Working**  
-**Notes**: Detail view with edit and delete functionality.
+**Notes**: Tabbed detail view (Details, Activity, Workflow). Back office monitoring page with activity timeline.
+
+---
+
+## `/app/tasks` (My Workspace)
+
+**Files**: `tasks/page.tsx`, `tasks-icon.tsx`  
+**API Calls**:
+- `GET /v1/work-orders/my-tasks` - Get work orders for current employee
+
+**Status**: ✅ **Working**  
+**Notes**: 
+- Technical employee workspace with task cards
+- Open/Closed tabs
+- Filters for Head of Technical (Unassigned, In Progress, Waiting Approval)
+- Header icon shows incomplete task count
+
+---
+
+## `/app/tasks/[taskId]`
+
+**Files**: `tasks/[taskId]/page.tsx`  
+**API Calls**:
+- `GET /v1/work-orders/:id` - Get work order details
+- `POST /v1/work-orders/:id/assign` - Assign employees
+- `PATCH /v1/work-orders/:id/start` - Start work
+- `POST /v1/work-orders/:id/products` - Submit products
+- `POST /v1/work-orders/:id/deactivated-devices` - Submit deactivated devices
+- `POST /v1/work-orders/:id/complete` - Submit for approval
+- `POST /v1/work-orders/:id/approve` - Approve (with product modifications)
+- `POST /v1/work-orders/:id/cancel` - Cancel
+- `GET /v1/inventory/products` - Get products for selection
+
+**Status**: ✅ **Working**  
+**Notes**: 
+- Full task detail with all workflow actions
+- Head of Technical can assign employees, review products, approve/cancel
+- Technical employees can start work, submit products/devices, complete
 
 ---
 
@@ -156,7 +195,24 @@ Complete frontend route documentation for CRM Platform.
 **Files**: `admin/page.tsx`  
 **API Calls**: None  
 **Status**: ✅ **Working**  
-**Notes**: Dashboard with cards linking to admin sub-sections (Positions, Role Groups, Departments, Roles, Users).
+**Notes**: Dashboard with cards linking to admin sub-sections (Positions, Role Groups, Departments, Roles, Users, System Lists, Workflow Configuration).
+
+---
+
+## `/app/admin/workflow`
+
+**Files**: `admin/workflow/page.tsx`  
+**API Calls**:
+- `GET /v1/workflow/steps` - List workflow steps with assigned positions
+- `GET /v1/workflow/positions` - List all positions
+- `PATCH /v1/workflow/steps/:id` - Update workflow step
+- `PATCH /v1/workflow/steps/:id/positions` - Set positions for step
+
+**Status**: ✅ **Working**  
+**Notes**: 
+- Configure workflow steps and position assignments
+- Activate/deactivate steps
+- Assign positions to each workflow step
 
 ---
 
@@ -264,8 +320,8 @@ Complete frontend route documentation for CRM Platform.
 
 ## Summary
 
-**Total Routes**: 20  
-**Working**: 12 routes (Buildings, Clients, Incidents, Work Orders, Inventory, Employees, Admin Panel, Positions, Role Groups)  
+**Total Routes**: 24  
+**Working**: 16 routes (Buildings, Clients, Incidents, Work Orders, Work Order Detail, Tasks, Task Detail, Inventory, Employees, Admin Panel, Positions, Role Groups, Workflow Configuration)  
 **Partial**: 4 routes (Dashboard - static UI, Departments - read-only, Roles - read-only, Admin Employees - duplicate)  
 **Placeholder**: 4 routes (Users, Assets, empty directories)
 
@@ -273,4 +329,7 @@ Complete frontend route documentation for CRM Platform.
 - Most routes use `apiGet`, `apiPost`, `apiPatch`, `apiDelete` from `@/lib/api`
 - Some routes use direct `fetch()` calls (buildings, clients pages)
 - Modals use `createPortal` for proper centering
-- Permission checks implemented via `usePermissions` hook (reverted in recent changes)
+- Permission checks implemented via `usePermissions` hook
+- Work Orders separated into back-office monitoring and employee workspace
+- Task detail page handles all workflow actions for technical employees
+- Activity timeline shows workflow events on work order detail page

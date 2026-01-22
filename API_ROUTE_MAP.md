@@ -58,10 +58,45 @@ Complete API route documentation for CRM Platform backend.
 
 **Endpoints**:
 - `POST /v1/work-orders` - Create work order
-- `GET /v1/work-orders` - List work orders (with pagination/filters)
+- `GET /v1/work-orders` - List work orders (query: page, pageSize, status, type, buildingId)
+- `GET /v1/work-orders/my-tasks` - Get work orders for current employee (workspace)
 - `GET /v1/work-orders/:id` - Get work order by ID
 - `PATCH /v1/work-orders/:id` - Update work order
 - `DELETE /v1/work-orders/:id` - Delete work order
+- `POST /v1/work-orders/:id/assign` - Assign employees to work order
+- `PATCH /v1/work-orders/:id/start` - Start work on work order
+- `POST /v1/work-orders/:id/products` - Submit product usage
+- `POST /v1/work-orders/:id/deactivated-devices` - Submit deactivated devices
+- `POST /v1/work-orders/:id/complete` - Submit work for approval
+- `POST /v1/work-orders/:id/approve` - Approve work order (with optional product modifications)
+- `POST /v1/work-orders/:id/cancel` - Cancel work order
+- `POST /v1/work-orders/:id/request-repair` - Request diagnostic → repair conversion
+- `GET /v1/work-orders/:id/activity` - Get activity log
+
+**Notes**: 
+- Workflow actions (assign, start, approve, cancel) are role-based
+- Head of Technical Department can modify products before approval
+- Products are deducted from inventory upon approval
+
+---
+
+## Workflow Configuration Module
+
+**File**: `src/v1/workflow.controller.ts`  
+**Base Route**: `/v1/workflow`  
+**Guards**: `JwtAuthGuard` (all endpoints)
+
+**Endpoints**:
+- `GET /v1/workflow/steps` - List all workflow steps with assigned positions
+- `GET /v1/workflow/steps/:id` - Get workflow step by ID
+- `PATCH /v1/workflow/steps/:id` - Update workflow step
+- `PATCH /v1/workflow/steps/:id/positions` - Set positions for workflow step
+- `GET /v1/workflow/positions` - List all active positions
+
+**Notes**: 
+- Admin-only endpoints for configuring workflow steps
+- Each step can have multiple positions assigned
+- Positions determine who receives tasks at each step
 
 ---
 
@@ -247,8 +282,10 @@ Complete API route documentation for CRM Platform backend.
 
 ## Summary
 
-**Total Controllers**: 14  
+**Total Controllers**: 15  
 **Guarded Routes**: Most routes under `/v1/*` require `JwtAuthGuard`  
-**Admin-Only Routes**: Positions, Role Groups, Admin Manual endpoints  
-**Permission-Protected**: `POST /v1/incidents` (requires `incidents.create` permission)  
+**Admin-Only Routes**: Positions, Role Groups, Admin Manual, Workflow Configuration  
+**Permission-Protected**: 
+- `POST /v1/incidents` (requires `incidents.create` permission)
+- Work Orders endpoints have granular permissions (assign, start, approve, cancel, etc.)  
 **Public Routes**: `/v1/buildings/*`, `/v1/clients` (read-only via PublicController)

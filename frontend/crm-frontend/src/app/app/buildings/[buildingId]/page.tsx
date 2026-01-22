@@ -10,6 +10,7 @@ import EditBuildingModal from "./edit-building-modal";
 import ReportIncidentModal from "../../incidents/report-incident-modal";
 import ModalDialog from "../../../modal-dialog";
 import IncidentDetailContent from "../../incidents/incident-detail-content";
+import CreateWorkOrderModal from "../../work-orders/create-work-order-modal";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -396,7 +397,7 @@ export default function BuildingDetailPage() {
             />
           )}
           {activeTab === "clients" && <ClientsTab clients={clients} onAddClick={() => setShowAddClientModal(true)} />}
-          {activeTab === "work-orders" && <WorkOrdersTab />}
+          {activeTab === "work-orders" && <WorkOrdersTab buildingCoreId={building.coreId} building={building} />}
           {activeTab === "incidents" && (
             <IncidentsTab
               incidents={incidents}
@@ -955,7 +956,55 @@ function ClientsTab({ clients, onAddClick }: { clients: Client[]; onAddClick: ()
 }
 
 /* ========== WORK ORDERS TAB ========== */
-function WorkOrdersTab() {
+function WorkOrdersTab({
+  buildingCoreId,
+  building,
+}: {
+  buildingCoreId: number;
+  building: Building;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [workOrders, setWorkOrders] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchWorkOrders() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const params = new URLSearchParams({
+          buildingId: String(buildingCoreId),
+          page: "1",
+          pageSize: "50",
+        });
+
+        const data = await apiGet<{ data: any[]; meta: any }>(`/v1/work-orders?${params}`);
+
+        if (!cancelled) {
+          setWorkOrders(data.data);
+        }
+      } catch (err: any) {
+        if (!cancelled) {
+          setError(err.message || "Failed to load work orders");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    fetchWorkOrders();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [buildingCoreId]);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -964,15 +1013,69 @@ function WorkOrdersTab() {
           type="button"
           className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
           style={{ backgroundColor: BRAND }}
-          onClick={() => alert("Create Work Order — coming in later phase")}
+          onClick={() => setShowCreateModal(true)}
         >
           + Create Work Order
         </button>
       </div>
 
-      <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
-        <div className="text-sm text-zinc-600">Work Orders module coming in Phase 4.</div>
-      </div>
+      {loading && (
+        <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
+          <div className="text-sm text-zinc-600">Loading work orders...</div>
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-2xl bg-red-50 p-4 ring-1 ring-red-200">
+          <div className="text-sm text-red-900">{error}</div>
+        </div>
+      )}
+
+      {!loading && !error && (
+        <>
+          {workOrders.length === 0 ? (
+            <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
+              <div className="text-sm text-zinc-600">No work orders found for this building.</div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {workOrders.map((wo) => (
+                <Link
+                  key={wo.id}
+                  href={`/app/work-orders/${wo.id}`}
+                  className="block rounded-2xl bg-white p-4 ring-1 ring-zinc-200 transition hover:bg-emerald-50/60 hover:ring-emerald-300"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <div className="text-sm font-semibold text-zinc-900">{wo.title}</div>
+                      <div className="mt-1 text-xs text-zinc-500">
+                        {wo.type} • {wo.status} • {new Date(wo.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <span className="text-zinc-400">→</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      <CreateWorkOrderModal
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={() => {
+          setShowCreateModal(false);
+          window.location.reload();
+        }}
+        presetBuilding={{
+          coreId: building.coreId,
+          name: building.name,
+          address: building.address,
+          city: building.city,
+        }}
+        lockBuilding={true}
+      />
     </div>
   );
 }

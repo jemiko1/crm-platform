@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import SidebarNav from "./sidebar-nav";
 import ProfileMenu from "./profile-menu";
+import TasksIcon from "./tasks-icon";
 
 const BRAND_GREEN = "rgb(8,117,56)";
 
@@ -52,20 +53,26 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
           {/* Main */}
           <main className="flex-1 space-y-4 min-w-0 px-4 py-6 lg:pl-[148px]">
-            {/* Top bar */}
-            <div className="rounded-3xl bg-white/85 backdrop-blur-xl border border-white/60 shadow-[0_30px_70px_-22px_rgba(0,0,0,0.25)]">
+            {/* Top bar - Sticky and Floating */}
+            <div className="sticky top-4 z-50 rounded-3xl bg-white/85 backdrop-blur-xl border border-white/60 shadow-[0_30px_70px_-22px_rgba(0,0,0,0.25)]">
               <div className="px-6 py-4 flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-zinc-900">
-                    Workspace
-                  </div>
-                  <div className="text-xs text-zinc-500 truncate">
-                    Protected area: /app/*
+                {/* Left side - Workspace button */}
+                <div className="flex items-center gap-4">
+                  <TasksIcon />
+                  <div className="min-w-0 hidden md:block">
+                    <div className="text-sm font-medium text-zinc-900">
+                      Workspace
+                    </div>
+                    <div className="text-xs text-zinc-500 truncate">
+                      Protected area: /app/*
+                    </div>
                   </div>
                 </div>
 
-                {/* Top-right profile dropdown */}
-                <ProfileMenu />
+                {/* Right side - Profile */}
+                <div className="flex items-center gap-3">
+                  <ProfileMenu />
+                </div>
               </div>
             </div>
 
