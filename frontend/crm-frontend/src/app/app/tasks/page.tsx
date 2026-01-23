@@ -215,7 +215,7 @@ export default function TasksPage() {
     const idToUse = task?.workOrderNumber?.toString() || workOrderId;
     setActionLoading(workOrderId);
     try {
-      await apiPatch(`/v1/work-orders/${idToUse}/start`);
+      await apiPost(`/v1/work-orders/${idToUse}/start`, {});
       window.location.reload();
     } catch (err) {
       if (err instanceof ApiError) {
