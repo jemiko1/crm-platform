@@ -213,17 +213,9 @@ export default function BuildingDetailPage() {
     try {
       setIncidentsLoading(true);
 
-      const res = await fetch(`http://localhost:3000/v1/buildings/${buildingId}/incidents`, {
-        credentials: "include",
+      const data = await apiGet<any>(`/v1/buildings/${buildingId}/incidents`, {
         cache: "no-store",
       });
-
-      if (!res.ok) {
-        setIncidents([]);
-        return;
-      }
-
-      const data = await res.json();
       const arr = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
       setIncidents(arr);
     } catch (err) {
@@ -467,7 +459,7 @@ export default function BuildingDetailPage() {
 }
 
 /* ========== OFFLINE ALERT (RED, MODERN) ========== */
-function OfflineDevicesAlert({ count, devices }: { count: number; devices: Asset[] }) {
+const OfflineDevicesAlert = React.memo(function OfflineDevicesAlert({ count, devices }: { count: number; devices: Asset[] }) {
   const [showTooltip, setShowTooltip] = useState(false);
 
   return (
@@ -530,10 +522,10 @@ function OfflineDevicesAlert({ count, devices }: { count: number; devices: Asset
       )}
     </div>
   );
-}
+});
 
 /* ========== TAB BUTTON ========== */
-function TabButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+const TabButton = React.memo(function TabButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -546,7 +538,7 @@ function TabButton({ label, active, onClick }: { label: string; active: boolean;
       {label}
     </button>
   );
-}
+});
 
 /* ========== OVERVIEW TAB ========== */
 function OverviewTab({ building }: { building: Building }) {
@@ -822,7 +814,7 @@ function DevicesTab({
   );
 }
 
-function FilterPill({
+const FilterPill = React.memo(function FilterPill({
   label,
   count,
   checked,
@@ -886,7 +878,7 @@ function FilterPill({
       />
     </label>
   );
-}
+});
 
 /* ========== CLIENTS TAB ========== */
 function ClientsTab({ clients, onAddClick }: { clients: Client[]; onAddClick: () => void }) {

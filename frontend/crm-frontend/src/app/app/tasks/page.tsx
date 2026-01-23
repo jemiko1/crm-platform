@@ -86,56 +86,47 @@ export default function TasksPage() {
     return labels[status] || status;
   }
 
-  // Fetch workflow step positions
+  // Fetch workflow positions and current employee in parallel
   useEffect(() => {
-    async function loadWorkflowPositions() {
+    let cancelled = false;
+
+    async function loadInitialData() {
       try {
-        const steps = await apiGet<any[]>("/v1/workflow/steps");
+        // Fetch workflow steps and user data in parallel
+        const [steps, authData] = await Promise.all([
+          apiGet<any[]>("/v1/workflow/steps").catch(() => []),
+          apiGet<any>("/auth/me").catch(() => null),
+        ]);
+
+        if (cancelled) return;
+
+        // Process workflow positions
         const step1 = steps.find((s: any) => s.stepKey === "ASSIGN_EMPLOYEES");
         const step5 = steps.find((s: any) => s.stepKey === "FINAL_APPROVAL");
-        
+
         setWorkflowPositions({
           step1: step1?.assignedPositions?.map((ap: any) => ap.position?.id) || [],
           step5: step5?.assignedPositions?.map((ap: any) => ap.position?.id) || [],
         });
+
+        // Process employee data
+        const userData = authData?.user || authData;
+        if (userData?.email) {
+          try {
+            const employees = await apiGet<any[]>(`/v1/employees?search=${userData.email}`);
+            if (employees && employees.length > 0 && !cancelled) {
+              setCurrentEmployee(employees[0]);
+            }
+          } catch {
+            // Ignore employee lookup errors
+          }
+        }
       } catch {
         // Ignore - workflow may not be configured
       }
     }
-    
-    loadWorkflowPositions();
-  }, []);
 
-  // Get current employee
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadEmployee() {
-      try {
-        const res = await fetch("http://localhost:3000/auth/me", {
-          credentials: "include",
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-        const userData = data?.user || data;
-
-        if (!cancelled && userData.email) {
-          try {
-            const employees = await apiGet<any[]>(`/v1/employees?search=${userData.email}`);
-            if (employees && employees.length > 0) {
-              const emp = employees[0];
-              setCurrentEmployee(emp);
-            }
-          } catch {
-            // Ignore
-          }
-        }
-      } catch {
-        // Ignore
-      }
-    }
-
-    loadEmployee();
+    loadInitialData();
 
     return () => {
       cancelled = true;

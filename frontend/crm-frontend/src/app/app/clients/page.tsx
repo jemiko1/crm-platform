@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { apiGet } from "@/lib/api";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -56,15 +57,9 @@ export default function ClientsPage() {
         setLoading(true);
         setError(null);
 
-        const res = await fetch("http://localhost:3000/v1/clients", {
-          method: "GET",
-          credentials: "include",
+        const data = await apiGet<ClientRow[]>("/v1/clients", {
           cache: "no-store",
         });
-
-        if (!res.ok) throw new Error("Failed to fetch clients");
-
-        const data = (await res.json()) as ClientRow[];
         if (!alive) return;
 
         setRows(Array.isArray(data) ? data : []);
@@ -332,7 +327,7 @@ export default function ClientsPage() {
   );
 }
 
-function BuildingsCell({ buildings }: { buildings: { coreId: number; name: string }[] }) {
+const BuildingsCell = React.memo(function BuildingsCell({ buildings }: { buildings: { coreId: number; name: string }[] }) {
   const [open, setOpen] = useState(false);
 
   if (!buildings.length) {
@@ -387,4 +382,4 @@ function BuildingsCell({ buildings }: { buildings: { coreId: number; name: strin
       ) : null}
     </div>
   );
-}
+});

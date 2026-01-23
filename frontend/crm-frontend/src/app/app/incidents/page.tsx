@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { apiGet } from "@/lib/api";
 import ReportIncidentModal from "./report-incident-modal";
 import ModalDialog from "../../modal-dialog";
 import IncidentDetailContent from "./incident-detail-content";
@@ -218,20 +219,9 @@ export default function IncidentsPage() {
       setLoading(true);
       setError(null);
 
-      const res = await fetch("http://localhost:3000/v1/incidents", {
-        method: "GET",
-        credentials: "include",
+      const data = await apiGet<any>("/v1/incidents", {
         cache: "no-store",
       });
-
-      // If backend isn't ready yet, avoid hard crash
-      if (!res.ok) {
-        // Show empty (but not error) for 404/501 etc during development
-        setIncidents([]);
-        return;
-      }
-
-      const data = await res.json();
       const arr = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
       setIncidents(arr.map(normalizeIncident).filter((x: any) => x?.id));
     } catch (e) {
@@ -769,7 +759,7 @@ export default function IncidentsPage() {
   );
 }
 
-function FilterPill({
+const FilterPill = React.memo(function FilterPill({
   label,
   count,
   active,
@@ -815,7 +805,7 @@ function FilterPill({
       </span>
     </button>
   );
-}
+});
 
 function IconIncident() {
   return (

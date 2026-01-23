@@ -67,7 +67,7 @@ function normalizeProductCounts(products: Record<string, number>): BuildingProdu
   };
 }
 
-function ProductIcons({ p }: { p: BuildingProductCounts }) {
+const ProductIcons = React.memo(function ProductIcons({ p }: { p: BuildingProductCounts }) {
   const items = [
     { key: "ELEVATOR", label: "Elevators", count: p.ELEVATOR, icon: <IconLift /> },
     { key: "ENTRANCE_DOOR", label: "Entrance Doors", count: p.ENTRANCE_DOOR, icon: <IconDoor /> },
@@ -99,7 +99,7 @@ function ProductIcons({ p }: { p: BuildingProductCounts }) {
       })}
     </div>
   );
-}
+});
 
 export default function BuildingsPage() {
   const hasMounted = useHasMounted();
