@@ -359,9 +359,12 @@ export default function WorkOrdersPage() {
 
                               {/* Created */}
                               <td className="px-4 py-4 align-middle">
-                                <Link
-                                  href={`/app/work-orders/${wo.workOrderNumber}`}
-                                  className="block"
+                                <button
+                                  onClick={() => {
+                                    setSelectedWorkOrderId(wo.workOrderNumber.toString());
+                                    router.push(`/app/work-orders?workOrder=${wo.workOrderNumber}`);
+                                  }}
+                                  className="block text-left hover:bg-zinc-50 rounded-lg transition-colors w-full"
                                   title="Open work order"
                                 >
                                   <div className="text-sm text-zinc-900">
@@ -370,7 +373,7 @@ export default function WorkOrdersPage() {
                                   <div className="mt-1 text-xs text-zinc-500">
                                     {new Date(wo.createdAt).toLocaleTimeString()}
                                   </div>
-                                </Link>
+                                </button>
                               </td>
                             </tr>
                           );

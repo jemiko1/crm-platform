@@ -5,8 +5,6 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { apiGet, apiPatch, apiDelete, apiPost, ApiError } from "@/lib/api";
 import EditWorkOrderModal from "./edit-work-order-modal";
-import ProductUsageSection from "./product-usage-section";
-import DeactivatedDevicesSection from "./deactivated-devices-section";
 import ActivityTimeline from "./activity-timeline";
 import { useI18n } from "@/hooks/useI18n";
 import { usePermissions } from "@/lib/use-permissions";
@@ -758,30 +756,8 @@ export default function WorkOrderDetailPage() {
             )}
           </div>
 
-          {/* Product Usage Section - Only for INSTALLATION and REPAIR_CHANGE - Hidden for technical employees */}
-          {!isTechnicalEmployee && (workOrder.type === "INSTALLATION" || workOrder.type === "REPAIR_CHANGE") && (
-            <ProductUsageSection
-              workOrderId={workOrder.workOrderNumber?.toString() || workOrder.id}
-              workOrderType={workOrder.type}
-              workOrderStatus={workOrder.status}
-              existingUsages={workOrder.productUsages}
-              isAssignedEmployee={isAssignedEmployee || false}
-              isHeadOfTechnical={isHeadOfTechnical || false}
-              onUpdate={() => window.location.reload()}
-            />
-          )}
-
-          {/* Deactivated Devices Section - Only for DEACTIVATE - Hidden for technical employees */}
-          {!isTechnicalEmployee && workOrder.type === "DEACTIVATE" && (
-            <DeactivatedDevicesSection
-              workOrderId={workOrder.workOrderNumber?.toString() || workOrder.id}
-              workOrderStatus={workOrder.status}
-              existingDevices={workOrder.deactivatedDevices}
-              isAssignedEmployee={isAssignedEmployee || false}
-              isHeadOfTechnical={isHeadOfTechnical || false}
-              onUpdate={() => window.location.reload()}
-            />
-          )}
+          {/* Note: Product management is handled in Tasks workspace (/app/tasks/[taskId]) */}
+          {/* Work orders page is for viewing/management only, not for product operations */}
         </div>
         )}
       </div>

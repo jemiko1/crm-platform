@@ -6,8 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet, apiDelete } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
 import { usePermissions } from "@/lib/use-permissions";
-import ProductUsageSection from "./product-usage-section";
-import DeactivatedDevicesSection from "./deactivated-devices-section";
 import ActivityTimeline from "./activity-timeline";
 import StagesMonitoring from "./stages-monitoring";
 import EditWorkOrderModal from "./edit-work-order-modal";
@@ -220,7 +218,7 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
   const [error, setError] = useState<string | null>(null);
   const [isClosing, setIsClosing] = useState(false);
   const [isOpening, setIsOpening] = useState(false);
-  const [activeInfoTab, setActiveInfoTab] = useState<"general" | "products" | "activity">("general");
+  const [activeInfoTab, setActiveInfoTab] = useState<"general" | "activity" | "workflow">("general");
   const [showEditModal, setShowEditModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ isSuperAdmin?: boolean; email?: string } | null>(null);
@@ -397,24 +395,8 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
   }
 
   const currentStage = useMemo(() => getCurrentStage(workOrder), [workOrder]);
-  const requiresAmountAndInventory = workOrder?.type === "INSTALLATION" || workOrder?.type === "REPAIR_CHANGE";
   
-  // Check if current user is assigned to this work order
-  const isAssignedEmployee = useMemo(() => {
-    if (!workOrder?.assignments || !currentEmployee?.id) return false;
-    return workOrder.assignments.some((a: any) => a.employee?.id === currentEmployee.id);
-  }, [workOrder?.assignments, currentEmployee?.id]);
-  
-  // Check if current user is head of technical department
-  const isHeadOfTechnical = useMemo(() => {
-    if (currentUser?.isSuperAdmin) return true;
-    const posCode = currentEmployee?.position?.code?.toLowerCase() || "";
-    const posName = currentEmployee?.position?.name?.toLowerCase() || "";
-    return posCode.includes("head") && posCode.includes("technical") ||
-           posName.includes("head") && posName.includes("technical");
-  }, [currentUser?.isSuperAdmin, currentEmployee?.position]);
-  
-  // Check if user is technical employee
+  // Check if user is technical employee (for sensitive data visibility)
   const isTechnicalEmployee = useMemo(() => {
     const posCode = currentEmployee?.position?.code?.toLowerCase() || "";
     const posName = currentEmployee?.position?.name?.toLowerCase() || "";
@@ -602,29 +584,6 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
                     </>
                   )}
                 </button>
-                {requiresAmountAndInventory && (
-                  <button
-                    onClick={() => setActiveInfoTab("products")}
-                    className={`relative px-4 py-3 text-sm font-medium transition-all whitespace-nowrap flex items-center gap-2 ${
-                      activeInfoTab === "products"
-                        ? "text-zinc-900 font-semibold"
-                        : "text-zinc-600 hover:text-zinc-900"
-                    }`}
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                    </svg>
-                    Products
-                    {activeInfoTab === "products" && (
-                      <div 
-                        className="absolute bottom-0 left-0 right-0 h-8 bg-emerald-50/30 pointer-events-none"
-                        style={{
-                          clipPath: "polygon(0% 100%, 0% 60%, 20% 50%, 40% 60%, 50% 50%, 60% 60%, 80% 50%, 100% 60%, 100% 100%)",
-                        }}
-                      />
-                    )}
-                  </button>
-                )}
                 <button
                   onClick={() => setActiveInfoTab("activity")}
                   className={`relative px-4 py-3 text-sm font-medium transition-all whitespace-nowrap flex items-center gap-2 ${
@@ -646,6 +605,29 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
                     />
                   )}
                 </button>
+                {currentUser?.isSuperAdmin && (
+                  <button
+                    onClick={() => setActiveInfoTab("workflow")}
+                    className={`relative px-4 py-3 text-sm font-medium transition-all whitespace-nowrap flex items-center gap-2 ${
+                      activeInfoTab === "workflow"
+                        ? "text-zinc-900 font-semibold"
+                        : "text-zinc-600 hover:text-zinc-900"
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Workflow (Debug)
+                    {activeInfoTab === "workflow" && (
+                      <div 
+                        className="absolute bottom-0 left-0 right-0 h-8 bg-emerald-50/30 pointer-events-none"
+                        style={{
+                          clipPath: "polygon(0% 100%, 0% 60%, 20% 50%, 40% 60%, 50% 50%, 60% 60%, 80% 50%, 100% 60%, 100% 100%)",
+                        }}
+                      />
+                    )}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -763,97 +745,76 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
                     </div>
                   )}
                 </div>
-              ) : activeInfoTab === "products" && requiresAmountAndInventory ? (
-                <div className="space-y-6">
-                  {/* Product Usage Management Section */}
-                  {(workOrder.status === "IN_PROGRESS" && (isAssignedEmployee || isHeadOfTechnical)) && (
-                    <ProductUsageSection
-                      workOrderId={workOrder.workOrderNumber?.toString() || workOrder.id}
-                      workOrderType={workOrder.type}
-                      workOrderStatus={workOrder.status}
-                      existingUsages={workOrder.productUsages}
-                      isAssignedEmployee={isAssignedEmployee || false}
-                      isHeadOfTechnical={isHeadOfTechnical || false}
-                      onUpdate={() => {
-                        if (workOrderId) {
-                          apiGet<WorkOrderDetail>(`/v1/work-orders/${workOrderId}`).then(setWorkOrder).catch(console.error);
-                        }
-                        if (onUpdate) onUpdate();
-                      }}
-                    />
-                  )}
-
-                  {/* Approved Products Display - EMERALD */}
-                  {workOrder.productUsages && workOrder.productUsages.filter(u => u.isApproved).length > 0 && (
-                    <div className="rounded-xl bg-gradient-to-br from-emerald-50 via-white to-emerald-50 border-2 border-emerald-200 shadow-sm p-6">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-md">
-                          <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        </div>
-                        <h3 className="text-base font-bold text-zinc-900">Approved Products</h3>
-                        <span className="ml-auto px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold">
-                          {workOrder.productUsages.filter(u => u.isApproved).length} product(s)
-                        </span>
-                      </div>
-                      <div className="space-y-3">
-                        {workOrder.productUsages
-                          .filter(u => u.isApproved)
-                          .map((usage) => (
-                            <div key={usage.id} className="bg-white/80 rounded-lg border border-emerald-100 p-4 hover:shadow-md transition-shadow">
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <div className="text-sm font-bold text-zinc-900">{usage.product.name}</div>
-                                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded text-xs font-semibold">
-                                      ✓ Approved
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-3 flex-wrap text-xs text-zinc-600">
-                                    <span className="px-2 py-0.5 bg-zinc-100 text-zinc-700 rounded font-semibold">
-                                      SKU: {usage.product.sku}
-                                    </span>
-                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded font-semibold">
-                                      Quantity: {usage.quantity}
-                                    </span>
-                                    <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded font-semibold">
-                                      Category: {usage.product.category}
-                                    </span>
-                                    {usage.batch && (
-                                      <>
-                                        <span className="text-zinc-500">
-                                          Purchase: {usage.batch.purchasePrice} GEL
-                                        </span>
-                                        <span className="text-zinc-500">
-                                          Sell: {usage.batch.sellPrice} GEL
-                                        </span>
-                                      </>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* No Products Message */}
-                  {(!workOrder.productUsages || workOrder.productUsages.length === 0) && workOrder.status !== "IN_PROGRESS" && (
-                    <div className="rounded-xl bg-gradient-to-br from-zinc-50 via-white to-zinc-50 border-2 border-zinc-200 shadow-sm p-8 text-center">
-                      <div className="h-16 w-16 rounded-full bg-zinc-100 flex items-center justify-center mx-auto mb-4">
-                        <svg className="w-8 h-8 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                        </svg>
-                      </div>
-                      <div className="text-sm font-semibold text-zinc-900 mb-1">No Approved Products</div>
-                      <div className="text-xs text-zinc-500">Products will appear here once approved by the head of technical department</div>
-                    </div>
-                  )}
-                </div>
               ) : activeInfoTab === "activity" ? (
                 <ActivityTimeline workOrderId={workOrder.workOrderNumber?.toString() || workOrder.id} />
+              ) : activeInfoTab === "workflow" && currentUser?.isSuperAdmin ? (
+                <div className="space-y-4">
+                  <div className="rounded-xl bg-gradient-to-br from-amber-50 via-white to-amber-50 border-2 border-amber-200 shadow-sm p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-md">
+                        <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-base font-bold text-zinc-900">Workflow Debug Information</h3>
+                      <span className="ml-auto px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-bold">
+                        Admin Only
+                      </span>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="bg-white/80 rounded-lg border border-amber-100 p-4">
+                        <div className="text-xs font-semibold text-zinc-500 uppercase mb-2">Work Order ID</div>
+                        <div className="text-sm font-mono text-zinc-900">{workOrder.id}</div>
+                      </div>
+                      <div className="bg-white/80 rounded-lg border border-amber-100 p-4">
+                        <div className="text-xs font-semibold text-zinc-500 uppercase mb-2">Work Order Number</div>
+                        <div className="text-sm font-mono text-zinc-900">#{workOrder.workOrderNumber}</div>
+                      </div>
+                      <div className="bg-white/80 rounded-lg border border-amber-100 p-4">
+                        <div className="text-xs font-semibold text-zinc-500 uppercase mb-2">Current Status</div>
+                        <div className="text-sm font-mono text-zinc-900">{workOrder.status}</div>
+                      </div>
+                      <div className="bg-white/80 rounded-lg border border-amber-100 p-4">
+                        <div className="text-xs font-semibold text-zinc-500 uppercase mb-2">Type</div>
+                        <div className="text-sm font-mono text-zinc-900">{workOrder.type}</div>
+                      </div>
+                      <div className="bg-white/80 rounded-lg border border-amber-100 p-4">
+                        <div className="text-xs font-semibold text-zinc-500 uppercase mb-2">Assignments</div>
+                        <div className="text-sm font-mono text-zinc-900">
+                          {workOrder.assignments?.length || 0} employee(s) assigned
+                        </div>
+                        {workOrder.assignments && workOrder.assignments.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            {workOrder.assignments.map((a: any) => (
+                              <div key={a.id} className="text-xs text-zinc-600">
+                                • {a.employee?.firstName} {a.employee?.lastName} ({a.employee?.position?.name || 'No position'})
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="bg-white/80 rounded-lg border border-amber-100 p-4">
+                        <div className="text-xs font-semibold text-zinc-500 uppercase mb-2">Products</div>
+                        <div className="text-sm font-mono text-zinc-900">
+                          {workOrder.productUsages?.length || 0} product(s) attached
+                        </div>
+                        <div className="text-xs text-zinc-500 mt-1">
+                          Approved: {workOrder.productUsages?.filter((p: any) => p.isApproved).length || 0}
+                        </div>
+                      </div>
+                      <div className="bg-white/80 rounded-lg border border-amber-100 p-4">
+                        <div className="text-xs font-semibold text-zinc-500 uppercase mb-2">Created / Updated</div>
+                        <div className="text-sm font-mono text-zinc-900">
+                          {new Date(workOrder.createdAt).toLocaleString()}
+                        </div>
+                        <div className="text-xs text-zinc-500 mt-1">
+                          Updated: {new Date(workOrder.updatedAt).toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               ) : null}
               </div>
             </div>
