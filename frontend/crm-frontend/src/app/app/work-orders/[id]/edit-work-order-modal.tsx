@@ -8,8 +8,8 @@ const BRAND = "rgb(8, 117, 56)";
 
 type WorkOrderDetail = {
   id: string;
-  type: "INSTALL" | "DIAGNOSTIC" | "REPAIR";
-  status: "NEW" | "DISPATCHED" | "ACCEPTED" | "IN_PROGRESS" | "DONE" | "CANCELED";
+  type: "INSTALLATION" | "DIAGNOSTIC" | "RESEARCH" | "DEACTIVATE" | "REPAIR_CHANGE" | "ACTIVATE";
+  status: "CREATED" | "LINKED_TO_GROUP" | "IN_PROGRESS" | "PENDING_APPROVAL" | "APPROVED" | "CANCELED";
   title: string;
   notes: string | null;
 };
@@ -83,16 +83,6 @@ export default function EditWorkOrderModal({
     }
   }
 
-  useEffect(() => {
-    if (open) {
-      setFormData({
-        status: workOrder.status,
-        title: workOrder.title,
-        notes: workOrder.notes || "",
-      });
-    }
-  }, [open, workOrder]);
-
   if (!open || !mounted) return null;
 
   const modalContent = (
@@ -143,11 +133,11 @@ export default function EditWorkOrderModal({
                   required
                   className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
                 >
-                  <option value="NEW">New</option>
-                  <option value="DISPATCHED">Dispatched</option>
-                  <option value="ACCEPTED">Accepted</option>
+                  <option value="CREATED">Created</option>
+                  <option value="LINKED_TO_GROUP">Linked to Group</option>
                   <option value="IN_PROGRESS">In Progress</option>
-                  <option value="DONE">Done</option>
+                  <option value="PENDING_APPROVAL">Pending Approval</option>
+                  <option value="APPROVED">Approved</option>
                   <option value="CANCELED">Canceled</option>
                 </select>
               </div>

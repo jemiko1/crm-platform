@@ -14,14 +14,6 @@ type Product = {
   currentStock: number;
 };
 
-type StockBatch = {
-  id: string;
-  remainingQuantity: number;
-  purchasePrice: number;
-  sellPrice: number;
-  receivedDate: string;
-};
-
 type ProductUsage = {
   productId: string;
   quantity: number;
@@ -414,33 +406,6 @@ function AddProductModal({
 }) {
   const [selectedProductId, setSelectedProductId] = useState("");
   const [quantity, setQuantity] = useState(1);
-  const [batches, setBatches] = useState<StockBatch[]>([]);
-  const [selectedBatchId, setSelectedBatchId] = useState("");
-
-  useEffect(() => {
-    if (!selectedProductId) {
-      setBatches([]);
-      return;
-    }
-
-    let cancelled = false;
-
-    async function fetchBatches() {
-      try {
-        // TODO: Fetch batches for product
-        // const data = await apiGet(`/v1/inventory/products/${selectedProductId}/batches`);
-        // if (!cancelled) setBatches(data);
-      } catch (err) {
-        console.error("Failed to fetch batches:", err);
-      }
-    }
-
-    fetchBatches();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedProductId]);
 
   const selectedProduct = products.find((p) => p.id === selectedProductId);
 
@@ -500,7 +465,7 @@ function AddProductModal({
               type="button"
               onClick={() => {
                 if (selectedProductId && quantity > 0) {
-                  onAdd(selectedProductId, quantity, selectedBatchId || undefined);
+                  onAdd(selectedProductId, quantity);
                 }
               }}
               disabled={!selectedProductId || quantity <= 0}

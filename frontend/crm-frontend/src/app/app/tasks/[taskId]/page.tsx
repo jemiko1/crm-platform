@@ -370,14 +370,6 @@ export default function TaskDetailPage() {
     }
   }
 
-  // Note: Products are now submitted together with completion, not separately
-  // This function is kept for backward compatibility but should not be used
-  async function handleSubmitProducts() {
-    // Products are submitted with completion, not separately
-    // This prevents duplication issues
-    console.warn("handleSubmitProducts called - products should be submitted with completion");
-  }
-
   function updateTechEmployeeProduct(index: number, quantity: number) {
     setTechEmployeeProducts((prev) => {
       const updated = [...prev];

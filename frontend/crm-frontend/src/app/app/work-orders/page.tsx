@@ -19,19 +19,14 @@ type WorkOrder = {
     | "RESEARCH"
     | "DEACTIVATE"
     | "REPAIR_CHANGE"
-    | "ACTIVATE"
-    | "INSTALL"
-    | "REPAIR"; // Legacy
+    | "ACTIVATE";
   status:
     | "CREATED"
     | "LINKED_TO_GROUP"
     | "IN_PROGRESS"
-    | "COMPLETED"
-    | "CANCELED"
-    | "NEW"
-    | "DISPATCHED"
-    | "ACCEPTED"
-    | "DONE"; // Legacy
+    | "PENDING_APPROVAL"
+    | "APPROVED"
+    | "CANCELED";
   title: string;
   notes: string | null;
   createdAt: string;
@@ -69,13 +64,9 @@ function getStatusBadge(status: WorkOrder["status"]) {
     CREATED: "bg-blue-50 text-blue-700 ring-blue-200",
     LINKED_TO_GROUP: "bg-amber-50 text-amber-700 ring-amber-200",
     IN_PROGRESS: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-    COMPLETED: "bg-zinc-50 text-zinc-700 ring-zinc-200",
+    PENDING_APPROVAL: "bg-purple-50 text-purple-700 ring-purple-200",
+    APPROVED: "bg-green-50 text-green-700 ring-green-200",
     CANCELED: "bg-red-50 text-red-700 ring-red-200",
-    // Legacy statuses for backward compat
-    NEW: "bg-blue-50 text-blue-700 ring-blue-200",
-    DISPATCHED: "bg-amber-50 text-amber-700 ring-amber-200",
-    ACCEPTED: "bg-purple-50 text-purple-700 ring-purple-200",
-    DONE: "bg-zinc-50 text-zinc-700 ring-zinc-200",
   };
   return styles[status] || "bg-zinc-50 text-zinc-700 ring-zinc-200";
 }
@@ -85,13 +76,9 @@ function getStatusLabel(status: WorkOrder["status"], t: (key: string, fallback?:
     CREATED: t("workOrders.statuses.CREATED", "Created"),
     LINKED_TO_GROUP: t("workOrders.statuses.LINKED_TO_GROUP", "Linked To a Group"),
     IN_PROGRESS: t("workOrders.statuses.IN_PROGRESS", "In Progress"),
-    COMPLETED: t("workOrders.statuses.COMPLETED", "Completed"),
+    PENDING_APPROVAL: t("workOrders.statuses.PENDING_APPROVAL", "Pending Approval"),
+    APPROVED: t("workOrders.statuses.APPROVED", "Approved"),
     CANCELED: t("workOrders.statuses.CANCELED", "Canceled"),
-    // Legacy
-    NEW: "New",
-    DISPATCHED: "Dispatched",
-    ACCEPTED: "Accepted",
-    DONE: "Done",
   };
   return labels[status] || status;
 }
@@ -104,9 +91,6 @@ function getTypeLabel(type: WorkOrder["type"], t: (key: string, fallback?: strin
     DEACTIVATE: t("workOrders.types.DEACTIVATE", "Deactivate"),
     REPAIR_CHANGE: t("workOrders.types.REPAIR_CHANGE", "Repair/Change"),
     ACTIVATE: t("workOrders.types.ACTIVATE", "Activate"),
-    // Legacy
-    INSTALL: "Install",
-    REPAIR: "Repair",
   };
   return labels[type] || type;
 }

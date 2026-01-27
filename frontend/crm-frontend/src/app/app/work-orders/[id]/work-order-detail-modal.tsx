@@ -220,16 +220,17 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
   const [error, setError] = useState<string | null>(null);
   const [isClosing, setIsClosing] = useState(false);
   const [isOpening, setIsOpening] = useState(false);
-  const [activeInfoTab, setActiveInfoTab] = useState<"general" | "products" | "documents" | "history" | "activity" | "workflow">("general");
+  const [activeInfoTab, setActiveInfoTab] = useState<"general" | "products" | "activity">("general");
   const [showEditModal, setShowEditModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [currentUser, setCurrentUser] = useState<{ isSuperAdmin?: boolean } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ isSuperAdmin?: boolean; email?: string } | null>(null);
+  const [currentEmployee, setCurrentEmployee] = useState<any>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showSimpleDeleteConfirm, setShowSimpleDeleteConfirm] = useState(false);
   const [inventoryImpact, setInventoryImpact] = useState<any>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   
-  // Fetch current user info
+  // Fetch current user and employee info
   useEffect(() => {
     let cancelled = false;
     async function fetchCurrentUser() {
@@ -237,7 +238,21 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
         const data = await apiGet<any>("/auth/me");
         const userData = data?.user || data;
         if (!cancelled) {
-          setCurrentUser({ isSuperAdmin: userData?.isSuperAdmin ?? false });
+          setCurrentUser({ 
+            isSuperAdmin: userData?.isSuperAdmin ?? false,
+            email: userData?.email
+          });
+          // Try to get employee info
+          if (userData?.email) {
+            try {
+              const empData = await apiGet<any[]>(`/v1/employees?search=${userData.email}`);
+              if (Array.isArray(empData) && empData.length > 0) {
+                setCurrentEmployee(empData[0]);
+              }
+            } catch {
+              // Ignore employee fetch errors
+            }
+          }
         }
       } catch (err) {
         console.error("Failed to fetch current user:", err);
@@ -383,10 +398,31 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
 
   const currentStage = useMemo(() => getCurrentStage(workOrder), [workOrder]);
   const requiresAmountAndInventory = workOrder?.type === "INSTALLATION" || workOrder?.type === "REPAIR_CHANGE";
-  const isAssignedEmployee = false; // TODO: Get from user context
-  const isHeadOfTechnical = false; // TODO: Get from user context
-  const isTechnicalEmployee = false; // TODO: Get from user context
-  const canViewSensitiveData = currentUser?.isSuperAdmin || true; // TODO: Get from permissions
+  
+  // Check if current user is assigned to this work order
+  const isAssignedEmployee = useMemo(() => {
+    if (!workOrder?.assignments || !currentEmployee?.id) return false;
+    return workOrder.assignments.some((a: any) => a.employee?.id === currentEmployee.id);
+  }, [workOrder?.assignments, currentEmployee?.id]);
+  
+  // Check if current user is head of technical department
+  const isHeadOfTechnical = useMemo(() => {
+    if (currentUser?.isSuperAdmin) return true;
+    const posCode = currentEmployee?.position?.code?.toLowerCase() || "";
+    const posName = currentEmployee?.position?.name?.toLowerCase() || "";
+    return posCode.includes("head") && posCode.includes("technical") ||
+           posName.includes("head") && posName.includes("technical");
+  }, [currentUser?.isSuperAdmin, currentEmployee?.position]);
+  
+  // Check if user is technical employee
+  const isTechnicalEmployee = useMemo(() => {
+    const posCode = currentEmployee?.position?.code?.toLowerCase() || "";
+    const posName = currentEmployee?.position?.name?.toLowerCase() || "";
+    return posCode.includes("technical") || posName.includes("technical");
+  }, [currentEmployee?.position]);
+  
+  // Check if user can view sensitive data (amounts)
+  const canViewSensitiveData = currentUser?.isSuperAdmin || hasPermission("work_orders.view_sensitive") || !isTechnicalEmployee;
 
   if (!mounted || !open) return null;
 
@@ -590,27 +626,6 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
                   </button>
                 )}
                 <button
-                  onClick={() => setActiveInfoTab("history")}
-                  className={`relative px-4 py-3 text-sm font-medium transition-all whitespace-nowrap flex items-center gap-2 ${
-                    activeInfoTab === "history"
-                      ? "text-zinc-900 font-semibold"
-                      : "text-zinc-600 hover:text-zinc-900"
-                  }`}
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  History
-                  {activeInfoTab === "history" && (
-                    <div 
-                      className="absolute bottom-0 left-0 right-0 h-8 bg-emerald-50/30 pointer-events-none"
-                      style={{
-                        clipPath: "polygon(0% 100%, 0% 60%, 20% 50%, 40% 60%, 50% 50%, 60% 60%, 80% 50%, 100% 60%, 100% 100%)",
-                      }}
-                    />
-                  )}
-                </button>
-                <button
                   onClick={() => setActiveInfoTab("activity")}
                   className={`relative px-4 py-3 text-sm font-medium transition-all whitespace-nowrap flex items-center gap-2 ${
                     activeInfoTab === "activity"
@@ -631,29 +646,6 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
                     />
                   )}
                 </button>
-                {currentUser?.isSuperAdmin && (
-                  <button
-                    onClick={() => setActiveInfoTab("workflow")}
-                    className={`relative px-4 py-3 text-sm font-medium transition-all whitespace-nowrap flex items-center gap-2 ${
-                      activeInfoTab === "workflow"
-                        ? "text-zinc-900 font-semibold"
-                        : "text-zinc-600 hover:text-zinc-900"
-                    }`}
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Workflow (Debug)
-                    {activeInfoTab === "workflow" && (
-                      <div 
-                        className="absolute bottom-0 left-0 right-0 h-8 bg-emerald-50/30 pointer-events-none"
-                        style={{
-                          clipPath: "polygon(0% 100%, 0% 60%, 20% 50%, 40% 60%, 50% 50%, 60% 60%, 80% 50%, 100% 60%, 100% 100%)",
-                        }}
-                      />
-                    )}
-                  </button>
-                )}
               </div>
             </div>
 
@@ -862,10 +854,6 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
                 </div>
               ) : activeInfoTab === "activity" ? (
                 <ActivityTimeline workOrderId={workOrder.workOrderNumber?.toString() || workOrder.id} />
-              ) : activeInfoTab === "history" ? (
-                <div className="text-sm text-zinc-600">History tab content</div>
-              ) : activeInfoTab === "workflow" ? (
-                <div className="text-sm text-zinc-600">Workflow debug tab content</div>
               ) : null}
               </div>
             </div>
