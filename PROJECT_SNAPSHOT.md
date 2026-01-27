@@ -1,11 +1,11 @@
 # CRM Platform - Project Snapshot
 
-**Last Updated**: 2026-01-15
-**Version**: v1.0.0
+**Last Updated**: 2026-01-27
+**Version**: v1.1.0
 **Tech Stack**: NestJS (Backend) + Next.js 15 (Frontend) + PostgreSQL + Prisma
-**Status**: Buildings, Clients, Incidents, and Admin modules complete and optimized
+**Status**: Buildings, Clients, Incidents, Work Orders, and Admin modules complete and optimized
 **Performance**: Week 1 optimizations complete (4-10x faster)
-**Latest Changes**: Devices terminology, Permissions restoration, List Items Management
+**Latest Changes**: Work Order Delete Permissions, Product Flow Activity, Inventory Impact Control
 
 ---
 
@@ -216,7 +216,28 @@ frontend/crm-frontend/
 - **API Client**: Centralized `apiGet/apiPost/apiPatch/apiDelete` from `lib/api.ts`
 - **Performance**: N+1 queries eliminated, parallel API calls, strategic caching
 
-### Recent Updates (v1.0.0 - 2026-01-15)
+### Recent Updates (v1.1.0 - 2026-01-27)
+
+**Work Order Delete Permissions:**
+- ✅ Added granular delete permissions for inventory control
+- ✅ `work_orders.delete_keep_inventory` - Delete work order, keep inventory changes
+- ✅ `work_orders.delete_revert_inventory` - Delete work order, revert products to stock
+- ✅ Permission-based UI: Shows locked options when user lacks specific permissions
+- ✅ Inventory impact check before deletion (shows affected products, transactions, devices)
+
+**Product Flow Activity:**
+- ✅ New "Product Flow" activity type in work order timeline
+- ✅ Filter activities by: All, Main Events, Product Flow
+- ✅ Detailed product modification logging (added, modified, removed)
+- ✅ `PRODUCTS_APPROVED` activity action with metadata
+
+**Work Order Enhancements:**
+- ✅ Modern styled delete confirmation dialogs with inventory impact details
+- ✅ Revert inventory changes functionality (returns products to stock)
+- ✅ Stock transaction reversal with proper balance tracking
+- ✅ Deactivated device transfer status reset
+
+### Previous Updates (v1.0.0 - 2026-01-15)
 
 **Terminology Changes:**
 - ✅ Renamed "Products" to "Devices" in Buildings context for clarity
@@ -224,7 +245,7 @@ frontend/crm-frontend/
 - ✅ Separated terminology: "Devices" (building assets) vs "Products" (inventory items)
 
 **Permissions System:**
-- ✅ Restored permissions database (49 permissions seeded)
+- ✅ Restored permissions database (63 permissions seeded)
 - ✅ Permissions list now visible in Admin panel
 - ✅ All CRUD permissions for Buildings, Clients, Incidents, Work Orders, Inventory, Employees, etc.
 

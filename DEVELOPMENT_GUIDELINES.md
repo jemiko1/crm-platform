@@ -850,13 +850,72 @@ For detailed optimization plans and analysis:
 
 ---
 
+## Permission Checks
+
+### Work Order Delete Permissions
+
+The system implements granular delete permissions for work orders with inventory control:
+
+**Available Permissions:**
+- `work_orders.delete` - Basic delete (for work orders without inventory impact)
+- `work_orders.delete_keep_inventory` - Delete work order, keep inventory changes intact
+- `work_orders.delete_revert_inventory` - Delete work order, return products to stock
+
+**Frontend Implementation:**
+
+```tsx
+import { usePermissions } from "@/lib/use-permissions";
+
+function WorkOrderActions() {
+  const { hasPermission } = usePermissions();
+  const currentUser = /* get from context */;
+  
+  // Permission checks - superadmin always has access
+  const canDeleteKeepInventory = currentUser?.isSuperAdmin || hasPermission("work_orders.delete_keep_inventory");
+  const canDeleteRevertInventory = currentUser?.isSuperAdmin || hasPermission("work_orders.delete_revert_inventory");
+  const canDeleteAny = canDeleteKeepInventory || canDeleteRevertInventory;
+  
+  // Show delete button only if user has any delete permission
+  {canDeleteAny && (
+    <button onClick={handleDelete}>Delete</button>
+  )}
+  
+  // In delete dialog, conditionally show options
+  {canDeleteRevertInventory ? (
+    <button onClick={() => performDelete(true)}>Delete & Revert</button>
+  ) : (
+    <div className="locked">No permission to revert inventory</div>
+  )}
+  
+  {canDeleteKeepInventory ? (
+    <button onClick={() => performDelete(false)}>Delete & Keep</button>
+  ) : (
+    <div className="locked">No permission to keep inventory</div>
+  )}
+}
+```
+
+**Backend Permission Seed:**
+
+```typescript
+// In seed-permissions.ts
+{ resource: "work_orders", action: "delete_keep_inventory", category: PermissionCategory.WORK_ORDERS, description: "Delete work orders and keep inventory changes" },
+{ resource: "work_orders", action: "delete_revert_inventory", category: PermissionCategory.WORK_ORDERS, description: "Delete work orders and revert inventory" },
+```
+
+**API Endpoints:**
+- `GET /v1/work-orders/:id/inventory-impact` - Check if work order has inventory impact
+- `DELETE /v1/work-orders/:id?revertInventory=true|false` - Delete with inventory control
+
+---
+
 ## Future Guidelines
 
 This section will be expanded with additional development guidelines as needed:
 
 - [ ] Form Validation Patterns
 - [ ] Error Handling Patterns
-- [ ] Permission Checks
+- [x] Permission Checks (see above)
 - [ ] Database Migration Guidelines
 - [ ] Testing Patterns
 - [ ] Component Organization
@@ -870,8 +929,10 @@ This section will be expanded with additional development guidelines as needed:
 - Ensure modals are accessible (keyboard navigation, focus management)
 - Consider mobile responsiveness when setting max-widths
 - Test with long content to ensure scrolling works correctly
+- When adding new permissions, run `npx tsx prisma/seed-permissions.ts` to seed them
+- Always check both frontend and backend for permission enforcement
 
 ---
 
-**Last Updated**: 2025-01-15
+**Last Updated**: 2026-01-27
 **Maintained By**: Development Team

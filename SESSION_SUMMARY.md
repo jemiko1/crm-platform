@@ -1,7 +1,7 @@
 # CRM Platform - Complete Session Summary
 
-**Last Updated**: 2026-01-15  
-**Version**: v1.0.0
+**Last Updated**: 2026-01-27  
+**Version**: v1.1.0
 **Status**: ✅ All features complete and committed
 
 ---
@@ -35,14 +35,47 @@
 - URL parameter: `tab=products` → `tab=devices`
 - Incident modal: "Select Products" → "Select Devices", "Products Affected" → "Devices Affected"
 
-### 2. PERMISSIONS RESTORATION (v1.0.0)
+### 2. WORK ORDER DELETE PERMISSIONS (v1.1.0)
+**Feature**: Granular permissions for work order deletion with inventory control  
+**Permissions Added**:
+- `work_orders.delete` - Basic delete (no inventory impact)
+- `work_orders.delete_keep_inventory` - Delete and keep inventory changes
+- `work_orders.delete_revert_inventory` - Delete and return products to stock
+
+**Backend Changes**:
+- `seed-permissions.ts` - Added 2 new work order delete permissions
+- `work-orders.controller.ts` - New `/inventory-impact` endpoint, `revertInventory` query param
+- `work-orders.service.ts` - `getInventoryImpact()`, `revertInventoryChanges()` methods
+- `work-order-activity.service.ts` - `PRODUCTS_APPROVED` action, product flow filtering
+
+**Frontend Changes**:
+- `work-order-detail-modal.tsx` - Permission-based delete options with locked states
+- `page.tsx` - Same permission logic for direct page view
+- `activity-timeline.tsx` - Product flow filter, detailed product metadata display
+
+**UI Features**:
+- Inventory impact summary (products, transactions, devices affected)
+- Two delete options: "Delete & Revert All" vs "Delete & Keep Data"
+- Locked option display when permission missing
+- Warning message for missing permissions
+
+**Files**:
+- `backend/crm-backend/prisma/seed-permissions.ts`
+- `backend/crm-backend/src/v1/work-orders.controller.ts`
+- `backend/crm-backend/src/work-orders/work-orders.service.ts`
+- `backend/crm-backend/src/work-orders/work-order-activity.service.ts`
+- `frontend/crm-frontend/src/app/app/work-orders/[id]/work-order-detail-modal.tsx`
+- `frontend/crm-frontend/src/app/app/work-orders/[id]/page.tsx`
+- `frontend/crm-frontend/src/app/app/work-orders/[id]/activity-timeline.tsx`
+
+### 3. PERMISSIONS RESTORATION (v1.0.0)
 **Issue**: Permissions list was empty after database migration  
-**Solution**: Ran `seed-permissions.ts` script to restore all 49 permissions  
+**Solution**: Ran `seed-permissions.ts` script to restore all 63 permissions  
 **Permissions Restored**:
 - Buildings: read, create, update, delete
 - Clients: read, create, update, delete
 - Incidents: read, create, update, assign, delete
-- Work Orders: read, create, update, assign, delete
+- Work Orders: read, create, update, delete, delete_keep_inventory, delete_revert_inventory, assign, start, complete, approve, cancel, manage_products, manage_devices, request_repair, view_activity, view_workflow, view_sensitive, manage_workflow, manage
 - Inventory: read, create, update, delete, purchase, adjust
 - Employees: read, create, update, delete, assign
 - Departments, Roles, Permissions: full CRUD
