@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { apiGet, apiPost, ApiError } from "@/lib/api";
@@ -159,10 +160,12 @@ export default function TaskDetailPage() {
   const [currentEmployee, setCurrentEmployee] = useState<any>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
-  // Product usage state
+  // Product usage state - unified for both tech employee and tech head
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<{ productId: string; quantity: number }[]>([]);
   const [showProductForm, setShowProductForm] = useState(false);
+  // For tech employee: manage their own products before submission
+  const [techEmployeeProducts, setTechEmployeeProducts] = useState<{ productId: string; quantity: number; productName?: string; productSku?: string }[]>([]);
 
   // Completion state
   const [completionComment, setCompletionComment] = useState("");
@@ -185,6 +188,17 @@ export default function TaskDetailPage() {
   const [availableProducts, setAvailableProducts] = useState<Product[]>([]);
   const [productSearchQuery, setProductSearchQuery] = useState("");
   const [workflowPositions, setWorkflowPositions] = useState<{step1: string[], step5: string[]}>({ step1: [], step5: [] });
+  
+  // Product selection state for quantity input
+  const [selectedProductForAdd, setSelectedProductForAdd] = useState<Product | null>(null);
+  const [addProductQuantity, setAddProductQuantity] = useState(1);
+  
+  // Portal mount state
+  const [portalMounted, setPortalMounted] = useState(false);
+  
+  useEffect(() => {
+    setPortalMounted(true);
+  }, []);
 
   // Fetch workflow step positions
   useEffect(() => {
@@ -313,6 +327,10 @@ export default function TaskDetailPage() {
     }
   }, [task]);
 
+  // Tech employee products are managed locally - no initialization from server
+  // Products are only submitted when completing the task
+  // This prevents duplication issues from the old "Save Products" flow
+
   // Initialize modified products when Step 5 position needs to review products
   useEffect(() => {
     if (
@@ -352,19 +370,54 @@ export default function TaskDetailPage() {
     }
   }
 
+  // Note: Products are now submitted together with completion, not separately
+  // This function is kept for backward compatibility but should not be used
   async function handleSubmitProducts() {
-    if (!taskId || selectedProducts.length === 0) return;
-    setActionLoading(true);
-    try {
-      await apiPost(`/v1/work-orders/${taskId}/products`, selectedProducts);
-      setShowProductForm(false);
-      setSelectedProducts([]);
-      window.location.reload();
-    } catch (err: any) {
-      alert(err.message || "Failed to submit products");
-    } finally {
-      setActionLoading(false);
+    // Products are submitted with completion, not separately
+    // This prevents duplication issues
+    console.warn("handleSubmitProducts called - products should be submitted with completion");
+  }
+
+  function updateTechEmployeeProduct(index: number, quantity: number) {
+    setTechEmployeeProducts((prev) => {
+      const updated = [...prev];
+      if (updated[index]) {
+        updated[index] = { ...updated[index], quantity };
+      }
+      return updated;
+    });
+  }
+
+  // Direct removal - simple and reliable
+  function removeTechEmployeeProduct(index: number) {
+    setTechEmployeeProducts((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function addTechEmployeeProduct(product: Product, quantity: number = 1) {
+    // Check if product already exists
+    const existingIndex = techEmployeeProducts.findIndex((p) => p.productId === product.id);
+    
+    if (existingIndex >= 0) {
+      // Product already exists - don't add again
+      return;
     }
+    
+    // Add new product with specified quantity
+    setTechEmployeeProducts((prev) => [
+      ...prev,
+      {
+        productId: product.id,
+        quantity: quantity,
+        productName: product.name,
+        productSku: product.sku,
+      },
+    ]);
+    
+    // Reset selection state and close modal
+    setSelectedProductForAdd(null);
+    setAddProductQuantity(1);
+    setShowAddProductModal(false);
+    setProductSearchQuery("");
   }
 
   async function handleSubmitDeactivatedDevices() {
@@ -387,8 +440,20 @@ export default function TaskDetailPage() {
       alert("Please enter a completion comment");
       return;
     }
+    
     setActionLoading(true);
     try {
+      // First, submit products if any (this replaces existing products)
+      const validProducts = techEmployeeProducts.filter((p) => p.quantity > 0);
+      if (validProducts.length > 0) {
+        const productUsages = validProducts.map((p) => ({
+          productId: p.productId,
+          quantity: p.quantity,
+        }));
+        await apiPost(`/v1/work-orders/${taskId}/products`, productUsages);
+      }
+      
+      // Then submit completion
       await apiPost(`/v1/work-orders/${taskId}/complete`, { comment: completionComment });
       window.location.reload();
     } catch (err: any) {
@@ -421,6 +486,15 @@ export default function TaskDetailPage() {
     try {
       // Filter out products with zero or negative quantity
       const validProducts = modifiedProducts.filter(p => p.quantity > 0);
+      
+      // If there were products submitted by tech employee but all were removed
+      if (task.productUsages && task.productUsages.length > 0 && validProducts.length === 0) {
+        if (!window.confirm("Are you sure you want to remove all products? This will approve the work order without any products.")) {
+          setActionLoading(false);
+          return;
+        }
+      }
+      
       // Send products list (empty array means no products)
       const productUsages = validProducts.length > 0 
         ? validProducts.map(p => ({ productId: p.productId, quantity: p.quantity })) 
@@ -466,37 +540,66 @@ export default function TaskDetailPage() {
     });
   }
 
-  function removeProduct(index: number) {
-    setModifiedProducts(prev => prev.filter((_, i) => i !== index));
+  // Direct removal - mark for deletion by setting quantity to 0
+  function removeModifiedProduct(index: number) {
+    setModifiedProducts(prev => {
+      const updated = [...prev];
+      if (updated[index]) {
+        updated[index] = { ...updated[index], quantity: 0 };
+        return updated;
+      }
+      return prev.filter((_, i) => i !== index);
+    });
   }
 
-  function addProduct(product: Product) {
-    setModifiedProducts(prev => {
-      // Check if product already exists
-      const existingIndex = prev.findIndex(p => p.productId === product.id);
-      if (existingIndex >= 0) {
-        // Increment quantity if exists
-        const updated = [...prev];
-        updated[existingIndex] = {
-          ...updated[existingIndex],
-          quantity: updated[existingIndex].quantity + 1,
-        };
-        return updated;
+  function addProduct(product: Product, quantity: number = 1) {
+    try {
+      // For tech head review - add to modifiedProducts
+      if (needsHeadReview && canApprove) {
+        // Check if product already exists
+        const existingIndex = modifiedProducts.findIndex(p => p.productId === product.id && p.quantity > 0);
+        if (existingIndex >= 0) {
+          // Product already exists - don't add again
+          return;
+        }
+        
+        // Check if product was marked for deletion (quantity 0)
+        const deletedIndex = modifiedProducts.findIndex(p => p.productId === product.id && p.quantity === 0);
+        if (deletedIndex >= 0) {
+          // Restore with new quantity
+          setModifiedProducts(prev => {
+            const updated = [...prev];
+            updated[deletedIndex] = {
+              ...updated[deletedIndex],
+              quantity: quantity,
+            };
+            return updated;
+          });
+        } else {
+          // Add new product
+          setModifiedProducts(prev => [
+            ...prev,
+            {
+              productId: product.id,
+              quantity: quantity,
+              productName: product.name,
+              productSku: product.sku,
+            },
+          ]);
+        }
+        
+        // Reset selection and close modal
+        setSelectedProductForAdd(null);
+        setAddProductQuantity(1);
+        setShowAddProductModal(false);
+        setProductSearchQuery("");
       } else {
-        // Add new product
-        return [
-          ...prev,
-          {
-            productId: product.id,
-            quantity: 1,
-            productName: product.name,
-            productSku: product.sku,
-          },
-        ];
+        // For tech employee - add to techEmployeeProducts
+        addTechEmployeeProduct(product, quantity);
       }
-    });
-    setShowAddProductModal(false);
-    setProductSearchQuery("");
+    } catch (error) {
+      console.error("Error adding product:", error);
+    }
   }
 
   // Fetch available products for adding
@@ -516,15 +619,15 @@ export default function TaskDetailPage() {
       p.sku.toLowerCase().includes(productSearchQuery.toLowerCase()),
   );
 
-  function addProduct() {
+  function addDeactivatedDevice() {
     setSelectedProducts([...selectedProducts, { productId: "", quantity: 1 }]);
   }
 
-  function removeProduct(index: number) {
+  function removeDeactivatedDevice(index: number) {
     setSelectedProducts(selectedProducts.filter((_, i) => i !== index));
   }
 
-  function updateProduct(index: number, field: "productId" | "quantity", value: string | number) {
+  function updateDeactivatedDevice(index: number, field: "productId" | "quantity", value: string | number) {
     const updated = [...selectedProducts];
     updated[index] = { ...updated[index], [field]: value };
     setSelectedProducts(updated);
@@ -764,104 +867,85 @@ export default function TaskDetailPage() {
             {/* Work in Progress Actions */}
             {canWorkOnTask && !isCompleted && (
               <>
-                {/* Product Usage (for Installation/Repair-Change) */}
+                {/* Product Usage (for Installation/Repair-Change) - Unified View */}
                 {needsProducts && (
                   <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200">
-                    <h2 className="text-lg font-semibold text-zinc-900 mb-4">📦 Products Used</h2>
-
-                    {/* Existing usages */}
-                    {task.productUsages && task.productUsages.length > 0 && (
-                      <div className="mb-4 space-y-2">
-                        {task.productUsages.map((usage) => (
-                          <div
-                            key={usage.id}
-                            className="flex items-center justify-between rounded-2xl bg-zinc-50 p-3 ring-1 ring-zinc-200"
-                          >
-                            <div>
-                              <div className="text-sm font-semibold text-zinc-900">
-                                {usage.product.name}
-                              </div>
-                              <div className="text-xs text-zinc-500">{usage.product.sku}</div>
-                            </div>
-                            <div className="text-sm font-bold text-zinc-900">×{usage.quantity}</div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {!showProductForm ? (
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-lg font-semibold text-zinc-900">📦 Products Used</h2>
                       <button
                         type="button"
                         onClick={() => {
-                          setShowProductForm(true);
-                          if (selectedProducts.length === 0) addProduct();
+                          loadAvailableProducts();
+                          setShowAddProductModal(true);
                         }}
-                        className="w-full rounded-2xl border-2 border-dashed border-zinc-300 p-4 text-sm font-medium text-zinc-600 hover:border-zinc-400 hover:text-zinc-700"
+                        className="rounded-xl bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-200"
                       >
-                        + Add Products
+                        + Add Product
                       </button>
-                    ) : (
-                      <div className="space-y-3">
-                        {selectedProducts.map((item, index) => (
-                          <div key={index} className="flex items-center gap-2">
-                            <select
-                              value={item.productId}
-                              onChange={(e) => updateProduct(index, "productId", e.target.value)}
-                              className="flex-1 rounded-xl border-zinc-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                    </div>
+                    <p className="text-sm text-zinc-600 mb-4">
+                      Add products used for this task. You can modify or remove products before submitting for review.
+                    </p>
+
+                    {/* Products List - Tech Employee's products */}
+                    {techEmployeeProducts.length > 0 ? (
+                      <div className="space-y-2">
+                        {techEmployeeProducts.map((item, index) => {
+                          const product = products.find((p) => p.id === item.productId);
+                          return (
+                            <div
+                              key={`${item.productId}-${index}`}
+                              className="flex items-center gap-3 rounded-2xl bg-zinc-50 p-3 ring-1 ring-zinc-200"
                             >
-                              <option value="">Select product...</option>
-                              {products.map((p) => (
-                                <option key={p.id} value={p.id}>
-                                  {p.name} ({p.sku}) - Stock: {p.currentStock}
-                                </option>
-                              ))}
-                            </select>
-                            <input
-                              type="number"
-                              min="1"
-                              value={item.quantity}
-                              onChange={(e) =>
-                                updateProduct(index, "quantity", parseInt(e.target.value) || 1)
-                              }
-                              className="w-20 rounded-xl border-zinc-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => removeProduct(index)}
-                              className="p-2 text-red-600 hover:text-red-700"
-                            >
-                              ×
-                            </button>
+                              <div className="flex-1">
+                                <div className="text-sm font-semibold text-zinc-900">
+                                  {item.productName || product?.name || "Unknown Product"}
+                                </div>
+                                <div className="mt-1 text-xs text-zinc-500">
+                                  SKU: {item.productSku || product?.sku || "N/A"}
+                                  {product && ` • Stock: ${product.currentStock}`}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <label className="text-xs text-zinc-600">Qty:</label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max={product?.currentStock || 999}
+                                  value={item.quantity}
+                                  onChange={(e) => {
+                                    const newQty = parseInt(e.target.value) || 1;
+                                    if (newQty > 0) {
+                                      updateTechEmployeeProduct(index, Math.min(newQty, product?.currentStock || 999));
+                                    }
+                                  }}
+                                  className="w-20 rounded-xl border-zinc-300 bg-white px-2 py-1 text-sm text-center focus:border-emerald-500 focus:ring-emerald-500 transition-colors"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removeTechEmployeeProduct(index)}
+                                  className="rounded-lg bg-red-100 p-1.5 text-red-600 hover:bg-red-200 transition-colors"
+                                  title="Remove product"
+                                >
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M18 6L6 18M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        
+                        {/* Info message */}
+                        <div className="mt-3 p-3 rounded-xl bg-blue-50 ring-1 ring-blue-200">
+                          <div className="text-xs text-blue-700">
+                            📌 Products will be submitted when you complete the task below.
                           </div>
-                        ))}
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={addProduct}
-                            className="flex-1 rounded-xl bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-200"
-                          >
-                            + Add More
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleSubmitProducts}
-                            disabled={actionLoading || selectedProducts.every((p) => !p.productId)}
-                            className="flex-1 rounded-xl px-3 py-2 text-sm font-semibold text-white hover:opacity-95 disabled:opacity-50"
-                            style={{ backgroundColor: BRAND }}
-                          >
-                            {actionLoading ? "Saving..." : "Save Products"}
-                          </button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowProductForm(false);
-                            setSelectedProducts([]);
-                          }}
-                          className="w-full text-sm text-zinc-500 hover:text-zinc-700"
-                        >
-                          Cancel
-                        </button>
+                      </div>
+                    ) : (
+                      <div className="text-center py-6 text-sm text-zinc-500">
+                        No products added yet. Click "Add Product" to add items.
                       </div>
                     )}
                   </div>
@@ -899,7 +983,7 @@ export default function TaskDetailPage() {
                         type="button"
                         onClick={() => {
                           setShowProductForm(true);
-                          if (selectedProducts.length === 0) addProduct();
+                          if (selectedProducts.length === 0) addDeactivatedDevice();
                         }}
                         className="w-full rounded-2xl border-2 border-dashed border-zinc-300 p-4 text-sm font-medium text-zinc-600 hover:border-zinc-400 hover:text-zinc-700"
                       >
@@ -911,7 +995,7 @@ export default function TaskDetailPage() {
                           <div key={index} className="flex items-center gap-2">
                             <select
                               value={item.productId}
-                              onChange={(e) => updateProduct(index, "productId", e.target.value)}
+                              onChange={(e) => updateDeactivatedDevice(index, "productId", e.target.value)}
                               className="flex-1 rounded-xl border-zinc-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
                             >
                               <option value="">Select device type...</option>
@@ -926,13 +1010,13 @@ export default function TaskDetailPage() {
                               min="1"
                               value={item.quantity}
                               onChange={(e) =>
-                                updateProduct(index, "quantity", parseInt(e.target.value) || 1)
+                                updateDeactivatedDevice(index, "quantity", parseInt(e.target.value) || 1)
                               }
                               className="w-20 rounded-xl border-zinc-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
                             />
                             <button
                               type="button"
-                              onClick={() => removeProduct(index)}
+                              onClick={() => removeDeactivatedDevice(index)}
                               className="p-2 text-red-600 hover:text-red-700"
                             >
                               ×
@@ -942,7 +1026,7 @@ export default function TaskDetailPage() {
                         <div className="flex gap-2">
                           <button
                             type="button"
-                            onClick={addProduct}
+                            onClick={addDeactivatedDevice}
                             className="flex-1 rounded-xl bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-200"
                           >
                             + Add More
@@ -1196,61 +1280,194 @@ export default function TaskDetailPage() {
                       Review, edit quantities, add new products, or remove items before approving.
                     </p>
                     
-                    {/* Products List */}
-                    {modifiedProducts.length === 0 ? (
-                      <div className="text-center py-6 text-sm text-zinc-500">
-                        No products added yet. Click "Add Product" to add items.
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {modifiedProducts.map((item, index) => (
-                          <div
-                            key={`${item.productId}-${index}`}
-                            className="flex items-center justify-between rounded-2xl bg-zinc-50 p-3 ring-1 ring-zinc-200"
-                          >
-                            <div className="flex-1">
-                              <div className="text-sm font-semibold text-zinc-900">
-                                {item.productName || "Unknown Product"}
+                    {/* Show products - either from tech employee or modified by tech head */}
+                    {task.productUsages && task.productUsages.length > 0 && (
+                      <div className="mb-4 space-y-2">
+                        {modifiedProducts.length === 0 && (
+                          <div className="text-xs font-semibold text-zinc-500 uppercase mb-2">Submitted by Tech Employee</div>
+                        )}
+                        {modifiedProducts.length > 0 && (
+                          <div className="text-xs font-semibold text-amber-600 uppercase mb-2">Your Modifications</div>
+                        )}
+                        {task.productUsages.map((usage) => {
+                          // Check if this product has been modified
+                          const modifiedIndex = modifiedProducts.findIndex((p) => p.productId === usage.product.id);
+                          const isModified = modifiedIndex >= 0;
+                          const currentItem = isModified ? modifiedProducts[modifiedIndex] : null;
+                          const currentQuantity = currentItem ? currentItem.quantity : usage.quantity;
+                          const isMarkedForDeletion = currentItem && currentItem.quantity === 0;
+                          
+                          // Skip if marked for deletion
+                          if (isMarkedForDeletion) return null;
+                          
+                          const hasChanged = isModified && currentItem && currentItem.quantity !== usage.quantity;
+                          
+                          return (
+                            <div
+                              key={usage.id}
+                              className="flex items-center gap-3 rounded-2xl bg-zinc-50 p-3 ring-1 ring-zinc-200"
+                            >
+                              <div className="flex-1">
+                                <div className="text-sm font-semibold text-zinc-900">
+                                  {usage.product.name}
+                                  {hasChanged && (
+                                    <span className="ml-2 text-xs text-amber-600">(Modified)</span>
+                                  )}
+                                </div>
+                                <div className="mt-1 text-xs text-zinc-500">
+                                  SKU: {usage.product.sku}
+                                  {hasChanged && (
+                                    <span className="ml-2">Original: {usage.quantity}</span>
+                                  )}
+                                </div>
                               </div>
-                              <div className="text-xs text-zinc-500">
-                                {item.productSku || "N/A"}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3">
                               <div className="flex items-center gap-2">
-                                <span className="text-xs text-zinc-500">Qty:</span>
+                                <label className="text-xs text-zinc-600">Qty:</label>
                                 <input
                                   type="number"
                                   min="1"
-                                  value={item.quantity}
+                                  value={currentQuantity}
                                   onChange={(e) => {
                                     const newQty = parseInt(e.target.value) || 1;
-                                    updateModifiedProduct(index, newQty);
+                                    // Allow typing - immediate update without confirmation
+                                    if (newQty === usage.quantity && isModified) {
+                                      // Back to original - remove modification
+                                      const updated = modifiedProducts.filter((_, i) => i !== modifiedIndex);
+                                      setModifiedProducts(updated);
+                                    } else if (newQty !== usage.quantity && newQty >= 1) {
+                                      if (isModified) {
+                                        updateModifiedProduct(modifiedIndex, newQty);
+                                      } else {
+                                        // Initialize modifiedProducts with all products
+                                        const allProducts = task.productUsages!.map((u) => ({
+                                          productId: u.product.id,
+                                          quantity: u.id === usage.id ? newQty : u.quantity,
+                                          productName: u.product.name,
+                                          productSku: u.product.sku,
+                                        }));
+                                        setModifiedProducts(allProducts);
+                                      }
+                                    }
                                   }}
-                                  className="w-20 rounded-xl border-zinc-300 text-sm text-center focus:border-emerald-500 focus:ring-emerald-500"
+                                  onBlur={(e) => {
+                                    const newQty = parseInt(e.target.value) || 1;
+                                    // Ensure minimum
+                                    if (newQty < 1) {
+                                      e.target.value = "1";
+                                      if (isModified) {
+                                        updateModifiedProduct(modifiedIndex, 1);
+                                      }
+                                    }
+                                  }}
+                                  className="w-20 rounded-xl border-zinc-300 bg-white px-2 py-1 text-sm text-center focus:border-emerald-500 focus:ring-emerald-500 transition-colors"
                                 />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    // Direct removal - mark for deletion
+                                    if (modifiedProducts.length === 0) {
+                                      const allProducts = task.productUsages!.map((u) => ({
+                                        productId: u.product.id,
+                                        quantity: u.id === usage.id ? 0 : u.quantity,
+                                        productName: u.product.name,
+                                        productSku: u.product.sku,
+                                      }));
+                                      setModifiedProducts(allProducts);
+                                    } else {
+                                      const index = modifiedProducts.findIndex((p) => p.productId === usage.product.id);
+                                      if (index >= 0) {
+                                        updateModifiedProduct(index, 0);
+                                      } else {
+                                        setModifiedProducts([
+                                          ...modifiedProducts,
+                                          {
+                                            productId: usage.product.id,
+                                            quantity: 0,
+                                            productName: usage.product.name,
+                                            productSku: usage.product.sku,
+                                          },
+                                        ]);
+                                      }
+                                    }
+                                  }}
+                                  className="rounded-lg bg-red-100 p-1.5 text-red-600 hover:bg-red-200 transition-colors"
+                                  title="Remove product"
+                                >
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M18 6L6 18M6 6l12 12" />
+                                  </svg>
+                                </button>
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => removeProduct(index)}
-                                className="rounded-lg bg-red-100 p-1.5 text-red-600 hover:bg-red-200"
-                                title="Remove product"
-                              >
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <path d="M18 6L6 18M6 6l12 12" />
-                                </svg>
-                              </button>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
+                      </div>
+                    )}
+                    
+                    {/* Show newly added products (not from tech employee) */}
+                    {modifiedProducts.filter((p) => !task.productUsages?.some((u) => u.product.id === p.productId) && p.quantity > 0).length > 0 && (
+                      <div className="mb-4 space-y-2">
+                        <div className="text-xs font-semibold text-emerald-600 uppercase mb-2">Newly Added Products</div>
+                        {modifiedProducts
+                          .filter((p) => !task.productUsages?.some((u) => u.product.id === p.productId) && p.quantity > 0)
+                          .map((item, index) => {
+                            const actualIndex = modifiedProducts.findIndex((p) => p.productId === item.productId);
+                            return (
+                              <div
+                                key={`new-${item.productId}-${index}`}
+                                className="flex items-center gap-3 rounded-2xl bg-emerald-50 p-3 ring-1 ring-emerald-200"
+                              >
+                                <div className="flex-1">
+                                  <div className="text-sm font-semibold text-zinc-900">
+                                    {item.productName || "Unknown Product"}
+                                    <span className="ml-2 text-xs text-emerald-600">(New)</span>
+                                  </div>
+                                  <div className="mt-1 text-xs text-zinc-500">
+                                    SKU: {item.productSku || "N/A"}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <label className="text-xs text-zinc-600">Qty:</label>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    value={item.quantity}
+                                    onChange={(e) => {
+                                      const newQty = parseInt(e.target.value) || 1;
+                                      if (newQty > 0) {
+                                        updateModifiedProduct(actualIndex, newQty);
+                                      }
+                                    }}
+                                    className="w-20 rounded-xl border-zinc-300 bg-white px-2 py-1 text-sm text-center focus:border-emerald-500 focus:ring-emerald-500 transition-colors"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => removeModifiedProduct(actualIndex)}
+                                    className="rounded-lg bg-red-100 p-1.5 text-red-600 hover:bg-red-200 transition-colors"
+                                    title="Remove product"
+                                  >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <path d="M18 6L6 18M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    )}
+                    
+                    {(!task.productUsages || task.productUsages.length === 0) && modifiedProducts.filter((p) => p.quantity > 0).length === 0 && (
+                      <div className="text-center py-6 text-sm text-zinc-500">
+                        No products added yet. Click "Add Product" to add items.
                       </div>
                     )}
 
                     {/* Products Summary */}
-                    {modifiedProducts.length > 0 && (
+                    {modifiedProducts.filter((p) => p.quantity > 0).length > 0 && (
                       <div className="mt-4 p-3 rounded-xl bg-emerald-50 ring-1 ring-emerald-200">
                         <div className="text-xs font-semibold text-emerald-800">
-                          📦 {modifiedProducts.length} product{modifiedProducts.length !== 1 ? "s" : ""} • Total qty: {modifiedProducts.reduce((sum, p) => sum + p.quantity, 0)}
+                          📦 {modifiedProducts.filter((p) => p.quantity > 0).length} product{modifiedProducts.filter((p) => p.quantity > 0).length !== 1 ? "s" : ""} • Total qty: {modifiedProducts.reduce((sum, p) => sum + (p.quantity > 0 ? p.quantity : 0), 0)}
                         </div>
                         <div className="text-xs text-emerald-700 mt-1">
                           These products will be deducted from inventory when approved.
@@ -1425,81 +1642,217 @@ export default function TaskDetailPage() {
         />
       )}
 
-      {/* Add Product Modal */}
-      {showAddProductModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl mx-4 max-h-[80vh] flex flex-col">
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold text-zinc-900">Add Product</h2>
-              <p className="text-sm text-zinc-600 mt-1">
-                Select a product from inventory to add to this work order
-              </p>
-            </div>
-
-            {/* Search */}
-            <input
-              type="text"
-              value={productSearchQuery}
-              onChange={(e) => setProductSearchQuery(e.target.value)}
-              placeholder="Search by name or SKU..."
-              className="w-full rounded-xl border-zinc-300 text-sm mb-4 focus:border-emerald-500 focus:ring-emerald-500"
-            />
-
-            {/* Products List */}
-            <div className="flex-1 overflow-y-auto space-y-2 min-h-0 max-h-80">
-              {filteredAvailableProducts.length === 0 ? (
-                <div className="text-center py-8 text-sm text-zinc-500">
-                  {productSearchQuery ? "No products found matching your search" : "Loading products..."}
+      {/* Add Product Modal - Using createPortal for proper viewport centering */}
+      {showAddProductModal && portalMounted && createPortal(
+        <div 
+          className="fixed inset-0 flex items-center justify-center p-4"
+          style={{ zIndex: 99999 }}
+        >
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => {
+              setShowAddProductModal(false);
+              setProductSearchQuery("");
+              setSelectedProductForAdd(null);
+              setAddProductQuantity(1);
+            }}
+          />
+          
+          {/* Modal */}
+          <div 
+            className="relative w-full max-w-lg rounded-3xl bg-white shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-6 pb-4 border-b border-zinc-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-zinc-900">
+                    {selectedProductForAdd ? "Set Quantity" : "Add Product"}
+                  </h2>
+                  <p className="text-sm text-zinc-500 mt-1">
+                    {selectedProductForAdd 
+                      ? `How many "${selectedProductForAdd.name}" do you need?`
+                      : "Select a product from inventory"}
+                  </p>
                 </div>
-              ) : (
-                filteredAvailableProducts.map((product) => {
-                  const alreadyAdded = modifiedProducts.some(p => p.productId === product.id);
-                  return (
-                    <button
-                      key={product.id}
-                      type="button"
-                      onClick={() => addProduct(product)}
-                      className={`w-full flex items-center justify-between p-3 rounded-2xl text-left transition ring-1 ${
-                        alreadyAdded
-                          ? "bg-emerald-50 ring-emerald-300"
-                          : "bg-zinc-50 ring-zinc-200 hover:bg-zinc-100"
-                      }`}
-                    >
-                      <div className="flex-1">
-                        <div className="text-sm font-semibold text-zinc-900">{product.name}</div>
-                        <div className="text-xs text-zinc-500">{product.sku}</div>
-                        <div className="text-xs text-zinc-400 mt-1">
-                          Stock: {product.currentStock || 0} {product.unit || "units"}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {alreadyAdded && (
-                          <span className="text-xs font-semibold text-emerald-600">Added</span>
-                        )}
-                        <span className="text-emerald-600">+</span>
-                      </div>
-                    </button>
-                  );
-                })
-              )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddProductModal(false);
+                    setProductSearchQuery("");
+                    setSelectedProductForAdd(null);
+                    setAddProductQuantity(1);
+                  }}
+                  className="p-2 rounded-xl hover:bg-zinc-100 transition-colors"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-zinc-500">
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex gap-3 mt-4 pt-4 border-t border-zinc-200">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAddProductModal(false);
-                  setProductSearchQuery("");
-                }}
-                className="flex-1 rounded-2xl bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-200"
-              >
-                Close
-              </button>
-            </div>
+            {/* Content - Product Selection or Quantity Input */}
+            {selectedProductForAdd ? (
+              // Quantity Input View
+              <div className="p-6">
+                {/* Selected Product Info */}
+                <div className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200 mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                      <span className="text-lg">📦</span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm font-semibold text-zinc-900">{selectedProductForAdd.name}</div>
+                      <div className="text-xs text-zinc-500">{selectedProductForAdd.sku}</div>
+                      <div className="text-xs text-emerald-600 mt-0.5">
+                        Available: {selectedProductForAdd.currentStock || 0} {selectedProductForAdd.unit || "units"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quantity Input */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-zinc-700 mb-2">
+                    Quantity
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setAddProductQuantity(q => Math.max(1, q - 1))}
+                      disabled={addProductQuantity <= 1}
+                      className="w-12 h-12 rounded-xl bg-zinc-100 flex items-center justify-center text-xl font-semibold text-zinc-700 hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      −
+                    </button>
+                    <input
+                      type="number"
+                      min="1"
+                      max={selectedProductForAdd.currentStock || 999}
+                      value={addProductQuantity}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 1;
+                        setAddProductQuantity(Math.min(Math.max(1, val), selectedProductForAdd.currentStock || 999));
+                      }}
+                      className="flex-1 h-12 rounded-xl border-zinc-300 text-center text-lg font-semibold focus:border-emerald-500 focus:ring-emerald-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setAddProductQuantity(q => Math.min((selectedProductForAdd.currentStock || 999), q + 1))}
+                      disabled={addProductQuantity >= (selectedProductForAdd.currentStock || 999)}
+                      className="w-12 h-12 rounded-xl bg-zinc-100 flex items-center justify-center text-xl font-semibold text-zinc-700 hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedProductForAdd(null);
+                      setAddProductQuantity(1);
+                    }}
+                    className="flex-1 px-4 py-3 rounded-2xl bg-zinc-100 text-sm font-semibold text-zinc-700 hover:bg-zinc-200 transition-colors"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      addProduct(selectedProductForAdd, addProductQuantity);
+                    }}
+                    className="flex-1 px-4 py-3 rounded-2xl text-sm font-semibold text-white transition-colors"
+                    style={{ backgroundColor: BRAND }}
+                  >
+                    Add to List
+                  </button>
+                </div>
+              </div>
+            ) : (
+              // Product Selection View
+              <div className="p-6 pt-4">
+                {/* Search */}
+                <input
+                  type="text"
+                  value={productSearchQuery}
+                  onChange={(e) => setProductSearchQuery(e.target.value)}
+                  placeholder="Search by name or SKU..."
+                  className="w-full rounded-xl border-zinc-300 text-sm mb-4 focus:border-emerald-500 focus:ring-emerald-500"
+                  autoFocus
+                />
+
+                {/* Products List */}
+                <div className="overflow-y-auto space-y-2 max-h-80">
+                  {filteredAvailableProducts.length === 0 ? (
+                    <div className="text-center py-8 text-sm text-zinc-500">
+                      {productSearchQuery ? "No products found matching your search" : availableProducts.length === 0 ? "No products available" : "Loading products..."}
+                    </div>
+                  ) : (
+                    filteredAvailableProducts.map((product) => {
+                      // Check if product is already in the list
+                      const inTechEmployeeList = techEmployeeProducts.some(p => p.productId === product.id);
+                      const inModifiedList = modifiedProducts.some(p => p.productId === product.id && p.quantity > 0);
+                      const alreadyAdded = inTechEmployeeList || inModifiedList;
+                      const existingQty = inTechEmployeeList 
+                        ? techEmployeeProducts.find(p => p.productId === product.id)?.quantity || 0
+                        : inModifiedList
+                        ? modifiedProducts.find(p => p.productId === product.id)?.quantity || 0
+                        : 0;
+                      
+                      return (
+                        <div
+                          key={product.id}
+                          className={`w-full flex items-center justify-between p-3 rounded-2xl ring-1 transition ${
+                            alreadyAdded
+                              ? "bg-zinc-100 ring-zinc-200 opacity-60 cursor-not-allowed"
+                              : "bg-zinc-50 ring-zinc-200 hover:bg-emerald-50 hover:ring-emerald-300 cursor-pointer"
+                          }`}
+                          onClick={() => {
+                            if (!alreadyAdded) {
+                              setSelectedProductForAdd(product);
+                              setAddProductQuantity(1);
+                            }
+                          }}
+                        >
+                          <div className="flex-1 text-left">
+                            <div className="text-sm font-semibold text-zinc-900">{product.name}</div>
+                            <div className="text-xs text-zinc-500">{product.sku}</div>
+                            <div className="text-xs text-zinc-400 mt-1">
+                              Stock: {product.currentStock || 0} {product.unit || "units"}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {alreadyAdded ? (
+                              <span className="text-xs font-semibold text-zinc-500 bg-zinc-200 px-2 py-1 rounded-lg">
+                                Added (Qty: {existingQty})
+                              </span>
+                            ) : (
+                              <>
+                                <span className="text-xs font-semibold text-emerald-600">
+                                  Select
+                                </span>
+                                <span className="text-emerald-600">→</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
+      
     </div>
   );
 }

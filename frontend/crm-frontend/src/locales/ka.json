@@ -17,6 +17,15 @@
       "COMPLETED": "დასრულებული",
       "CANCELED": "გაუქმებული"
     },
+    "stages": {
+      "created": "დაფიქსირებულია",
+      "techniciansAssigned": "ტექნიკოსები მიბმულია",
+      "working": "ტექნიკოსები მუშაობენ",
+      "waitingForApproval": "ელოდება დადასტურებას",
+      "completed": "დასრულებულია",
+      "canceled": "გაუქმებულია",
+      "completedOrCanceled": "დასრულებულია / გაუქმებულია"
+    },
     "fields": {
       "building": "შენობა",
       "devices": "მოწყობილობები",

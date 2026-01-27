@@ -2,9 +2,11 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet, ApiError } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
 import CreateWorkOrderModal from "./create-work-order-modal";
+import WorkOrderDetailModal from "./[id]/work-order-detail-modal";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -111,6 +113,8 @@ function getTypeLabel(type: WorkOrder["type"], t: (key: string, fallback?: strin
 
 export default function WorkOrdersPage() {
   const { t } = useI18n();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -118,6 +122,20 @@ export default function WorkOrdersPage() {
   const [meta, setMeta] = useState<WorkOrdersResponse["meta"] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedWorkOrderId, setSelectedWorkOrderId] = useState<string | null>(null);
+
+  // Check URL for workOrder parameter on mount and when it changes
+  useEffect(() => {
+    const workOrderParam = searchParams?.get("workOrder");
+    if (workOrderParam) {
+      setSelectedWorkOrderId(workOrderParam);
+    } else {
+      // If parameter is removed from URL, close modal
+      if (selectedWorkOrderId) {
+        setSelectedWorkOrderId(null);
+      }
+    }
+  }, [searchParams]);
 
   const pageSize = 10;
 
@@ -286,7 +304,18 @@ export default function WorkOrdersPage() {
                             >
                               {/* Work Order */}
                               <td className="px-4 py-4 align-middle">
-                                <Link href={`/app/work-orders/${wo.workOrderNumber}`} className="block">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const workOrderId = wo.workOrderNumber.toString();
+                                    setSelectedWorkOrderId(workOrderId);
+                                    // Update URL with workOrder parameter
+                                    const params = new URLSearchParams(searchParams?.toString() || "");
+                                    params.set("workOrder", workOrderId);
+                                    router.push(`${window.location.pathname}?${params.toString()}`);
+                                  }}
+                                  className="block w-full text-left"
+                                >
                                   <div className="min-w-0">
                                     <div className="flex items-center gap-2">
                                       <span className="text-sm font-semibold text-zinc-900 underline-offset-2 group-hover:underline">
@@ -300,7 +329,7 @@ export default function WorkOrdersPage() {
                                       </div>
                                     )}
                                   </div>
-                                </Link>
+                                </button>
                               </td>
 
                               {/* Building */}
@@ -411,6 +440,28 @@ export default function WorkOrdersPage() {
           window.location.reload();
         }}
       />
+
+      {/* Work Order Detail Modal */}
+      {selectedWorkOrderId && (
+        <WorkOrderDetailModal
+          open={!!selectedWorkOrderId}
+          onClose={() => {
+            setSelectedWorkOrderId(null);
+            // Remove workOrder parameter from URL
+            const params = new URLSearchParams(searchParams?.toString() || "");
+            params.delete("workOrder");
+            const newUrl = params.toString() 
+              ? `${window.location.pathname}?${params.toString()}` 
+              : window.location.pathname;
+            router.push(newUrl);
+          }}
+          workOrderId={selectedWorkOrderId}
+          onUpdate={() => {
+            // Reload work orders list
+            window.location.reload();
+          }}
+        />
+      )}
     </div>
   );
 }

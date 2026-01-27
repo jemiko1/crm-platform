@@ -45,7 +45,7 @@ type Client = {
   updatedAt: string;
 };
 
-type Tab = "overview" | "devices" | "clients" | "work-orders" | "incidents";
+type Tab = "overview" | "devices" | "clients" | "work-orders" | "incidents" | "product-flow";
 
 type Incident = {
   id: string;
@@ -130,7 +130,7 @@ export default function BuildingDetailPage() {
   // Handle URL query param for tab
   useEffect(() => {
     const tab = searchParams?.get("tab");
-    if (tab === "devices" || tab === "clients" || tab === "work-orders" || tab === "incidents") {
+    if (tab === "devices" || tab === "clients" || tab === "work-orders" || tab === "incidents" || tab === "product-flow") {
       setActiveTab(tab);
     }
   }, [searchParams]);
@@ -374,6 +374,11 @@ export default function BuildingDetailPage() {
               active={activeTab === "incidents"}
               onClick={() => setActiveTab("incidents")}
             />
+            <TabButton
+              label="Product Flow"
+              active={activeTab === "product-flow"}
+              onClick={() => setActiveTab("product-flow")}
+            />
           </div>
         </div>
 
@@ -398,6 +403,7 @@ export default function BuildingDetailPage() {
               onAddClick={() => setShowReportIncidentModal(true)}
             />
           )}
+          {activeTab === "product-flow" && <ProductFlowTab buildingCoreId={building.coreId} />}
         </div>
       </div>
 
@@ -1312,5 +1318,273 @@ function CheckIcon() {
         strokeLinejoin="round"
       />
     </svg>
+  );
+}
+
+/* ========== PRODUCT FLOW TAB ========== */
+function ProductFlowTab({ buildingCoreId }: { buildingCoreId: number }) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [productUsages, setProductUsages] = useState<Array<{
+    id: string;
+    workOrderId: string;
+    workOrderNumber?: number;
+    workOrderTitle: string;
+    workOrderType: string;
+    workOrderStatus: string;
+    productId: string;
+    productName: string;
+    productSku: string;
+    productCategory: string;
+    quantity: number;
+    approvedAt: string | null;
+    approvedBy: string | null;
+    devices: Array<{ coreId: number; name: string; type: string }>;
+    createdAt: string;
+  }>>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchProductUsages() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Fetch all work orders for this building
+        const params = new URLSearchParams({
+          buildingId: String(buildingCoreId),
+          page: "1",
+          pageSize: "1000", // Get all work orders
+        });
+
+        const workOrdersData = await apiGet<{ data: any[]; meta: any }>(`/v1/work-orders?${params}`);
+        const workOrders = workOrdersData.data || [];
+
+        // Fetch detailed info for each work order to get approved product usages
+        const usagesPromises = workOrders.map(async (wo) => {
+          try {
+            const workOrderId = wo.workOrderNumber?.toString() || wo.id;
+            const detail = await apiGet<any>(`/v1/work-orders/${workOrderId}`);
+            
+            // Only get approved product usages
+            const approvedUsages = (detail.productUsages || []).filter((pu: any) => pu.isApproved);
+            
+            // Get devices from work order
+            const devices: Array<{ coreId: number; name: string; type: string }> = [];
+            if (detail.workOrderAssets && detail.workOrderAssets.length > 0) {
+              detail.workOrderAssets.forEach((wa: any) => {
+                devices.push({
+                  coreId: wa.asset.coreId,
+                  name: wa.asset.name,
+                  type: wa.asset.type,
+                });
+              });
+            } else if (detail.asset) {
+              devices.push({
+                coreId: detail.asset.coreId,
+                name: detail.asset.name,
+                type: detail.asset.type,
+              });
+            }
+
+            return approvedUsages.map((usage: any) => ({
+              id: usage.id,
+              workOrderId: detail.id,
+              workOrderNumber: detail.workOrderNumber,
+              workOrderTitle: detail.title,
+              workOrderType: detail.type,
+              workOrderStatus: detail.status,
+              productId: usage.product.id,
+              productName: usage.product.name,
+              productSku: usage.product.sku,
+              productCategory: usage.product.category,
+              quantity: usage.quantity,
+              approvedAt: usage.approvedAt,
+              approvedBy: usage.approvedBy,
+              devices,
+              createdAt: usage.createdAt,
+            }));
+          } catch (err) {
+            console.error(`Failed to fetch work order ${wo.id}:`, err);
+            return [];
+          }
+        });
+
+        const allUsages = (await Promise.all(usagesPromises)).flat();
+
+        if (!cancelled) {
+          setProductUsages(allUsages);
+        }
+      } catch (err: any) {
+        if (!cancelled) {
+          setError(err.message || "Failed to load product usages");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    fetchProductUsages();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [buildingCoreId]);
+
+  // Group by product and device for summary
+  const summary = useMemo(() => {
+    const byProductDevice = new Map<string, number>();
+    productUsages.forEach((usage) => {
+      if (usage.devices.length > 0) {
+        usage.devices.forEach((device) => {
+          const key = `${usage.productId}-${device.coreId}`;
+          byProductDevice.set(key, (byProductDevice.get(key) || 0) + usage.quantity);
+        });
+      } else {
+        // No device assigned, use work order as key
+        const key = `${usage.productId}-no-device`;
+        byProductDevice.set(key, (byProductDevice.get(key) || 0) + usage.quantity);
+      }
+    });
+    return byProductDevice;
+  }, [productUsages]);
+
+  function formatDate(iso: string | null) {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "—";
+    return d.toLocaleString();
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold text-zinc-900">Product Flow</h2>
+        <div className="mt-1 text-xs text-zinc-600">
+          Approved product usages from work orders assigned to this building
+        </div>
+      </div>
+
+      {loading && (
+        <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
+          <div className="text-sm text-zinc-600">Loading product flow data...</div>
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-2xl bg-red-50 p-4 ring-1 ring-red-200">
+          <div className="text-sm text-red-900">{error}</div>
+        </div>
+      )}
+
+      {!loading && !error && (
+        <>
+          {productUsages.length === 0 ? (
+            <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
+              <div className="text-sm text-zinc-600">No approved product usages found for this building.</div>
+            </div>
+          ) : (
+            <>
+              {/* Summary Card */}
+              <div className="rounded-xl bg-gradient-to-br from-emerald-50 via-white to-emerald-50 border-2 border-emerald-200 shadow-sm p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-md">
+                    <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-base font-bold text-zinc-900">Summary</h3>
+                  <span className="ml-auto px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold">
+                    {productUsages.length} transaction(s)
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="bg-white/80 rounded-lg border border-emerald-100 p-4">
+                    <div className="text-xs font-semibold text-zinc-500 uppercase mb-1">Total Products Used</div>
+                    <div className="text-2xl font-bold text-zinc-900">
+                      {productUsages.reduce((sum, u) => sum + u.quantity, 0)}
+                    </div>
+                  </div>
+                  <div className="bg-white/80 rounded-lg border border-emerald-100 p-4">
+                    <div className="text-xs font-semibold text-zinc-500 uppercase mb-1">Unique Products</div>
+                    <div className="text-2xl font-bold text-zinc-900">
+                      {new Set(productUsages.map(u => u.productId)).size}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Transactions Table */}
+              <div className="overflow-hidden rounded-2xl ring-1 ring-zinc-200">
+                <div className="overflow-x-auto">
+                  <table className="min-w-[1200px] w-full border-separate border-spacing-0">
+                    <thead className="bg-zinc-50 sticky top-0">
+                      <tr className="text-left text-xs text-zinc-600">
+                        <th className="px-4 py-3 font-medium">Work Order</th>
+                        <th className="px-4 py-3 font-medium">Device(s)</th>
+                        <th className="px-4 py-3 font-medium">Product</th>
+                        <th className="px-4 py-3 font-medium">Quantity</th>
+                        <th className="px-4 py-3 font-medium">Category</th>
+                        <th className="px-4 py-3 font-medium">Approved At</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white">
+                      {productUsages
+                        .sort((a, b) => new Date(b.approvedAt || b.createdAt).getTime() - new Date(a.approvedAt || a.createdAt).getTime())
+                        .map((usage) => (
+                          <tr key={usage.id} className="group transition-colors hover:bg-emerald-50/60">
+                            <td className="px-4 py-3 align-middle">
+                              <div className="text-sm font-semibold text-zinc-900">{usage.workOrderTitle}</div>
+                              <div className="mt-0.5 text-xs text-zinc-500">
+                                {usage.workOrderNumber ? `#${usage.workOrderNumber}` : usage.workOrderId.slice(0, 8)}
+                                {" • "}
+                                {usage.workOrderType}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 align-middle">
+                              {usage.devices.length > 0 ? (
+                                <div className="space-y-1">
+                                  {usage.devices.map((device) => (
+                                    <div key={device.coreId} className="text-xs">
+                                      <span className="font-semibold text-zinc-900">{device.name}</span>
+                                      <span className="ml-1 text-zinc-500">({device.type})</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-zinc-400">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 align-middle">
+                              <div className="text-sm font-semibold text-zinc-900">{usage.productName}</div>
+                              <div className="mt-0.5 text-xs text-zinc-500">SKU: {usage.productSku}</div>
+                            </td>
+                            <td className="px-4 py-3 align-middle">
+                              <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-sm font-semibold text-blue-700 ring-1 ring-blue-200">
+                                {usage.quantity}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 align-middle">
+                              <span className="inline-flex items-center rounded-full bg-purple-50 px-3 py-1 text-xs font-semibold text-purple-700 ring-1 ring-purple-200">
+                                {usage.productCategory}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 align-middle">
+                              <div className="text-xs text-zinc-600">{formatDate(usage.approvedAt)}</div>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+        </>
+      )}
+    </div>
   );
 }

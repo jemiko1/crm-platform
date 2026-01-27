@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { apiPatch, ApiError } from "@/lib/api";
 
 const BRAND = "rgb(8, 117, 56)";
@@ -28,12 +29,27 @@ export default function EditWorkOrderModal({
 }: EditWorkOrderModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   const [formData, setFormData] = useState({
     status: workOrder.status,
     title: workOrder.title,
     notes: workOrder.notes || "",
   });
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (open) {
+      setFormData({
+        status: workOrder.status,
+        title: workOrder.title,
+        notes: workOrder.notes || "",
+      });
+    }
+  }, [open, workOrder]);
 
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -67,19 +83,29 @@ export default function EditWorkOrderModal({
     }
   }
 
-  if (!open) return null;
+  useEffect(() => {
+    if (open) {
+      setFormData({
+        status: workOrder.status,
+        title: workOrder.title,
+        notes: workOrder.notes || "",
+      });
+    }
+  }, [open, workOrder]);
 
-  return (
+  if (!open || !mounted) return null;
+
+  const modalContent = (
     <>
       {/* Overlay */}
       <div
-        className="fixed inset-0 z-[9998] bg-black/40 backdrop-blur-sm"
+        className="fixed inset-0 z-[10000] bg-black/40 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden="true"
       />
 
       {/* Modal */}
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4">
         <div
           className="w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-zinc-200"
           onClick={(e) => e.stopPropagation()}
@@ -187,6 +213,8 @@ export default function EditWorkOrderModal({
       </div>
     </>
   );
+
+  return createPortal(modalContent, document.body);
 }
 
 function IconClose() {

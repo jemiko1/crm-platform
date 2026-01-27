@@ -17,6 +17,15 @@
       "COMPLETED": "Completed",
       "CANCELED": "Canceled"
     },
+    "stages": {
+      "created": "Created",
+      "techniciansAssigned": "Technicians Assigned",
+      "working": "Working",
+      "waitingForApproval": "Waiting For Approval",
+      "completed": "Completed",
+      "canceled": "Canceled",
+      "completedOrCanceled": "Completed or Canceled"
+    },
     "fields": {
       "building": "Building",
       "devices": "Devices",

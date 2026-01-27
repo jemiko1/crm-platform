@@ -52,14 +52,21 @@ const WORK_ORDER_TYPES: Array<{
   value: WorkOrderType;
   labelEn: string;
   labelKa: string;
-  icon: string;
 }> = [
-  { value: "INSTALLATION", labelEn: "Installation", labelKa: "ინსტალაცია", icon: "🔧" },
-  { value: "DIAGNOSTIC", labelEn: "Diagnostic", labelKa: "დიაგნოსტიკა", icon: "🔍" },
-  { value: "RESEARCH", labelEn: "Research", labelKa: "მოკვლევა", icon: "📋" },
-  { value: "DEACTIVATE", labelEn: "Deactivate", labelKa: "დემონტაჟი", icon: "🔌" },
-  { value: "REPAIR_CHANGE", labelEn: "Repair/Change", labelKa: "შეცვლა", icon: "🛠️" },
-  { value: "ACTIVATE", labelEn: "Activate", labelKa: "ჩართვა", icon: "⚡" },
+  { value: "INSTALLATION", labelEn: "Installation", labelKa: "ინსტალაცია" },
+  { value: "DIAGNOSTIC", labelEn: "Diagnostic", labelKa: "დიაგნოსტიკა" },
+  { value: "RESEARCH", labelEn: "Research", labelKa: "მოკვლევა" },
+  { value: "DEACTIVATE", labelEn: "Deactivate", labelKa: "დემონტაჟი" },
+  { value: "REPAIR_CHANGE", labelEn: "Repair/Change", labelKa: "შეცვლა" },
+  { value: "ACTIVATE", labelEn: "Activate", labelKa: "ჩართვა" },
+];
+
+const STEPS = [
+  { id: 1, title: "Work Order Type", description: "Select type" },
+  { id: 2, title: "Location & Assets", description: "Building and devices" },
+  { id: 3, title: "Work Details", description: "Description and schedule" },
+  { id: 4, title: "Additional Info", description: "Optional details" },
+  { id: 5, title: "Review", description: "Confirm details" },
 ];
 
 export default function CreateWorkOrderModal({
@@ -79,6 +86,7 @@ export default function CreateWorkOrderModal({
   const [mounted, setMounted] = useState(false);
   const isBuildingLocked = Boolean(lockBuilding && presetBuilding);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
 
   useEffect(() => {
     setMounted(true);
@@ -168,6 +176,7 @@ export default function CreateWorkOrderModal({
   useEffect(() => {
     if (!open) return;
     setError(null);
+    setCurrentStep(isBuildingLocked ? 2 : 1);
     setFormData({
       type: null,
       buildingId: null,
@@ -251,8 +260,39 @@ export default function CreateWorkOrderModal({
     setShowCancelConfirm(false);
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function canProceedToNextStep(): boolean {
+    switch (currentStep) {
+      case 1:
+        return formData.type !== null;
+      case 2:
+        return formData.buildingId !== null && formData.assetIds.length > 0;
+      case 3:
+        return formData.description.trim() !== "";
+      case 4:
+        if (requiresAmountAndInventory) {
+          return formData.inventoryProcessingType !== null;
+        }
+        return true;
+      default:
+        return true;
+    }
+  }
+
+  function handleNext() {
+    if (canProceedToNextStep() && currentStep < 5) {
+      setCurrentStep(currentStep + 1);
+      setError(null);
+    }
+  }
+
+  function handleBack() {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+      setError(null);
+    }
+  }
+
+  async function handleSubmit() {
     setLoading(true);
     setError(null);
 
@@ -299,92 +339,155 @@ export default function CreateWorkOrderModal({
   const modalContent = (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
         onClick={handleBackdropClick}
         aria-hidden="true"
       />
 
-      <div className="relative w-full max-w-4xl max-h-[90vh]">
+      <div className="relative w-full max-w-5xl max-h-[90vh] mx-auto">
         <div
-          className="w-full overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-zinc-200 flex flex-col max-h-[90vh]"
+          className="w-full overflow-hidden rounded-none sm:rounded-2xl bg-white shadow-2xl flex flex-col md:flex-row max-h-[90vh]"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header */}
-          <div className="border-b border-zinc-200 px-6 py-4 bg-zinc-50">
-            <div className="flex items-center justify-between">
+          {/* Left Sidebar - Steps */}
+          <div className="w-full md:w-72 bg-gradient-to-b from-emerald-50 to-teal-50 p-4 sm:p-6 md:p-8 flex flex-col md:min-h-0">
+            <div className="mb-4 md:mb-8">
+              <h2 className="text-xl sm:text-2xl font-bold text-zinc-800">Create Work Order</h2>
+              <p className="text-xs sm:text-sm text-zinc-600 mt-1">Follow the steps to create a new work order</p>
+            </div>
+
+            <div className="space-y-1 flex-1 overflow-y-auto md:overflow-y-visible">
+              {STEPS.map((step, idx) => {
+                const isCompleted = currentStep > step.id;
+                const isCurrent = currentStep === step.id;
+                const isUpcoming = currentStep < step.id;
+
+                return (
+                  <div key={step.id} className="relative">
+                    {/* Connector Line */}
+                    {idx < STEPS.length - 1 && (
+                      <div
+                        className={`absolute left-[15px] top-8 w-0.5 h-8 ${
+                          isCompleted ? "bg-emerald-500" : "bg-zinc-300"
+                        }`}
+                      />
+                    )}
+
+                    {/* Step Item */}
+                    <div
+                      className={`relative flex items-start gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg transition-all ${
+                        isCurrent ? "bg-white shadow-sm" : ""
+                      }`}
+                    >
+                      {/* Step Number Circle */}
+                      <div
+                        className={`flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-semibold text-xs sm:text-sm transition-all ${
+                          isCompleted
+                            ? "bg-emerald-500 text-white"
+                            : isCurrent
+                            ? "bg-emerald-600 text-white ring-4 ring-emerald-200"
+                            : "bg-white text-zinc-400 border-2 border-zinc-300"
+                        }`}
+                      >
+                        {isCompleted ? (
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : (
+                          step.id
+                        )}
+                      </div>
+
+                      {/* Step Content */}
+                      <div className="flex-1 min-w-0">
+                        <div
+                          className={`text-xs sm:text-sm font-semibold ${
+                            isCurrent ? "text-zinc-900" : isCompleted ? "text-zinc-700" : "text-zinc-500"
+                          }`}
+                        >
+                          {step.title}
+                        </div>
+                        <div className="text-[10px] sm:text-xs text-zinc-500 mt-0.5">{step.description}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Right Content Area */}
+          <div className="flex-1 flex flex-col max-h-[90vh] min-h-0">
+            {/* Header */}
+            <div className="border-b border-zinc-200 px-4 sm:px-6 md:px-8 py-4 sm:py-5 md:py-6 flex items-center justify-between bg-white">
               <div>
-                <h2 className="text-lg font-semibold text-zinc-900">
-                  {t("workOrders.create", "Create Work Order")}
-                </h2>
-                <p className="text-sm text-zinc-500">Schedule a technical team visit</p>
+                <h3 className="text-base sm:text-lg font-semibold text-zinc-900">{STEPS[currentStep - 1].title}</h3>
+                <p className="text-xs sm:text-sm text-zinc-600 mt-0.5">{STEPS[currentStep - 1].description}</p>
               </div>
               <button
                 type="button"
                 onClick={handleBackdropClick}
-                className="rounded-lg p-2 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-700 transition-colors"
+                className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 transition-colors"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
                 </svg>
               </button>
             </div>
-          </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            <div className="p-6 space-y-6">
-              
-              {/* Work Order Type */}
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 mb-3">
-                  Work Order Type <span className="text-red-500">*</span>
-                </label>
-                <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
-                  {WORK_ORDER_TYPES.map((type) => {
-                    const isSelected = formData.type === type.value;
-                    return (
-                      <button
-                        key={type.value}
-                        type="button"
-                        onClick={() =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            type: type.value,
-                            amountGel: "",
-                            inventoryProcessingType: null,
-                          }))
-                        }
-                        className={`relative flex flex-col items-center gap-1.5 rounded-xl p-3 text-center ring-1 transition-all ${
-                          isSelected
-                            ? "bg-emerald-50 ring-emerald-500 shadow-sm"
-                            : "bg-white ring-zinc-200 hover:ring-zinc-300 hover:bg-zinc-50"
-                        }`}
-                      >
-                        <span className="text-xl">{type.icon}</span>
-                        <span className={`text-xs font-medium ${isSelected ? "text-emerald-700" : "text-zinc-700"}`}>
-                          {language === "ka" ? type.labelKa : type.labelEn}
-                        </span>
-                      </button>
-                    );
-                  })}
+            {/* Form Content - Scrollable */}
+            <div className="flex-1 overflow-y-auto px-4 sm:px-6 md:px-8 py-4 sm:py-5 md:py-6 bg-zinc-50">
+              {/* Step 1: Work Order Type */}
+              {currentStep === 1 && (
+                <div className="space-y-4 sm:space-y-6 max-w-2xl">
+                  <div>
+                    <label className="block text-xs sm:text-sm font-bold text-zinc-900 mb-2 sm:mb-3 uppercase">
+                      Select Work Order Type <span className="text-red-500">*</span>
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                      {WORK_ORDER_TYPES.map((type) => {
+                        const isSelected = formData.type === type.value;
+                        return (
+                          <button
+                            key={type.value}
+                            type="button"
+                            onClick={() =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                type: type.value,
+                                amountGel: "",
+                                inventoryProcessingType: null,
+                              }))
+                            }
+                            className={`text-left p-3 sm:p-4 rounded-xl border-2 transition-all ${
+                              isSelected
+                                ? "border-emerald-500 bg-emerald-50"
+                                : "border-zinc-200 hover:border-zinc-300 bg-white"
+                            }`}
+                          >
+                            <div className={`text-sm sm:text-base font-semibold ${isSelected ? "text-emerald-900" : "text-zinc-900"}`}>
+                              {language === "ka" ? type.labelKa : type.labelEn}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* Two Column Layout */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                
-                {/* Left Column */}
-                <div className="space-y-5">
-                  
+              {/* Step 2: Location & Assets */}
+              {currentStep === 2 && (
+                <div className="space-y-4 sm:space-y-6 max-w-2xl">
                   {/* Building */}
                   <div>
-                    <label className="block text-sm font-medium text-zinc-700 mb-2">
+                    <label className="block text-xs sm:text-sm font-bold text-zinc-900 mb-2 sm:mb-3 uppercase">
                       Building <span className="text-red-500">*</span>
                     </label>
                     {isBuildingLocked && presetBuilding ? (
-                      <div className="rounded-xl bg-zinc-100 p-3 ring-1 ring-zinc-200">
+                      <div className="rounded-xl bg-zinc-50 p-4 border border-zinc-200">
                         <div className="font-medium text-zinc-900">{presetBuilding.name}</div>
-                        <div className="text-xs text-zinc-500">ID: #{presetBuilding.coreId}</div>
+                        <div className="text-xs text-zinc-500 mt-1">ID: #{presetBuilding.coreId}</div>
                       </div>
                     ) : (
                       <>
@@ -398,12 +501,12 @@ export default function CreateWorkOrderModal({
                           onFocus={() => {
                             if (buildingSearch.trim().length > 0) setShowBuildingResults(true);
                           }}
-                          placeholder="Search buildings..."
-                          className="w-full rounded-xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          placeholder="Search buildings by name, address, or ID..."
+                          className="w-full rounded-xl bg-white px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 border border-zinc-300 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200"
                         />
-                        
+
                         {selectedBuilding && !showBuildingResults && (
-                          <div className="mt-2 flex items-center justify-between rounded-xl bg-emerald-50 p-3 ring-1 ring-emerald-200">
+                          <div className="mt-3 flex items-center justify-between rounded-xl bg-emerald-50 p-3 border border-emerald-200">
                             <div>
                               <div className="font-medium text-zinc-900">{selectedBuilding.name}</div>
                               <div className="text-xs text-zinc-500">#{selectedBuilding.coreId}</div>
@@ -416,17 +519,17 @@ export default function CreateWorkOrderModal({
                                 setBuildingSearch("");
                                 setSelectedAssets([]);
                               }}
-                              className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
+                              className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
                             >
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
                               </svg>
                             </button>
                           </div>
                         )}
-                        
+
                         {showBuildingResults && filteredBuildings.length > 0 && (
-                          <div className="mt-2 max-h-40 overflow-y-auto rounded-xl bg-zinc-50 ring-1 ring-zinc-200 [&::-webkit-scrollbar]:hidden">
+                          <div className="mt-3 max-h-48 overflow-y-auto rounded-xl bg-white border border-zinc-200 shadow-sm">
                             {filteredBuildings.slice(0, 5).map((building) => (
                               <button
                                 key={building.coreId}
@@ -437,7 +540,7 @@ export default function CreateWorkOrderModal({
                                   setBuildingSearch("");
                                   setShowBuildingResults(false);
                                 }}
-                                className="w-full px-4 py-2.5 text-left hover:bg-white border-b border-zinc-100 last:border-0"
+                                className="w-full px-4 py-3 text-left hover:bg-zinc-50 border-b border-zinc-100 last:border-0"
                               >
                                 <div className="text-sm font-medium text-zinc-900">{building.name}</div>
                                 <div className="text-xs text-zinc-500">#{building.coreId} {building.address && `• ${building.address}`}</div>
@@ -452,17 +555,19 @@ export default function CreateWorkOrderModal({
                   {/* Devices */}
                   {selectedBuilding && (
                     <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <label className="text-sm font-medium text-zinc-700">
-                          Devices <span className="text-red-500">*</span>
+                      <div className="flex items-center justify-between mb-2 sm:mb-3">
+                        <label className="text-xs sm:text-sm font-bold text-zinc-900 uppercase">
+                          Select Devices <span className="text-red-500">*</span>
                         </label>
                         {selectedAssets.length > 0 && (
-                          <span className="text-xs text-emerald-600 font-medium">{selectedAssets.length} selected</span>
+                          <span className="text-xs text-emerald-600 font-semibold bg-emerald-100 px-2 py-1 rounded-lg">
+                            {selectedAssets.length} selected
+                          </span>
                         )}
                       </div>
-                      <div className="max-h-40 overflow-y-auto rounded-xl ring-1 ring-zinc-200 [&::-webkit-scrollbar]:hidden">
+                      <div className="max-h-64 overflow-y-auto rounded-xl border border-zinc-300 bg-white">
                         {buildingAssets.length === 0 ? (
-                          <div className="p-4 text-center text-sm text-zinc-500">No devices found</div>
+                          <div className="p-8 text-center text-sm text-zinc-500">No devices found in this building</div>
                         ) : (
                           <div className="divide-y divide-zinc-100">
                             {buildingAssets.map((asset) => {
@@ -470,8 +575,8 @@ export default function CreateWorkOrderModal({
                               return (
                                 <label
                                   key={asset.coreId}
-                                  className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors ${
-                                    isSelected ? "bg-emerald-50" : "bg-white hover:bg-zinc-50"
+                                  className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${
+                                    isSelected ? "bg-emerald-50" : "hover:bg-zinc-50"
                                   }`}
                                 >
                                   <input
@@ -506,56 +611,61 @@ export default function CreateWorkOrderModal({
                       </div>
                     </div>
                   )}
+                </div>
+              )}
 
+              {/* Step 3: Work Details */}
+              {currentStep === 3 && (
+                <div className="space-y-4 sm:space-y-6 max-w-2xl">
                   {/* Description */}
                   <div>
-                    <label className="block text-sm font-medium text-zinc-700 mb-2">
-                      Description <span className="text-red-500">*</span>
+                    <label className="block text-xs sm:text-sm font-bold text-zinc-900 mb-2 sm:mb-3 uppercase">
+                      Work Description <span className="text-red-500">*</span>
                     </label>
                     <textarea
                       value={formData.description}
                       onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                      required
-                      rows={4}
-                      placeholder="Describe what should be done..."
-                      className="w-full rounded-xl bg-white px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
+                      rows={5}
+                      placeholder="Describe the work that needs to be done in detail..."
+                      className="w-full rounded-xl bg-white px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 border border-zinc-300 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 resize-none"
                     />
                   </div>
-                </div>
 
-                {/* Right Column */}
-                <div className="space-y-5">
-                  
                   {/* Contact & Deadline */}
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-zinc-700 mb-2">Contact Number</label>
+                      <label className="block text-xs sm:text-sm font-bold text-zinc-900 mb-2 sm:mb-3 uppercase">Contact Number</label>
                       <input
                         type="tel"
                         value={formData.contactNumber}
                         onChange={(e) => setFormData((prev) => ({ ...prev, contactNumber: e.target.value }))}
                         placeholder="+995 XXX XXX XXX"
-                        className="w-full rounded-xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        className="w-full rounded-xl bg-white px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 border border-zinc-300 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-zinc-700 mb-2">Deadline</label>
+                      <label className="block text-xs sm:text-sm font-bold text-zinc-900 mb-2 sm:mb-3 uppercase">Deadline</label>
                       <input
                         type="datetime-local"
                         value={formData.deadline}
                         onChange={(e) => setFormData((prev) => ({ ...prev, deadline: e.target.value }))}
-                        className="w-full rounded-xl bg-white px-4 py-2.5 text-sm text-zinc-900 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        className="w-full rounded-xl bg-white px-4 py-3 text-sm text-zinc-900 border border-zinc-300 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200"
                       />
                     </div>
                   </div>
+                </div>
+              )}
 
+              {/* Step 4: Additional Info */}
+              {currentStep === 4 && (
+                <div className="space-y-4 sm:space-y-6 max-w-2xl">
                   {/* Amount & Inventory Type */}
                   {requiresAmountAndInventory && (
-                    <div className="rounded-xl bg-amber-50 p-4 ring-1 ring-amber-200">
-                      <div className="text-xs font-medium text-amber-800 mb-3">Additional fields for {formData.type === "INSTALLATION" ? "Installation" : "Repair/Change"}</div>
-                      <div className="grid grid-cols-2 gap-4">
+                    <div className="rounded-xl bg-amber-50 p-4 sm:p-5 border border-amber-200">
+                      <div className="text-xs sm:text-sm font-bold text-amber-900 mb-3 sm:mb-4 uppercase">Financial & Inventory Details</div>
+                      <div className="space-y-3 sm:space-y-4">
                         <div>
-                          <label className="block text-xs font-medium text-zinc-600 mb-1.5">Amount (GEL)</label>
+                          <label className="block text-xs sm:text-sm font-bold text-zinc-900 mb-2 sm:mb-3 uppercase">Amount (GEL)</label>
                           <input
                             type="number"
                             step="0.01"
@@ -563,23 +673,23 @@ export default function CreateWorkOrderModal({
                             value={formData.amountGel}
                             onChange={(e) => setFormData((prev) => ({ ...prev, amountGel: e.target.value }))}
                             placeholder="0.00"
-                            className="w-full rounded-lg bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            className="w-full rounded-xl bg-white px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 border border-amber-300 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-zinc-600 mb-1.5">
-                            Inventory Type <span className="text-red-500">*</span>
+                          <label className="block text-xs sm:text-sm font-bold text-zinc-900 mb-2 sm:mb-3 uppercase">
+                            Inventory Processing Type <span className="text-red-500">*</span>
                           </label>
-                          <div className="flex gap-2">
+                          <div className="grid grid-cols-2 gap-2 sm:gap-3">
                             {(["ASG", "Building"] as const).map((type) => (
                               <button
                                 key={type}
                                 type="button"
                                 onClick={() => setFormData((prev) => ({ ...prev, inventoryProcessingType: type }))}
-                                className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                                className={`px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
                                   formData.inventoryProcessingType === type
-                                    ? "bg-amber-600 text-white"
-                                    : "bg-white text-zinc-700 ring-1 ring-zinc-200 hover:bg-zinc-50"
+                                    ? "bg-amber-600 text-white border-2 border-amber-600"
+                                    : "bg-white text-zinc-700 border-2 border-zinc-300 hover:border-zinc-400"
                                 }`}
                               >
                                 {type}
@@ -593,10 +703,12 @@ export default function CreateWorkOrderModal({
 
                   {/* Employees to Notify */}
                   <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-sm font-medium text-zinc-700">Additional Notifications</label>
+                    <div className="flex items-center justify-between mb-2 sm:mb-3">
+                      <label className="text-xs sm:text-sm font-bold text-zinc-900 uppercase">Additional Notifications</label>
                       {selectedEmployees.length > 0 && (
-                        <span className="text-xs text-emerald-600 font-medium">{selectedEmployees.length} selected</span>
+                        <span className="text-xs text-blue-600 font-semibold bg-blue-100 px-2 py-1 rounded-lg">
+                          {selectedEmployees.length} selected
+                        </span>
                       )}
                     </div>
                     <input
@@ -610,18 +722,18 @@ export default function CreateWorkOrderModal({
                         if (employeeSearch.trim().length > 0) setShowEmployeeResults(true);
                       }}
                       placeholder="Search employees to notify..."
-                      className="w-full rounded-xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full rounded-xl bg-white px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 border border-zinc-300 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200"
                     />
-                    
+
                     {selectedEmployees.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1.5">
+                      <div className="mt-3 flex flex-wrap gap-2">
                         {selectedEmployees.map((empId) => {
                           const emp = employees.find((e) => e.id === empId);
                           if (!emp) return null;
                           return (
                             <span
                               key={emp.id}
-                              className="inline-flex items-center gap-1 rounded-lg bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700"
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-medium text-zinc-700"
                             >
                               {emp.firstName} {emp.lastName}
                               <button
@@ -633,10 +745,10 @@ export default function CreateWorkOrderModal({
                                     employeeIdsToNotify: prev.employeeIdsToNotify.filter((id) => id !== emp.id),
                                   }));
                                 }}
-                                className="ml-0.5 rounded p-0.5 hover:bg-zinc-200"
+                                className="rounded p-0.5 hover:bg-zinc-200"
                               >
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-                                  <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                  <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
                                 </svg>
                               </button>
                             </span>
@@ -644,10 +756,10 @@ export default function CreateWorkOrderModal({
                         })}
                       </div>
                     )}
-                    
+
                     {showEmployeeResults && filteredEmployees.length > 0 && (
-                      <div className="mt-2 max-h-32 overflow-y-auto rounded-xl bg-zinc-50 ring-1 ring-zinc-200 [&::-webkit-scrollbar]:hidden">
-                        {filteredEmployees.slice(0, 4).map((employee) => {
+                      <div className="mt-3 max-h-48 overflow-y-auto rounded-xl bg-white border border-zinc-200 shadow-sm">
+                        {filteredEmployees.slice(0, 5).map((employee) => {
                           const isSelected = selectedEmployees.includes(employee.id);
                           return (
                             <button
@@ -668,11 +780,11 @@ export default function CreateWorkOrderModal({
                                   }));
                                 }
                               }}
-                              className={`w-full flex items-center gap-3 px-4 py-2.5 text-left border-b border-zinc-100 last:border-0 ${
-                                isSelected ? "bg-emerald-50" : "hover:bg-white"
+                              className={`w-full flex items-center gap-3 px-4 py-3 text-left border-b border-zinc-100 last:border-0 ${
+                                isSelected ? "bg-blue-50" : "hover:bg-zinc-50"
                               }`}
                             >
-                              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-200 text-xs font-bold text-zinc-600">
+                              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-200 text-xs font-bold text-zinc-600">
                                 {employee.firstName[0]}{employee.lastName[0]}
                               </div>
                               <div className="flex-1 min-w-0">
@@ -680,7 +792,7 @@ export default function CreateWorkOrderModal({
                                 <div className="text-xs text-zinc-500">{employee.employeeId}</div>
                               </div>
                               {isSelected && (
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-emerald-600">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-blue-600">
                                   <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                                 </svg>
                               )}
@@ -691,74 +803,150 @@ export default function CreateWorkOrderModal({
                     )}
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* Error */}
+              {/* Step 5: Review */}
+              {currentStep === 5 && (
+                <div className="space-y-4 sm:space-y-6 max-w-2xl">
+                  <div className="bg-white rounded-xl p-4 sm:p-5 border border-zinc-200 space-y-3 sm:space-y-4">
+                    <div>
+                      <div className="text-xs font-semibold text-zinc-600 uppercase mb-1">Work Order Type</div>
+                      <div className="text-sm font-medium text-zinc-900">
+                        {WORK_ORDER_TYPES.find((t) => t.value === formData.type)?.[language === "ka" ? "labelKa" : "labelEn"]}
+                      </div>
+                    </div>
+
+                    <div className="border-t border-zinc-200 pt-4">
+                      <div className="text-xs font-semibold text-zinc-600 uppercase mb-1">Building</div>
+                      <div className="text-sm font-medium text-zinc-900">{selectedBuilding?.name}</div>
+                      <div className="text-xs text-zinc-500">ID: #{selectedBuilding?.coreId}</div>
+                    </div>
+
+                    <div className="border-t border-zinc-200 pt-4">
+                      <div className="text-xs font-semibold text-zinc-600 uppercase mb-1">Devices</div>
+                      <div className="text-sm text-zinc-700">{selectedAssets.length} device(s) selected</div>
+                    </div>
+
+                    <div className="border-t border-zinc-200 pt-4">
+                      <div className="text-xs font-semibold text-zinc-600 uppercase mb-1">Description</div>
+                      <div className="text-sm text-zinc-700">{formData.description}</div>
+                    </div>
+
+                    {formData.contactNumber && (
+                      <div className="border-t border-zinc-200 pt-4">
+                        <div className="text-xs font-semibold text-zinc-600 uppercase mb-1">Contact</div>
+                        <div className="text-sm text-zinc-700">{formData.contactNumber}</div>
+                      </div>
+                    )}
+
+                    {formData.deadline && (
+                      <div className="border-t border-zinc-200 pt-4">
+                        <div className="text-xs font-semibold text-zinc-600 uppercase mb-1">Deadline</div>
+                        <div className="text-sm text-zinc-700">{new Date(formData.deadline).toLocaleString()}</div>
+                      </div>
+                    )}
+
+                    {requiresAmountAndInventory && (
+                      <div className="border-t border-zinc-200 pt-4">
+                        <div className="text-xs font-semibold text-zinc-600 uppercase mb-1">Financial Details</div>
+                        <div className="text-sm text-zinc-700">
+                          {formData.amountGel && `Amount: ${formData.amountGel} GEL`}
+                          {formData.amountGel && formData.inventoryProcessingType && " • "}
+                          {formData.inventoryProcessingType && `Inventory: ${formData.inventoryProcessingType}`}
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedEmployees.length > 0 && (
+                      <div className="border-t border-zinc-200 pt-4">
+                        <div className="text-xs font-semibold text-zinc-600 uppercase mb-1">Notifications</div>
+                        <div className="text-sm text-zinc-700">{selectedEmployees.length} employee(s) will be notified</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Error Message */}
               {error && (
-                <div className="rounded-xl bg-red-50 p-4 ring-1 ring-red-200">
+                <div className="mt-6 rounded-xl bg-red-50 p-4 border border-red-200">
                   <div className="text-sm text-red-800">{error}</div>
                 </div>
               )}
             </div>
 
-            {/* Footer */}
-            <div className="border-t border-zinc-200 bg-zinc-50 px-6 py-4">
-              <div className="flex items-center justify-end gap-3">
+            {/* Footer Navigation */}
+            <div className="border-t border-zinc-200 bg-white px-4 sm:px-6 md:px-8 py-4 sm:py-5">
+              <div className="flex items-center justify-between gap-3">
                 <button
                   type="button"
-                  onClick={handleBackdropClick}
+                  onClick={currentStep === 1 ? handleBackdropClick : handleBack}
                   disabled={loading}
-                  className="rounded-xl px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-200 disabled:opacity-50 transition-colors"
+                  className="rounded-xl px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 transition-colors"
                 >
-                  Cancel
+                  {currentStep === 1 ? "Cancel" : "Back"}
                 </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-50 transition-all"
-                  style={{ backgroundColor: BRAND }}
-                >
-                  {loading ? "Creating..." : "Create Work Order"}
-                </button>
-              </div>
-            </div>
-          </form>
 
-          {/* Cancel Confirmation */}
-          {showCancelConfirm && (
-            <div 
-              className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-2xl z-[100]"
-              onClick={handleCancelCancel}
-            >
-              <div
-                className="bg-white rounded-xl p-5 shadow-xl ring-1 ring-zinc-200 max-w-sm mx-4"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <h3 className="text-base font-semibold text-zinc-900 mb-2">Discard changes?</h3>
-                <p className="text-sm text-zinc-600 mb-5">
-                  You have unsaved data. Are you sure you want to close?
-                </p>
-                <div className="flex gap-3">
+                {currentStep < 5 ? (
                   <button
                     type="button"
-                    onClick={handleCancelCancel}
-                    className="flex-1 rounded-lg bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-200"
+                    onClick={handleNext}
+                    disabled={!canProceedToNextStep()}
+                    className="rounded-xl px-5 sm:px-6 py-2.5 text-xs sm:text-sm font-semibold text-white shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    style={{ backgroundColor: canProceedToNextStep() ? BRAND : "#9ca3af" }}
                   >
-                    Keep Editing
+                    Next
                   </button>
+                ) : (
                   <button
                     type="button"
-                    onClick={handleConfirmCancel}
-                    className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+                    onClick={handleSubmit}
+                    disabled={loading}
+                    className="rounded-xl px-5 sm:px-6 py-2.5 text-xs sm:text-sm font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-50 transition-all"
+                    style={{ backgroundColor: BRAND }}
                   >
-                    Discard
+                    {loading ? "Creating..." : "Create Work Order"}
                   </button>
-                </div>
+                )}
               </div>
             </div>
-          )}
+          </div>
         </div>
       </div>
+
+      {/* Cancel Confirmation */}
+      {showCancelConfirm && (
+        <div
+          className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-2xl z-[100]"
+          onClick={handleCancelCancel}
+        >
+          <div
+            className="bg-white rounded-xl p-6 shadow-xl max-w-sm mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-semibold text-zinc-900 mb-2">Discard changes?</h3>
+            <p className="text-sm text-zinc-600 mb-5">
+              You have unsaved data. Are you sure you want to close?
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleCancelCancel}
+                className="flex-1 rounded-lg bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-200"
+              >
+                Keep Editing
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCancel}
+                className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+              >
+                Discard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 
