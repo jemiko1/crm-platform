@@ -185,6 +185,548 @@ function InfoCard({ label, value, icon }: { label: string; value: string | null 
   );
 }
 
+// Workflow Debug Panel - Shows workflow process tree with task assignments
+type ActivityLog = {
+  id: string;
+  action: string;
+  category: string;
+  title: string;
+  description: string;
+  performedByName: string | null;
+  createdAt: string;
+  metadata: any;
+};
+
+type WorkflowStepConfig = {
+  id: string;
+  stepKey: string;
+  stepName: string;
+  stepOrder: number;
+  assignedPositions: Array<{
+    position: {
+      id: string;
+      name: string;
+      code: string;
+    };
+  }>;
+};
+
+type StepEmployee = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  employeeId: string;
+  position: {
+    id: string;
+    name: string;
+    code: string;
+  };
+};
+
+function WorkflowDebugPanel({ workOrder }: { workOrder: WorkOrderDetail }) {
+  const [activities, setActivities] = useState<ActivityLog[]>([]);
+  const [workflowStepsConfig, setWorkflowStepsConfig] = useState<WorkflowStepConfig[]>([]);
+  const [stepEmployees, setStepEmployees] = useState<Record<string, StepEmployee[]>>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!workOrder) return;
+    let cancelled = false;
+    
+    async function loadData() {
+      try {
+        setLoading(true);
+        
+        // Load activities, workflow steps config, and employees for each step in parallel
+        const [activitiesData, stepsData] = await Promise.all([
+          apiGet<ActivityLog[]>(`/v1/work-orders/${workOrder.workOrderNumber || workOrder.id}/activity?includeDetails=true`),
+          apiGet<WorkflowStepConfig[]>('/v1/workflow/steps'),
+        ]);
+        
+        if (!cancelled) {
+          setActivities(activitiesData);
+          setWorkflowStepsConfig(stepsData);
+          
+          // Load employees for each workflow step
+          const employeesMap: Record<string, StepEmployee[]> = {};
+          for (const step of stepsData) {
+            try {
+              const employees = await apiGet<StepEmployee[]>(`/v1/workflow/steps/${step.stepKey}/employees`);
+              employeesMap[step.stepKey] = employees;
+            } catch (err) {
+              console.error(`Failed to load employees for step ${step.stepKey}:`, err);
+              employeesMap[step.stepKey] = [];
+            }
+          }
+          if (!cancelled) {
+            setStepEmployees(employeesMap);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load workflow data:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    
+    loadData();
+    return () => { cancelled = true; };
+  }, [workOrder]);
+
+  // Map step keys to our internal step numbers
+  const stepKeyMapping: Record<number, string> = {
+    1: "CREATED",  // No config step, system created
+    2: "ASSIGN_EMPLOYEES",
+    3: "START_WORK", 
+    4: "SUBMIT_COMPLETION",
+    5: "FINAL_APPROVAL",
+  };
+
+  // Get position and employees for a step
+  const getStepAssignees = (stepNum: number) => {
+    const stepKey = stepKeyMapping[stepNum];
+    if (!stepKey || stepKey === "CREATED") return { positions: [], employees: [] };
+    
+    const stepConfig = workflowStepsConfig.find(s => s.stepKey === stepKey);
+    const positions = stepConfig?.assignedPositions.map(ap => ap.position) || [];
+    const employees = stepEmployees[stepKey] || [];
+    
+    return { positions, employees };
+  };
+
+  // Determine workflow steps and their status
+  const workflowSteps = useMemo(() => {
+    const steps = [
+      {
+        step: 1,
+        name: "Work Order Created",
+        status: "completed" as const,
+        description: "Work order was created in the system",
+        timestamp: workOrder.createdAt,
+        performedBy: null as string | null,
+        action: "CREATED",
+        stepKey: "CREATED",
+      },
+      {
+        step: 2,
+        name: "Technicians Assigned",
+        status: (workOrder.assignments && workOrder.assignments.length > 0 ? "completed" : workOrder.status === "CREATED" || workOrder.status === "LINKED_TO_GROUP" ? "pending" : "skipped") as "completed" | "pending" | "in_progress" | "skipped",
+        description: workOrder.assignments && workOrder.assignments.length > 0
+          ? `${workOrder.assignments.length} technician(s) assigned`
+          : "Waiting for assignment",
+        timestamp: workOrder.assignments?.[0]?.assignedAt || null,
+        performedBy: null as string | null,
+        action: "ASSIGNED",
+        stepKey: "ASSIGN_EMPLOYEES",
+      },
+      {
+        step: 3,
+        name: "Work Started",
+        status: (workOrder.startedAt ? "completed" : workOrder.assignments && workOrder.assignments.length > 0 && !workOrder.startedAt ? "pending" : "pending") as "completed" | "pending" | "in_progress" | "skipped",
+        description: workOrder.startedAt ? "Technician started working" : "Waiting for work to start",
+        timestamp: workOrder.startedAt,
+        performedBy: null as string | null,
+        action: "STARTED",
+        stepKey: "START_WORK",
+      },
+      {
+        step: 4,
+        name: "Work Submitted for Review",
+        status: (workOrder.techEmployeeComment ? "completed" : workOrder.startedAt && !workOrder.techEmployeeComment ? "in_progress" : "pending") as "completed" | "pending" | "in_progress" | "skipped",
+        description: workOrder.techEmployeeComment ? "Work submitted with products" : "Waiting for completion",
+        timestamp: null as string | null,
+        performedBy: null as string | null,
+        action: "SUBMITTED",
+        stepKey: "SUBMIT_COMPLETION",
+      },
+      {
+        step: 5,
+        name: "Final Approval",
+        status: (workOrder.status === "APPROVED" || workOrder.status === "COMPLETED" ? "completed" : workOrder.status === "CANCELED" ? "skipped" : workOrder.techEmployeeComment ? "in_progress" : "pending") as "completed" | "pending" | "in_progress" | "skipped",
+        description: workOrder.status === "APPROVED" || workOrder.status === "COMPLETED" 
+          ? "Work approved by head of technical" 
+          : workOrder.status === "CANCELED" 
+          ? "Work order was canceled"
+          : "Waiting for approval",
+        timestamp: workOrder.completedAt || workOrder.canceledAt,
+        performedBy: null as string | null,
+        action: "APPROVED",
+        stepKey: "FINAL_APPROVAL",
+      },
+    ];
+
+    // Enrich with activity data (who performed each action)
+    steps.forEach(step => {
+      const activity = activities.find(a => a.action === step.action);
+      if (activity) {
+        step.timestamp = activity.createdAt;
+        if (activity.performedByName) {
+          step.performedBy = activity.performedByName;
+        }
+      }
+    });
+
+    return steps;
+  }, [workOrder, activities]);
+
+  // Find where workflow is stuck and who is responsible
+  const stuckInfo = useMemo(() => {
+    const inProgressStep = workflowSteps.find(s => s.status === "in_progress");
+    const pendingStep = workflowSteps.find(s => s.status === "pending" && workflowSteps.find(ps => ps.step === s.step - 1)?.status === "completed");
+    const stuckStep = inProgressStep || pendingStep;
+    
+    if (!stuckStep) return null;
+    
+    const { positions, employees } = getStepAssignees(stuckStep.step);
+    
+    // For step 3 and 4, the assigned technicians are responsible
+    if (stuckStep.step === 3 || stuckStep.step === 4) {
+      return {
+        step: stuckStep,
+        responsiblePositions: positions,
+        responsibleEmployees: workOrder.assignments?.map(a => ({
+          id: a.employee.id,
+          firstName: a.employee.firstName,
+          lastName: a.employee.lastName,
+          email: a.employee.email,
+          employeeId: a.employee.employeeId,
+          position: { id: '', name: 'Assigned Technician', code: 'TECH' },
+        })) || [],
+      };
+    }
+    
+    return {
+      step: stuckStep,
+      responsiblePositions: positions,
+      responsibleEmployees: employees,
+    };
+  }, [workflowSteps, workOrder.assignments, getStepAssignees]);
+
+  const statusColors = {
+    completed: { bg: "bg-emerald-50", border: "border-emerald-300", text: "text-emerald-700", dot: "bg-emerald-500" },
+    in_progress: { bg: "bg-amber-50", border: "border-amber-300", text: "text-amber-700", dot: "bg-amber-500 animate-pulse" },
+    pending: { bg: "bg-zinc-50", border: "border-zinc-200", text: "text-zinc-500", dot: "bg-zinc-300" },
+    skipped: { bg: "bg-red-50", border: "border-red-200", text: "text-red-500", dot: "bg-red-400" },
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header Info */}
+      <div className="rounded-xl bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 border-2 border-slate-700 shadow-lg p-5">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center shadow-md">
+            <svg className="w-6 h-6 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-white">Workflow Debug</h3>
+            <p className="text-xs text-slate-400">Process tree & task assignments</p>
+          </div>
+          <span className="ml-auto px-3 py-1 bg-amber-500/20 text-amber-400 rounded-full text-xs font-bold border border-amber-500/30">
+            Admin Only
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="bg-slate-700/50 rounded-lg p-3">
+            <div className="text-xs text-slate-400">Work Order</div>
+            <div className="font-mono font-bold text-white">#{workOrder.workOrderNumber}</div>
+          </div>
+          <div className="bg-slate-700/50 rounded-lg p-3">
+            <div className="text-xs text-slate-400">Status</div>
+            <div className="font-bold text-white">{workOrder.status}</div>
+          </div>
+          <div className="bg-slate-700/50 rounded-lg p-3">
+            <div className="text-xs text-slate-400">Type</div>
+            <div className="font-bold text-white">{workOrder.type}</div>
+          </div>
+          <div className="bg-slate-700/50 rounded-lg p-3">
+            <div className="text-xs text-slate-400">ID</div>
+            <div className="font-mono text-xs text-slate-300 truncate">{workOrder.id}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Stuck Warning with Responsible Employees */}
+      {stuckInfo && workOrder.status !== "APPROVED" && workOrder.status !== "COMPLETED" && workOrder.status !== "CANCELED" && (
+        <div className="rounded-xl bg-gradient-to-r from-red-500 to-rose-500 border-2 border-red-400 shadow-lg p-5">
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h4 className="text-sm font-bold text-white mb-1">Workflow Stuck at Step {stuckInfo.step.step}</h4>
+              <p className="text-sm text-white/90">{stuckInfo.step.name}</p>
+              <p className="text-xs text-white/70 mt-1">{stuckInfo.step.description}</p>
+              
+              {/* Show responsible position */}
+              {stuckInfo.responsiblePositions.length > 0 && (
+                <div className="mt-3 p-2 bg-white/10 rounded-lg">
+                  <div className="text-xs text-white/70 mb-1">Task assigned to position:</div>
+                  <div className="text-sm font-bold text-white">
+                    {stuckInfo.responsiblePositions.map(p => p.name).join(", ")}
+                  </div>
+                </div>
+              )}
+              
+              {/* Show responsible employees */}
+              {stuckInfo.responsibleEmployees.length > 0 && (
+                <div className="mt-3">
+                  <div className="text-xs text-white/70 mb-2">Waiting on employee(s):</div>
+                  <div className="space-y-2">
+                    {stuckInfo.responsibleEmployees.map((emp) => (
+                      <div key={emp.id} className="flex items-center gap-2 p-2 bg-white/10 rounded-lg">
+                        <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold text-white">
+                          {emp.firstName?.[0]}{emp.lastName?.[0]}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-bold text-white">
+                            {emp.employeeId} - {emp.firstName} {emp.lastName}
+                          </div>
+                          <div className="text-xs text-white/70">{emp.position?.name || 'Unknown Position'}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {stuckInfo.responsibleEmployees.length === 0 && stuckInfo.responsiblePositions.length > 0 && (
+                <div className="mt-2 p-2 bg-yellow-500/20 rounded-lg">
+                  <div className="text-xs text-yellow-200">
+                    ⚠️ No active employees found with position: {stuckInfo.responsiblePositions.map(p => p.name).join(", ")}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Workflow Process Tree */}
+      <div className="rounded-xl bg-white border-2 border-zinc-200 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 bg-zinc-50 border-b border-zinc-200">
+          <h4 className="text-sm font-bold text-zinc-900">Workflow Process Tree</h4>
+          <p className="text-xs text-zinc-500 mt-0.5">Track which employee handled each step</p>
+        </div>
+        
+        {loading ? (
+          <div className="p-6 text-center text-sm text-zinc-500">Loading workflow data...</div>
+        ) : (
+          <div className="p-4">
+            <div className="relative">
+              {/* Vertical connecting line */}
+              <div className="absolute left-5 top-6 bottom-6 w-0.5 bg-zinc-200" />
+              
+              <div className="space-y-4">
+                {workflowSteps.map((step) => {
+                  const colors = statusColors[step.status];
+                  const isStuck = stuckInfo?.step.step === step.step;
+                  const { positions, employees } = getStepAssignees(step.step);
+                  
+                  // For step 3 and 4, assigned technicians are responsible
+                  const stepEmployees = (step.step === 3 || step.step === 4) 
+                    ? workOrder.assignments?.map(a => ({
+                        id: a.employee.id,
+                        firstName: a.employee.firstName,
+                        lastName: a.employee.lastName,
+                        email: a.employee.email,
+                        employeeId: a.employee.employeeId,
+                        position: { id: '', name: 'Assigned Technician', code: 'TECH' },
+                      })) || []
+                    : employees;
+                  
+                  return (
+                    <div key={step.step} className="relative">
+                      <div className={`flex items-start gap-4 p-4 rounded-xl ${colors.bg} border-2 ${colors.border} ${isStuck ? 'ring-2 ring-red-400 ring-offset-2' : ''}`}>
+                        {/* Step number indicator */}
+                        <div className={`relative z-10 h-10 w-10 rounded-full ${colors.dot} flex items-center justify-center flex-shrink-0 shadow-md`}>
+                          {step.status === "completed" ? (
+                            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : step.status === "in_progress" ? (
+                            <svg className="w-5 h-5 text-white animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                          ) : step.status === "skipped" ? (
+                            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          ) : (
+                            <span className="text-sm font-bold text-white">{step.step}</span>
+                          )}
+                        </div>
+                        
+                        {/* Step content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h5 className={`text-sm font-bold ${colors.text}`}>
+                              Step {step.step}: {step.name}
+                            </h5>
+                            {step.status === "in_progress" && (
+                              <span className="px-2 py-0.5 bg-amber-200 text-amber-800 rounded text-xs font-bold">
+                                IN PROGRESS
+                              </span>
+                            )}
+                            {isStuck && (
+                              <span className="px-2 py-0.5 bg-red-500 text-white rounded text-xs font-bold">
+                                STUCK HERE
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-zinc-600 mt-1">{step.description}</p>
+                          
+                          {/* Performed by (for completed steps) */}
+                          {step.performedBy && step.status === "completed" && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <span className="text-xs font-semibold text-emerald-700">Performed by: {step.performedBy}</span>
+                            </div>
+                          )}
+                          
+                          {/* Position responsible for this step (for pending/in_progress steps) */}
+                          {(step.status === "pending" || step.status === "in_progress") && positions.length > 0 && step.step !== 1 && (
+                            <div className="mt-2 p-2 bg-white/50 rounded-lg border border-zinc-200">
+                              <div className="text-xs text-zinc-500 mb-1">Task assigned to position:</div>
+                              <div className="text-xs font-bold text-zinc-800">
+                                {positions.map(p => p.name).join(", ")}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Employees responsible (for pending/in_progress steps) */}
+                          {(step.status === "pending" || step.status === "in_progress") && stepEmployees.length > 0 && step.step !== 1 && (
+                            <div className="mt-2">
+                              <div className="text-xs text-zinc-500 mb-1">Responsible employee(s):</div>
+                              <div className="space-y-1">
+                                {stepEmployees.map((emp) => (
+                                  <div key={emp.id} className="flex items-center gap-2 p-1.5 bg-white/50 rounded border border-zinc-200">
+                                    <div className="h-6 w-6 rounded-full bg-zinc-200 flex items-center justify-center text-xs font-bold text-zinc-600">
+                                      {emp.firstName?.[0]}{emp.lastName?.[0]}
+                                    </div>
+                                    <div className="text-xs">
+                                      <span className="font-bold text-zinc-800">{emp.employeeId}</span>
+                                      <span className="text-zinc-600"> - {emp.firstName} {emp.lastName}</span>
+                                      <span className="text-zinc-400"> ({emp.position?.name})</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* No employees found warning */}
+                          {(step.status === "pending" || step.status === "in_progress") && stepEmployees.length === 0 && positions.length > 0 && step.step !== 1 && (
+                            <div className="mt-2 p-2 bg-yellow-50 rounded border border-yellow-200">
+                              <div className="text-xs text-yellow-700">
+                                ⚠️ No active employees with position: {positions.map(p => p.name).join(", ")}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Timestamp */}
+                          {step.timestamp && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <svg className="w-4 h-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <span className="text-xs text-zinc-500">{new Date(step.timestamp).toLocaleString()}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Assigned Technicians Detail */}
+      {workOrder.assignments && workOrder.assignments.length > 0 && (
+        <div className="rounded-xl bg-gradient-to-br from-blue-50 via-white to-blue-50 border-2 border-blue-200 shadow-sm p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md">
+              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-zinc-900">Assigned Technicians</h4>
+              <p className="text-xs text-zinc-500">{workOrder.assignments.length} employee(s) responsible for this work order</p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            {workOrder.assignments.map((assignment: any) => (
+              <div key={assignment.id} className="bg-white/80 rounded-lg border border-blue-100 p-3 flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                  <span className="text-sm font-bold text-blue-600">
+                    {assignment.employee.firstName?.[0]}{assignment.employee.lastName?.[0]}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold text-zinc-900">
+                    {assignment.employee.firstName} {assignment.employee.lastName}
+                  </div>
+                  <div className="text-xs text-zinc-500">{assignment.employee.email}</div>
+                </div>
+                <div className="text-xs text-zinc-400">
+                  Assigned: {new Date(assignment.assignedAt).toLocaleDateString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Activity Log Summary */}
+      <div className="rounded-xl bg-white border-2 border-zinc-200 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 bg-zinc-50 border-b border-zinc-200">
+          <h4 className="text-sm font-bold text-zinc-900">Activity Log (Raw)</h4>
+          <p className="text-xs text-zinc-500 mt-0.5">All logged workflow events</p>
+        </div>
+        {loading ? (
+          <div className="p-6 text-center text-sm text-zinc-500">Loading...</div>
+        ) : activities.length === 0 ? (
+          <div className="p-6 text-center text-sm text-zinc-500">No activity logs found</div>
+        ) : (
+          <div className="max-h-64 overflow-y-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-zinc-100 sticky top-0">
+                <tr>
+                  <th className="px-3 py-2 text-left font-semibold text-zinc-600">Action</th>
+                  <th className="px-3 py-2 text-left font-semibold text-zinc-600">Performed By</th>
+                  <th className="px-3 py-2 text-left font-semibold text-zinc-600">Time</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {activities.map((activity) => (
+                  <tr key={activity.id} className="hover:bg-zinc-50">
+                    <td className="px-3 py-2">
+                      <span className="font-mono font-semibold text-zinc-700">{activity.action}</span>
+                    </td>
+                    <td className="px-3 py-2 text-zinc-600">{activity.performedByName || "System"}</td>
+                    <td className="px-3 py-2 text-zinc-500">{new Date(activity.createdAt).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function getCurrentStage(wo: WorkOrderDetail | null): number {
   if (!wo) return 1;
   
@@ -218,7 +760,7 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
   const [error, setError] = useState<string | null>(null);
   const [isClosing, setIsClosing] = useState(false);
   const [isOpening, setIsOpening] = useState(false);
-  const [activeInfoTab, setActiveInfoTab] = useState<"general" | "activity" | "workflow">("general");
+  const [activeInfoTab, setActiveInfoTab] = useState<"general" | "products" | "activity" | "workflow">("general");
   const [showEditModal, setShowEditModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ isSuperAdmin?: boolean; email?: string } | null>(null);
@@ -395,6 +937,7 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
   }
 
   const currentStage = useMemo(() => getCurrentStage(workOrder), [workOrder]);
+  const requiresAmountAndInventory = workOrder?.type === "INSTALLATION" || workOrder?.type === "REPAIR_CHANGE";
   
   // Check if user is technical employee (for sensitive data visibility)
   const isTechnicalEmployee = useMemo(() => {
@@ -584,6 +1127,29 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
                     </>
                   )}
                 </button>
+                {requiresAmountAndInventory && (
+                  <button
+                    onClick={() => setActiveInfoTab("products")}
+                    className={`relative px-4 py-3 text-sm font-medium transition-all whitespace-nowrap flex items-center gap-2 ${
+                      activeInfoTab === "products"
+                        ? "text-zinc-900 font-semibold"
+                        : "text-zinc-600 hover:text-zinc-900"
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                    Products
+                    {activeInfoTab === "products" && (
+                      <div 
+                        className="absolute bottom-0 left-0 right-0 h-8 bg-emerald-50/30 pointer-events-none"
+                        style={{
+                          clipPath: "polygon(0% 100%, 0% 60%, 20% 50%, 40% 60%, 50% 50%, 60% 60%, 80% 50%, 100% 60%, 100% 100%)",
+                        }}
+                      />
+                    )}
+                  </button>
+                )}
                 <button
                   onClick={() => setActiveInfoTab("activity")}
                   className={`relative px-4 py-3 text-sm font-medium transition-all whitespace-nowrap flex items-center gap-2 ${
@@ -745,76 +1311,132 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
                     </div>
                   )}
                 </div>
+              ) : activeInfoTab === "products" && requiresAmountAndInventory ? (
+                <div className="space-y-6">
+                  {/* Approved Products Display - EMERALD (Read-only) */}
+                  {workOrder.productUsages && workOrder.productUsages.filter((u: any) => u.isApproved).length > 0 && (
+                    <div className="rounded-xl bg-gradient-to-br from-emerald-50 via-white to-emerald-50 border-2 border-emerald-200 shadow-sm p-6">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-md">
+                          <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <h3 className="text-base font-bold text-zinc-900">Approved Products</h3>
+                        <span className="ml-auto px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold">
+                          {workOrder.productUsages.filter((u: any) => u.isApproved).length} product(s)
+                        </span>
+                      </div>
+                      <div className="space-y-3">
+                        {workOrder.productUsages
+                          .filter((u: any) => u.isApproved)
+                          .map((usage: any) => (
+                            <div key={usage.id} className="bg-white/80 rounded-lg border border-emerald-100 p-4 hover:shadow-md transition-shadow">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <div className="text-sm font-bold text-zinc-900">{usage.product.name}</div>
+                                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded text-xs font-semibold">
+                                      ✓ Approved
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-3 flex-wrap text-xs text-zinc-600">
+                                    <span className="px-2 py-0.5 bg-zinc-100 text-zinc-700 rounded font-semibold">
+                                      SKU: {usage.product.sku}
+                                    </span>
+                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded font-semibold">
+                                      Quantity: {usage.quantity}
+                                    </span>
+                                    <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded font-semibold">
+                                      Category: {usage.product.category}
+                                    </span>
+                                    {canViewSensitiveData && usage.batch && (
+                                      <>
+                                        <span className="text-zinc-500">
+                                          Purchase: {usage.batch.purchasePrice} GEL
+                                        </span>
+                                        <span className="text-zinc-500">
+                                          Sell: {usage.batch.sellPrice} GEL
+                                        </span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Pending Products Display - AMBER (Read-only) */}
+                  {workOrder.productUsages && workOrder.productUsages.filter((u: any) => !u.isApproved).length > 0 && (
+                    <div className="rounded-xl bg-gradient-to-br from-amber-50 via-white to-amber-50 border-2 border-amber-200 shadow-sm p-6">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-md">
+                          <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <h3 className="text-base font-bold text-zinc-900">Pending Approval</h3>
+                        <span className="ml-auto px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-bold">
+                          {workOrder.productUsages.filter((u: any) => !u.isApproved).length} product(s)
+                        </span>
+                      </div>
+                      <div className="space-y-3">
+                        {workOrder.productUsages
+                          .filter((u: any) => !u.isApproved)
+                          .map((usage: any) => (
+                            <div key={usage.id} className="bg-white/80 rounded-lg border border-amber-100 p-4">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <div className="text-sm font-bold text-zinc-900">{usage.product.name}</div>
+                                    <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-xs font-semibold">
+                                      Pending
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-3 flex-wrap text-xs text-zinc-600">
+                                    <span className="px-2 py-0.5 bg-zinc-100 text-zinc-700 rounded font-semibold">
+                                      SKU: {usage.product.sku}
+                                    </span>
+                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded font-semibold">
+                                      Quantity: {usage.quantity}
+                                    </span>
+                                    <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded font-semibold">
+                                      Category: {usage.product.category}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                      <div className="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                        <p className="text-xs text-amber-700">
+                          💡 Products can be managed and approved from the Tasks workspace by the assigned technical employee and head of technical department.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* No Products Message */}
+                  {(!workOrder.productUsages || workOrder.productUsages.length === 0) && (
+                    <div className="rounded-xl bg-gradient-to-br from-zinc-50 via-white to-zinc-50 border-2 border-zinc-200 shadow-sm p-8 text-center">
+                      <div className="h-16 w-16 rounded-full bg-zinc-100 flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-8 h-8 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                        </svg>
+                      </div>
+                      <div className="text-sm font-semibold text-zinc-900 mb-1">No Products Yet</div>
+                      <div className="text-xs text-zinc-500">Products will appear here once added by technical employee via the Tasks workspace</div>
+                    </div>
+                  )}
+                </div>
               ) : activeInfoTab === "activity" ? (
                 <ActivityTimeline workOrderId={workOrder.workOrderNumber?.toString() || workOrder.id} />
               ) : activeInfoTab === "workflow" && currentUser?.isSuperAdmin ? (
-                <div className="space-y-4">
-                  <div className="rounded-xl bg-gradient-to-br from-amber-50 via-white to-amber-50 border-2 border-amber-200 shadow-sm p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-md">
-                        <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                      </div>
-                      <h3 className="text-base font-bold text-zinc-900">Workflow Debug Information</h3>
-                      <span className="ml-auto px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-bold">
-                        Admin Only
-                      </span>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="bg-white/80 rounded-lg border border-amber-100 p-4">
-                        <div className="text-xs font-semibold text-zinc-500 uppercase mb-2">Work Order ID</div>
-                        <div className="text-sm font-mono text-zinc-900">{workOrder.id}</div>
-                      </div>
-                      <div className="bg-white/80 rounded-lg border border-amber-100 p-4">
-                        <div className="text-xs font-semibold text-zinc-500 uppercase mb-2">Work Order Number</div>
-                        <div className="text-sm font-mono text-zinc-900">#{workOrder.workOrderNumber}</div>
-                      </div>
-                      <div className="bg-white/80 rounded-lg border border-amber-100 p-4">
-                        <div className="text-xs font-semibold text-zinc-500 uppercase mb-2">Current Status</div>
-                        <div className="text-sm font-mono text-zinc-900">{workOrder.status}</div>
-                      </div>
-                      <div className="bg-white/80 rounded-lg border border-amber-100 p-4">
-                        <div className="text-xs font-semibold text-zinc-500 uppercase mb-2">Type</div>
-                        <div className="text-sm font-mono text-zinc-900">{workOrder.type}</div>
-                      </div>
-                      <div className="bg-white/80 rounded-lg border border-amber-100 p-4">
-                        <div className="text-xs font-semibold text-zinc-500 uppercase mb-2">Assignments</div>
-                        <div className="text-sm font-mono text-zinc-900">
-                          {workOrder.assignments?.length || 0} employee(s) assigned
-                        </div>
-                        {workOrder.assignments && workOrder.assignments.length > 0 && (
-                          <div className="mt-2 space-y-1">
-                            {workOrder.assignments.map((a: any) => (
-                              <div key={a.id} className="text-xs text-zinc-600">
-                                • {a.employee?.firstName} {a.employee?.lastName} ({a.employee?.position?.name || 'No position'})
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <div className="bg-white/80 rounded-lg border border-amber-100 p-4">
-                        <div className="text-xs font-semibold text-zinc-500 uppercase mb-2">Products</div>
-                        <div className="text-sm font-mono text-zinc-900">
-                          {workOrder.productUsages?.length || 0} product(s) attached
-                        </div>
-                        <div className="text-xs text-zinc-500 mt-1">
-                          Approved: {workOrder.productUsages?.filter((p: any) => p.isApproved).length || 0}
-                        </div>
-                      </div>
-                      <div className="bg-white/80 rounded-lg border border-amber-100 p-4">
-                        <div className="text-xs font-semibold text-zinc-500 uppercase mb-2">Created / Updated</div>
-                        <div className="text-sm font-mono text-zinc-900">
-                          {new Date(workOrder.createdAt).toLocaleString()}
-                        </div>
-                        <div className="text-xs text-zinc-500 mt-1">
-                          Updated: {new Date(workOrder.updatedAt).toLocaleString()}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <WorkflowDebugPanel workOrder={workOrder} />
               ) : null}
               </div>
             </div>
