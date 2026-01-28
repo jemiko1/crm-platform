@@ -1,7 +1,7 @@
 # CRM Platform - Complete Session Summary
 
-**Last Updated**: 2026-01-27  
-**Version**: v1.1.0
+**Last Updated**: 2026-01-28  
+**Version**: v1.2.0
 **Status**: ✅ All features complete and committed
 
 ---
@@ -108,11 +108,36 @@
 - `frontend/crm-frontend/src/app/app/admin/list-items/[categoryId]/delete-item-modal.tsx` - Delete with reassignment
 - `backend/crm-backend/src/system-lists/*` - Backend API
 
-### 4. MODAL/POPUP SYSTEM
-**Pattern**: All modals use `createPortal` from `react-dom` to `document.body`  
-**Requirements**: `mounted` state check, `z-[9999]`, fixed positioning, backdrop  
-**Files**: `frontend/crm-frontend/src/app/modal-dialog.tsx` (reference)  
-**Status**: ✅ All modals properly centered and portal-rendered
+### 4. MODAL/POPUP SYSTEM (v1.2.0)
+**Pattern**: Centralized modal management with history-based navigation  
+**Architecture**:
+- `ModalManager` - Centralized modal rendering from app layout
+- `ModalProvider` - Suspense boundary wrapper for Next.js compatibility
+- `modal-z-index-context` - Z-index management for action modals
+
+**Z-Index Layers**:
+- Detail modals (building, client, employee, work-order): `z-index: 10000`
+- Action modals (add, edit, delete, report): `z-index: 50000+`
+
+**Navigation**:
+- Opening modal: `router.push('/app/buildings?building=1')`
+- Closing modal: `router.back()` (returns to previous page in history)
+- Browser back button works naturally
+
+**URL Structure**: Simple single-param URLs (e.g., `?building=1`, `?client=5`)  
+**Files**:
+- `frontend/crm-frontend/src/app/app/modal-manager.tsx` - Central modal controller
+- `frontend/crm-frontend/src/app/app/modal-provider.tsx` - Suspense wrapper
+- `frontend/crm-frontend/src/app/app/modal-z-index-context.tsx` - Z-index utilities
+- `frontend/crm-frontend/src/app/modal-dialog.tsx` - Reusable dialog component
+
+**Detail Modal Components**:
+- `buildings/[buildingId]/building-detail-content.tsx` - Building details
+- `clients/[clientId]/client-detail-content.tsx` - Client details
+- `employees/[employeeId]/employee-detail-content.tsx` - Employee details
+- `work-orders/[id]/work-order-detail-modal.tsx` - Work order details
+
+**Status**: ✅ All modals properly managed with history-based navigation
 
 ### 5. EMPLOYEE MANAGEMENT
 **Schema Changes**:
@@ -218,10 +243,14 @@
 ## FRONTEND PATTERNS
 
 ### MODAL IMPLEMENTATION
-**Required**: `createPortal`, `mounted` state, early return if not mounted/open  
-**Structure**: Fixed container -> backdrop -> modal wrapper -> content  
-**Z-Index**: `z-[9999]` for modals  
-**Reference**: `frontend/crm-frontend/src/app/modal-dialog.tsx`
+**Architecture**: Centralized modal management via `ModalManager` in app layout  
+**Detail Modals**: Rendered by `ModalManager`, z-index 10000, history-based navigation  
+**Action Modals**: Rendered inline in components, z-index 50000+  
+**Navigation**: 
+- Open: `router.push('/app/[route]?[type]=[id]')` 
+- Close: `router.back()` (browser history)
+**URL Params**: `building`, `client`, `employee`, `workOrder`  
+**Reference**: `frontend/crm-frontend/src/app/app/modal-manager.tsx`
 
 ### API CLIENT
 **File**: `frontend/crm-frontend/src/lib/api.ts`  
@@ -296,15 +325,15 @@
 
 ## GIT COMMITS & VERSIONING
 
-**Current Version**: v1.0.0  
-**Latest Commit**: `7e0c3a8` - "feat: Rename Products to Devices in Buildings context and restore permissions"
+**Current Version**: v1.2.0  
+**Latest Commit**: `764a662` - "feat: Implement centralized modal management with history-based navigation"
 
 **Recent Commits**:
+- `764a662` - feat: Implement centralized modal management with history-based navigation
+- `ec3f091` - feat: Enhanced Workflow Debug with position and employee tracking
+- `17ab195` - fix: Remove product management from work orders, keep it only in tasks
+- `c406c6b` - refactor: Clean work order module - remove legacy code and placeholders
 - `7e0c3a8` - feat: Rename Products to Devices in Buildings context and restore permissions
-- `b3239b5` - docs: Add comprehensive performance optimization guidelines
-- `421a38e` - feat: Add Report Incident button in building detail view
-- `7803cf1` - perf(frontend): Parallelize API calls and use centralized API client
-- `f6141a3` - docs: Add comprehensive session summary and documentation index
 
 ---
 

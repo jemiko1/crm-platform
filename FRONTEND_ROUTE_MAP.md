@@ -25,11 +25,18 @@ Complete frontend route documentation for CRM Platform.
 
 ---
 
-## `/app/buildings/[buildingId]`
+## `/app/buildings?building=[id]` (Building Detail Modal)
 
-**Files**: `buildings/[buildingId]/page.tsx`, `buildings/[buildingId]/add-client-modal.tsx`, `buildings/[buildingId]/add-product-modal.tsx`, `buildings/[buildingId]/edit-building-modal.tsx`  
+**Files**: 
+- `buildings/[buildingId]/building-detail-content.tsx` - Content component
+- `buildings/[buildingId]/building-detail-modal.tsx` - Legacy modal (unused)
+- `buildings/[buildingId]/add-client-modal.tsx`, `add-device-modal.tsx`, `edit-building-modal.tsx`
+
+**Modal System**: Rendered via centralized `ModalManager` using URL query params  
+**Navigation**: `router.back()` closes modal and returns to previous page
+
 **API Calls**:
-- `GET /v1/buildings/:buildingCoreId` - Get building details
+- `GET /v1/buildings` - Fetch all buildings, find by coreId
 - `GET /v1/buildings/:buildingCoreId/clients` - List clients
 - `GET /v1/buildings/:buildingCoreId/assets` - List assets
 - `GET /v1/buildings/:buildingId/incidents` - List incidents
@@ -38,7 +45,7 @@ Complete frontend route documentation for CRM Platform.
 - `PATCH /v1/admin/buildings/:buildingCoreId` - Update building
 
 **Status**: ✅ **Working**  
-**Notes**: Tabbed interface (overview, products, clients, work-orders, incidents). All CRUD operations functional.
+**Notes**: Full-size modal with tabbed interface (overview, devices, clients, work-orders, incidents). Shareable URLs.
 
 ---
 
@@ -53,15 +60,23 @@ Complete frontend route documentation for CRM Platform.
 
 ---
 
-## `/app/clients/[clientId]`
+## `/app/clients?client=[id]` (Client Detail Modal)
 
-**Files**: `clients/[clientId]/page.tsx`  
+**Files**: 
+- `clients/[clientId]/client-detail-content.tsx` - Content component
+- `clients/[clientId]/client-detail-modal.tsx` - Legacy modal (unused)
+- `clients/[clientId]/page.tsx` - Legacy page (redirects to modal)
+
+**Modal System**: Rendered via centralized `ModalManager` using URL query params  
+**Navigation**: `router.back()` closes modal and returns to previous page
+
 **API Calls**:
+- `GET /v1/clients` - Fetch all clients, find by coreId
 - `GET /v1/clients/:clientId/incidents` - List client incidents
 - `POST /v1/incidents` - Report incident (via modal)
 
 **Status**: ✅ **Working**  
-**Notes**: Client detail view with incidents list. Report incident modal integrated.
+**Notes**: Full-size modal with client profile, assigned buildings, and incident history. Shareable URLs.
 
 ---
 
@@ -91,9 +106,18 @@ Complete frontend route documentation for CRM Platform.
 
 ---
 
-## `/app/work-orders/[id]`
+## `/app/work-orders?workOrder=[id]` (Work Order Detail Modal)
 
-**Files**: `work-orders/[id]/page.tsx`, `work-orders/[id]/edit-work-order-modal.tsx`, `work-orders/[id]/assign-employees-modal.tsx`, `work-orders/[id]/product-usage-section.tsx`, `work-orders/[id]/deactivated-devices-section.tsx`  
+**Files**: 
+- `work-orders/[id]/work-order-detail-modal.tsx` - Full modal component (dynamically loaded)
+- `work-orders/[id]/page.tsx` - Legacy page (redirects to modal)
+- `work-orders/[id]/edit-work-order-modal.tsx`, `assign-employees-modal.tsx`
+- `work-orders/[id]/product-usage-section.tsx`, `deactivated-devices-section.tsx`
+- `work-orders/[id]/activity-timeline.tsx` - Activity log component
+
+**Modal System**: Rendered via centralized `ModalManager` using URL query params  
+**Navigation**: `router.back()` closes modal and returns to previous page
+
 **API Calls**:
 - `GET /v1/work-orders/:id` - Get work order details
 - `GET /v1/work-orders/:id/activity` - Get activity log
@@ -101,7 +125,7 @@ Complete frontend route documentation for CRM Platform.
 - `DELETE /v1/work-orders/:id` - Delete work order
 
 **Status**: ✅ **Working**  
-**Notes**: Tabbed detail view (Details, Activity, Workflow). Back office monitoring page with activity timeline.
+**Notes**: Full-size modal with tabbed detail view (Details, Activity, Workflow). Back office monitoring with activity timeline. Shareable URLs.
 
 ---
 
@@ -178,15 +202,23 @@ Complete frontend route documentation for CRM Platform.
 
 ---
 
-## `/app/employees/[employeeId]`
+## `/app/employees?employee=[id]` (Employee Detail Modal)
 
-**Files**: `employees/[employeeId]/page.tsx`, `employees/[employeeId]/edit-employee-modal.tsx`  
+**Files**: 
+- `employees/[employeeId]/employee-detail-content.tsx` - Content component
+- `employees/[employeeId]/employee-detail-modal.tsx` - Legacy modal (unused)
+- `employees/[employeeId]/edit-employee-modal.tsx` - Edit modal
+- `employees/[employeeId]/page.tsx` - Legacy page (redirects to modal)
+
+**Modal System**: Rendered via centralized `ModalManager` using URL query params  
+**Navigation**: `router.back()` closes modal and returns to previous page
+
 **API Calls**:
 - `GET /v1/employees/:id` - Get employee details
 - `PATCH /v1/employees/:id` - Update employee
 
 **Status**: ✅ **Working**  
-**Notes**: Tabbed detail view (Personal, Employment, Permissions, Work Orders). Edit modal functional.
+**Notes**: Full-size modal with tabbed detail view (Personal, Employment, Permissions, Work Orders). Shareable URLs.
 
 ---
 
@@ -328,8 +360,15 @@ Complete frontend route documentation for CRM Platform.
 **Key Patterns**:
 - Most routes use `apiGet`, `apiPost`, `apiPatch`, `apiDelete` from `@/lib/api`
 - Some routes use direct `fetch()` calls (buildings, clients pages)
-- Modals use `createPortal` for proper centering
 - Permission checks implemented via `usePermissions` hook
 - Work Orders separated into back-office monitoring and employee workspace
 - Task detail page handles all workflow actions for technical employees
 - Activity timeline shows workflow events on work order detail page
+
+**Modal System (v1.2.0)**:
+- Centralized `ModalManager` in app layout renders all detail modals
+- URL query params control modal state: `?building=1`, `?client=5`, `?employee=abc`, `?workOrder=123`
+- History-based navigation: `router.back()` closes modals
+- Z-index architecture: detail modals at 10000, action modals at 50000+
+- All detail views open as full-size, shareable popups
+- Files: `modal-manager.tsx`, `modal-provider.tsx`, `modal-z-index-context.tsx`
