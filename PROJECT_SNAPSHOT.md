@@ -1,11 +1,32 @@
 # CRM Platform - Project Snapshot
 
-**Last Updated**: 2026-01-27
-**Version**: v1.1.0
+**Last Updated**: 2026-01-28
+**Version**: v1.2.0
 **Tech Stack**: NestJS (Backend) + Next.js 15 (Frontend) + PostgreSQL + Prisma
 **Status**: Buildings, Clients, Incidents, Work Orders, and Admin modules complete and optimized
 **Performance**: Week 1 optimizations complete (4-10x faster)
-**Latest Changes**: Work Order Delete Permissions, Product Flow Activity, Inventory Impact Control
+**Latest Changes**: Centralized Modal Management System, History-Based Navigation
+
+---
+
+## Development Environments
+
+### Dev Environment (Current)
+- **Backend**: `http://localhost:4000`
+- **Frontend**: `http://localhost:4002`
+- **Database**: Separate dev database
+- **Purpose**: Development and testing
+- **API Base**: `http://localhost:4000/v1/*`
+- **Frontend Base**: `http://localhost:4002/app/*`
+
+### Production Environment
+- **Backend**: `http://localhost:3000`
+- **Frontend**: `http://localhost:3002`
+- **Database**: Production database
+- **API Base**: `http://localhost:3000/v1/*`
+- **Frontend Base**: `http://localhost:3002/app/*`
+
+**Note**: When working in dev environment, ensure API client in `frontend/crm-frontend/src/lib/api.ts` points to correct backend URL.
 
 ---
 
@@ -177,7 +198,7 @@ frontend/crm-frontend/
 - `apiPut<T>(path, body, init?)` - PUT request
 - `apiDelete<T>(path, init?)` - DELETE request
 - `ApiError` class
-- `API_BASE` constant (defaults to `http://localhost:3000`)
+- `API_BASE` constant (defaults to `http://localhost:3000`, update for dev environment)
 
 **Features**:
 - Automatic cookie handling (`credentials: "include"`)
@@ -216,7 +237,18 @@ frontend/crm-frontend/
 - **API Client**: Centralized `apiGet/apiPost/apiPatch/apiDelete` from `lib/api.ts`
 - **Performance**: N+1 queries eliminated, parallel API calls, strategic caching
 
-### Recent Updates (v1.1.0 - 2026-01-27)
+### Recent Updates (v1.2.0 - 2026-01-28)
+
+**Centralized Modal Management System:**
+- ✅ ModalManager component for centralized modal rendering
+- ✅ History-based navigation using `router.back()`
+- ✅ Z-index architecture: Detail modals (10000), Action modals (50000+)
+- ✅ All detail pages (buildings, clients, employees, work-orders) open as full-size modals
+- ✅ Shareable URLs with query params: `?building=1`, `?client=5`, etc.
+- ✅ Browser back button works naturally for modal navigation
+- **Files**: `modal-manager.tsx`, `modal-provider.tsx`, `modal-z-index-context.tsx`
+
+### Previous Updates (v1.1.0 - 2026-01-27)
 
 **Work Order Delete Permissions:**
 - ✅ Added granular delete permissions for inventory control
