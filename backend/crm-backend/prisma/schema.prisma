@@ -1,0 +1,1134 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum DeviceStatus {
+  ONLINE
+  OFFLINE
+  UNKNOWN
+}
+
+enum AssetType {
+  ELEVATOR
+  ENTRANCE_DOOR
+  INTERCOM
+  SMART_GSM_GATE
+  SMART_DOOR_GSM
+  BOOM_BARRIER
+  OTHER
+}
+
+enum WorkOrderType {
+  INSTALLATION // ინსტალაცია
+  DIAGNOSTIC // დიაგნოსტიკა
+  RESEARCH // მოკვლევა
+  DEACTIVATE // დემონტაჟი
+  REPAIR_CHANGE // შეცვლა
+  ACTIVATE // ჩართვა
+}
+
+enum WorkOrderStatus {
+  CREATED // Initial state
+  LINKED_TO_GROUP // Employees assigned
+  IN_PROGRESS // Employee started work
+  COMPLETED // Approved by head
+  CANCELED // Canceled by head
+}
+
+model Building {
+  // internal id for relations inside CRM
+  id String @id @default(uuid())
+
+  // external/core id (this is your buildingId like 38)
+  coreId Int @unique
+
+  name    String
+  city    String?
+  address String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // relations
+  clientBuildings ClientBuilding[]
+  assets          Asset[]
+  workOrders      WorkOrder[]
+  incidents       Incident[]
+
+  @@index([name])
+  @@index([city])
+}
+
+model Client {
+  id String @id @default(uuid())
+
+  // external/core id (clientId from core)
+  coreId Int @unique
+
+  // Many-to-many relation to Building via join table
+  clientBuildings ClientBuilding[]
+
+  // client info
+  firstName      String?
+  lastName       String?
+  idNumber       String?
+  paymentId      String?
+  primaryPhone   String?
+  secondaryPhone String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  incidents Incident[]
+
+  @@index([primaryPhone])
+  @@index([idNumber])
+}
+
+model ClientBuilding {
+  clientId   String
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  buildingId String
+  building   Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([clientId, buildingId])
+  @@index([buildingId])
+  @@index([clientId])
+}
+
+model Asset {
+  id String @id @default(uuid())
+
+  // external/core id (liftId/doorId/intercomId/gateId...)
+  coreId Int @unique
+
+  // relation to Building (internal FK)
+  buildingId String
+  building   Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
+  type   AssetType
+  name   String
+  ip     String?
+  status DeviceStatus @default(UNKNOWN)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workOrders      WorkOrder[]
+  workOrderAssets WorkOrderAsset[]
+  incidentAssets  IncidentAsset[]
+
+  @@index([buildingId])
+  @@index([type])
+  @@index([status])
+}
+
+model WorkOrder {
+  id String @id @default(uuid())
+
+  // Unique sequential number - NEVER reused even after deletion
+  workOrderNumber Int @unique @default(autoincrement())
+
+  // relation to Building (internal FK)
+  buildingId String
+  building   Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
+  // optional relation to Asset (internal FK) - keeping for backward compat, but we'll use WorkOrderAsset for multiple
+  assetId String?
+  asset   Asset?  @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+  // Sub-order support (for Diagnostic → Repair conversion)
+  parentWorkOrderId String?
+  parentWorkOrder   WorkOrder?  @relation("WorkOrderSubOrders", fields: [parentWorkOrderId], references: [id], onDelete: SetNull)
+  childWorkOrders   WorkOrder[] @relation("WorkOrderSubOrders")
+
+  type   WorkOrderType
+  status WorkOrderStatus @default(CREATED)
+  title  String
+  notes  String?         @db.Text // Renamed from notes to description in DTO, keeping notes for backward compat
+
+  // New workflow fields
+  contactNumber           String? // Building representative contact
+  deadline                DateTime? // Deadline for completion
+  amountGel               Decimal?  @db.Decimal(10, 2) // Customer payment amount (only for INSTALLATION, REPAIR_CHANGE)
+  inventoryProcessingType String? // "ASG" or "Building" (only for INSTALLATION, REPAIR_CHANGE)
+
+  // Comments from workflow participants
+  techEmployeeComment String? @db.Text // Comment from technical employee
+  techHeadComment     String? @db.Text // Comment from head of technical department
+  cancelReason        String? @db.Text // Reason if canceled
+
+  // Workflow timestamps
+  startedAt   DateTime? // When employee pressed "Start"
+  completedAt DateTime? // When head approved
+  canceledAt  DateTime? // When head canceled
+
+  // Relations
+  assignments        WorkOrderAssignment[]
+  workOrderAssets    WorkOrderAsset[] // Multiple devices support
+  productUsages      WorkOrderProductUsage[]
+  deactivatedDevices DeactivatedDevice[]
+  notifications      WorkOrderNotification[]
+  activityLogs       WorkOrderActivityLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([buildingId])
+  @@index([assetId])
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+  @@index([parentWorkOrderId])
+  @@index([workOrderNumber])
+}
+
+// Work Order Assignment (links employees to work orders)
+model WorkOrderAssignment {
+  id String @id @default(uuid())
+
+  workOrderId String
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  assignedAt DateTime @default(now())
+  assignedBy String? // User ID who made the assignment
+
+  @@index([workOrderId])
+  @@index([employeeId])
+}
+
+// Work Order Asset (many-to-many: work orders can have multiple devices)
+model WorkOrderAsset {
+  workOrderId String
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  assetId String
+  asset   Asset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([workOrderId, assetId])
+  @@index([workOrderId])
+  @@index([assetId])
+}
+
+// Work Order Product Usage - Track products used in work orders
+model WorkOrderProductUsage {
+  id String @id @default(uuid())
+
+  workOrderId String
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   InventoryProduct @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  quantity Int
+  batchId  String? // For FIFO tracking
+  batch    StockBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
+
+  // Approval tracking
+  isApproved Boolean   @default(false)
+  approvedBy String? // User ID
+  approvedAt DateTime?
+
+  // Tech employee filled, head can modify
+  filledBy   String? // Employee ID who filled
+  modifiedBy String? // Head who modified
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([workOrderId])
+  @@index([productId])
+  @@index([isApproved])
+}
+
+// Deactivated Device - Products from deactivation work orders
+model DeactivatedDevice {
+  id String @id @default(uuid())
+
+  workOrderId String
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   InventoryProduct @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  quantity Int
+  batchId  String? // Original batch
+
+  // Working condition check
+  isWorkingCondition Boolean   @default(false)
+  checkedBy          String? // User ID
+  checkedAt          DateTime?
+
+  // Transfer to active stock
+  transferredToStock Boolean   @default(false)
+  transferredBy      String?
+  transferredAt      DateTime?
+  stockTransactionId String? // Link to StockTransaction when transferred
+
+  notes String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([workOrderId])
+  @@index([productId])
+  @@index([isWorkingCondition])
+  @@index([transferredToStock])
+}
+
+// Work Order Notification - Track which employees should be notified
+model WorkOrderNotification {
+  id String @id @default(uuid())
+
+  workOrderId String
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  notifiedAt DateTime? // When notification was sent
+  readAt     DateTime? // When employee read notification
+
+  createdAt DateTime @default(now())
+
+  @@unique([workOrderId, employeeId])
+  @@index([workOrderId])
+  @@index([employeeId])
+  @@index([readAt])
+}
+
+// Work Order Activity Log - Full audit trail of all workflow events
+model WorkOrderActivityLog {
+  id String @id @default(uuid())
+
+  workOrderId String
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  // Who performed the action
+  performedById   String?
+  performedBy     Employee? @relation(fields: [performedById], references: [id], onDelete: SetNull)
+  performedByName String? // Cached name for display even if employee deleted
+
+  // Action categorization
+  action   String // Action key: "CREATED", "VIEWED", "ASSIGNED", "STARTED", etc.
+  category String // "MAIN" or "DETAIL" - for filtering
+
+  // Human-readable description
+  title       String // "Work Order Created"
+  description String @db.Text // "Created by რატი ჯოლბორდი (EMP-001)"
+
+  // Additional data for context
+  metadata Json? // { employeeIds: [...], previousStatus: "CREATED", newStatus: "LINKED_TO_GROUP", etc. }
+
+  createdAt DateTime @default(now())
+
+  @@index([workOrderId])
+  @@index([performedById])
+  @@index([category])
+  @@index([action])
+  @@index([createdAt])
+}
+
+enum UserRole {
+  ADMIN
+  CALL_CENTER
+  TECHNICIAN
+  WAREHOUSE
+  MANAGER
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  role         UserRole @default(TECHNICIAN) // Legacy enum role (kept for backward compat)
+  isActive     Boolean  @default(true)
+  isSuperAdmin Boolean  @default(false) // Admin override - bypasses all permission checks
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  incidentsReported Incident[]
+  employee          Employee?
+
+  @@index([email])
+  @@index([isActive])
+}
+
+/**
+ * =========================
+ * EMPLOYEE MANAGEMENT
+ * =========================
+ */
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+  ON_LEAVE
+  TERMINATED
+}
+
+model Employee {
+  id String @id @default(uuid())
+
+  // Personal Information
+  firstName String
+  lastName  String
+  email     String    @unique
+  phone     String?
+  avatar    String? // Auto-generated avatar URL
+  birthday  DateTime? // For birthday reminders
+
+  // Employment Details
+  employeeId      String  @unique // e.g., "EMP-001" (auto-generated)
+  extensionNumber String? // Phone extension number (e.g., "1234")
+  jobTitle        String? // Auto-generated from position name
+
+  // Status
+  status EmployeeStatus @default(ACTIVE)
+
+  // Auth Integration (1:1 with User)
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // NEW: Position-based RBAC (primary permission source)
+  positionId String?
+  position   Position? @relation(fields: [positionId], references: [id], onDelete: SetNull)
+
+  // Legacy: Department & Role Assignment (kept for backward compat)
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  roleId String?
+  role   Role?   @relation(fields: [roleId], references: [id], onDelete: SetNull)
+
+  // Manager Relationship (self-referential)
+  managerId    String?
+  manager      Employee?  @relation("ManagerSubordinates", fields: [managerId], references: [id], onDelete: SetNull)
+  subordinates Employee[] @relation("ManagerSubordinates")
+
+  // Contact Information
+  address          String?
+  city             String?
+  country          String?
+  emergencyContact String?
+  emergencyPhone   String?
+
+  // Relations (legacy permission overrides - kept for backward compat)
+  permissions            EmployeePermission[]
+  workOrderAssignments   WorkOrderAssignment[]
+  workOrderNotifications WorkOrderNotification[]
+  workOrderActivityLogs  WorkOrderActivityLog[]
+  managedDepartments     Department[]            @relation("DepartmentHead")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([email])
+  @@index([employeeId])
+  @@index([positionId])
+  @@index([departmentId])
+  @@index([roleId])
+  @@index([managerId])
+}
+
+// Department - Hierarchical company structure
+model Department {
+  id String @id @default(uuid())
+
+  name        String
+  code        String  @unique // e.g., "TECH", "SALES"
+  description String?
+
+  // Hierarchy
+  parentId String?
+  parent   Department?  @relation("DepartmentHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Department[] @relation("DepartmentHierarchy")
+
+  // Department Head
+  headId String?   @unique
+  head   Employee? @relation("DepartmentHead", fields: [headId], references: [id], onDelete: SetNull)
+
+  // Members
+  employees Employee[]
+  positions Position[]
+
+  // Permissions
+  departmentPermissions DepartmentPermission[]
+  departmentRoles       DepartmentRole[]
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([parentId])
+  @@index([code])
+}
+
+// Role - Job roles/positions (TECHNICIAN, MANAGER, etc.)
+model Role {
+  id String @id @default(uuid())
+
+  name        String  @unique // "Senior Technician"
+  code        String  @unique // "TECHNICIAN"
+  description String?
+
+  // Hierarchy (optional - for role levels)
+  level Int? // 1=Entry, 2=Mid, 3=Senior, 4=Lead
+
+  // Legacy sync (maps to User.role enum)
+  legacyRole UserRole? // ADMIN, MANAGER, TECHNICIAN, etc.
+
+  // Relations
+  employees   Employee[]
+  permissions RolePermission[]
+  departments DepartmentRole[]
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([code])
+  @@index([legacyRole])
+}
+
+// Permission - Granular access control
+model Permission {
+  id String @id @default(uuid())
+
+  resource    String // "buildings", "incidents", "employees"
+  action      String // "create", "read", "update", "delete", "manage"
+  description String?
+
+  // Grouping (for UI display)
+  category PermissionCategory @default(GENERAL)
+
+  // Relations (legacy system - kept for backward compat)
+  rolePermissions       RolePermission[]
+  departmentPermissions DepartmentPermission[]
+  employeePermissions   EmployeePermission[]
+
+  // NEW: Position-based RBAC
+  roleGroupPermissions RoleGroupPermission[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([resource, action])
+  @@index([resource])
+  @@index([category])
+}
+
+/**
+ * =========================
+ * POSITION-BASED RBAC (NEW)
+ * =========================
+ */
+
+// RoleGroup - Bundle of permissions assigned to positions
+model RoleGroup {
+  id String @id @default(uuid())
+
+  name        String  @unique // "Full Access", "Management", "Support Staff"
+  code        String  @unique // "FULL_ACCESS", "MANAGEMENT", "SUPPORT"
+  description String?
+
+  // Permissions bundle
+  permissions RoleGroupPermission[]
+
+  // Positions using this role group
+  positions Position[]
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([code])
+}
+
+// Position - Company positions (CEO, IT Manager, Call Center Operator, etc.)
+model Position {
+  id String @id @default(uuid())
+
+  name        String  @unique // "CEO", "IT Manager", "Call Center Operator"
+  code        String  @unique // "CEO", "IT_MGR", "CC_OP"
+  description String?
+  level       Int? // Optional: for sorting/display (1=Entry, 10=Executive)
+
+  // EXACTLY ONE role group per position (the core of position-based RBAC)
+  roleGroupId String
+  roleGroup   RoleGroup @relation(fields: [roleGroupId], references: [id])
+
+  // Department assignment (for structure)
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  // Employees holding this position
+  employees Employee[]
+  settings  PositionSetting[]
+
+  // Workflow steps this position is assigned to
+  workflowSteps WorkflowStepPosition[]
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([code])
+  @@index([roleGroupId])
+  @@index([departmentId])
+  @@index([level])
+}
+
+// Position Setting - Configurable position settings (e.g., Head of Technical Department)
+model PositionSetting {
+  id String @id @default(uuid())
+
+  key        String    @unique // e.g., "HEAD_OF_TECHNICAL_DEPARTMENT"
+  positionId String? // Position ID for this setting
+  position   Position? @relation(fields: [positionId], references: [id], onDelete: SetNull)
+
+  value       String? // Additional config value
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([key])
+  @@index([positionId])
+}
+
+/**
+ * =========================
+ * WORKFLOW CONFIGURATION
+ * =========================
+ */
+
+// Workflow Step - Defines steps in work order workflow
+model WorkflowStep {
+  id String @id @default(uuid())
+
+  // Step identification
+  stepKey     String  @unique // "ASSIGN_EMPLOYEES", "START_WORK", "SUBMIT_COMPLETION", "FINAL_APPROVAL"
+  stepName    String          // "Assign Employees", "Start Work", etc.
+  description String?
+
+  // Step order in workflow
+  stepOrder Int @default(0)
+
+  // Which work order types use this step (null = all types)
+  // Stored as JSON array: ["INSTALLATION", "REPAIR_CHANGE"]
+  workOrderTypes Json? // String[] of WorkOrderType values
+
+  // Which status triggers this step
+  triggerStatus String? // "CREATED", "LINKED_TO_GROUP", "IN_PROGRESS"
+
+  // Condition for this step (e.g., "techEmployeeComment != null" for approval step)
+  condition String?
+
+  // Required action at this step
+  requiredAction String? // "assign", "start", "complete", "approve", "cancel"
+
+  // Positions that receive tasks at this step
+  assignedPositions WorkflowStepPosition[]
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stepOrder])
+  @@index([triggerStatus])
+  @@index([isActive])
+}
+
+// Workflow Step Position - Links positions to workflow steps
+model WorkflowStepPosition {
+  id String @id @default(uuid())
+
+  workflowStepId String
+  workflowStep   WorkflowStep @relation(fields: [workflowStepId], references: [id], onDelete: Cascade)
+
+  positionId String
+  position   Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  // Is this the primary assignee or just notified?
+  isPrimaryAssignee Boolean @default(true)
+
+  // Notification type
+  notificationType String @default("TASK") // "TASK", "NOTIFICATION", "BOTH"
+
+  createdAt DateTime @default(now())
+
+  @@unique([workflowStepId, positionId])
+  @@index([workflowStepId])
+  @@index([positionId])
+}
+
+// Join table: RoleGroup <-> Permission
+model RoleGroupPermission {
+  roleGroupId String
+  roleGroup   RoleGroup @relation(fields: [roleGroupId], references: [id], onDelete: Cascade)
+
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleGroupId, permissionId])
+  @@index([roleGroupId])
+  @@index([permissionId])
+}
+
+enum PermissionCategory {
+  GENERAL
+  BUILDINGS
+  CLIENTS
+  INCIDENTS
+  WORK_ORDERS
+  INVENTORY
+  EMPLOYEES
+  REPORTS
+  ADMIN
+}
+
+// Join Tables for Many-to-Many Relationships
+
+model RolePermission {
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+}
+
+model DepartmentPermission {
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([departmentId, permissionId])
+  @@index([departmentId])
+  @@index([permissionId])
+}
+
+model DepartmentRole {
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([departmentId, roleId])
+  @@index([departmentId])
+  @@index([roleId])
+}
+
+model EmployeePermission {
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  // Override type (GRANT or DENY)
+  type PermissionOverride @default(GRANT)
+
+  @@id([employeeId, permissionId])
+  @@index([employeeId])
+  @@index([permissionId])
+}
+
+enum PermissionOverride {
+  GRANT
+  DENY
+}
+
+/**
+ * DEV/TEST ONLY:
+ * generate "core-like" external IDs when core system is not connected yet.
+ * Also used for ADMIN manual creation (fallback if core is down).
+ */
+model ExternalIdCounter {
+  entity    String   @id // "building" | "client" | "asset" | "incident"
+  nextId    Int
+  updatedAt DateTime @updatedAt
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+enum AuditEntity {
+  BUILDING
+  CLIENT
+  ASSET
+  WORK_ORDER
+  USER
+  INCIDENT
+}
+
+model AuditLog {
+  id         String      @id @default(uuid())
+  action     AuditAction
+  entity     AuditEntity
+  entityKey  String
+  actorId    String?
+  actorEmail String?
+  ip         String?
+  userAgent  String?
+  payload    Json?
+  createdAt  DateTime    @default(now())
+
+  @@index([entity, entityKey])
+  @@index([actorId])
+  @@index([createdAt])
+}
+
+/**
+ * =========================
+ * INCIDENTS
+ * =========================
+ */
+
+enum IncidentStatus {
+  CREATED
+  IN_PROGRESS
+  COMPLETED
+  WORK_ORDER_INITIATED
+}
+
+enum IncidentPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ContactMethod {
+  PHONE
+  EMAIL
+  IN_PERSON
+  OTHER
+}
+
+model Incident {
+  id String @id @default(uuid())
+
+  incidentNumber String @unique
+
+  // Relations (internal FK ids)
+  buildingId String
+  building   Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  // Many-to-many to assets via join table
+  incidentAssets IncidentAsset[]
+
+  // Incident fields
+  contactMethod ContactMethod
+  incidentType  String
+  priority      IncidentPriority
+  status        IncidentStatus   @default(CREATED)
+  description   String           @db.Text
+
+  // Optional reporter (future: auth user)
+  reportedById String?
+  reportedBy   User?   @relation(fields: [reportedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([buildingId])
+  @@index([clientId])
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt])
+  @@index([incidentType])
+  @@index([incidentNumber])
+}
+
+model IncidentAsset {
+  incidentId String
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  assetId String
+  asset   Asset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@id([incidentId, assetId])
+  @@index([assetId])
+}
+
+/**
+ * =========================
+ * INVENTORY MANAGEMENT
+ * =========================
+ */
+
+enum ProductCategory {
+  ROUTER
+  CONTROLLER
+  SENSOR
+  CABLE
+  ACCESSORY
+  HARDWARE
+  SOFTWARE
+  OTHER
+}
+
+enum ProductUnit {
+  PIECE
+  METER
+  KG
+  BOX
+  SET
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  ORDERED
+  SHIPPED
+  RECEIVED
+  CANCELLED
+}
+
+enum StockTransactionType {
+  PURCHASE_IN // Adding from purchase order
+  WORK_ORDER_OUT // Deduction for work order
+  ADJUSTMENT_IN // Manual increase
+  ADJUSTMENT_OUT // Manual decrease
+  RETURN_IN // Return from field
+  DAMAGED_OUT // Damaged/scrapped
+}
+
+// Master product catalog
+model InventoryProduct {
+  id String @id @default(uuid())
+
+  sku         String          @unique // e.g., "RTR-001"
+  name        String
+  description String?         @db.Text
+  category    ProductCategory
+  unit        ProductUnit     @default(PIECE)
+
+  // Stock thresholds
+  lowStockThreshold Int @default(10)
+
+  // Current stock (calculated from batches)
+  currentStock Int @default(0)
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  purchaseOrderItems PurchaseOrderItem[]
+  stockBatches       StockBatch[]
+  stockTransactions  StockTransaction[]
+  workOrderUsages    WorkOrderProductUsage[]
+  deactivatedDevices DeactivatedDevice[]
+
+  @@index([sku])
+  @@index([category])
+  @@index([currentStock])
+}
+
+// Purchase orders from suppliers (e.g., China)
+model PurchaseOrder {
+  id String @id @default(uuid())
+
+  poNumber      String  @unique // e.g., "PO-2026-001"
+  supplierName  String
+  supplierEmail String?
+
+  status PurchaseOrderStatus @default(DRAFT)
+
+  // Dates
+  orderDate    DateTime?
+  expectedDate DateTime?
+  receivedDate DateTime?
+
+  // Totals (calculated from items)
+  totalAmount Decimal @default(0) @db.Decimal(12, 2)
+
+  notes String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  items PurchaseOrderItem[]
+
+  @@index([status])
+  @@index([orderDate])
+}
+
+// Items in each purchase order
+model PurchaseOrderItem {
+  id String @id @default(uuid())
+
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   InventoryProduct @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  quantity      Int
+  purchasePrice Decimal @db.Decimal(10, 2) // Actual purchase price for this order
+  sellPrice     Decimal @db.Decimal(10, 2) // Selling price for this order
+  subtotal      Decimal @db.Decimal(12, 2) // quantity * purchasePrice
+
+  // Track which batch this created when received
+  stockBatch StockBatch?
+
+  @@index([purchaseOrderId])
+  @@index([productId])
+}
+
+// FIFO stock batches - each purchase creates a batch
+model StockBatch {
+  id String @id @default(uuid())
+
+  productId String
+  product   InventoryProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  // Link to purchase order item
+  purchaseOrderItemId String            @unique
+  purchaseOrderItem   PurchaseOrderItem @relation(fields: [purchaseOrderItemId], references: [id], onDelete: Restrict)
+
+  // FIFO tracking
+  initialQuantity   Int // Original quantity received
+  remainingQuantity Int // Current remaining (decreases as used)
+  purchasePrice     Decimal @db.Decimal(10, 2) // Purchase price per unit from this batch
+  sellPrice         Decimal @db.Decimal(10, 2) // Sell price per unit from this batch
+
+  receivedDate DateTime @default(now()) // For FIFO ordering
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  transactions    StockTransaction[]
+  workOrderUsages WorkOrderProductUsage[]
+
+  @@index([productId])
+  @@index([receivedDate]) // Important for FIFO
+  @@index([remainingQuantity])
+}
+
+// Complete audit trail of all stock movements
+model StockTransaction {
+  id String @id @default(uuid())
+
+  productId String
+  product   InventoryProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  // Optional batch reference (for FIFO tracking)
+  batchId String?
+  batch   StockBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
+
+  type     StockTransactionType
+  quantity Int // Positive for IN, negative for OUT
+
+  // Context references
+  workOrderId String? // If type is WORK_ORDER_OUT
+  referenceId String? // Generic reference (e.g., adjustment ID, return ID)
+
+  // Who performed this transaction
+  performedBy      String? // User name or ID
+  performedByEmail String?
+
+  notes String? @db.Text
+
+  // Snapshot at time of transaction
+  balanceBefore Int
+  balanceAfter  Int
+
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+  @@index([type])
+  @@index([workOrderId])
+  @@index([createdAt])
+  @@index([productId, createdAt])
+}
+
+/**
+ * =========================
+ * SYSTEM LIST ITEMS MANAGEMENT
+ * =========================
+ */
+
+// Category of list items (e.g., "Asset Type", "Incident Type", etc.)
+model SystemListCategory {
+  id String @id @default(uuid())
+
+  code        String  @unique // "ASSET_TYPE", "INCIDENT_TYPE", etc.
+  name        String // "Asset Type", "Incident Type", etc.
+  description String? @db.Text
+
+  // Which database table/field uses this category
+  tableName String? // "Asset", "Incident", etc.
+  fieldName String? // "type", "contactMethod", etc.
+
+  // Is this category user-editable?
+  isUserEditable Boolean @default(true) // false for system-critical enums
+
+  // Metadata
+  sortOrder Int      @default(0) // For display ordering in admin UI
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  items SystemListItem[]
+
+  @@index([code])
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+// Individual list items within a category
+model SystemListItem {
+  id String @id @default(uuid())
+
+  categoryId String
+  category   SystemListCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  value       String // "ELEVATOR", "Hardware Failure", etc. (backend value)
+  displayName String // "Elevator", "Hardware Failure", etc. (UI label)
+  description String? @db.Text
+
+  // Styling (optional - for priority colors, status colors, etc.)
+  colorHex String? // "#ff0000" for HIGH priority, etc.
+  icon     String? // Icon name or emoji
+
+  // Metadata
+  sortOrder Int      @default(0) // For display ordering
+  isDefault Boolean  @default(false) // One item per category can be default
+  isActive  Boolean  @default(true) // Soft delete
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([categoryId, value]) // Prevent duplicate values within same category
+  @@index([categoryId])
+  @@index([isActive])
+  @@index([sortOrder])
+}

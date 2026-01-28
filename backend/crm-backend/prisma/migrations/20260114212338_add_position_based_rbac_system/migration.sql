@@ -1,0 +1,2 @@
+-- This migration represents the RBAC system that was already applied to the database
+-- Position, RoleGroup, Employee, Department, Permission tables and related changes
