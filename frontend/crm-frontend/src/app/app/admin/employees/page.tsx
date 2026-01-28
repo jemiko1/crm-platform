@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
 import { apiGet } from "@/lib/api";
-import AddEmployeeModal from "./add-employee-modal";
+import AddEmployeeModal from "../../employees/add-employee-modal";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -223,12 +224,12 @@ export default function EmployeesPage() {
                     {new Date(emp.hireDate).toLocaleDateString()}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
-                    <a
-                      href={`/app/employees/${emp.id}`}
+                    <Link
+                      href={`/app/employees?employee=${emp.id}`}
                       className="font-semibold text-emerald-600 hover:text-emerald-700"
                     >
                       View
-                    </a>
+                    </Link>
                   </td>
                 </tr>
               ))}

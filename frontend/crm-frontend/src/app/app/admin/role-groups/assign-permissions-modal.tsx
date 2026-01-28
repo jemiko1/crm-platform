@@ -153,7 +153,7 @@ export default function AssignPermissionsModal({
         aria-hidden="true"
       />
 
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[50000] flex items-center justify-center p-4">
         <div
           className="w-full max-w-6xl max-h-[90vh] overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-zinc-200 flex flex-col"
           onClick={(e) => e.stopPropagation()}

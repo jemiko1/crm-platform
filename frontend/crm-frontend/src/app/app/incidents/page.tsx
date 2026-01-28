@@ -604,7 +604,7 @@ export default function IncidentsPage() {
                               {/* Building */}
                               <td className="px-4 py-4 align-middle">
                                 <Link
-                                  href={`/app/buildings/${incident.buildingId}`}
+                                  href={`/app/buildings?building=${incident.buildingId}`}
                                   className="block group/building"
                                   onClick={(e) => e.stopPropagation()}
                                 >
@@ -620,7 +620,7 @@ export default function IncidentsPage() {
                               {/* Client */}
                               <td className="px-4 py-4 align-middle">
                                 <Link
-                                  href={`/app/clients/${incident.clientId}`}
+                                  href={`/app/clients?client=${incident.clientId}`}
                                   className="block group/client"
                                   onClick={(e) => e.stopPropagation()}
                                 >
@@ -655,7 +655,7 @@ export default function IncidentsPage() {
                               <td className="px-4 py-4 align-middle">
                                 {incident.reportedByEmployeeId ? (
                                   <Link
-                                    href={`/app/employees/${incident.reportedByEmployeeId}`}
+                                    href={`/app/employees?employee=${incident.reportedByEmployeeId}`}
                                     className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100 hover:ring-emerald-300 transition-all"
                                     onClick={(e) => e.stopPropagation()}
                                   >

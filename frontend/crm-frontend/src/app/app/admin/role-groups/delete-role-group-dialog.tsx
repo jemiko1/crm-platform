@@ -98,7 +98,7 @@ export default function DeleteRoleGroupDialog({
   const canDelete = !hasPositions || replacementId !== "";
 
   const modalContent = (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[50000] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/40 backdrop-blur-sm"

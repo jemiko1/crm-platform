@@ -142,6 +142,7 @@ type Props = {
   onClose: () => void;
   workOrderId: string;
   onUpdate?: () => void;
+  zIndex?: number; // Optional z-index for stacking with other modals
 };
 
 function getTypeLabel(type: string, t: (key: string, fallback?: string) => string): string {
@@ -749,7 +750,7 @@ function getCurrentStage(wo: WorkOrderDetail | null): number {
   return 1;
 }
 
-export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpdate }: Props) {
+export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpdate, zIndex = 10001 }: Props) {
   const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -769,6 +770,7 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
   const [showSimpleDeleteConfirm, setShowSimpleDeleteConfirm] = useState(false);
   const [inventoryImpact, setInventoryImpact] = useState<any>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [referrerUrl, setReferrerUrl] = useState<string | null>(null);
   
   // Fetch current user and employee info
   useEffect(() => {
@@ -817,6 +819,22 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
     setMounted(true);
   }, []);
 
+  // Store referrer URL when modal opens
+  useEffect(() => {
+    if (open && !referrerUrl) {
+      // Get the current URL before the modal query parameter was added
+      const params = new URLSearchParams(window.location.search);
+      params.delete("workOrder");
+      const referrer = params.toString() 
+        ? `${window.location.pathname}?${params.toString()}` 
+        : window.location.pathname;
+      setReferrerUrl(referrer);
+    } else if (!open) {
+      // Reset referrer when modal closes
+      setReferrerUrl(null);
+    }
+  }, [open, referrerUrl]);
+
   useEffect(() => {
     if (open) {
       setIsOpening(true);
@@ -860,12 +878,17 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
     setTimeout(() => {
       setIsClosing(false);
       onClose();
-      const params = new URLSearchParams(searchParams?.toString() || "");
-      params.delete("workOrder");
-      const newUrl = params.toString() 
-        ? `${window.location.pathname}?${params.toString()}` 
-        : window.location.pathname;
-      router.push(newUrl);
+      // Navigate back to referrer URL if available, otherwise remove query param
+      if (referrerUrl) {
+        router.push(referrerUrl);
+      } else {
+        const params = new URLSearchParams(searchParams?.toString() || "");
+        params.delete("workOrder");
+        const newUrl = params.toString() 
+          ? `${window.location.pathname}?${params.toString()}` 
+          : window.location.pathname;
+        router.push(newUrl);
+      }
     }, 300);
   }
 
@@ -953,9 +976,10 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
 
   const modalContent = (
     <div
-      className={`fixed inset-0 z-[9999] flex items-end lg:items-center justify-end lg:justify-start bg-black/50 backdrop-blur-sm transition-opacity duration-300 ${
+      className={`fixed inset-0 flex items-end lg:items-center justify-end lg:justify-start bg-black/50 backdrop-blur-sm transition-opacity duration-300 ${
         isClosing ? "opacity-0" : "opacity-100"
       }`}
+      style={{ zIndex }}
       onClick={handleClose}
     >
       <div className="relative w-full lg:w-[calc(100%-148px)] lg:ml-[148px] h-full">
@@ -966,17 +990,30 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
           onClick={(e) => e.stopPropagation()}
           style={{ maxHeight: "100vh" }}
         >
-          {/* Close button - integrated into popup, top left corner */}
+          {/* Close button - integrated into popup, top left corner (desktop) */}
           <button
             onClick={handleClose}
-            className="absolute -left-12 top-6 z-[10000] h-12 w-12 bg-blue-600 text-white shadow-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
+            className="hidden lg:flex absolute -left-12 top-6 h-12 w-12 bg-emerald-500 text-white shadow-lg hover:bg-emerald-600 transition-colors items-center justify-center"
             aria-label="Close"
             style={{ 
+              zIndex: zIndex + 1,
               borderRadius: "9999px 0 0 9999px",
               clipPath: "inset(0 0 0 0 round 9999px 0 0 9999px)"
             }}
           >
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+
+          {/* Mobile close button - inside popup, top right corner */}
+          <button
+            onClick={handleClose}
+            className="lg:hidden absolute top-4 right-4 h-10 w-10 bg-emerald-500 text-white shadow-lg hover:bg-emerald-600 transition-colors flex items-center justify-center rounded-full"
+            style={{ zIndex: zIndex + 1 }}
+            aria-label="Close"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -1198,7 +1235,7 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
             </div>
 
             {/* Tab Content with light green overlay - description div */}
-            <div className="relative p-6 bg-emerald-50/30 min-h-full">
+            <div className="relative p-6 bg-emerald-50/30 min-h-full rounded-t-3xl lg:rounded-l-3xl lg:rounded-tr-none lg:rounded-br-none">
               {/* Wave connection from selected tab to content */}
               {activeInfoTab && (
                 <div 

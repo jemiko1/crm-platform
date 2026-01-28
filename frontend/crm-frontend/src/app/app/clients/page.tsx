@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet } from "@/lib/api";
 
 const BRAND = "rgb(8, 117, 56)";
@@ -41,6 +42,8 @@ function fullNameOf(c: Pick<ClientRow, "firstName" | "lastName" | "coreId">) {
 }
 
 export default function ClientsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const pageSize = 10;
@@ -48,6 +51,12 @@ export default function ClientsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<ClientRow[]>([]);
+
+  // Helper function to open client modal via URL
+  // Simple URL - browser history handles "back" navigation
+  function openClientModal(clientId: number) {
+    router.push(`/app/clients?client=${clientId}`);
+  }
 
   useEffect(() => {
     let alive = true;
@@ -228,7 +237,11 @@ export default function ClientsPage() {
                             >
                               {/* Client */}
                               <td className="px-5 py-4 align-middle">
-                                <Link href={`/app/clients/${c.coreId}`} className="block">
+                                <button
+                                  type="button"
+                                  onClick={() => openClientModal(c.coreId)}
+                                  className="block w-full text-left"
+                                >
                                   <div className="flex items-center justify-between gap-3">
                                     <div className="min-w-0">
                                       <div className="text-[15px] font-semibold text-zinc-900 underline-offset-2 group-hover:underline truncate">
@@ -243,7 +256,7 @@ export default function ClientsPage() {
                                       →
                                     </span>
                                   </div>
-                                </Link>
+                                </button>
                               </td>
 
                               {/* ID Number */}
@@ -323,7 +336,8 @@ export default function ClientsPage() {
           )}
         </div>
       </div>
-    </div>
+
+      </div>
   );
 }
 
@@ -344,7 +358,7 @@ const BuildingsCell = React.memo(function BuildingsCell({ buildings }: { buildin
       onMouseLeave={() => setOpen(false)}
     >
       <Link
-        href={`/app/buildings/${first.coreId}`}
+        href={`/app/buildings?building=${first.coreId}`}
         className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50"
         title="Open building"
       >
@@ -368,7 +382,7 @@ const BuildingsCell = React.memo(function BuildingsCell({ buildings }: { buildin
             {buildings.map((b) => (
               <Link
                 key={b.coreId}
-                href={`/app/buildings/${b.coreId}`}
+                href={`/app/buildings?building=${b.coreId}`}
                 className="block rounded-xl bg-zinc-50 px-3 py-2 text-sm text-zinc-900 ring-1 ring-zinc-200 hover:bg-emerald-50 hover:ring-emerald-200 transition"
               >
                 <div className="flex items-center justify-between gap-3">

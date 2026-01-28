@@ -252,7 +252,7 @@ export default function IncidentDetailContent({
         <div className="rounded-2xl bg-zinc-50 p-4 ring-1 ring-zinc-200">
           <div className="text-xs font-semibold uppercase tracking-wide text-zinc-600">Client</div>
           <Link
-            href={`/app/clients/${incident.client.coreId}`}
+            href={`/app/clients?client=${incident.client.coreId}`}
             className="mt-2 block group hover:opacity-80 transition"
           >
             <div className="text-sm font-semibold text-zinc-900 group-hover:underline">
@@ -269,7 +269,7 @@ export default function IncidentDetailContent({
             Building
           </div>
           <Link
-            href={`/app/buildings/${incident.building.coreId}`}
+            href={`/app/buildings?building=${incident.building.coreId}`}
             className="mt-2 block group hover:opacity-80 transition"
           >
             <div className="text-sm font-semibold text-zinc-900 group-hover:underline">

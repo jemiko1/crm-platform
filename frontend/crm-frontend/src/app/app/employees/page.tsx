@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet } from "@/lib/api";
 import AddEmployeeModal from "./add-employee-modal";
 
@@ -27,12 +28,20 @@ type Employee = {
 };
 
 export default function EmployeesPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [showAddModal, setShowAddModal] = useState(false);
+
+  // Helper function to open employee modal via URL
+  // Simple URL - browser history handles "back" navigation
+  function openEmployeeModal(employeeId: string) {
+    router.push(`/app/employees?employee=${employeeId}`);
+  }
 
   async function fetchEmployees() {
     try {
@@ -221,12 +230,13 @@ export default function EmployeesPage() {
                     )}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
-                    <a
-                      href={`/app/employees/${emp.id}`}
+                    <button
+                      type="button"
+                      onClick={() => openEmployeeModal(emp.id)}
                       className="font-semibold text-emerald-600 hover:text-emerald-700"
                     >
                       View
-                    </a>
+                    </button>
                   </td>
                 </tr>
               ))}

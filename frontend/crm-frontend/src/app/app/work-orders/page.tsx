@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet, ApiError } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
 import CreateWorkOrderModal from "./create-work-order-modal";
-import WorkOrderDetailModal from "./[id]/work-order-detail-modal";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -106,20 +105,12 @@ export default function WorkOrdersPage() {
   const [meta, setMeta] = useState<WorkOrdersResponse["meta"] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [selectedWorkOrderId, setSelectedWorkOrderId] = useState<string | null>(null);
 
-  // Check URL for workOrder parameter on mount and when it changes
-  useEffect(() => {
-    const workOrderParam = searchParams?.get("workOrder");
-    if (workOrderParam) {
-      setSelectedWorkOrderId(workOrderParam);
-    } else {
-      // If parameter is removed from URL, close modal
-      if (selectedWorkOrderId) {
-        setSelectedWorkOrderId(null);
-      }
-    }
-  }, [searchParams]);
+  // Helper function to open work order modal via URL
+  // Simple URL - browser history handles "back" navigation
+  function openWorkOrderModal(workOrderNumber: number) {
+    router.push(`/app/work-orders?workOrder=${workOrderNumber}`);
+  }
 
   const pageSize = 10;
 
@@ -290,14 +281,7 @@ export default function WorkOrdersPage() {
                               <td className="px-4 py-4 align-middle">
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    const workOrderId = wo.workOrderNumber.toString();
-                                    setSelectedWorkOrderId(workOrderId);
-                                    // Update URL with workOrder parameter
-                                    const params = new URLSearchParams(searchParams?.toString() || "");
-                                    params.set("workOrder", workOrderId);
-                                    router.push(`${window.location.pathname}?${params.toString()}`);
-                                  }}
+                                  onClick={() => openWorkOrderModal(wo.workOrderNumber)}
                                   className="block w-full text-left"
                                 >
                                   <div className="min-w-0">
@@ -318,14 +302,19 @@ export default function WorkOrdersPage() {
 
                               {/* Building */}
                               <td className="px-4 py-4 align-middle">
-                                <Link
-                                  href={`/app/buildings/${wo.building.coreId}`}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const params = new URLSearchParams(searchParams?.toString() || "");
+                                    params.set("building", String(wo.building.coreId));
+                                    router.push(`/app/buildings?${params.toString()}`);
+                                  }}
                                   className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-sm text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50"
                                   title="Open building"
                                 >
                                   <span className="font-semibold">{wo.building.name}</span>
                                   <span className="text-xs text-zinc-500">#{wo.building.coreId}</span>
-                                </Link>
+                                </button>
                               </td>
 
                               {/* Asset */}
@@ -360,10 +349,7 @@ export default function WorkOrdersPage() {
                               {/* Created */}
                               <td className="px-4 py-4 align-middle">
                                 <button
-                                  onClick={() => {
-                                    setSelectedWorkOrderId(wo.workOrderNumber.toString());
-                                    router.push(`/app/work-orders?workOrder=${wo.workOrderNumber}`);
-                                  }}
+                                  onClick={() => openWorkOrderModal(wo.workOrderNumber)}
                                   className="block text-left hover:bg-zinc-50 rounded-lg transition-colors w-full"
                                   title="Open work order"
                                 >
@@ -427,28 +413,6 @@ export default function WorkOrdersPage() {
           window.location.reload();
         }}
       />
-
-      {/* Work Order Detail Modal */}
-      {selectedWorkOrderId && (
-        <WorkOrderDetailModal
-          open={!!selectedWorkOrderId}
-          onClose={() => {
-            setSelectedWorkOrderId(null);
-            // Remove workOrder parameter from URL
-            const params = new URLSearchParams(searchParams?.toString() || "");
-            params.delete("workOrder");
-            const newUrl = params.toString() 
-              ? `${window.location.pathname}?${params.toString()}` 
-              : window.location.pathname;
-            router.push(newUrl);
-          }}
-          workOrderId={selectedWorkOrderId}
-          onUpdate={() => {
-            // Reload work orders list
-            window.location.reload();
-          }}
-        />
-      )}
     </div>
   );
 }

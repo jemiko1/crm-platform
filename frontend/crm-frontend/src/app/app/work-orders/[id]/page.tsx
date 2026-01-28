@@ -633,7 +633,7 @@ export default function WorkOrderDetailPage() {
             <div className="rounded-lg bg-white p-6 border border-zinc-200">
               <h2 className="text-base font-semibold text-zinc-900 mb-4">Building</h2>
               <Link
-                href={`/app/buildings/${workOrder.building.coreId}`}
+                href={`/app/buildings?building=${workOrder.building.coreId}`}
                 className="group block rounded-lg bg-zinc-50 p-4 border border-zinc-200 transition hover:border-zinc-300 hover:bg-zinc-100"
               >
                 <div className="flex items-center justify-between gap-3">

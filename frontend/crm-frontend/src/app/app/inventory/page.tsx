@@ -84,17 +84,7 @@ export default function InventoryPage() {
 
   const fetchProducts = useCallback(async () => {
     try {
-      const res = await fetch("http://localhost:3000/v1/inventory/products", {
-        credentials: "include",
-        cache: "no-store",
-      });
-
-      if (!res.ok) {
-        setProducts([]);
-        return;
-      }
-
-      const data = await res.json();
+      const data = await apiGet<Product[]>("/v1/inventory/products");
       setProducts(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Failed to load products:", err);
@@ -104,17 +94,7 @@ export default function InventoryPage() {
 
   const fetchPurchaseOrders = useCallback(async () => {
     try {
-      const res = await fetch("http://localhost:3000/v1/inventory/purchase-orders", {
-        credentials: "include",
-        cache: "no-store",
-      });
-
-      if (!res.ok) {
-        setPurchaseOrders([]);
-        return;
-      }
-
-      const data = await res.json();
+      const data = await apiGet<PurchaseOrder[]>("/v1/inventory/purchase-orders");
       setPurchaseOrders(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Failed to load purchase orders:", err);
@@ -124,17 +104,7 @@ export default function InventoryPage() {
 
   const fetchTransactions = useCallback(async () => {
     try {
-      const res = await fetch("http://localhost:3000/v1/inventory/transactions?limit=200", {
-        credentials: "include",
-        cache: "no-store",
-      });
-
-      if (!res.ok) {
-        setTransactions([]);
-        return;
-      }
-
-      const data = await res.json();
+      const data = await apiGet<StockTransaction[]>("/v1/inventory/transactions?limit=200");
       setTransactions(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Failed to load transactions:", err);

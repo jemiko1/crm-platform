@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet } from "@/lib/api";
 import AddBuildingModal from "./add-building-modal";
 
@@ -103,6 +104,8 @@ const ProductIcons = React.memo(function ProductIcons({ p }: { p: BuildingProduc
 
 export default function BuildingsPage() {
   const hasMounted = useHasMounted();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -111,6 +114,12 @@ export default function BuildingsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
 
   const pageSize = 10;
+
+  // Helper function to open building modal via URL
+  // Simple URL - browser history handles "back" navigation
+  function openBuildingModal(buildingId: number) {
+    router.push(`/app/buildings?building=${buildingId}`);
+  }
 
   // Fetch buildings from API
   useEffect(() => {
@@ -280,7 +289,11 @@ export default function BuildingsPage() {
                             >
                               {/* Building */}
                               <td className="px-4 py-4 align-middle">
-                                <Link href={`/app/buildings/${b.coreId}`} className="block">
+                                <button
+                                  type="button"
+                                  onClick={() => openBuildingModal(b.coreId)}
+                                  className="block w-full text-left"
+                                >
                                   <div className="min-w-0">
                                     <div className="flex items-center gap-2">
                                       <span className="text-sm font-semibold text-zinc-900 underline-offset-2 group-hover:underline">
@@ -292,13 +305,19 @@ export default function BuildingsPage() {
                                       ID {b.coreId} • {b.city ?? "—"}
                                     </div>
                                   </div>
-                                </Link>
+                                </button>
                               </td>
 
                               {/* Clients */}
                               <td className="px-4 py-4 align-middle">
-                                <Link
-                                  href={`/app/buildings/${b.coreId}?tab=clients`}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const params = new URLSearchParams(searchParams?.toString() || "");
+                                    params.set("building", String(b.coreId));
+                                    params.set("tab", "clients");
+                                    router.push(`${window.location.pathname}?${params.toString()}`);
+                                  }}
                                   className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-sm text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50"
                                   title="Open clients list"
                                 >
@@ -306,26 +325,38 @@ export default function BuildingsPage() {
                                     <IconClients />
                                   </span>
                                   <span className="font-semibold tabular-nums">{b.clientCount}</span>
-                                </Link>
+                                </button>
                               </td>
 
                               {/* Devices */}
                               <td className="px-4 py-4 align-middle">
-                                <Link
-                                  href={`/app/buildings/${b.coreId}?tab=devices`}
-                                  className="block"
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const params = new URLSearchParams(searchParams?.toString() || "");
+                                    params.set("building", String(b.coreId));
+                                    params.set("tab", "devices");
+                                    router.push(`${window.location.pathname}?${params.toString()}`);
+                                  }}
+                                  className="block w-full"
                                   title="Open devices"
                                 >
                                   <div className="group-hover:opacity-95">
                                     <ProductIcons p={b.products} />
                                   </div>
-                                </Link>
+                                </button>
                               </td>
 
                               {/* Work Orders */}
                               <td className="px-4 py-4 align-middle">
-                                <Link
-                                  href={`/app/buildings/${b.coreId}?tab=work-orders`}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const params = new URLSearchParams(searchParams?.toString() || "");
+                                    params.set("building", String(b.coreId));
+                                    params.set("tab", "work-orders");
+                                    router.push(`${window.location.pathname}?${params.toString()}`);
+                                  }}
                                   className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-sm text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50"
                                   title="Open work orders"
                                 >
@@ -335,14 +366,15 @@ export default function BuildingsPage() {
                                   <span className="tabular-nums">
                                     <span className="font-semibold text-zinc-700">Open:</span> {open}
                                   </span>
-                                </Link>
+                                </button>
                               </td>
 
                               {/* Last Update */}
                               <td className="px-4 py-4 align-middle">
-                                <Link
-                                  href={`/app/buildings/${b.coreId}`}
-                                  className="block"
+                                <button
+                                  type="button"
+                                  onClick={() => openBuildingModal(b.coreId)}
+                                  className="block w-full text-left"
                                   title="Open building"
                                 >
                                   <div className="text-sm text-zinc-900">
@@ -351,7 +383,7 @@ export default function BuildingsPage() {
                                       : formatUtcCompact(b.updatedAt)}
                                   </div>
                                   <div className="mt-1 text-xs text-zinc-500">latest core sync</div>
-                                </Link>
+                                </button>
                               </td>
                             </tr>
                           );

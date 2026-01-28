@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import SidebarNav from "./sidebar-nav";
 import ProfileMenu from "./profile-menu";
 import TasksIcon from "./tasks-icon";
+import ModalProvider from "./modal-provider";
 
 const BRAND_GREEN = "rgb(8,117,56)";
 
@@ -83,6 +84,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </main>
         </div>
       </div>
+
+      {/* Centralized Modal Manager - handles all detail modals */}
+      <ModalProvider />
     </div>
   );
 }

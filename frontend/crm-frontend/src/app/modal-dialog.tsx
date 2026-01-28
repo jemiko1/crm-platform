@@ -66,7 +66,7 @@ export default function ModalDialog({
 
   const modalContent = (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fadeIn"
+      className="fixed inset-0 z-[50000] flex items-center justify-center p-4 animate-fadeIn"
       style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0 }}
       onClick={(e) => {
         // Close when clicking backdrop (not the content)
