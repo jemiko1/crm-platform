@@ -5,7 +5,7 @@ import Link from "next/link";
 import ReportIncidentModal from "../../incidents/report-incident-modal";
 import ModalDialog from "../../../modal-dialog";
 import IncidentDetailContent from "../../incidents/incident-detail-content";
-import { apiGet } from "@/lib/api";
+import { apiGet, API_BASE } from "@/lib/api";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -202,7 +202,7 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
         setIncError(null);
 
         // Try /v1/clients/:clientId/incidents first
-        let res = await fetch(`http://localhost:3000/v1/clients/${clientCoreId}/incidents`, {
+        let res = await fetch(`${API_BASE}/v1/clients/${clientCoreId}/incidents`, {
           method: "GET",
           credentials: "include",
           cache: "no-store",
@@ -210,7 +210,7 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
 
         // Fallback: /v1/incidents?clientId=...
         if (!res.ok) {
-          res = await fetch(`http://localhost:3000/v1/incidents?clientId=${encodeURIComponent(String(clientCoreId))}`, {
+          res = await fetch(`${API_BASE}/v1/incidents?clientId=${encodeURIComponent(String(clientCoreId))}`, {
             method: "GET",
             credentials: "include",
             cache: "no-store",

@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { apiGet, apiPost, ApiError } from "@/lib/api";
+import { apiGet, apiPost, ApiError, API_BASE } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
 import AssignEmployeesModal from "../../work-orders/[id]/assign-employees-modal";
 
@@ -224,7 +224,7 @@ export default function TaskDetailPage() {
   useEffect(() => {
     async function loadEmployee() {
       try {
-        const res = await fetch("http://localhost:3000/auth/me", {
+        const res = await fetch(`${API_BASE}/auth/me`, {
           credentials: "include",
         });
         if (!res.ok) return;

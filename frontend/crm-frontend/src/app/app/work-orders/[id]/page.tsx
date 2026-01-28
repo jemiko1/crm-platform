@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { apiGet, apiPatch, apiDelete, apiPost, ApiError } from "@/lib/api";
+import { apiGet, apiPatch, apiDelete, apiPost, ApiError, API_BASE } from "@/lib/api";
 import EditWorkOrderModal from "./edit-work-order-modal";
 import ActivityTimeline from "./activity-timeline";
 import { useI18n } from "@/hooks/useI18n";
@@ -218,7 +218,7 @@ export default function WorkOrderDetailPage() {
 
     async function loadUser() {
       try {
-        const res = await fetch("http://localhost:3000/auth/me", {
+        const res = await fetch(`${API_BASE}/auth/me`, {
           credentials: "include",
         });
         if (!res.ok) throw new Error("Failed /auth/me");

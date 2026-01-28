@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { API_BASE } from "@/lib/api";
 
 type MeResponse = {
   user: { id: string; email: string; role: string } | null;
@@ -15,7 +16,7 @@ export default function UserBadge() {
 
     async function load() {
       try {
-        const res = await fetch("http://localhost:3000/auth/me", {
+        const res = await fetch(`${API_BASE}/auth/me`, {
           method: "GET",
           credentials: "include", // IMPORTANT: sends httpOnly cookie
           cache: "no-store",

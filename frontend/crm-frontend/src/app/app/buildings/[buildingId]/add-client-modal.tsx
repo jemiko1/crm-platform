@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
+import { API_BASE } from "@/lib/api";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -49,7 +50,7 @@ export default function AddClientModal({
 
     try {
       const res = await fetch(
-        `http://localhost:3000/v1/admin/buildings/${buildingCoreId}/clients`,
+        `${API_BASE}/v1/admin/buildings/${buildingCoreId}/clients`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

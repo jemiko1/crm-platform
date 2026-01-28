@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useListItems } from "@/hooks/useListItems";
+import { API_BASE } from "@/lib/api";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -176,7 +177,7 @@ export default function ReportIncidentModal({
 
     async function loadBuildings() {
       try {
-        const res = await fetch("http://localhost:3000/v1/buildings", {
+        const res = await fetch(`${API_BASE}/v1/buildings`, {
           credentials: "include",
           cache: "no-store",
         });
@@ -223,7 +224,7 @@ export default function ReportIncidentModal({
 
     async function loadClients() {
       try {
-        const res = await fetch(`http://localhost:3000/v1/buildings/${b.coreId}/clients`, {
+        const res = await fetch(`${API_BASE}/v1/buildings/${b.coreId}/clients`, {
           credentials: "include",
           cache: "no-store",
         });
@@ -253,7 +254,7 @@ export default function ReportIncidentModal({
 
     async function loadAssets() {
       try {
-        const res = await fetch(`http://localhost:3000/v1/buildings/${b.coreId}/assets`, {
+        const res = await fetch(`${API_BASE}/v1/buildings/${b.coreId}/assets`, {
           credentials: "include",
           cache: "no-store",
         });
@@ -356,7 +357,7 @@ export default function ReportIncidentModal({
         payload.clientId = formData.clientId;
       }
 
-      const res = await fetch("http://localhost:3000/v1/incidents", {
+      const res = await fetch(`${API_BASE}/v1/incidents`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

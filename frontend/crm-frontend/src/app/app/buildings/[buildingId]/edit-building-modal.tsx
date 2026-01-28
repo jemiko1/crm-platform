@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { API_BASE } from "@/lib/api";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -62,7 +63,7 @@ export default function EditBuildingModal({
       // NOTE: You'll need to create a PATCH endpoint on your backend
       // For now, this assumes: PATCH /v1/admin/buildings/:coreId
       const res = await fetch(
-        `http://localhost:3000/v1/admin/buildings/${building.coreId}`,
+        `${API_BASE}/v1/admin/buildings/${building.coreId}`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },

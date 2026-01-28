@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { apiGet } from "@/lib/api";
+import { apiGet, API_BASE } from "@/lib/api";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -36,7 +36,7 @@ export default function TasksIcon() {
 
     async function loadEmployee() {
       try {
-        const res = await fetch("http://localhost:3000/auth/me", {
+        const res = await fetch(`${API_BASE}/auth/me`, {
           credentials: "include",
         });
         if (!res.ok) return;

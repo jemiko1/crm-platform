@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGet, apiPost, API_BASE } from "@/lib/api";
 import AddProductModal from "./add-product-modal";
 import EditProductModal from "./edit-product-modal";
 import CreatePurchaseOrderModal from "./create-purchase-order-modal";
@@ -562,7 +562,7 @@ function PurchaseOrdersTab({
 
                         try {
                           const res = await fetch(
-                            `http://localhost:3000/v1/inventory/purchase-orders/${po.id}/status`,
+                            `${API_BASE}/v1/inventory/purchase-orders/${po.id}/status`,
                             {
                               method: "PUT",
                               headers: { "Content-Type": "application/json" },
@@ -592,7 +592,7 @@ function PurchaseOrdersTab({
 
                         try {
                           const res = await fetch(
-                            `http://localhost:3000/v1/inventory/purchase-orders/${po.id}/status`,
+                            `${API_BASE}/v1/inventory/purchase-orders/${po.id}/status`,
                             {
                               method: "PUT",
                               headers: { "Content-Type": "application/json" },

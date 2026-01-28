@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import ModalDialog from "../../modal-dialog";
+import { API_BASE } from "@/lib/api";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -55,7 +56,7 @@ export default function EditProductModal({ open, onClose, onSuccess, product }: 
     setError(null);
 
     try {
-      const res = await fetch(`http://localhost:3000/v1/inventory/products/${product.id}`, {
+      const res = await fetch(`${API_BASE}/v1/inventory/products/${product.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

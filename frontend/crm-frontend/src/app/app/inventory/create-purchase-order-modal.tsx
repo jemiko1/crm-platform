@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import ModalDialog from "../../modal-dialog";
+import { API_BASE } from "@/lib/api";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -95,7 +96,7 @@ export default function CreatePurchaseOrderModal({
         throw new Error("Please add at least one product");
       }
 
-      const res = await fetch("http://localhost:3000/v1/inventory/purchase-orders", {
+      const res = await fetch(`${API_BASE}/v1/inventory/purchase-orders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { API_BASE } from "@/lib/api";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -105,7 +106,7 @@ export default function IncidentDetailContent({
       setLoading(true);
       setError(null);
 
-      const res = await fetch(`http://localhost:3000/v1/incidents/${incidentId}`, {
+      const res = await fetch(`${API_BASE}/v1/incidents/${incidentId}`, {
         method: "GET",
         credentials: "include",
         cache: "no-store",
@@ -135,7 +136,7 @@ export default function IncidentDetailContent({
     try {
       setUpdating(true);
 
-      const res = await fetch(`http://localhost:3000/v1/incidents/${incidentId}/status`, {
+      const res = await fetch(`${API_BASE}/v1/incidents/${incidentId}/status`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

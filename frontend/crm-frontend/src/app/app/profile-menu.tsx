@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
+import { API_BASE } from "@/lib/api";
 
 const BRAND_GREEN = "rgb(8,117,56)";
 
@@ -83,7 +84,7 @@ export default function ProfileMenu() {
     async function load() {
       try {
         setLoadingMe(true);
-        const res = await fetch("http://localhost:3000/auth/me", {
+        const res = await fetch(`${API_BASE}/auth/me`, {
           credentials: "include",
         });
         if (!res.ok) throw new Error("Failed /auth/me");
@@ -183,7 +184,7 @@ export default function ProfileMenu() {
 
   async function logout() {
     try {
-      await fetch("http://localhost:3000/auth/logout", {
+      await fetch(`${API_BASE}/auth/logout`, {
         method: "POST",
         credentials: "include",
       });
