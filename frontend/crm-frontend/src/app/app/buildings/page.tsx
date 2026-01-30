@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet } from "@/lib/api";
 import AddBuildingModal from "./add-building-modal";
+import BuildingStatistics from "./building-statistics";
 
 type Building = {
   coreId: number;
@@ -15,6 +16,14 @@ type Building = {
   workOrderCount: number;
   products: Record<string, number>;
   updatedAt: string;
+};
+
+type StatisticsData = {
+  totalBuildingsCount?: number;
+  currentMonthCount: number;
+  currentMonthPercentageChange: number;
+  averagePercentageChange: number;
+  monthlyBreakdown: Record<number, Record<number, number>>;
 };
 
 type BuildingProductCounts = {
@@ -112,6 +121,9 @@ export default function BuildingsPage() {
   const [buildings, setBuildings] = useState<BuildingRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [statistics, setStatistics] = useState<StatisticsData | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState<string | null>(null);
 
   const pageSize = 10;
 
@@ -165,6 +177,29 @@ export default function BuildingsPage() {
     };
   }, []);
 
+  // Fetch statistics
+  const fetchStatistics = useCallback(() => {
+    setStatsError(null);
+    setStatsLoading(true);
+
+    apiGet<StatisticsData>("/v1/buildings/statistics/summary", {
+      cache: "no-store",
+    })
+      .then((data) => {
+        setStatistics(data);
+      })
+      .catch((err) => {
+        setStatsError(err instanceof Error ? err.message : "Failed to load statistics");
+      })
+      .finally(() => {
+        setStatsLoading(false);
+      });
+  }, []);
+
+  useEffect(() => {
+    fetchStatistics();
+  }, [fetchStatistics]);
+
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
     return buildings
@@ -200,17 +235,15 @@ export default function BuildingsPage() {
             </p>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <button
-              type="button"
-              onClick={() => setShowAddModal(true)}
-              className="rounded-2xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95 whitespace-nowrap"
-              style={{ backgroundColor: BRAND }}
-            >
-              + Add Building
-            </button>
-          </div>
         </div>
+
+        {/* Statistics Section */}
+        <BuildingStatistics
+          statistics={statistics}
+          loading={statsLoading}
+          error={statsError}
+          onRetry={fetchStatistics}
+        />
 
         {/* Main Card */}
         <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-zinc-200 md:p-6">
@@ -239,8 +272,8 @@ export default function BuildingsPage() {
           {/* Table */}
           {!loading && !error && (
             <>
-              {/* Search Input - positioned above table */}
-              <div className="mb-4">
+              {/* Search + Add Building - above table */}
+              <div className="mb-4 flex flex-row flex-wrap items-center justify-between gap-3 sm:gap-4">
                 <input
                   value={q}
                   onChange={(e) => {
@@ -248,8 +281,16 @@ export default function BuildingsPage() {
                     setPage(1);
                   }}
                   placeholder="Search by ID, name, address, city..."
-                  className="w-full max-w-md rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-md ring-2 ring-emerald-500/40 border border-emerald-500/30 hover:ring-emerald-500/60 hover:border-emerald-500/50 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/70 focus:shadow-lg focus:border-emerald-500/60 transition-all"
+                  className="min-w-0 flex-1 rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-md ring-2 ring-emerald-500/40 border border-emerald-500/30 hover:ring-emerald-500/60 hover:border-emerald-500/50 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/70 focus:shadow-lg focus:border-emerald-500/60 transition-all sm:max-w-md"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(true)}
+                  className="shrink-0 ml-auto rounded-2xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95 whitespace-nowrap"
+                  style={{ backgroundColor: BRAND }}
+                >
+                  + Add Building
+                </button>
               </div>
 
               <div className="overflow-hidden rounded-2xl ring-1 ring-zinc-200">
@@ -299,10 +340,10 @@ export default function BuildingsPage() {
                                       <span className="text-sm font-semibold text-zinc-900 underline-offset-2 group-hover:underline">
                                         {b.name}
                                       </span>
-                                      <span className="text-zinc-400">→</span>
+                                      <span className="text-zinc-400">ΓåÆ</span>
                                     </div>
                                     <div className="mt-1 text-xs text-zinc-500">
-                                      ID {b.coreId} • {b.city ?? "—"}
+                                      ID {b.coreId} ΓÇó {b.city ?? "ΓÇö"}
                                     </div>
                                   </div>
                                 </button>

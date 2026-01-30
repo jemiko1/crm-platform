@@ -85,14 +85,16 @@ npx tsx prisma/seed-permissions.ts
 
 ### Start Development Servers
 ```bash
-# Backend (Terminal 1)
+# Backend (Terminal 1) - runs on port 3000
 cd backend/crm-backend
 npm run start:dev
 
-# Frontend (Terminal 2)
+# Frontend (Terminal 2) - run on port 3002
 cd frontend/crm-frontend
-npm run dev
+pnpm dev --port 3002
 ```
+
+**Ports (do NOT use 4000):** Backend = 3000, Frontend = 3002. The API client in `api.ts` defaults to `http://localhost:3000`. Ensure `.env.local` has `NEXT_PUBLIC_API_BASE=http://localhost:3000` if needed.
 
 ### Run Migrations
 ```bash
