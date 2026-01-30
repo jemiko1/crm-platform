@@ -1,29 +1,26 @@
 # CRM Platform - Project Snapshot
 
-<<<<<<< Updated upstream
-**Last Updated**: 2026-01-27
-**Version**: v1.1.0
-**Tech Stack**: NestJS (Backend) + Next.js 15 (Frontend) + PostgreSQL + Prisma
-**Status**: Buildings, Clients, Incidents, Work Orders, and Admin modules complete and optimized
-**Performance**: Week 1 optimizations complete (4-10x faster)
-**Latest Changes**: Work Order Delete Permissions, Product Flow Activity, Inventory Impact Control
-=======
 **Single source of truth for AI tools and developers.** Read this file first to understand the project.
 
-**Last Updated**: 2026-01-28 | **Version**: v1.2.0  
+**Last Updated**: 2026-01-30 | **Version**: v1.2.0  
 **Stack**: NestJS (Backend) + Next.js 15 App Router (Frontend) + PostgreSQL + Prisma ORM
 
 ---
 
-## 1. Ports & URLs
+## 1. Ports & URLs (CRITICAL)
 
-| Environment | Backend | Frontend | API Base |
-|-------------|---------|----------|----------|
-| **Production** | `http://localhost:3000` | `http://localhost:3002` | `http://localhost:3000/v1/*` |
-| **Dev** | `http://localhost:4000` | `http://localhost:4002` | `http://localhost:4000/v1/*` |
+**Backend runs on port 3000. Frontend runs on port 3002. Do NOT use port 4000.**
 
-**Frontend API client**: `frontend/crm-frontend/src/lib/api.ts` — `API_BASE` defaults to `http://localhost:4000`; set `NEXT_PUBLIC_API_BASE` for production.
->>>>>>> Stashed changes
+| Service | URL | Notes |
+|---------|-----|-------|
+| **Backend** | `http://localhost:3000` | NestJS API (main.ts: `process.env.PORT ?? 3000`) |
+| **Frontend** | `http://localhost:3002` | Next.js app (run: `pnpm dev --port 3002`) |
+| **API Base** | `http://localhost:3000/v1/*` | All API requests go here |
+
+**Frontend API client** (`frontend/crm-frontend/src/lib/api.ts`):
+- `API_BASE` defaults to `http://localhost:3000` (fallback when `NEXT_PUBLIC_API_BASE` is unset)
+- Set `NEXT_PUBLIC_API_BASE=http://localhost:3000` in `.env.local` for explicit config
+- **Never use port 4000** — the backend does not run on 4000; using it causes API failures
 
 ---
 

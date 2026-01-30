@@ -365,6 +365,169 @@ export class WorkOrdersService {
     };
   }
 
+  async getStatistics() {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+
+    const [totalCount, openCount, currentMonthCreated, currentMonthActive, overdueCount] =
+      await Promise.all([
+        this.prisma.workOrder.count(),
+        this.prisma.workOrder.count({
+          where: { status: { notIn: ["COMPLETED", "CANCELED"] } },
+        }),
+        this.prisma.workOrder.count({
+          where: {
+            createdAt: {
+              gte: new Date(currentYear, currentMonth - 1, 1),
+              lt: new Date(currentYear, currentMonth, 1),
+            },
+          },
+        }),
+        this.prisma.workOrder.count({
+          where: {
+            status: { notIn: ["CANCELED"] },
+            createdAt: {
+              gte: new Date(currentYear, currentMonth - 1, 1),
+              lt: new Date(currentYear, currentMonth, 1),
+            },
+          },
+        }),
+        this.prisma.workOrder.count({
+          where: {
+            status: { notIn: ["CANCELED"] },
+            deadline: { not: null, lt: now },
+          },
+        }),
+      ]);
+
+    const allCreated = await this.prisma.workOrder.findMany({
+      select: { createdAt: true },
+    });
+
+    const monthlyCreatedBreakdown: Record<number, Record<number, number>> = {};
+    for (const row of allCreated) {
+      const d = new Date(row.createdAt);
+      const y = d.getFullYear();
+      const m = d.getMonth() + 1;
+      if (!monthlyCreatedBreakdown[y]) monthlyCreatedBreakdown[y] = {};
+      monthlyCreatedBreakdown[y][m] = (monthlyCreatedBreakdown[y][m] ?? 0) + 1;
+    }
+
+    const completedThisMonth = await this.prisma.workOrder.count({
+      where: {
+        status: "COMPLETED",
+        completedAt: {
+          gte: new Date(currentYear, currentMonth - 1, 1),
+          lt: new Date(currentYear, currentMonth, 1),
+        },
+      },
+    });
+
+    const createdThisMonthExclCanceled = await this.prisma.workOrder.count({
+      where: {
+        status: { notIn: ["CANCELED"] },
+        createdAt: {
+          gte: new Date(currentYear, currentMonth - 1, 1),
+          lt: new Date(currentYear, currentMonth, 1),
+        },
+      },
+    });
+
+    const currentMonthCompletionRate =
+      createdThisMonthExclCanceled > 0
+        ? Math.round((completedThisMonth / createdThisMonthExclCanceled) * 1000) / 10
+        : 0;
+
+    const allWorkOrders = await this.prisma.workOrder.findMany({
+      where: { status: { notIn: ["CANCELED"] } },
+      select: { createdAt: true, completedAt: true, status: true },
+    });
+
+    const monthlyCreated: Record<string, number> = {};
+    const monthlyCompleted: Record<string, number> = {};
+    for (const wo of allWorkOrders) {
+      const created = new Date(wo.createdAt);
+      const key = `${created.getFullYear()}-${created.getMonth() + 1}`;
+      monthlyCreated[key] = (monthlyCreated[key] ?? 0) + 1;
+      if (wo.status === "COMPLETED" && wo.completedAt) {
+        const completed = new Date(wo.completedAt);
+        const keyCo = `${completed.getFullYear()}-${completed.getMonth() + 1}`;
+        monthlyCompleted[keyCo] = (monthlyCompleted[keyCo] ?? 0) + 1;
+      }
+    }
+
+    const monthlyCompletionBreakdown: Record<number, Record<number, number>> = {};
+    for (const key of new Set([...Object.keys(monthlyCreated), ...Object.keys(monthlyCompleted)])) {
+      const [y, m] = key.split("-").map(Number);
+      const created = monthlyCreated[key] ?? 0;
+      const completed = monthlyCompleted[key] ?? 0;
+      const rate = created > 0 ? Math.round((completed / created) * 1000) / 10 : 0;
+      if (!monthlyCompletionBreakdown[y]) monthlyCompletionBreakdown[y] = {};
+      monthlyCompletionBreakdown[y][m] = rate;
+    }
+
+    const overdueWorkOrders = await this.prisma.workOrder.findMany({
+      where: {
+        status: { notIn: ["CANCELED"] },
+        deadline: { not: null, lt: now },
+      },
+      select: { deadline: true },
+    });
+
+    const monthlyOverdueBreakdown: Record<number, Record<number, number>> = {};
+    for (const wo of overdueWorkOrders) {
+      const d = new Date(wo.deadline!);
+      const y = d.getFullYear();
+      const m = d.getMonth() + 1;
+      if (!monthlyOverdueBreakdown[y]) monthlyOverdueBreakdown[y] = {};
+      monthlyOverdueBreakdown[y][m] = (monthlyOverdueBreakdown[y][m] ?? 0) + 1;
+    }
+
+    let lastMonth = currentMonth - 1;
+    let lastMonthYear = currentYear;
+    if (lastMonth === 0) {
+      lastMonth = 12;
+      lastMonthYear = currentYear - 1;
+    }
+    const lastMonthCreated = monthlyCreatedBreakdown[lastMonthYear]?.[lastMonth] ?? 0;
+    let currentMonthPercentageChange = 0;
+    if (lastMonthCreated > 0) {
+      currentMonthPercentageChange =
+        ((currentMonthCreated - lastMonthCreated) / lastMonthCreated) * 100;
+    } else if (currentMonthCreated > 0) {
+      currentMonthPercentageChange = 100;
+    }
+
+    const allMonthCounts = Object.values(monthlyCreatedBreakdown).flatMap((v) =>
+      Object.values(v),
+    );
+    const avg =
+      allMonthCounts.length > 0
+        ? allMonthCounts.reduce((a, b) => a + b, 0) / allMonthCounts.length
+        : 0;
+    let averagePercentageChange = 0;
+    if (avg > 0) {
+      averagePercentageChange = ((currentMonthCreated - avg) / avg) * 100;
+    } else if (currentMonthCreated > 0) {
+      averagePercentageChange = 100;
+    }
+
+    return {
+      totalWorkOrdersCount: totalCount,
+      openWorkOrdersCount: openCount,
+      currentMonthCreated,
+      currentMonthActive,
+      currentMonthPercentageChange: Math.round(currentMonthPercentageChange * 10) / 10,
+      averagePercentageChange: Math.round(averagePercentageChange * 10) / 10,
+      monthlyCreatedBreakdown,
+      currentMonthCompletionRate,
+      monthlyCompletionBreakdown,
+      overdueCount,
+      monthlyOverdueBreakdown,
+    };
+  }
+
   // ===== GET WORK ORDER BY ID OR NUMBER =====
   async findOne(idOrNumber: string) {
     // Check if input is UUID (contains dashes) or numeric workOrderNumber

@@ -15,8 +15,14 @@ export class BuildingsController {
     return this.buildingsService.list();
   }
 
+  @Get("statistics/summary")
+  getStatistics() {
+    return this.buildingsService.getStatistics();
+  }
+
   @Get(":coreId")
   getOne(@Param("coreId", ParseIntPipe) coreId: number) {
     return this.buildingsService.getByCoreId(coreId);
   }
 }
+
