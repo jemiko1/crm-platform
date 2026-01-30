@@ -9,6 +9,7 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/app/dashboard";
+  const expired = searchParams.get("expired") === "1";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -105,6 +106,12 @@ export default function LoginPage() {
                   autoComplete="current-password"
                 />
               </div>
+
+              {expired && (
+                <div className="rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+                  Your session has expired. Please sign in again.
+                </div>
+              )}
 
               {error && (
                 <div className="rounded-2xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
