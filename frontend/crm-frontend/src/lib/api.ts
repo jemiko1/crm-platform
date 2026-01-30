@@ -15,6 +15,17 @@ export class ApiError extends Error {
 
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
+    // Handle 401 Unauthorized - session expired
+    if (res.status === 401) {
+      if (typeof window !== "undefined") {
+        const currentPath = window.location.pathname;
+        if (!currentPath.startsWith("/login")) {
+          window.location.href = `/login?expired=1&next=${encodeURIComponent(currentPath + window.location.search)}`;
+          return new Promise(() => {}); // Never resolves - page is navigating
+        }
+      }
+    }
+
     let errorMessage = `Request failed: ${res.status} ${res.statusText}`;
     let errorData: unknown = null;
 
