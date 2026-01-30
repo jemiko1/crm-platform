@@ -47,6 +47,12 @@ export class WorkOrdersController {
     return this.workOrdersService.findAll(query);
   }
 
+  @Get("statistics/summary")
+  @ApiOperation({ summary: "Get work order statistics summary" })
+  getStatistics() {
+    return this.workOrdersService.getStatistics();
+  }
+
   @Get("my-tasks")
   @ApiOperation({ summary: "Get work orders assigned to current user" })
   async getMyTasks(@Req() req: any) {

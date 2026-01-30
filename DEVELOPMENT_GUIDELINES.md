@@ -599,6 +599,8 @@ const data = await apiGet<Building[]>("/v1/buildings", {
 - Easier to add authentication, retry logic, interceptors
 - Better TypeScript support
 
+**Port configuration:** Backend = 3000, Frontend = 3002. The `api.ts` client defaults to `http://localhost:3000`. Do NOT use port 4000 — the backend does not run there. See PROJECT_SNAPSHOT.md for details.
+
 ---
 
 #### 2. **Parallelize Independent API Calls**

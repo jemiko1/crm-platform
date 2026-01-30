@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet, ApiError } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
 import CreateWorkOrderModal from "./create-work-order-modal";
+import WorkOrderStatistics from "./work-order-statistics";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -58,6 +59,20 @@ type WorkOrdersResponse = {
   };
 };
 
+type StatisticsData = {
+  totalWorkOrdersCount: number;
+  openWorkOrdersCount: number;
+  currentMonthCreated: number;
+  currentMonthActive: number;
+  currentMonthPercentageChange: number;
+  averagePercentageChange: number;
+  monthlyCreatedBreakdown: Record<number, Record<number, number>>;
+  currentMonthCompletionRate: number;
+  monthlyCompletionBreakdown: Record<number, Record<number, number>>;
+  overdueCount: number;
+  monthlyOverdueBreakdown: Record<number, Record<number, number>>;
+};
+
 function getStatusBadge(status: WorkOrder["status"]) {
   const styles: Record<string, string> = {
     CREATED: "bg-blue-50 text-blue-700 ring-blue-200",
@@ -105,6 +120,9 @@ export default function WorkOrdersPage() {
   const [meta, setMeta] = useState<WorkOrdersResponse["meta"] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [statistics, setStatistics] = useState<StatisticsData | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState<string | null>(null);
 
   // Helper function to open work order modal via URL
   // Simple URL - browser history handles "back" navigation
@@ -155,6 +173,21 @@ export default function WorkOrdersPage() {
     };
   }, [page]);
 
+  const fetchStatistics = useCallback(() => {
+    setStatsError(null);
+    setStatsLoading(true);
+    apiGet<StatisticsData>("/v1/work-orders/statistics/summary", { cache: "no-store" })
+      .then(setStatistics)
+      .catch((err) => {
+        setStatsError(err instanceof Error ? err.message : "Failed to load statistics");
+      })
+      .finally(() => setStatsLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetchStatistics();
+  }, [fetchStatistics]);
+
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
     return workOrders.filter((wo) => {
@@ -192,18 +225,18 @@ export default function WorkOrdersPage() {
               Manage installation, diagnostic, and repair work orders across buildings.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowCreateModal(true)}
-            className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-            style={{ backgroundColor: BRAND }}
-          >
-            + {t("workOrders.actions.create", "Create Work Order")}
-          </button>
         </div>
 
+        {/* Statistics Section */}
+        <WorkOrderStatistics
+          statistics={statistics}
+          loading={statsLoading}
+          error={statsError}
+          onRetry={fetchStatistics}
+        />
+
         {/* Main Card */}
-        <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-zinc-200 md:p-6 overflow-hidden">
+        <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-zinc-200 md:p-6">
           {/* Loading State */}
           {loading && (
             <div className="py-12 text-center text-sm text-zinc-600">
@@ -229,8 +262,8 @@ export default function WorkOrdersPage() {
           {/* Table */}
           {!loading && !error && (
             <>
-              {/* Search Input */}
-              <div className="mb-4">
+              {/* Search + Add Work Order - above table, same layout as buildings */}
+              <div className="mb-4 flex flex-row flex-wrap items-center justify-between gap-3 sm:gap-4">
                 <input
                   value={q}
                   onChange={(e) => {
@@ -238,11 +271,19 @@ export default function WorkOrdersPage() {
                     setPage(1);
                   }}
                   placeholder="Search by title, building, asset, status, type..."
-                  className="w-full max-w-md rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-md ring-2 ring-emerald-500/40 border border-emerald-500/30 hover:ring-emerald-500/60 hover:border-emerald-500/50 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/70 focus:shadow-lg focus:border-emerald-500/60 transition-all"
+                  className="min-w-0 flex-1 rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-md ring-2 ring-emerald-500/40 border border-emerald-500/30 hover:ring-emerald-500/60 hover:border-emerald-500/50 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/70 focus:shadow-lg focus:border-emerald-500/60 transition-all sm:max-w-md"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(true)}
+                  className="shrink-0 ml-auto rounded-2xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95 whitespace-nowrap"
+                  style={{ backgroundColor: BRAND }}
+                >
+                  + {t("workOrders.actions.create", "Create Work Order")}
+                </button>
               </div>
 
-              <div className="overflow-hidden">
+              <div className="overflow-hidden rounded-2xl ring-1 ring-zinc-200">
                 <div className="overflow-x-auto">
                   <table className="min-w-[980px] w-full border-separate border-spacing-0">
                     <thead className="bg-zinc-50">

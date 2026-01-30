@@ -16,6 +16,11 @@ export class PublicController {
     return this.buildings.list();
   }
 
+  @Get("buildings/statistics/summary")
+  getBuildingsStatistics() {
+    return this.buildings.getStatistics();
+  }
+
   @Get("buildings/:buildingCoreId")
   building(@Param("buildingCoreId", ParseIntPipe) buildingCoreId: number) {
     return this.buildings.getByCoreId(buildingCoreId);
