@@ -58,10 +58,6 @@ export class PositionPermissionGuard implements CanActivate {
       select: { isSuperAdmin: true },
     });
 
-    if (dbUser?.isSuperAdmin) {
-      return true;
-    }
-
     // 2. Get user's employee with position and permissions
     const employee = await this.prisma.employee.findUnique({
       where: { userId: user.id },
@@ -80,6 +76,15 @@ export class PositionPermissionGuard implements CanActivate {
       },
     });
 
+    // Attach employee to request for use in controllers
+    request.user.employee = employee;
+    request.user.isSuperAdmin = dbUser?.isSuperAdmin;
+
+    // SuperAdmin bypass - allow all actions
+    if (dbUser?.isSuperAdmin) {
+      return true;
+    }
+
     if (!employee) {
       throw new ForbiddenException('No employee profile found for this user');
     }
@@ -92,6 +97,9 @@ export class PositionPermissionGuard implements CanActivate {
     const permissions = employee.position.roleGroup.permissions.map(
       (rp) => `${rp.permission.resource}.${rp.permission.action}`
     );
+
+    // Attach permissions array to request for use in controllers
+    request.user.permissions = permissions;
 
     if (permissions.includes(requiredPermission)) {
       return true;

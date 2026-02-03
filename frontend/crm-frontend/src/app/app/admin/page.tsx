@@ -43,6 +43,20 @@ const adminSections: AdminSection[] = [
     href: "/app/admin/workflow",
   },
   {
+    id: "sales-config",
+    title: "Sales Pipeline",
+    description: "Configure sales pipeline stages, sources, and position assignments",
+    icon: <IconSalesPipeline />,
+    href: "/app/admin/sales-config",
+  },
+  {
+    id: "services",
+    title: "Services Catalog",
+    description: "Manage sellable services with pricing for sales leads",
+    icon: <IconServices />,
+    href: "/app/admin/services",
+  },
+  {
     id: "list-items",
     title: "List Items",
     description: "Manage dropdown values, categories, and system lists",
@@ -273,6 +287,34 @@ function IconWorkflow() {
       <circle cx="12" cy="18" r="3" stroke="currentColor" strokeWidth="2" />
       <path
         d="M8 6h8M5 9v3l7 3M19 9v3l-7 3"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function IconSalesPipeline() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M22 12h-4l-3 9L9 3l-3 9H2"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function IconServices() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M12 2v20M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"
         stroke="currentColor"
         strokeWidth="2"
         strokeLinecap="round"
