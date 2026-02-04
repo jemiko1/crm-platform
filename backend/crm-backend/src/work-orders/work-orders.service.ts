@@ -80,31 +80,11 @@ export class WorkOrdersService {
 
     // Generate title if not provided: "WO-{number} - {Building Name} - {Work Order Type}"
     if (!dto.title) {
-      // Get the highest work order number from existing titles (extract WO-{number} pattern)
-      // This ensures unique numbering even after deletions
-      const existingWorkOrders = await this.prisma.workOrder.findMany({
-        where: {
-          title: {
-            startsWith: "WO-",
-          },
-        },
-        select: {
-          title: true,
-        },
+      // Get the highest work order number using aggregation (not full table scan)
+      const maxResult = await this.prisma.workOrder.aggregate({
+        _max: { workOrderNumber: true },
       });
-
-      let maxNumber = 0;
-      for (const wo of existingWorkOrders) {
-        const match = wo.title.match(/^WO-(\d+)/);
-        if (match) {
-          const num = parseInt(match[1], 10);
-          if (num > maxNumber) {
-            maxNumber = num;
-          }
-        }
-      }
-
-      const workOrderNumber = maxNumber + 1;
+      const workOrderNumber = (maxResult._max.workOrderNumber ?? 0) + 1;
 
       const workOrderTypeLabels: Record<WorkOrderType, string> = {
         INSTALLATION: "Installation",
@@ -370,6 +350,7 @@ export class WorkOrdersService {
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth() + 1;
 
+    // Efficient count queries (these are already optimal)
     const [totalCount, openCount, currentMonthCreated, currentMonthActive, overdueCount] =
       await Promise.all([
         this.prisma.workOrder.count(),
@@ -401,19 +382,27 @@ export class WorkOrdersService {
         }),
       ]);
 
-    const allCreated = await this.prisma.workOrder.findMany({
-      select: { createdAt: true },
-    });
+    // Use SQL aggregations instead of loading all records into memory
+    // 1. Monthly created breakdown - GROUP BY year/month
+    const monthlyCreatedRaw = await this.prisma.$queryRaw<
+      { year: number; month: number; count: bigint }[]
+    >`
+      SELECT
+        EXTRACT(YEAR FROM "createdAt")::int as year,
+        EXTRACT(MONTH FROM "createdAt")::int as month,
+        COUNT(*)::bigint as count
+      FROM "WorkOrder"
+      GROUP BY 1, 2
+      ORDER BY 1, 2
+    `;
 
     const monthlyCreatedBreakdown: Record<number, Record<number, number>> = {};
-    for (const row of allCreated) {
-      const d = new Date(row.createdAt);
-      const y = d.getFullYear();
-      const m = d.getMonth() + 1;
-      if (!monthlyCreatedBreakdown[y]) monthlyCreatedBreakdown[y] = {};
-      monthlyCreatedBreakdown[y][m] = (monthlyCreatedBreakdown[y][m] ?? 0) + 1;
+    for (const row of monthlyCreatedRaw) {
+      if (!monthlyCreatedBreakdown[row.year]) monthlyCreatedBreakdown[row.year] = {};
+      monthlyCreatedBreakdown[row.year][row.month] = Number(row.count);
     }
 
+    // Completion rate for current month
     const completedThisMonth = await this.prisma.workOrder.count({
       where: {
         status: "COMPLETED",
@@ -439,51 +428,53 @@ export class WorkOrdersService {
         ? Math.round((completedThisMonth / createdThisMonthExclCanceled) * 1000) / 10
         : 0;
 
-    const allWorkOrders = await this.prisma.workOrder.findMany({
-      where: { status: { notIn: ["CANCELED"] } },
-      select: { createdAt: true, completedAt: true, status: true },
-    });
-
-    const monthlyCreated: Record<string, number> = {};
-    const monthlyCompleted: Record<string, number> = {};
-    for (const wo of allWorkOrders) {
-      const created = new Date(wo.createdAt);
-      const key = `${created.getFullYear()}-${created.getMonth() + 1}`;
-      monthlyCreated[key] = (monthlyCreated[key] ?? 0) + 1;
-      if (wo.status === "COMPLETED" && wo.completedAt) {
-        const completed = new Date(wo.completedAt);
-        const keyCo = `${completed.getFullYear()}-${completed.getMonth() + 1}`;
-        monthlyCompleted[keyCo] = (monthlyCompleted[keyCo] ?? 0) + 1;
-      }
-    }
+    // 2. Monthly completion stats - GROUP BY with FILTER for completed count
+    const monthlyCompletionRaw = await this.prisma.$queryRaw<
+      { year: number; month: number; created: bigint; completed: bigint }[]
+    >`
+      SELECT
+        EXTRACT(YEAR FROM "createdAt")::int as year,
+        EXTRACT(MONTH FROM "createdAt")::int as month,
+        COUNT(*) as created,
+        COUNT(*) FILTER (WHERE status = 'COMPLETED') as completed
+      FROM "WorkOrder"
+      WHERE status NOT IN ('CANCELED')
+      GROUP BY 1, 2
+      ORDER BY 1, 2
+    `;
 
     const monthlyCompletionBreakdown: Record<number, Record<number, number>> = {};
-    for (const key of new Set([...Object.keys(monthlyCreated), ...Object.keys(monthlyCompleted)])) {
-      const [y, m] = key.split("-").map(Number);
-      const created = monthlyCreated[key] ?? 0;
-      const completed = monthlyCompleted[key] ?? 0;
+    for (const row of monthlyCompletionRaw) {
+      const created = Number(row.created);
+      const completed = Number(row.completed);
       const rate = created > 0 ? Math.round((completed / created) * 1000) / 10 : 0;
-      if (!monthlyCompletionBreakdown[y]) monthlyCompletionBreakdown[y] = {};
-      monthlyCompletionBreakdown[y][m] = rate;
+      if (!monthlyCompletionBreakdown[row.year]) monthlyCompletionBreakdown[row.year] = {};
+      monthlyCompletionBreakdown[row.year][row.month] = rate;
     }
 
-    const overdueWorkOrders = await this.prisma.workOrder.findMany({
-      where: {
-        status: { notIn: ["CANCELED"] },
-        deadline: { not: null, lt: now },
-      },
-      select: { deadline: true },
-    });
+    // 3. Monthly overdue breakdown - GROUP BY deadline year/month
+    const monthlyOverdueRaw = await this.prisma.$queryRaw<
+      { year: number; month: number; count: bigint }[]
+    >`
+      SELECT
+        EXTRACT(YEAR FROM deadline)::int as year,
+        EXTRACT(MONTH FROM deadline)::int as month,
+        COUNT(*)::bigint as count
+      FROM "WorkOrder"
+      WHERE status NOT IN ('CANCELED')
+        AND deadline IS NOT NULL
+        AND deadline < NOW()
+      GROUP BY 1, 2
+      ORDER BY 1, 2
+    `;
 
     const monthlyOverdueBreakdown: Record<number, Record<number, number>> = {};
-    for (const wo of overdueWorkOrders) {
-      const d = new Date(wo.deadline!);
-      const y = d.getFullYear();
-      const m = d.getMonth() + 1;
-      if (!monthlyOverdueBreakdown[y]) monthlyOverdueBreakdown[y] = {};
-      monthlyOverdueBreakdown[y][m] = (monthlyOverdueBreakdown[y][m] ?? 0) + 1;
+    for (const row of monthlyOverdueRaw) {
+      if (!monthlyOverdueBreakdown[row.year]) monthlyOverdueBreakdown[row.year] = {};
+      monthlyOverdueBreakdown[row.year][row.month] = Number(row.count);
     }
 
+    // Calculate percentage changes
     let lastMonth = currentMonth - 1;
     let lastMonthYear = currentYear;
     if (lastMonth === 0) {
