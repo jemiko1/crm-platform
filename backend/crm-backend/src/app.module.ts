@@ -29,6 +29,9 @@ import { SystemListsModule } from "./system-lists/system-lists.module";
 // Workflow Configuration
 import { WorkflowModule } from "./workflow/workflow.module";
 
+// Sales CRM
+import { SalesModule } from "./sales/sales.module";
+
 import { V1Module } from "./v1/v1.module";
 
 @Module({
@@ -62,6 +65,9 @@ import { V1Module } from "./v1/v1.module";
 
     // Workflow Configuration
     WorkflowModule,
+
+    // Sales CRM
+    SalesModule,
 
     // API controllers (v1)
     V1Module,

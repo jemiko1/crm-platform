@@ -2,7 +2,7 @@
 
 **Single source of truth for AI tools and developers.** Read this file first to understand the project.
 
-**Last Updated**: 2026-01-30 | **Version**: v1.2.0  
+**Last Updated**: 2026-01-30 | **Version**: v1.3.0  
 **Stack**: NestJS (Backend) + Next.js 15 App Router (Frontend) + PostgreSQL + Prisma ORM
 
 ---
@@ -61,15 +61,56 @@
 |---------|-------|
 | **Method** | JWT in httpOnly cookie |
 | **Cookie name** | `access_token` (env: `COOKIE_NAME`) |
-| **JWT expiry** | 30 minutes (env: `JWT_EXPIRES_IN`) |
-| **Cookie maxAge** | 7 days |
+| **JWT expiry** | 24 hours (env: `JWT_EXPIRES_IN`) |
+| **Cookie maxAge** | 24 hours (matches JWT) |
 | **CORS** | `http://localhost:3002` (or frontend URL), credentials: true |
 
 **401 handling**: API client redirects to `/login?expired=1&next=<path>`. Login page shows "Your session has expired. Please sign in again."
 
+**Dismissed Users**: When a dismissed user tries to login, they see "Your account has been dismissed. Please contact your system administrator." instead of "Invalid credentials".
+
 ---
 
-## 5. Modal System (Detail Popups)
+## 5. Core Modules
+
+### Buildings & Clients
+- Buildings have assets (devices), clients, incidents, work orders
+- Modal-based detail views via URL params (`?building=1`)
+
+### Work Orders
+- Full workflow: CREATED → LINKED_TO_GROUP → IN_PROGRESS → COMPLETED/CANCELED
+- Activity timeline with filtering
+- Product usage tracking with inventory integration
+
+### Incidents
+- Linked to buildings and optionally clients
+- Status lifecycle management
+
+### Inventory
+- Products, purchase orders, stock transactions
+- Low stock alerts, inventory value reports
+
+### Employees & HR
+- **User Account**: Optional - employees can exist without login accounts
+- **Lifecycle**: ACTIVE → TERMINATED (dismissal) → Reactivation or Permanent Deletion
+- **Permissions**: Derived from Position → RoleGroup → Permissions
+- **Employee ID**: Auto-generated (EMP-001, EMP-002...), never reused after deletion
+
+### Sales CRM (v1.2.0+)
+- **Leads**: Pipeline management with stages, services, proposals
+- **Services Catalog**: Configurable services with pricing
+- **Sales Plans**: Monthly/quarterly/annual targets per employee
+- **Approval Workflow**: Head of Sales / CEO approval for lead closure
+
+### Departments & Company Structure
+- Hierarchical tree view with drag-and-drop reorganization
+- Drag to root level supported (set parentId = null)
+- Position creation per department
+- Employee count popup with position/department transfer
+
+---
+
+## 6. Modal System
 
 **All detail views (building, client, employee, work-order) open as full-size modals.**
 
@@ -90,7 +131,7 @@
 
 ---
 
-## 6. UI Rules (MANDATORY)
+## 7. UI Rules (MANDATORY)
 
 ### Dynamic Lists (CRITICAL)
 **NEVER hardcode dropdown values.** Always use `useListItems(categoryCode)` from `@/hooks/useListItems`.
@@ -112,7 +153,7 @@
 
 ---
 
-## 7. Key Files
+## 8. Key Files
 
 | Purpose | Path |
 |---------|------|
@@ -128,7 +169,7 @@
 
 ---
 
-## 8. Quick Start
+## 9. Quick Start
 
 ```bash
 # Backend (port 3000)
@@ -145,7 +186,7 @@ pnpm dev --port 3002
 
 ---
 
-## 9. Frontend Routes (Summary)
+## 10. Frontend Routes (Summary)
 
 | Route | Type | Notes |
 |-------|------|-------|
@@ -154,18 +195,20 @@ pnpm dev --port 3002
 | `/app/buildings?building=1` | Modal | Building detail |
 | `/app/clients` | List | Clients list |
 | `/app/clients?client=5` | Modal | Client detail |
-| `/app/employees` | List | Employees list |
-| `/app/employees?employee=id` | Modal | Employee detail |
+| `/app/employees` | List | Employees list with login status indicator |
+| `/app/employees/[id]` | Page | Employee detail with lifecycle actions |
 | `/app/work-orders` | List | Work orders list |
 | `/app/work-orders?workOrder=123` | Modal | Work order detail |
 | `/app/incidents` | Page | Incidents with filters |
 | `/app/inventory` | Page | Products, purchase orders |
 | `/app/tasks` | Page | My workspace |
-| `/app/admin/*` | Pages | Positions, role groups, departments, list items, workflow |
+| `/app/sales/leads` | List | Sales leads pipeline |
+| `/app/sales/leads/[id]` | Page | Lead detail |
+| `/app/admin/*` | Pages | Positions, role groups, departments, list items, workflow, sales config |
 
 ---
 
-## 10. API Endpoints (Summary)
+## 11. API Endpoints (Summary)
 
 | Prefix | Purpose |
 |--------|---------|
@@ -175,11 +218,16 @@ pnpm dev --port 3002
 | `GET /v1/buildings` | List buildings |
 | `GET /v1/clients` | List clients |
 | `GET /v1/employees` | List employees |
+| `POST /v1/employees/:id/activate` | Reactivate dismissed employee |
+| `DELETE /v1/employees/:id/hard-delete` | Permanently delete employee |
 | `GET /v1/incidents` | List incidents (filters) |
 | `POST /v1/incidents` | Create incident |
 | `GET /v1/work-orders` | List work orders |
 | `GET /v1/work-orders/:id` | Work order detail |
 | `GET /v1/work-orders/:id/activity` | Activity log |
+| `GET /v1/sales/leads` | List sales leads |
+| `POST /v1/sales/leads` | Create lead |
+| `GET /v1/sales/services` | Sales services catalog |
 | `GET /v1/system-lists/*` | Dynamic dropdown values |
 | `GET /v1/positions`, `role-groups`, `departments` | Admin CRUD |
 
@@ -187,7 +235,7 @@ All `/v1/*` endpoints (except public reads) require `JwtAuthGuard`. Many use `@R
 
 ---
 
-## 11. RBAC
+## 12. RBAC
 
 **Chain**: User → Employee → Position → RoleGroup → Permissions
 
@@ -195,19 +243,26 @@ All `/v1/*` endpoints (except public reads) require `JwtAuthGuard`. Many use `@R
 - **Frontend**: `usePermissions` hook, `PermissionButton`, `PermissionGuard`
 - **Superadmin**: `user.isSuperAdmin` bypasses permission checks
 
+**Employee-specific permissions**:
+- `employee.dismiss` - Dismiss/terminate employees
+- `employee.activate` - Reactivate dismissed employees
+- `employee.reset_password` - Reset employee passwords
+- `employee.hard_delete` - Permanently delete employees
+
 ---
 
-## 12. Repository Structure
+## 13. Repository Structure
 
 ```
 backend/crm-backend/
-├── prisma/ (schema, migrations, seed-permissions.ts)
+├── prisma/ (schema, migrations, seed-*.ts scripts)
 ├── src/
 │   ├── main.ts, app.module.ts
 │   ├── auth/ (login, JWT, cookie)
 │   ├── v1/ (incidents, work-orders, workflow)
 │   ├── buildings, clients, incidents, work-orders, inventory, employees
 │   ├── positions, role-groups, departments, system-lists
+│   ├── sales/ (leads, config, services)
 │   └── prisma/ (PrismaService)
 
 frontend/crm-frontend/
@@ -216,6 +271,7 @@ frontend/crm-frontend/
 │   │   ├── app/ (layout, modal-manager, modal-provider)
 │   │   │   ├── buildings, clients, employees, work-orders, incidents, inventory
 │   │   │   ├── tasks, admin, assets
+│   │   │   ├── sales/ (leads, services, plans)
 │   │   │   └── modal-z-index-context.tsx
 │   │   ├── login/, modal-dialog.tsx
 │   ├── hooks/ (useListItems.ts)
@@ -224,93 +280,8 @@ frontend/crm-frontend/
 
 ---
 
-## 13. Critical Rules Checklist
+## 14. Critical Rules Checklist
 
-<<<<<<< Updated upstream
-### Backend
-
-#### `backend/crm-backend/src/main.ts`
-**Purpose**: Application entry point, NestJS bootstrap  
-**Key Exports**: None (bootstrap function)  
-**Features**:
-- Cookie parser setup
-- CORS configuration (localhost:3002)
-- Global exception filter
-- Global validation pipe
-- Swagger API docs at `/api`
-- Server listens on port 3000
-
-#### `backend/crm-backend/src/app.module.ts`
-**Purpose**: Root module, imports all feature modules  
-**Key Exports**: `AppModule`  
-**Imports**:
-- Infrastructure: `PrismaModule`, `AuthModule`
-- Core: `IdGeneratorModule`, `AuditModule`
-- Domain: `BuildingsModule`, `ClientsModule`, `AssetsModule`, `IncidentsModule`, `WorkOrdersModule`, `InventoryModule`
-- HR: `EmployeesModule`, `DepartmentsModule`, `RolesModule`, `PermissionsModule`
-- RBAC: `PositionsModule`, `RoleGroupsModule`
-- API: `V1Module`
-
-#### `backend/crm-backend/src/auth/auth.module.ts`
-**Purpose**: Authentication module configuration  
-**Key Exports**: `AuthModule`  
-**Imports**: `PrismaModule`, `PassportModule`, `PermissionsModule`, `JwtModule`  
-**Providers**: `AuthService`, `JwtStrategy`  
-**Controllers**: `AuthController`
-
-#### `backend/crm-backend/src/auth/auth.controller.ts`
-**Purpose**: Authentication endpoints  
-**Routes**:
-- `POST /auth/login` - Login with email/password, sets httpOnly cookie
-- `GET /auth/me` - Get current user with employee info, position, department, permissions
-- `POST /auth/logout` - Clear auth cookie
-
-#### `backend/crm-backend/prisma/schema.prisma`
-**Purpose**: Database schema definition  
-**Key Models**:
-- **Core**: `Building`, `Client`, `Asset`, `WorkOrder`, `Incident`
-- **Auth**: `User` (with `isSuperAdmin` flag, legacy `role` enum)
-- **HR**: `Employee`, `Department`, `Role`, `Permission`
-- **RBAC**: `Position`, `RoleGroup`, `RoleGroupPermission`
-- **Relations**: `ClientBuilding` (many-to-many), `WorkOrderAssignment`
-- **Enums**: `UserRole`, `EmployeeStatus`, `WorkOrderType`, `WorkOrderStatus`, `AssetType`, `DeviceStatus`
-
-### Frontend
-
-#### `frontend/crm-frontend/src/app/layout.tsx`
-**Purpose**: Root layout, global styles and fonts  
-**Exports**: `RootLayout` component, `metadata`  
-**Features**: Geist fonts, global CSS, HTML structure
-
-#### `frontend/crm-frontend/src/app/app/layout.tsx`
-**Purpose**: App shell layout (sidebar + topbar)  
-**Exports**: `AppLayout` component  
-**Features**:
-- Fixed left sidebar with navigation
-- Top bar with workspace info and profile menu
-- Gradient background
-- Content container with backdrop blur
-
-#### `frontend/crm-frontend/src/lib/api.ts`
-**Purpose**: Centralized API client with cookie-based auth  
-**Key Exports**:
-- `apiGet<T>(path, init?)` - GET request
-- `apiPost<T>(path, body, init?)` - POST request
-- `apiPatch<T>(path, body, init?)` - PATCH request
-- `apiPut<T>(path, body, init?)` - PUT request
-- `apiDelete<T>(path, init?)` - DELETE request
-- `ApiError` class
-- `API_BASE` constant (defaults to `http://localhost:3000`)
-
-**Features**:
-- Automatic cookie handling (`credentials: "include"`)
-- Error parsing and `ApiError` throwing
-- JSON content-type headers
-- Type-safe responses
-
-#### Middleware
-**Status**: No middleware file found in `frontend/crm-frontend/src`
-=======
 - [ ] Never hardcode dropdowns — use `useListItems(categoryCode)`
 - [ ] Never use raw fetch — use `apiGet`, `apiPost`, etc. from `@/lib/api`
 - [ ] Modals: `createPortal` to `document.body`, z-index 10000 (detail) or 50000 (action)
@@ -318,131 +289,50 @@ frontend/crm-frontend/
 - [ ] Work on `dev` branch; merge to `master` for releases
 - [ ] Do not change DB host/port without explicit request
 - [ ] Commit format: `feat(scope): message` or `fix(scope): message`
->>>>>>> Stashed changes
+- [ ] Employee IDs are never reused after deletion
 
 ---
 
-## 14. Other Documentation
+## 15. Recent Updates (v1.3.0 - 2026-01-30)
+
+### Employee Lifecycle Management
+- ✅ Dismiss/terminate employees (soft delete with status change)
+- ✅ Reactivate dismissed employees
+- ✅ Permanent deletion with delegation for active items
+- ✅ User account creation optional during employee creation
+- ✅ Password reset functionality with permissions
+- ✅ Login account indicator in employee list
+- ✅ Employee ID counter (IDs never reused)
+
+### Department & Company Structure
+- ✅ Drag-and-drop to root level (parentId = null)
+- ✅ Add Position button in department details
+- ✅ Clickable employee count with popup
+- ✅ Position assignment and department transfer in popup
+- ✅ Department editing modal
+
+### Sales CRM Module (v1.2.0)
+- ✅ Lead pipeline with configurable stages
+- ✅ Services catalog with pricing
+- ✅ Lead services with quantities
+- ✅ Sales plan targets (monthly/quarterly/annual)
+- ✅ Multi-position assignment for pipeline roles
+- ✅ Approval workflow for lead closure
+
+### Schema Changes (v1.3.0)
+- ✅ `responsibleEmployeeId` nullable on Lead (with cached name)
+- ✅ `createdById` nullable on Lead-related tables (with cached names)
+- ✅ `onDelete: SetNull` for employee references in historical records
+- ✅ Employee ID counter in ExternalIdCounter table
+
+---
+
+## 16. Other Documentation
 
 For deeper detail, see:
-- `DEVELOPMENT_GUIDELINES.md` — Dynamic lists, modal patterns, performance
+- `DEVELOPMENT_GUIDELINES.md` — Dynamic lists, modal patterns, performance, employee management
 - `API_ROUTE_MAP.md` — Full API endpoint list
 - `FRONTEND_ROUTE_MAP.md` — Full frontend route list
 - `SESSION_SUMMARY.md` — Feature history, migrations
 
-<<<<<<< Updated upstream
-### Frontend Architecture
-- **Framework**: Next.js 15 (App Router)
-- **Styling**: Tailwind CSS
-- **State**: React hooks (useState, useEffect)
-- **API**: Centralized client in `lib/api.ts`
-- **Auth**: Cookie-based (automatic via `credentials: "include"`)
-- **Permissions**: `usePermissions` hook + `PermissionButton`/`PermissionGuard` components
-
-### Key Patterns
-- **Modal Implementation**: All modals use `createPortal` to `document.body` for proper centering
-- **Permission Checks**: Backend `PositionPermissionGuard` + frontend `usePermissions` hook
-- **Error Handling**: Global exception filter + `ApiError` class
-- **Validation**: `class-validator` DTOs with global validation pipe
-- **API Client**: Centralized `apiGet/apiPost/apiPatch/apiDelete` from `lib/api.ts`
-- **Performance**: N+1 queries eliminated, parallel API calls, strategic caching
-
-### Recent Updates (v1.1.0 - 2026-01-27)
-
-**Work Order Delete Permissions:**
-- ✅ Added granular delete permissions for inventory control
-- ✅ `work_orders.delete_keep_inventory` - Delete work order, keep inventory changes
-- ✅ `work_orders.delete_revert_inventory` - Delete work order, revert products to stock
-- ✅ Permission-based UI: Shows locked options when user lacks specific permissions
-- ✅ Inventory impact check before deletion (shows affected products, transactions, devices)
-
-**Product Flow Activity:**
-- ✅ New "Product Flow" activity type in work order timeline
-- ✅ Filter activities by: All, Main Events, Product Flow
-- ✅ Detailed product modification logging (added, modified, removed)
-- ✅ `PRODUCTS_APPROVED` activity action with metadata
-
-**Work Order Enhancements:**
-- ✅ Modern styled delete confirmation dialogs with inventory impact details
-- ✅ Revert inventory changes functionality (returns products to stock)
-- ✅ Stock transaction reversal with proper balance tracking
-- ✅ Deactivated device transfer status reset
-
-### Previous Updates (v1.0.0 - 2026-01-15)
-
-**Terminology Changes:**
-- ✅ Renamed "Products" to "Devices" in Buildings context for clarity
-- ✅ Updated all UI labels, modals, and components
-- ✅ Separated terminology: "Devices" (building assets) vs "Products" (inventory items)
-
-**Permissions System:**
-- ✅ Restored permissions database (63 permissions seeded)
-- ✅ Permissions list now visible in Admin panel
-- ✅ All CRUD permissions for Buildings, Clients, Incidents, Work Orders, Inventory, Employees, etc.
-
-**List Items Management:**
-- ✅ Admin panel for managing dropdown values dynamically
-- ✅ System Lists API integration (`/v1/system-lists/*`)
-- ✅ `useListItems` hook for frontend consumption
-- ✅ Categories: ASSET_TYPE, DEVICE_STATUS, INCIDENT_TYPE, INCIDENT_PRIORITY, etc.
-- ✅ Support for default values, sorting, colors, and deactivation
-
-**Performance Optimizations (2026-01-15):**
-
-**Backend (NestJS + Prisma):**
-- ✅ Buildings N+1 query fixed with `groupBy` (10x fewer queries)
-- ✅ Parallel validation in WorkOrder service (2x faster)
-- ✅ Database indexes added for Incident, WorkOrder, User, PurchaseOrder, StockTransaction
-- ✅ TypeScript errors fixed for optional client handling
-
-**Frontend (Next.js 15):**
-- ✅ Parallel API calls with `Promise.all` (4x faster page loads)
-- ✅ Centralized API client implementation
-- ✅ Strategic caching strategy (no-store vs revalidate)
-- ✅ Context-aware modals with preset/lock support
-
-**Metrics Achieved:**
-- Buildings API: 5-10x faster response time
-- Building detail page: 4x faster load time (400ms → 100ms)
-- Query count reduced: N+1 → 2 queries for building lists
-- Better error handling with typed ApiError class
-
-**Documentation:**
-- `PERFORMANCE_ANALYSIS.md` - Complete audit with 12 frontend + 8 backend issues
-- `OPTIMIZATION_IMPLEMENTATION_PLAN.md` - 4-week step-by-step optimization guide
-- `DEVELOPMENT_GUIDELINES.md` - Performance patterns and best practices
-- `LIST_ITEMS_MANAGEMENT_DESIGN.md` - System Lists architecture
-
----
-
-## Development Guidelines
-
-See `DEVELOPMENT_GUIDELINES.md` for:
-- **Dynamic List Items** - NEVER hardcode dropdowns, use `useListItems` hook
-- **Modal/Popup implementation patterns** - Always use `createPortal` to `document.body`
-- **Performance optimization guidelines**
-  - Backend: Avoiding N+1 queries, parallel queries, database indexes
-  - Frontend: API client, parallel fetching, caching, memoization, lazy loading
-  - Context-aware modal patterns
-- **Terminology**: Use "Devices" for building assets, "Products" for inventory items
-- Performance testing checklist
-- Reference implementations
-
-## Key Technology Patterns
-
-### Dynamic Lists (CRITICAL)
-- **NEVER hardcode dropdown values** - Always use `useListItems(categoryCode)` hook
-- Available categories: `ASSET_TYPE`, `DEVICE_STATUS`, `INCIDENT_TYPE`, `INCIDENT_PRIORITY`, etc.
-- See `DEVELOPMENT_GUIDELINES.md` for complete list and usage patterns
-
-### API Client
-- Always use centralized `apiGet`, `apiPost`, `apiPatch`, `apiDelete` from `lib/api.ts`
-- Automatic cookie handling, error parsing, type-safe responses
-
-### Modals
-- Must use `createPortal` to `document.body` for proper centering
-- Require `mounted` state check for SSR compatibility
-- Use `z-[9999]` for modal container
-=======
 **This file (PROJECT_SNAPSHOT.md) is the primary reference.** Use it first; refer to others only when needed.
->>>>>>> Stashed changes

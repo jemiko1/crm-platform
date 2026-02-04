@@ -21,6 +21,7 @@ export default function SidebarNav() {
     { href: "/app/incidents", label: "Incidents", icon: <IconIncident /> },
     { href: "/app/assets", label: "Assets", icon: <IconWrench /> },
     { href: "/app/work-orders", label: "Work Orders", icon: <IconClipboard /> },
+    { href: "/app/sales/dashboard", label: "Sales", icon: <IconSales /> },
     { href: "/app/inventory", label: "Inventory", icon: <IconBox /> },
     { href: "/app/employees", label: "Employees", icon: <IconEmployees /> },
     { href: "/app/admin", label: "Admin", icon: <IconAdmin /> },
@@ -361,6 +362,20 @@ function IconSettings() {
         d="M19.4 13a7.8 7.8 0 0 0 0-2l2-1.2-2-3.4-2.3.7a7.7 7.7 0 0 0-1.7-1l-.3-2.4H11l-.3 2.4a7.7 7.7 0 0 0-1.7 1l-2.3-.7-2 3.4 2 1.2a7.8 7.8 0 0 0 0 2l-2 1.2 2 3.4 2.3-.7a7.7 7.7 0 0 0 1.7 1l.3 2.4h4.1l.3-2.4a7.7 7.7 0 0 0 1.7-1l2.3.7 2-3.4-2-1.2Z"
         stroke="currentColor"
         strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function IconSales() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M12 2v20M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
         strokeLinejoin="round"
       />
     </svg>

@@ -143,21 +143,19 @@ export default function BuildingDetailPage() {
       setLoading(true);
       setError(null);
 
-      // ✅ OPTIMIZED: Fetch all data in parallel with centralized API client (4x faster!)
-      const [buildingsData, assetsData, clientsData, incidentsData] = await Promise.all([
-        apiGet<Building[]>("/v1/buildings", { cache: "no-store" }),
+      // Fetch building and related data in parallel
+      const [buildingData, assetsData, clientsData, incidentsData] = await Promise.all([
+        apiGet<Building>(`/v1/buildings/${buildingId}`, { cache: "no-store" }),
         apiGet<Asset[]>(`/v1/buildings/${buildingId}/assets`, { cache: "no-store" }).catch(() => []),
         apiGet<Client[]>(`/v1/buildings/${buildingId}/clients`, { cache: "no-store" }).catch(() => []),
         apiGet<Incident[]>(`/v1/buildings/${buildingId}/incidents`, { cache: "no-store" }).catch(() => []),
       ]);
 
-      const foundBuilding = buildingsData.find((b) => String(b.coreId) === buildingId);
-
-      if (!foundBuilding) {
+      if (!buildingData) {
         throw new Error(`Building ${buildingId} not found`);
       }
 
-      setBuilding(foundBuilding);
+      setBuilding(buildingData);
       setAssets(assetsData);
       setClients(clientsData);
       setIncidents(Array.isArray(incidentsData) ? incidentsData : Array.isArray((incidentsData as any)?.items) ? (incidentsData as any).items : []);

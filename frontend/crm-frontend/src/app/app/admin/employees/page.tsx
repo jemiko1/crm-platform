@@ -37,7 +37,9 @@ export default function EmployeesPage() {
   async function fetchEmployees() {
     try {
       setLoading(true);
-      const data = await apiGet<Employee[]>("/v1/employees");
+      const data = await apiGet<Employee[]>(
+        "/v1/employees?includeTerminated=true"
+      );
       setEmployees(data);
       setError(null);
     } catch (err: any) {

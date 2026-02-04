@@ -38,7 +38,7 @@ export class AuthController {
       sameSite: "lax",
       secure,
       path: "/",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours - matches JWT_EXPIRES_IN
     });
 
     return { user };

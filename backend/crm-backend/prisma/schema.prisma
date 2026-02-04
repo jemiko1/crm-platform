@@ -431,6 +431,19 @@ model Employee {
   workOrderActivityLogs  WorkOrderActivityLog[]
   managedDepartments     Department[]            @relation("DepartmentHead")
 
+  // Sales CRM Relations
+  responsibleLeads       Lead[]                  @relation("LeadResponsible")
+  createdLeads           Lead[]                  @relation("LeadCreatedBy")
+  leadActivities         LeadActivity[]
+  leadNotes              LeadNote[]
+  leadReminders          LeadReminder[]
+  leadAppointments       LeadAppointment[]
+  leadProposals          LeadProposal[]
+  leadStageChanges       LeadStageHistory[]
+  salesPlans             SalesPlan[]
+  createdSalesPlans      SalesPlan[]             @relation("SalesPlanCreatedBy")
+  approvedSalesPlans     SalesPlan[]             @relation("SalesPlanApprovedBy")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -580,6 +593,10 @@ model Position {
   // Workflow steps this position is assigned to
   workflowSteps WorkflowStepPosition[]
 
+  // Sales CRM Relations
+  salesPipelineConfigPositions SalesPipelineConfigPosition[]
+  salesPipelinePermissions     SalesPipelinePermissionPosition[]
+
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -697,6 +714,7 @@ enum PermissionCategory {
   EMPLOYEES
   REPORTS
   ADMIN
+  SALES
 }
 
 // Join Tables for Many-to-Many Relationships
@@ -781,6 +799,9 @@ enum AuditEntity {
   WORK_ORDER
   USER
   INCIDENT
+  LEAD
+  SALES_SERVICE
+  SALES_PLAN
 }
 
 model AuditLog {
@@ -1131,4 +1152,607 @@ model SystemListItem {
   @@index([categoryId])
   @@index([isActive])
   @@index([sortOrder])
+}
+
+/**
+ * =========================
+ * SALES CRM MODULE
+ * =========================
+ */
+
+enum LeadStatus {
+  ACTIVE // Lead is being worked on
+  WON // Lead converted to customer
+  LOST // Lead was lost/cancelled
+}
+
+enum LeadActivityType {
+  LEAD_CREATED
+  LEAD_UPDATED
+  STAGE_CHANGED
+  LEAD_ASSIGNED
+  LEAD_LOCKED
+  LEAD_UNLOCKED
+  LEAD_APPROVED
+  LEAD_CANCELLED
+  NOTE_ADDED
+  NOTE_UPDATED
+  NOTE_DELETED
+  REMINDER_CREATED
+  REMINDER_UPDATED
+  REMINDER_COMPLETED
+  REMINDER_DELETED
+  APPOINTMENT_SCHEDULED
+  APPOINTMENT_UPDATED
+  APPOINTMENT_COMPLETED
+  APPOINTMENT_CANCELLED
+  SERVICE_ADDED
+  SERVICE_UPDATED
+  SERVICE_REMOVED
+  PROPOSAL_CREATED
+  PROPOSAL_UPDATED
+  VIEWED
+}
+
+enum SalesPlanType {
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+}
+
+enum SalesPlanStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum ReminderStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+// Lead Pipeline Stage - Configurable stages
+model LeadStage {
+  id        String  @id @default(uuid())
+  code      String  @unique // POTENTIAL, OFFERING, NEGOTIATION, APPROVAL, WON, LOST
+  name      String // English name
+  nameKa    String // Georgian name (ქართული)
+  sortOrder Int     @unique
+  color     String? // Hex color for UI display
+
+  // Stage Configuration (flexible for future requirements)
+  requiredFields     Json? // Fields required before advancing: ["services", "contactNumber"]
+  allowedActions     Json? // Actions available: ["edit", "addNote", "changeStage"]
+  autoSkipConditions Json? // Conditions to skip: { "positionKey": "HEAD_OF_SALES_POSITION" }
+
+  isActive   Boolean @default(true)
+  isTerminal Boolean @default(false) // WON/LOST stages are terminal
+
+  // Relations
+  leads             Lead[]
+  stageHistoryFrom  LeadStageHistory[] @relation("StageHistoryFrom")
+  stageHistoryTo    LeadStageHistory[] @relation("StageHistoryTo")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sortOrder])
+  @@index([isActive])
+}
+
+// Lead Source - Where leads come from (configurable via admin)
+model LeadSource {
+  id          String  @id @default(uuid())
+  code        String  @unique
+  name        String
+  nameKa      String // Georgian name
+  description String?
+  sortOrder   Int     @default(0)
+  isActive    Boolean @default(true)
+
+  leads Lead[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+// Lead - Main sales pipeline entity (potential building)
+model Lead {
+  id         String @id @default(uuid())
+  leadNumber Int    @unique @default(autoincrement())
+
+  // Stage & Status
+  stageId  String
+  stage    LeadStage  @relation(fields: [stageId], references: [id])
+  status   LeadStatus @default(ACTIVE)
+  isLocked Boolean    @default(false)
+  lockedAt DateTime?
+  lockedBy String? // Employee ID who locked
+
+  // Contact Information
+  name           String // Building/Lead name
+  representative String? // წარმომადგენელი
+  primaryPhone   String
+  contactPersons Json? // Array of {name, phone, role}
+  associationName String? // ამხანაგობა
+
+  // Lead Source
+  sourceId String?
+  source   LeadSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+
+  // Building Information
+  city               String
+  address            String
+  floorsCount        Int @default(0) // სართულების რაოდენობა
+  entrancesCount     Int @default(0) // სადარბაზოების რაოდენობა
+  apartmentsPerFloor Int @default(0) // სართულზე ბინების რაოდენობა
+  elevatorsCount     Int @default(0) // ლიფტების რაოდენობა
+  entranceDoorsCount Int @default(0) // სადარბაზოს კარებების რაოდენობა
+
+  // Assignment
+  responsibleEmployeeId   String?
+  responsibleEmployee     Employee? @relation("LeadResponsible", fields: [responsibleEmployeeId], references: [id], onDelete: SetNull)
+  responsibleEmployeeName String?   // Cached name for when employee is deleted
+
+  // Outcome tracking
+  wonAt      DateTime?
+  lostAt     DateTime?
+  lostReason String?   @db.Text
+
+  // Approval workflow
+  submittedForApprovalAt DateTime?
+  submittedForApprovalBy String? // Employee ID
+  approvalNotes          String? @db.Text // Notes from approver when unlocking
+  approvedAt             DateTime?
+  approvedBy             String? // Employee ID
+
+  // Pricing summary (calculated from services)
+  totalOneTimePrice  Decimal? @db.Decimal(12, 2)
+  totalMonthlyPrice  Decimal? @db.Decimal(12, 2)
+
+  // Relations
+  services     LeadService[]
+  activities   LeadActivity[]
+  notes        LeadNote[]
+  reminders    LeadReminder[]
+  appointments LeadAppointment[]
+  proposals    LeadProposal[]
+  stageHistory LeadStageHistory[]
+
+  // Audit
+  createdById   String?
+  createdBy     Employee? @relation("LeadCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdByName String?   // Cached name for when employee is deleted
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stageId])
+  @@index([status])
+  @@index([responsibleEmployeeId])
+  @@index([createdById])
+  @@index([sourceId])
+  @@index([city])
+  @@index([isLocked])
+  @@index([createdAt])
+  @@index([leadNumber])
+}
+
+// Sales Service Category
+model SalesServiceCategory {
+  id          String  @id @default(uuid())
+  code        String  @unique
+  name        String
+  nameKa      String // Georgian name
+  description String?
+  sortOrder   Int     @default(0)
+  isActive    Boolean @default(true)
+
+  services SalesService[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+// Sales Service - Sellable services catalog (different from Inventory Products)
+model SalesService {
+  id          String  @id @default(uuid())
+  code        String  @unique
+  name        String
+  nameKa      String // Georgian name
+  description String? @db.Text
+
+  // Pricing
+  monthlyPrice Decimal? @db.Decimal(10, 2)
+  oneTimePrice Decimal? @db.Decimal(10, 2)
+
+  // Configuration (flexible for complex pricing logic)
+  parameters   Json? // Custom parameters: { "perUnit": true, "minQuantity": 1 }
+  pricingRules Json? // Complex pricing: { "tiers": [...], "discounts": [...] }
+
+  // Categorization
+  categoryId String?
+  category   SalesServiceCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+
+  // Relations
+  leadServices LeadService[]
+  planTargets  SalesPlanTarget[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([categoryId])
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+// Lead Service - Services attached to a lead
+model LeadService {
+  id String @id @default(uuid())
+
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  serviceId String
+  service   SalesService @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  // Service configuration for this lead
+  quantity       Int      @default(1)
+  monthlyPrice   Decimal? @db.Decimal(10, 2) // Can override service price
+  oneTimePrice   Decimal? @db.Decimal(10, 2) // Can override service price
+  customParams   Json? // Custom parameters for this lead
+  notes          String?  @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([leadId, serviceId])
+  @@index([leadId])
+  @@index([serviceId])
+}
+
+// Lead Activity - Comprehensive logging for AI Agent
+model LeadActivity {
+  id     String @id @default(uuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  // Activity categorization
+  activityType LeadActivityType
+  category     String // MAIN, DETAIL, SYSTEM
+
+  // Change tracking
+  action      String // Human-readable action: "Changed stage from Potential to Offering"
+  description String @db.Text // Detailed description
+
+  // Detailed change data (crucial for AI)
+  previousValues Json? // Snapshot before change
+  newValues      Json? // Snapshot after change
+  changedFields  Json? // List of changed field names: ["city", "address"]
+
+  // Actor information
+  performedById   String?
+  performedBy     Employee? @relation(fields: [performedById], references: [id], onDelete: SetNull)
+  performedByName String? // Cached for deleted users
+
+  // Request metadata
+  metadata  Json? // Additional context
+  ipAddress String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  @@index([leadId])
+  @@index([activityType])
+  @@index([category])
+  @@index([performedById])
+  @@index([createdAt])
+}
+
+// Lead Note
+model LeadNote {
+  id     String @id @default(uuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  content  String  @db.Text
+  isPinned Boolean @default(false)
+
+  createdById   String?
+  createdBy     Employee? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdByName String?   // Cached name for when employee is deleted
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([leadId])
+  @@index([createdById])
+  @@index([isPinned])
+  @@index([createdAt])
+}
+
+// Lead Reminder
+model LeadReminder {
+  id     String @id @default(uuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String?        @db.Text
+  remindAt    DateTime
+  status      ReminderStatus @default(PENDING)
+
+  completedAt DateTime?
+  completedBy String? // Employee ID
+
+  createdById   String?
+  createdBy     Employee? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdByName String?   // Cached name for when employee is deleted
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([leadId])
+  @@index([createdById])
+  @@index([remindAt])
+  @@index([status])
+}
+
+// Lead Appointment
+model LeadAppointment {
+  id     String @id @default(uuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String?           @db.Text
+  location    String?
+  startTime   DateTime
+  endTime     DateTime?
+  status      AppointmentStatus @default(SCHEDULED)
+
+  // Outcome
+  outcome     String?   @db.Text
+  completedAt DateTime?
+
+  createdById   String?
+  createdBy     Employee? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdByName String?   // Cached name for when employee is deleted
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([leadId])
+  @@index([createdById])
+  @@index([startTime])
+  @@index([status])
+}
+
+// Lead Proposal - Document/pricing proposal for a lead
+model LeadProposal {
+  id     String @id @default(uuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  proposalNumber String  @unique
+  title          String
+  description    String? @db.Text
+
+  // Pricing snapshot at time of proposal
+  servicesSnapshot  Json    // Copy of services with prices at proposal time
+  totalOneTimePrice Decimal @db.Decimal(12, 2)
+  totalMonthlyPrice Decimal @db.Decimal(12, 2)
+
+  // Document
+  documentUrl String? // URL to generated PDF
+
+  // Status
+  isSent     Boolean   @default(false)
+  sentAt     DateTime?
+  isAccepted Boolean   @default(false)
+  acceptedAt DateTime?
+
+  createdById   String?
+  createdBy     Employee? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdByName String?   // Cached name for when employee is deleted
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([leadId])
+  @@index([createdById])
+  @@index([proposalNumber])
+  @@index([createdAt])
+}
+
+// Lead Stage History - Track all stage changes
+model LeadStageHistory {
+  id     String @id @default(uuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  fromStageId String?
+  fromStage   LeadStage? @relation("StageHistoryFrom", fields: [fromStageId], references: [id], onDelete: SetNull)
+
+  toStageId String
+  toStage   LeadStage @relation("StageHistoryTo", fields: [toStageId], references: [id])
+
+  reason String? @db.Text // Reason for stage change
+
+  changedById   String?
+  changedBy     Employee? @relation(fields: [changedById], references: [id], onDelete: SetNull)
+  changedByName String?   // Cached name for when employee is deleted
+
+  createdAt DateTime @default(now())
+
+  @@index([leadId])
+  @@index([fromStageId])
+  @@index([toStageId])
+  @@index([changedById])
+  @@index([createdAt])
+}
+
+// Sales Plan - Monthly/Quarterly/Annual targets
+model SalesPlan {
+  id String @id @default(uuid())
+
+  // Plan scope
+  type    SalesPlanType
+  year    Int
+  month   Int? // 1-12 for monthly plans
+  quarter Int? // 1-4 for quarterly plans
+
+  name        String? // Optional custom name
+  description String? @db.Text
+
+  // Assignment (null = team-wide plan from CEO)
+  employeeId String?
+  employee   Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  // Targets
+  targets             SalesPlanTarget[]
+  targetRevenue       Decimal?        @db.Decimal(12, 2)
+  targetLeadConversions Int?
+
+  // Achieved (calculated from actual sales)
+  achievedRevenue       Decimal? @db.Decimal(12, 2)
+  achievedLeadConversions Int?
+
+  // Status and approval
+  status        SalesPlanStatus @default(DRAFT)
+  createdById   String?
+  createdBy     Employee?       @relation("SalesPlanCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdByName String?         // Cached name for when employee is deleted
+  approvedById  String?
+  approvedBy    Employee?       @relation("SalesPlanApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([type, year, month, employeeId]) // Prevent duplicate plans
+  @@unique([type, year, quarter, employeeId]) // Prevent duplicate plans
+  @@index([employeeId])
+  @@index([type])
+  @@index([year])
+  @@index([status])
+  @@index([createdById])
+}
+
+// Sales Plan Target - Per-service targets within a plan
+model SalesPlanTarget {
+  id     String    @id @default(uuid())
+  planId String
+  plan   SalesPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  serviceId String
+  service   SalesService @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  // Targets
+  targetQuantity Int
+  targetRevenue  Decimal? @db.Decimal(10, 2)
+
+  // Achieved (calculated from won leads)
+  achievedQuantity Int      @default(0)
+  achievedRevenue  Decimal? @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([planId, serviceId])
+  @@index([planId])
+  @@index([serviceId])
+}
+
+// Sales Pipeline Config - Configurable position assignments (supports multiple positions)
+model SalesPipelineConfig {
+  id String @id @default(uuid())
+
+  key         String  @unique // e.g., "HEAD_OF_SALES_POSITION", "CEO_POSITION", "ASSIGN_EMPLOYEES"
+  name        String? // Human-readable name
+  description String?
+  stepOrder   Int?    // Order for display purposes
+
+  // Assigned positions (many-to-many)
+  assignedPositions SalesPipelineConfigPosition[]
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([key])
+  @@index([isActive])
+}
+
+// Join table: SalesPipelineConfig <-> Position
+model SalesPipelineConfigPosition {
+  id String @id @default(uuid())
+
+  configId String
+  config   SalesPipelineConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  positionId String
+  position   Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  isPrimaryAssignee Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@unique([configId, positionId])
+  @@index([configId])
+  @@index([positionId])
+}
+
+// Sales Pipeline Permission - Configurable action permissions
+model SalesPipelinePermission {
+  id String @id @default(uuid())
+
+  permissionKey String @unique // e.g., "MOVE_LEAD_BACKWARD", "REASSIGN_LEAD"
+  name          String
+  description   String?
+
+  // Assigned positions (many-to-many)
+  positions SalesPipelinePermissionPosition[]
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([permissionKey])
+  @@index([isActive])
+}
+
+// Join table: SalesPipelinePermission <-> Position
+model SalesPipelinePermissionPosition {
+  id String @id @default(uuid())
+
+  permissionId String
+  permission   SalesPipelinePermission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  positionId String
+  position   Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([permissionId, positionId])
+  @@index([permissionId])
+  @@index([positionId])
 }

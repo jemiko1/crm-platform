@@ -13,8 +13,16 @@ export class AuthService {
   async login(email: string, password: string) {
     const user = await this.prisma.user.findUnique({ where: { email } });
 
-    if (!user || !user.isActive) {
+    // User doesn't exist
+    if (!user) {
       throw new UnauthorizedException("Invalid credentials");
+    }
+
+    // User exists but account is deactivated (dismissed)
+    if (!user.isActive) {
+      throw new UnauthorizedException(
+        "Your account has been dismissed. Please contact your system administrator."
+      );
     }
 
     const ok = await bcrypt.compare(password, user.passwordHash);

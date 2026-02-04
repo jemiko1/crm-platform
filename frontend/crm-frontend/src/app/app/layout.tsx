@@ -4,8 +4,6 @@ import ProfileMenu from "./profile-menu";
 import TasksIcon from "./tasks-icon";
 import ModalProvider from "./modal-provider";
 
-const BRAND_GREEN = "rgb(8,117,56)";
-
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -26,11 +24,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               <div className="h-full rounded-[32px] bg-white/85 backdrop-blur-xl border border-white/60 shadow-[0_30px_70px_-22px_rgba(0,0,0,0.35)] overflow-hidden flex flex-col">
                 {/* Logo */}
                 <div className="px-3 pt-4 pb-3 flex items-center justify-center border-b border-white/60 shrink-0">
-                  <div
-                    className="h-10 w-10 rounded-2xl shadow"
-                    style={{ backgroundColor: BRAND_GREEN }}
+                  <span
+                    className="text-lg font-bold text-zinc-900"
                     title="CRM Platform"
-                  />
+                  >
+                    CRM28
+                  </span>
                 </div>
 
                 <div

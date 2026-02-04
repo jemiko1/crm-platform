@@ -9,7 +9,6 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/app/dashboard";
-  const expired = searchParams.get("expired") === "1";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -65,9 +64,8 @@ export default function LoginPage() {
           <div className="p-6 sm:p-7">
             {/* Logo */}
             <div className="mb-6 text-center">
-              {/* Replace with your real logo later */}
-              <div className="mx-auto mb-3 h-12 w-12 rounded-2xl bg-[rgb(8,117,56)] text-white flex items-center justify-center font-semibold shadow">
-                HOA
+              <div className="mx-auto mb-3">
+                <span className="text-2xl font-bold text-zinc-900">CRM28</span>
               </div>
 
               <h1 className="text-xl font-semibold text-zinc-900">Sign in</h1>
@@ -106,12 +104,6 @@ export default function LoginPage() {
                   autoComplete="current-password"
                 />
               </div>
-
-              {expired && (
-                <div className="rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
-                  Your session has expired. Please sign in again.
-                </div>
-              )}
 
               {error && (
                 <div className="rounded-2xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
