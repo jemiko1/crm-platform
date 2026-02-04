@@ -61,8 +61,8 @@
 |---------|-------|
 | **Method** | JWT in httpOnly cookie |
 | **Cookie name** | `access_token` (env: `COOKIE_NAME`) |
-| **JWT expiry** | 30 minutes (env: `JWT_EXPIRES_IN`) |
-| **Cookie maxAge** | 7 days |
+| **JWT expiry** | 24 hours (env: `JWT_EXPIRES_IN`) |
+| **Cookie maxAge** | 24 hours (matches JWT) |
 | **CORS** | `http://localhost:3002` (or frontend URL), credentials: true |
 
 **401 handling**: API client redirects to `/login?expired=1&next=<path>`. Login page shows "Your session has expired. Please sign in again."
