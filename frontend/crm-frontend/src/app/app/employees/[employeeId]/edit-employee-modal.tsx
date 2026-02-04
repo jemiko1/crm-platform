@@ -50,7 +50,6 @@ export default function EditEmployeeModal({
     firstName: "",
     lastName: "",
     email: "",
-    password: "",
     phone: "",
     extensionNumber: "",
     birthday: "",
@@ -104,7 +103,6 @@ export default function EditEmployeeModal({
         firstName: employee.firstName,
         lastName: employee.lastName,
         email: employee.email,
-        password: "", // Don't pre-fill password
         phone: employee.phone || "",
         extensionNumber: (employee as any).extensionNumber || "",
         birthday: (employee as any).birthday ? new Date((employee as any).birthday).toISOString().split("T")[0] : "",
@@ -153,15 +151,9 @@ export default function EditEmployeeModal({
         positionId: formData.positionId || undefined,
       };
 
-      // Only include password if provided
-      if (formData.password) {
-        updateData.password = formData.password;
-      }
-
       await apiPatch(`/v1/employees/${employee.id}`, updateData);
 
       onSuccess();
-      setFormData((prev) => ({ ...prev, password: "" })); // Clear password field
     } catch (err: any) {
       setError(err.message || "Failed to update employee");
     } finally {
@@ -259,21 +251,6 @@ export default function EditEmployeeModal({
                     required
                     value={formData.email}
                     onChange={handleChange}
-                    className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-zinc-900">
-                    Password <span className="text-zinc-500 text-xs">(leave blank to keep current)</span>
-                  </label>
-                  <input
-                    type="password"
-                    name="password"
-                    minLength={6}
-                    value={formData.password}
-                    onChange={handleChange}
-                    placeholder="New password (min 6 characters)"
                     className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                   />
                 </div>

@@ -38,11 +38,11 @@ export class SalesConfigController {
     return this.configService.getConfig(key);
   }
 
-  @Patch('pipeline/:key')
+  @Patch('pipeline/:key/positions')
   @UseGuards(PositionPermissionGuard)
   @RequirePermission('sales.config.manage')
-  async updateConfig(@Param('key') key: string, @Body() dto: UpdatePipelineConfigDto) {
-    return this.configService.updateConfig(key, dto);
+  async updateConfigPositions(@Param('key') key: string, @Body() dto: UpdatePipelineConfigDto) {
+    return this.configService.updateConfigPositions(key, dto);
   }
 
   // ==================== STAGES ====================

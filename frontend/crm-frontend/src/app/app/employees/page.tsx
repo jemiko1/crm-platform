@@ -19,6 +19,10 @@ type Employee = {
   status: "ACTIVE" | "INACTIVE" | "ON_LEAVE" | "TERMINATED";
   birthday?: string | null;
   avatar: string | null;
+  user?: {
+    id: string;
+    isActive: boolean;
+  } | null;
   position?: {
     id: string;
     name: string;
@@ -46,7 +50,9 @@ export default function EmployeesPage() {
   async function fetchEmployees() {
     try {
       setLoading(true);
-      const data = await apiGet<Employee[]>("/v1/employees");
+      const data = await apiGet<Employee[]>(
+        "/v1/employees?includeTerminated=true"
+      );
       setEmployees(data);
       setError(null);
     } catch (err: any) {
@@ -181,6 +187,9 @@ export default function EmployeesPage() {
                   Position
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-zinc-900">
+                  Login
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-zinc-900">
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-zinc-900">
@@ -207,6 +216,29 @@ export default function EmployeesPage() {
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-sm text-zinc-900">
                     {emp.position?.name || emp.jobTitle || "No position"}
+                  </td>
+                  <td className="whitespace-nowrap px-6 py-4">
+                    {emp.user ? (
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ring-1 ${
+                          emp.user.isActive
+                            ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                            : "bg-amber-50 text-amber-700 ring-amber-200"
+                        }`}
+                        title={emp.user.isActive ? "Active login account" : "Login account disabled"}
+                      >
+                        <IconUser />
+                        {emp.user.isActive ? "Active" : "Disabled"}
+                      </span>
+                    ) : (
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-500 ring-1 ring-zinc-200"
+                        title="No login account"
+                      >
+                        <IconUserOff />
+                        None
+                      </span>
+                    )}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4">
                     <span
@@ -255,5 +287,25 @@ export default function EmployeesPage() {
         }}
       />
     </div>
+  );
+}
+
+function IconUser() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  );
+}
+
+function IconUserOff() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="8.5" cy="7" r="4" />
+      <line x1="18" y1="8" x2="23" y2="13" />
+      <line x1="23" y1="8" x2="18" y2="13" />
+    </svg>
   );
 }

@@ -36,7 +36,8 @@ type Lead = {
     firstName: string;
     lastName: string;
     employeeId: string;
-  };
+  } | null;
+  responsibleEmployeeName: string | null; // Cached name when employee is deleted
   _count: {
     services: number;
     notes: number;
@@ -432,10 +433,18 @@ export default function LeadsPage() {
                         <div className="text-xs text-zinc-500 truncate max-w-[200px]">{lead.address}</div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm text-zinc-900">
-                          {lead.responsibleEmployee.firstName} {lead.responsibleEmployee.lastName}
-                        </div>
-                        <div className="text-xs text-zinc-500">{lead.responsibleEmployee.employeeId}</div>
+                        {lead.responsibleEmployee ? (
+                          <>
+                            <div className="text-sm text-zinc-900">
+                              {lead.responsibleEmployee.firstName} {lead.responsibleEmployee.lastName}
+                            </div>
+                            <div className="text-xs text-zinc-500">{lead.responsibleEmployee.employeeId}</div>
+                          </>
+                        ) : (
+                          <div className="text-sm text-zinc-500 italic">
+                            {lead.responsibleEmployeeName || "Not assigned"}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm text-zinc-600">

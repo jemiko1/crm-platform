@@ -85,6 +85,11 @@ const DEFAULT_PERMISSIONS = [
   { resource: "employees", action: "update", category: PermissionCategory.EMPLOYEES, description: "Update employee information" },
   { resource: "employees", action: "delete", category: PermissionCategory.EMPLOYEES, description: "Delete employees" },
   { resource: "employees", action: "assign", category: PermissionCategory.EMPLOYEES, description: "Assign employees to departments/roles" },
+  { resource: "employee", action: "reset_password", category: PermissionCategory.EMPLOYEES, description: "Reset employee passwords" },
+  { resource: "employee", action: "dismiss", category: PermissionCategory.EMPLOYEES, description: "Dismiss/terminate employees" },
+  { resource: "employee", action: "activate", category: PermissionCategory.EMPLOYEES, description: "Reactivate dismissed employees" },
+  { resource: "employee", action: "hard_delete", category: PermissionCategory.EMPLOYEES, description: "Permanently delete employees" },
+  { resource: "employee", action: "create_account", category: PermissionCategory.EMPLOYEES, description: "Create user accounts for employees" },
 
   // Departments
   { resource: "departments", action: "read", category: PermissionCategory.EMPLOYEES, description: "View departments" },

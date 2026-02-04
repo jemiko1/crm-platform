@@ -90,7 +90,7 @@ export class PositionsService {
   }
 
   async findAll() {
-    return this.prisma.position.findMany({
+    const list = await this.prisma.position.findMany({
       include: {
         department: { select: { id: true, name: true, code: true } },
         roleGroup: {
@@ -102,6 +102,7 @@ export class PositionsService {
           },
         },
         employees: {
+          where: { status: { not: 'TERMINATED' } },
           select: {
             id: true,
             firstName: true,
@@ -111,13 +112,16 @@ export class PositionsService {
             status: true,
           },
         },
-        _count: { select: { employees: true } },
       },
       orderBy: [
         { level: 'desc' },
         { name: 'asc' },
       ],
     });
+    return list.map((pos) => ({
+      ...pos,
+      _count: { employees: pos.employees.length },
+    }));
   }
 
   async findOne(id: string) {
@@ -133,6 +137,7 @@ export class PositionsService {
           },
         },
         employees: {
+          where: { status: { not: 'TERMINATED' } },
           select: {
             id: true,
             firstName: true,
@@ -150,7 +155,10 @@ export class PositionsService {
       throw new NotFoundException(`Position with ID ${id} not found`);
     }
 
-    return position;
+    return {
+      ...position,
+      _count: { employees: position.employees.length },
+    };
   }
 
   async findByCode(code: string) {
