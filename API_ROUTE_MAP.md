@@ -129,14 +129,27 @@ Complete API route documentation for CRM Platform backend.
 
 **File**: `src/employees/employees.controller.ts`  
 **Base Route**: `/v1/employees`  
-**Guards**: `JwtAuthGuard` (all endpoints)
+**Guards**: `JwtAuthGuard` (all endpoints), `PositionPermissionGuard` (lifecycle endpoints)
 
 **Endpoints**:
-- `POST /v1/employees` - Create employee
-- `GET /v1/employees` - List employees (query: status, search)
+- `POST /v1/employees` - Create employee (optionally with user account)
+- `GET /v1/employees` - List employees (query: status, search) - includes login status
 - `GET /v1/employees/:id` - Get employee by ID
 - `PATCH /v1/employees/:id` - Update employee
-- `DELETE /v1/employees/:id` - Delete employee
+- `POST /v1/employees/:id/dismiss` - Dismiss/terminate employee (requires `employee.dismiss`)
+- `POST /v1/employees/:id/activate` - Reactivate dismissed employee (requires `employee.activate`)
+- `POST /v1/employees/:id/create-user` - Create user account for employee
+- `POST /v1/employees/:id/reset-password` - Reset employee password (requires `employee.reset_password`)
+- `GET /v1/employees/:id/deletion-constraints` - Check what blocks deletion (requires `employee.hard_delete`)
+- `POST /v1/employees/:id/delegate-items` - Delegate active items to another employee
+- `DELETE /v1/employees/:id/hard-delete` - Permanently delete employee (requires `employee.hard_delete`)
+
+**Notes**:
+- Employees can exist without user accounts (login disabled)
+- User accounts derive permissions from Position → RoleGroup
+- Dismissal sets status to TERMINATED and deactivates user account
+- Hard delete requires delegation of active leads/work orders first
+- Historical records preserve cached employee names after deletion
 
 ---
 
@@ -280,9 +293,65 @@ Complete API route documentation for CRM Platform backend.
 
 ---
 
+## Sales Module
+
+**Files**: 
+- `src/sales/leads/leads.controller.ts`
+- `src/sales/config/sales-config.controller.ts`
+
+**Base Routes**: `/v1/sales/*`  
+**Guards**: `JwtAuthGuard` (all endpoints)
+
+### Leads Endpoints
+- `POST /v1/sales/leads` - Create lead
+- `GET /v1/sales/leads` - List leads (query: status, stageId, responsibleEmployeeId, page, pageSize)
+- `GET /v1/sales/leads/statistics` - Get lead statistics
+- `GET /v1/sales/leads/:id` - Get lead by ID
+- `PATCH /v1/sales/leads/:id` - Update lead
+- `POST /v1/sales/leads/:id/change-stage` - Change lead stage
+- `POST /v1/sales/leads/:id/submit-for-approval` - Submit for approval
+- `POST /v1/sales/leads/:id/approve` - Approve lead (mark as WON)
+- `POST /v1/sales/leads/:id/reject` - Reject/unlock lead
+- `POST /v1/sales/leads/:id/mark-lost` - Mark lead as lost
+
+### Services Endpoints
+- `GET /v1/sales/services` - List sales services
+- `GET /v1/sales/services/categories` - List service categories
+- `POST /v1/sales/services` - Create service
+- `PATCH /v1/sales/services/:id` - Update service
+
+### Lead Sub-resources
+- `GET /v1/sales/leads/:id/services` - Get lead services
+- `POST /v1/sales/leads/:id/services` - Add service to lead
+- `POST /v1/sales/leads/:id/notes` - Add note
+- `POST /v1/sales/leads/:id/reminders` - Add reminder
+- `POST /v1/sales/leads/:id/appointments` - Add appointment
+
+### Configuration Endpoints
+- `GET /v1/sales/config/stages` - List lead stages
+- `GET /v1/sales/config/sources` - List lead sources
+- `GET /v1/sales/config/pipeline-positions` - Get pipeline position assignments
+- `PATCH /v1/sales/config/pipeline-positions/:key` - Update pipeline position assignment
+- `GET /v1/sales/config/pipeline-permissions` - Get pipeline permission assignments
+- `PATCH /v1/sales/config/pipeline-permissions/:key` - Update pipeline permission assignment
+
+### Sales Plans Endpoints
+- `GET /v1/sales/plans` - List sales plans
+- `POST /v1/sales/plans` - Create sales plan
+- `GET /v1/sales/plans/:id` - Get sales plan
+- `PATCH /v1/sales/plans/:id` - Update sales plan
+
+**Notes**:
+- Lead pipeline with configurable stages (NEW, CONTACT, MEETING, PROPOSAL, NEGOTIATION, APPROVED, WON, LOST)
+- Approval workflow: sales employee → Head of Sales → CEO
+- Services catalog with monthly/one-time pricing
+- Position-based access control for pipeline actions
+
+---
+
 ## Summary
 
-**Total Controllers**: 15  
+**Total Controllers**: 17  
 **Guarded Routes**: Most routes under `/v1/*` require `JwtAuthGuard`  
 **Admin-Only Routes**: Positions, Role Groups, Admin Manual, Workflow Configuration  
 **Permission-Protected**: 
