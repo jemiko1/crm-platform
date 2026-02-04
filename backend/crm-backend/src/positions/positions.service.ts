@@ -315,4 +315,120 @@ export class PositionsService {
     const permissions = await this.getPositionPermissions(positionId);
     return permissions.includes(permission);
   }
+
+  /**
+   * Get available positions for a department, including inherited positions from parent departments.
+   * Positions from root-level departments (parentId = null) are EXCLUDED from inheritance.
+   * 
+   * Logic:
+   * 1. Get positions directly assigned to this department
+   * 2. Walk up the parent chain and include positions from each parent
+   * 3. Stop when reaching a root-level department (don't include root's positions)
+   * 
+   * @param departmentId - The department to get available positions for
+   * @returns Array of positions with inheritance information
+   */
+  async getAvailablePositionsForDepartment(departmentId: string) {
+    // Get the department with its parent chain
+    const department = await this.prisma.department.findUnique({
+      where: { id: departmentId },
+      select: {
+        id: true,
+        name: true,
+        parentId: true,
+      },
+    });
+
+    if (!department) {
+      throw new NotFoundException(`Department with ID ${departmentId} not found`);
+    }
+
+    // Collect department IDs in the inheritance chain (excluding root-level departments)
+    const departmentIds: string[] = [departmentId];
+    const departmentInfo: Map<string, { name: string; isOwn: boolean }> = new Map();
+    departmentInfo.set(departmentId, { name: department.name, isOwn: true });
+
+    // Walk up the parent chain
+    let currentDept = department;
+    while (currentDept.parentId) {
+      const parent = await this.prisma.department.findUnique({
+        where: { id: currentDept.parentId },
+        select: {
+          id: true,
+          name: true,
+          parentId: true,
+        },
+      });
+
+      if (!parent) break;
+
+      // If parent is root level (parentId = null), don't include its positions in inheritance
+      if (parent.parentId === null) {
+        // This is a root-level department, stop here (don't include root positions)
+        break;
+      }
+
+      // Parent is NOT root-level, include its positions
+      departmentIds.push(parent.id);
+      departmentInfo.set(parent.id, { name: parent.name, isOwn: false });
+      currentDept = parent;
+    }
+
+    // Get all positions from collected departments
+    const positions = await this.prisma.position.findMany({
+      where: {
+        departmentId: { in: departmentIds },
+        isActive: true,
+      },
+      include: {
+        department: { select: { id: true, name: true, code: true } },
+        roleGroup: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+        _count: { select: { employees: true } },
+      },
+      orderBy: [
+        { level: 'desc' },
+        { name: 'asc' },
+      ],
+    });
+
+    // Add inheritance info to each position
+    return positions.map((pos) => ({
+      ...pos,
+      isInherited: pos.departmentId !== departmentId,
+      inheritedFrom: pos.departmentId !== departmentId ? pos.department?.name : null,
+    }));
+  }
+
+  /**
+   * Get all positions that are not assigned to any department (global positions)
+   * These can be used by any department
+   */
+  async getGlobalPositions() {
+    return this.prisma.position.findMany({
+      where: {
+        departmentId: null,
+        isActive: true,
+      },
+      include: {
+        roleGroup: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+        _count: { select: { employees: true } },
+      },
+      orderBy: [
+        { level: 'desc' },
+        { name: 'asc' },
+      ],
+    });
+  }
 }

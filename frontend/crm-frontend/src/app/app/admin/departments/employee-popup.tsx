@@ -27,6 +27,13 @@ type Position = {
   code: string;
   departmentId?: string | null;
   isActive?: boolean;
+  isInherited?: boolean;
+  inheritedFrom?: string | null;
+  department?: {
+    id: string;
+    name: string;
+    code: string;
+  } | null;
 };
 
 type Department = {
@@ -66,26 +73,54 @@ export default function EmployeePopup({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [availablePositions, setAvailablePositions] = useState<Position[]>([]);
+  const [loadingPositions, setLoadingPositions] = useState(false);
+
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Filter positions for current department
-  const currentDeptPositions = positions.filter(
-    (p) => p.departmentId === departmentId && p.isActive !== false
-  );
+  // Load available positions for this department (including inherited)
+  useEffect(() => {
+    if (open && departmentId) {
+      setLoadingPositions(true);
+      apiGet<Position[]>(`/v1/positions/department/${departmentId}/available`)
+        .then((data) => {
+          setAvailablePositions(data);
+        })
+        .catch(() => {
+          // Fallback to direct positions only
+          setAvailablePositions(
+            positions.filter((p) => p.departmentId === departmentId && p.isActive !== false)
+          );
+        })
+        .finally(() => setLoadingPositions(false));
+    }
+  }, [open, departmentId, positions]);
 
-  // Load positions when selecting a department for transfer
+  // Use available positions (with inheritance) for current department
+  const currentDeptPositions = availablePositions.length > 0 
+    ? availablePositions 
+    : positions.filter((p) => p.departmentId === departmentId && p.isActive !== false);
+
+  // Load available positions for transfer target department (including inherited)
   useEffect(() => {
     if (selectedDepartmentId && selectedDepartmentId !== departmentId) {
-      apiGet<Position[]>(`/v1/positions`)
+      apiGet<Position[]>(`/v1/positions/department/${selectedDepartmentId}/available`)
         .then((data) => {
-          const deptPositions = data.filter(
-            (p) => p.departmentId === selectedDepartmentId && p.isActive !== false
-          );
-          setDepartmentPositions(deptPositions);
+          setDepartmentPositions(data);
         })
-        .catch(() => setDepartmentPositions([]));
+        .catch(() => {
+          // Fallback to direct positions only
+          apiGet<Position[]>(`/v1/positions`)
+            .then((data) => {
+              const deptPositions = data.filter(
+                (p) => p.departmentId === selectedDepartmentId && p.isActive !== false
+              );
+              setDepartmentPositions(deptPositions);
+            })
+            .catch(() => setDepartmentPositions([]));
+        });
     } else {
       setDepartmentPositions([]);
     }
@@ -275,14 +310,20 @@ export default function EmployeePopup({
                           value={selectedPositionId}
                           onChange={(e) => setSelectedPositionId(e.target.value)}
                           className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm text-zinc-900"
+                          disabled={loadingPositions}
                         >
                           <option value="">No position</option>
                           {currentDeptPositions.map((pos) => (
                             <option key={pos.id} value={pos.id}>
-                              {pos.name}
+                              {pos.name}{pos.isInherited ? ` (from ${pos.inheritedFrom})` : ''}
                             </option>
                           ))}
                         </select>
+                        {currentDeptPositions.some(p => p.isInherited) && (
+                          <div className="mt-1 text-xs text-blue-600">
+                            * Inherited positions are shared from parent departments
+                          </div>
+                        )}
                         <div className="mt-3 flex gap-2">
                           <button
                             onClick={handleCancel}
@@ -342,20 +383,27 @@ export default function EmployeePopup({
                                   No positions available in this department
                                 </div>
                               ) : (
-                                <select
-                                  value={selectedTransferPositionId}
-                                  onChange={(e) =>
-                                    setSelectedTransferPositionId(e.target.value)
-                                  }
-                                  className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-zinc-900"
-                                >
-                                  <option value="">Select position...</option>
-                                  {departmentPositions.map((pos) => (
-                                    <option key={pos.id} value={pos.id}>
-                                      {pos.name}
-                                    </option>
-                                  ))}
-                                </select>
+                                <>
+                                  <select
+                                    value={selectedTransferPositionId}
+                                    onChange={(e) =>
+                                      setSelectedTransferPositionId(e.target.value)
+                                    }
+                                    className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-zinc-900"
+                                  >
+                                    <option value="">Select position...</option>
+                                    {departmentPositions.map((pos) => (
+                                      <option key={pos.id} value={pos.id}>
+                                        {pos.name}{pos.isInherited ? ` (from ${pos.inheritedFrom})` : ''}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  {departmentPositions.some(p => p.isInherited) && (
+                                    <div className="mt-1 text-xs text-amber-600">
+                                      * Inherited positions are shared from parent departments
+                                    </div>
+                                  )}
+                                </>
                               )}
                             </div>
                           )}

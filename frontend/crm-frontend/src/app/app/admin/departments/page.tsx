@@ -15,6 +15,7 @@ type Department = {
   code: string;
   description: string | null;
   isActive: boolean;
+  parentId?: string | null;
   parent: {
     id: string;
     name: string;
@@ -161,19 +162,46 @@ export default function DepartmentsPage() {
     );
   }, [employees, selectedDepartment]);
 
+  // Available positions for selected department (including inherited)
+  const [availablePositions, setAvailablePositions] = useState<(Position & { isInherited?: boolean; inheritedFrom?: string | null })[]>([]);
+
+  useEffect(() => {
+    if (selectedDepartment) {
+      apiGet<(Position & { isInherited?: boolean; inheritedFrom?: string | null })[]>(
+        `/v1/positions/department/${selectedDepartment.id}/available`
+      )
+        .then((data) => setAvailablePositions(data))
+        .catch(() => {
+          // Fallback to direct positions
+          setAvailablePositions(
+            positions.filter(
+              (pos) =>
+                pos.department?.id === selectedDepartment.id ||
+                pos.departmentId === selectedDepartment.id
+            )
+          );
+        });
+    } else {
+      setAvailablePositions([]);
+    }
+  }, [selectedDepartment, positions]);
+
   const positionsInDepartment = useMemo(() => {
     if (!selectedDepartment) return [];
 
-    const departmentPositions = positions.filter(
-      (pos) =>
-        pos.department?.id === selectedDepartment.id ||
-        pos.departmentId === selectedDepartment.id
-    );
+    // Use available positions (with inheritance) 
+    const departmentPositions = availablePositions.length > 0 
+      ? availablePositions 
+      : positions.filter(
+          (pos) =>
+            pos.department?.id === selectedDepartment.id ||
+            pos.departmentId === selectedDepartment.id
+        );
 
-    const buckets: Array<{ position: Position | null; employees: Employee[] }> =
+    const buckets: Array<{ position: (Position & { isInherited?: boolean; inheritedFrom?: string | null }) | null; employees: Employee[] }> =
       departmentPositions.map((pos) => ({ position: pos, employees: [] }));
 
-    const bucketsMap = new Map<string, { position: Position | null; employees: Employee[] }>();
+    const bucketsMap = new Map<string, { position: (Position & { isInherited?: boolean; inheritedFrom?: string | null }) | null; employees: Employee[] }>();
     buckets.forEach((bucket) => {
       if (bucket.position) {
         bucketsMap.set(bucket.position.id, bucket);
@@ -200,7 +228,7 @@ export default function DepartmentsPage() {
       const nameB = b.position?.name ?? "Unassigned Position";
       return nameA.localeCompare(nameB);
     });
-  }, [employeesInDepartment, positions, selectedDepartment]);
+  }, [employeesInDepartment, positions, selectedDepartment, availablePositions]);
 
   function toggleExpand(id: string) {
     setExpandedNodes((prev) => {
@@ -241,9 +269,26 @@ export default function DepartmentsPage() {
     return path;
   }
 
+  // Check if a department is root level (no parent)
+  function isRootLevel(dept: Department): boolean {
+    // Check parentId first (for hierarchy data), then parent object (for list data)
+    if ('parentId' in dept) {
+      return dept.parentId === null;
+    }
+    return dept.parent === null;
+  }
+
   // Drag and drop handlers
   async function handleDrop(targetId: string | null) {
     if (!draggedDept || draggedDept.id === targetId) {
+      setDraggedDept(null);
+      setDropTargetId(null);
+      return;
+    }
+
+    // If dropping to root and department is already root-level, show message
+    if (targetId === null && isRootLevel(draggedDept)) {
+      alert(`"${draggedDept.name}" is already a root-level department`);
       setDraggedDept(null);
       setDropTargetId(null);
       return;
@@ -506,6 +551,11 @@ export default function DepartmentsPage() {
                     <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600">
                       {selectedDepartment.code}
                     </span>
+                    {isRootLevel(selectedDepartment) && (
+                      <span className="rounded-full bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700 ring-1 ring-purple-200">
+                        Root Level
+                      </span>
+                    )}
                     {!selectedDepartment.isActive && (
                       <span className="rounded-full bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700 ring-1 ring-rose-200">
                         Inactive
@@ -558,6 +608,11 @@ export default function DepartmentsPage() {
                   <StatCard
                     label="Positions"
                     value={positionsInDepartment.filter((b) => b.position).length}
+                    subtitle={
+                      availablePositions.filter(p => p.isInherited).length > 0
+                        ? `(${availablePositions.filter(p => !p.isInherited).length} own, ${availablePositions.filter(p => p.isInherited).length} inherited)`
+                        : undefined
+                    }
                   />
                   <StatCard
                     label="Sub-departments"
@@ -582,16 +637,28 @@ export default function DepartmentsPage() {
                           className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm"
                         >
                           <div className="flex items-center justify-between">
-                            <div>
-                              <div className="text-sm font-semibold text-zinc-900">
-                                {bucket.position?.name ?? "Unassigned Position"}
-                              </div>
-                              {bucket.position?.code && (
-                                <div className="text-xs text-zinc-500">
-                                  {bucket.position.code}
-                                </div>
-                              )}
-                            </div>
+                                <div>
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-sm font-semibold text-zinc-900">
+                                              {bucket.position?.name ?? "Unassigned Position"}
+                                            </span>
+                                            {bucket.position?.isInherited && (
+                                              <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 ring-1 ring-blue-200">
+                                                Inherited
+                                              </span>
+                                            )}
+                                          </div>
+                                          {bucket.position?.code && (
+                                            <div className="text-xs text-zinc-500">
+                                              {bucket.position.code}
+                                              {bucket.position?.isInherited && bucket.position?.inheritedFrom && (
+                                                <span className="ml-1 text-blue-600">
+                                                  (from {bucket.position.inheritedFrom})
+                                                </span>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
                             <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
                               {bucket.employees.length} employee
                               {bucket.employees.length === 1 ? "" : "s"}
@@ -814,16 +881,21 @@ function TreeView({
           )}
 
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="truncate font-semibold text-zinc-900">
-                {dept.name}
-              </span>
-              {!dept.isActive && (
-                <span className="rounded-full bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700 ring-1 ring-rose-200">
-                  Inactive
-                </span>
-              )}
-            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="truncate font-semibold text-zinc-900">
+                                {dept.name}
+                              </span>
+                              {level === 0 && (
+                                <span className="rounded-full bg-purple-50 px-1.5 py-0.5 text-[10px] font-medium text-purple-700 ring-1 ring-purple-200">
+                                  ROOT
+                                </span>
+                              )}
+                              {!dept.isActive && (
+                                <span className="rounded-full bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700 ring-1 ring-rose-200">
+                                  Inactive
+                                </span>
+                              )}
+                            </div>
             <div className="mt-1 flex items-center gap-3 text-xs text-zinc-500">
               <span
                 onClick={(e) => {
@@ -983,8 +1055,13 @@ function OrgChartView({
             <div className="font-bold text-base text-zinc-900 mb-1 pr-6">
               {dept.name}
             </div>
-            <div className="text-xs text-zinc-500 mb-2">
-              {dept.code}
+            <div className="flex items-center justify-center gap-2 text-xs text-zinc-500 mb-2">
+              <span>{dept.code}</span>
+              {level === 0 && (
+                <span className="rounded-full bg-purple-50 px-1.5 py-0.5 text-[10px] font-medium text-purple-700 ring-1 ring-purple-200">
+                  ROOT
+                </span>
+              )}
             </div>
             <div className="flex items-center justify-center gap-2 text-xs text-zinc-600 pt-2 border-t border-zinc-200">
               <span
@@ -1107,11 +1184,13 @@ function StatCard({
   value,
   onClick,
   clickable,
+  subtitle,
 }: {
   label: string;
   value: number;
   onClick?: () => void;
   clickable?: boolean;
+  subtitle?: string;
 }) {
   return (
     <div
@@ -1133,6 +1212,9 @@ function StatCard({
           </span>
         )}
       </div>
+      {subtitle && (
+        <div className="mt-1 text-xs text-blue-600">{subtitle}</div>
+      )}
     </div>
   );
 }
