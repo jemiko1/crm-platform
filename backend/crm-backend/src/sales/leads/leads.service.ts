@@ -392,17 +392,23 @@ export class LeadsService {
     // Check if responsible employee is Head of Sales (skip approval)
     const headOfSalesConfig = await this.prisma.salesPipelineConfig.findUnique({
       where: { key: 'HEAD_OF_SALES_POSITION' },
+      include: {
+        assignedPositions: true,
+      },
     });
 
-    const responsibleEmployee = await this.prisma.employee.findUnique({
-      where: { id: lead.responsibleEmployeeId },
-      include: { position: true },
-    });
+    const responsibleEmployee = lead.responsibleEmployeeId 
+      ? await this.prisma.employee.findUnique({
+          where: { id: lead.responsibleEmployeeId },
+          include: { position: true },
+        })
+      : null;
 
-    if (
-      headOfSalesConfig?.positionId &&
-      responsibleEmployee?.positionId === headOfSalesConfig.positionId
-    ) {
+    const isHeadOfSales = headOfSalesConfig?.assignedPositions.some(
+      (ap) => ap.positionId === responsibleEmployee?.positionId
+    );
+
+    if (isHeadOfSales) {
       // Skip approval stage - directly mark as won
       const wonStage = await this.prisma.leadStage.findFirst({
         where: { code: 'WON', isActive: true },

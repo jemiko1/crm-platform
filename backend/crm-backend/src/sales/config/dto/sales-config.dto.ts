@@ -1,17 +1,32 @@
 import { IsString, IsOptional, IsArray, IsUUID, IsBoolean, IsInt, Min } from 'class-validator';
 
 export class UpdatePipelineConfigDto {
-  @IsUUID()
-  @IsOptional()
-  positionId?: string;
+  @IsArray()
+  @IsUUID('4', { each: true })
+  positionIds: string[];
+}
+
+export class CreatePipelineConfigDto {
+  @IsString()
+  key: string;
 
   @IsString()
   @IsOptional()
-  value?: string;
+  name?: string;
 
   @IsString()
   @IsOptional()
   description?: string;
+
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  stepOrder?: number;
+
+  @IsArray()
+  @IsUUID('4', { each: true })
+  @IsOptional()
+  positionIds?: string[];
 }
 
 export class UpdateStageDto {

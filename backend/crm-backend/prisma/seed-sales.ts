@@ -198,22 +198,44 @@ async function main() {
   const configs = [
     {
       key: 'HEAD_OF_SALES_POSITION',
+      name: 'Head of Sales',
       description: 'Position that approves leads and manages sales team',
+      stepOrder: 1,
     },
     {
       key: 'CEO_POSITION',
+      name: 'CEO / Executive',
       description: 'Position that creates team-wide sales plans',
+      stepOrder: 2,
     },
     {
       key: 'SALES_MANAGER_POSITION',
+      name: 'Sales Manager',
       description: 'Position that can reassign leads',
+      stepOrder: 3,
+    },
+    {
+      key: 'ASSIGN_LEADS',
+      name: 'Assign Leads',
+      description: 'Positions that receive new leads and can assign to other agents',
+      stepOrder: 4,
+    },
+    {
+      key: 'APPROVAL_REVIEWERS',
+      name: 'Approval Reviewers',
+      description: 'Positions that can review and approve leads in the approval stage',
+      stepOrder: 5,
     },
   ];
 
   for (const config of configs) {
     await prisma.salesPipelineConfig.upsert({
       where: { key: config.key },
-      update: { description: config.description },
+      update: { 
+        name: config.name,
+        description: config.description,
+        stepOrder: config.stepOrder,
+      },
       create: config,
     });
   }

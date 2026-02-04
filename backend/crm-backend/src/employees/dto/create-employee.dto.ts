@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsDateString, IsEmail, MinLength } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsEnum, IsDateString, IsEmail, MinLength, IsBoolean, ValidateIf } from 'class-validator';
 import { EmployeeStatus } from '@prisma/client';
 
 export class CreateEmployeeDto {
@@ -14,10 +14,15 @@ export class CreateEmployeeDto {
   @IsNotEmpty()
   email: string;
 
+  @IsBoolean()
+  @IsOptional()
+  createUserAccount?: boolean; // Whether to create login account
+
+  @ValidateIf((o) => o.createUserAccount === true)
   @IsString()
   @MinLength(6)
   @IsNotEmpty()
-  password: string; // Required for User account creation
+  password?: string; // Required only if createUserAccount is true
 
   @IsString()
   @IsOptional()

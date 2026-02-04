@@ -56,13 +56,15 @@ type Lead = {
     lastName: string;
     employeeId: string;
     email: string;
-  };
+  } | null;
+  responsibleEmployeeName: string | null; // Cached name when employee is deleted
   createdBy: {
     id: string;
     firstName: string;
     lastName: string;
     employeeId: string;
-  };
+  } | null;
+  createdByName: string | null; // Cached name when employee is deleted
   services: any[];
   notes: any[];
   reminders: any[];
@@ -435,20 +437,36 @@ export default function LeadDetailPage() {
             {/* Assignment */}
             <div className="lg:col-span-2">
               <h3 className="mb-4 text-lg font-semibold text-zinc-900">Assignment</h3>
-              <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-200 text-lg font-bold text-zinc-600">
-                  {lead.responsibleEmployee.firstName[0]}
-                  {lead.responsibleEmployee.lastName[0]}
-                </div>
-                <div>
-                  <div className="font-medium text-zinc-900">
-                    {lead.responsibleEmployee.firstName} {lead.responsibleEmployee.lastName}
+              {lead.responsibleEmployee ? (
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-200 text-lg font-bold text-zinc-600">
+                    {lead.responsibleEmployee.firstName[0]}
+                    {lead.responsibleEmployee.lastName[0]}
                   </div>
-                  <div className="text-sm text-zinc-500">
-                    {lead.responsibleEmployee.employeeId} • {lead.responsibleEmployee.email}
+                  <div>
+                    <div className="font-medium text-zinc-900">
+                      {lead.responsibleEmployee.firstName} {lead.responsibleEmployee.lastName}
+                    </div>
+                    <div className="text-sm text-zinc-500">
+                      {lead.responsibleEmployee.employeeId} • {lead.responsibleEmployee.email}
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100 text-lg font-bold text-zinc-400">
+                    ?
+                  </div>
+                  <div>
+                    <div className="font-medium text-zinc-600 italic">
+                      {lead.responsibleEmployeeName || "Not assigned"}
+                    </div>
+                    <div className="text-sm text-zinc-400">
+                      Employee record deleted
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Lost Reason (if applicable) */}

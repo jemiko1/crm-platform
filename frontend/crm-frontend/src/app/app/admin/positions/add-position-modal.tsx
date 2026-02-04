@@ -22,12 +22,16 @@ type AddPositionModalProps = {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  defaultDepartmentId?: string; // Pre-select department when adding from department page
+  defaultDepartmentName?: string; // Display name for locked department
 };
 
 export default function AddPositionModal({
   open,
   onClose,
   onSuccess,
+  defaultDepartmentId,
+  defaultDepartmentName,
 }: AddPositionModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,9 +50,16 @@ export default function AddPositionModal({
     description: "",
     level: "",
     roleGroupId: "",
-    departmentId: "",
+    departmentId: defaultDepartmentId || "",
     isActive: true,
   });
+
+  // Update departmentId when defaultDepartmentId changes
+  useEffect(() => {
+    if (defaultDepartmentId) {
+      setFormData((prev) => ({ ...prev, departmentId: defaultDepartmentId }));
+    }
+  }, [defaultDepartmentId]);
 
   // Load role groups and departments
   useEffect(() => {
@@ -105,7 +116,7 @@ export default function AddPositionModal({
         description: "",
         level: "",
         roleGroupId: "",
-        departmentId: "",
+        departmentId: defaultDepartmentId || "",
         isActive: true,
       });
       onClose();
@@ -236,9 +247,13 @@ export default function AddPositionModal({
 
             <div>
               <label className="mb-1.5 block text-sm font-medium text-zinc-700">
-                Department
+                Department {defaultDepartmentId && <span className="text-emerald-600 text-xs">(locked)</span>}
               </label>
-              {loadingDepartments ? (
+              {defaultDepartmentId ? (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-700">
+                  {defaultDepartmentName || "Selected Department"}
+                </div>
+              ) : loadingDepartments ? (
                 <div className="rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-500">
                   Loading...
                 </div>

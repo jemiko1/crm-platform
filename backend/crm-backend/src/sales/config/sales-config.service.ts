@@ -6,6 +6,7 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   UpdatePipelineConfigDto,
+  CreatePipelineConfigDto,
   UpdateStageDto,
   CreateLeadSourceDto,
   UpdateLeadSourceDto,
@@ -21,12 +22,17 @@ export class SalesConfigService {
 
   async getAllConfigs() {
     return this.prisma.salesPipelineConfig.findMany({
+      where: { isActive: true },
       include: {
-        position: {
-          select: { id: true, name: true, code: true },
+        assignedPositions: {
+          include: {
+            position: {
+              select: { id: true, name: true, code: true },
+            },
+          },
         },
       },
-      orderBy: { key: 'asc' },
+      orderBy: [{ stepOrder: 'asc' }, { key: 'asc' }],
     });
   }
 
@@ -34,8 +40,12 @@ export class SalesConfigService {
     const config = await this.prisma.salesPipelineConfig.findUnique({
       where: { key },
       include: {
-        position: {
-          select: { id: true, name: true, code: true },
+        assignedPositions: {
+          include: {
+            position: {
+              select: { id: true, name: true, code: true },
+            },
+          },
         },
       },
     });
@@ -47,41 +57,63 @@ export class SalesConfigService {
     return config;
   }
 
-  async updateConfig(key: string, dto: UpdatePipelineConfigDto) {
-    // Ensure config exists or create it
+  async updateConfigPositions(key: string, dto: UpdatePipelineConfigDto) {
+    // Ensure config exists
     const existing = await this.prisma.salesPipelineConfig.findUnique({
       where: { key },
     });
 
     if (!existing) {
-      return this.prisma.salesPipelineConfig.create({
-        data: {
-          key,
-          positionId: dto.positionId,
-          value: dto.value,
-          description: dto.description,
-        },
-        include: {
-          position: {
-            select: { id: true, name: true, code: true },
-          },
-        },
+      throw new NotFoundException(`Config "${key}" not found`);
+    }
+
+    // Delete existing position assignments
+    await this.prisma.salesPipelineConfigPosition.deleteMany({
+      where: { configId: existing.id },
+    });
+
+    // Create new assignments
+    if (dto.positionIds.length > 0) {
+      await this.prisma.salesPipelineConfigPosition.createMany({
+        data: dto.positionIds.map((positionId) => ({
+          configId: existing.id,
+          positionId,
+        })),
       });
     }
 
-    return this.prisma.salesPipelineConfig.update({
-      where: { key },
+    return this.getConfig(key);
+  }
+
+  async createConfig(dto: CreatePipelineConfigDto) {
+    const existing = await this.prisma.salesPipelineConfig.findUnique({
+      where: { key: dto.key },
+    });
+
+    if (existing) {
+      throw new ConflictException(`Config with key "${dto.key}" already exists`);
+    }
+
+    const config = await this.prisma.salesPipelineConfig.create({
       data: {
-        positionId: dto.positionId,
-        value: dto.value,
+        key: dto.key,
+        name: dto.name,
         description: dto.description,
-      },
-      include: {
-        position: {
-          select: { id: true, name: true, code: true },
-        },
+        stepOrder: dto.stepOrder,
       },
     });
+
+    // Add positions if provided
+    if (dto.positionIds && dto.positionIds.length > 0) {
+      await this.prisma.salesPipelineConfigPosition.createMany({
+        data: dto.positionIds.map((positionId) => ({
+          configId: config.id,
+          positionId,
+        })),
+      });
+    }
+
+    return this.getConfig(dto.key);
   }
 
   // ==================== STAGES ====================
@@ -298,8 +330,24 @@ export class SalesConfigService {
   async isHeadOfSales(positionId: string): Promise<boolean> {
     const config = await this.prisma.salesPipelineConfig.findUnique({
       where: { key: 'HEAD_OF_SALES_POSITION' },
+      include: {
+        assignedPositions: true,
+      },
     });
 
-    return config?.positionId === positionId;
+    return config?.assignedPositions.some((ap) => ap.positionId === positionId) ?? false;
+  }
+
+  async hasConfigPosition(configKey: string, positionId: string): Promise<boolean> {
+    const config = await this.prisma.salesPipelineConfig.findUnique({
+      where: { key: configKey },
+      include: {
+        assignedPositions: {
+          where: { positionId },
+        },
+      },
+    });
+
+    return config ? config.assignedPositions.length > 0 : false;
   }
 }

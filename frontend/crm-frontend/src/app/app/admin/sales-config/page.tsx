@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { apiGet, apiPatch, apiPost, apiDelete, ApiError } from "@/lib/api";
 
 const BRAND = "rgb(8, 117, 56)";
@@ -11,13 +12,21 @@ type Position = {
   code: string;
 };
 
+type AssignedPosition = {
+  id: string;
+  positionId: string;
+  isPrimaryAssignee: boolean;
+  position: Position;
+};
+
 type PipelineConfig = {
   id: string;
   key: string;
-  positionId: string | null;
-  value: string | null;
+  name: string | null;
   description: string | null;
-  position: Position | null;
+  stepOrder: number | null;
+  isActive: boolean;
+  assignedPositions: AssignedPosition[];
 };
 
 type LeadStage = {
@@ -41,6 +50,17 @@ type LeadSource = {
   isActive: boolean;
 };
 
+function getConfigIcon(key: string) {
+  const icons: Record<string, string> = {
+    HEAD_OF_SALES_POSITION: "👔",
+    CEO_POSITION: "🏛️",
+    SALES_MANAGER_POSITION: "📊",
+    ASSIGN_LEADS: "📥",
+    APPROVAL_REVIEWERS: "✅",
+  };
+  return icons[key] || "⚙️";
+}
+
 export default function SalesConfigPage() {
   const [configs, setConfigs] = useState<PipelineConfig[]>([]);
   const [stages, setStages] = useState<LeadStage[]>([]);
@@ -50,6 +70,12 @@ export default function SalesConfigPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<"config" | "stages" | "sources">("config");
+
+  // Edit position modal state
+  const [selectedConfig, setSelectedConfig] = useState<PipelineConfig | null>(null);
+  const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   // Source form state
   const [showSourceForm, setShowSourceForm] = useState(false);
@@ -61,6 +87,10 @@ export default function SalesConfigPage() {
   const [sourceSortOrder, setSourceSortOrder] = useState("0");
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -90,18 +120,41 @@ export default function SalesConfigPage() {
     fetchData();
   }, [fetchData]);
 
-  const handleConfigUpdate = async (key: string, positionId: string | null) => {
-    try {
-      await apiPatch(`/v1/sales/config/pipeline/${key}`, {
-        positionId: positionId || null,
-      });
-      fetchData();
-    } catch (err) {
-      if (err instanceof ApiError) {
-        alert(err.message);
-      }
+  // Position editing handlers
+  function handleEditConfig(config: PipelineConfig) {
+    setSelectedConfig(config);
+    setSelectedPositions(config.assignedPositions.map((ap) => ap.position.id));
+  }
+
+  function handleCloseEdit() {
+    setSelectedConfig(null);
+    setSelectedPositions([]);
+  }
+
+  function togglePosition(positionId: string) {
+    if (selectedPositions.includes(positionId)) {
+      setSelectedPositions(selectedPositions.filter((id) => id !== positionId));
+    } else {
+      setSelectedPositions([...selectedPositions, positionId]);
     }
-  };
+  }
+
+  async function handleSavePositions() {
+    if (!selectedConfig) return;
+
+    setSaving(true);
+    try {
+      await apiPatch(`/v1/sales/config/pipeline/${selectedConfig.key}/positions`, {
+        positionIds: selectedPositions,
+      });
+      await fetchData();
+      handleCloseEdit();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to save positions");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const handleStageToggle = async (stage: LeadStage) => {
     try {
@@ -202,11 +255,19 @@ export default function SalesConfigPage() {
   }
 
   return (
-    <div className="min-h-screen p-8">
+    <div className="w-full p-8">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-zinc-900">Sales Pipeline Configuration</h1>
-        <p className="mt-1 text-sm text-zinc-600">Configure pipeline stages, sources, and position assignments</p>
+      <div className="mb-6">
+        <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs text-zinc-700 shadow-sm ring-1 ring-zinc-200">
+          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: BRAND }} />
+          Admin Panel
+        </div>
+        <h1 className="mt-3 text-2xl font-semibold tracking-tight text-zinc-900 md:text-3xl">
+          Sales Pipeline Configuration
+        </h1>
+        <p className="mt-1 text-sm text-zinc-600">
+          Configure pipeline stages, sources, and position assignments
+        </p>
       </div>
 
       {/* Tabs */}
@@ -232,36 +293,100 @@ export default function SalesConfigPage() {
         </nav>
       </div>
 
-      {/* Position Assignments */}
+      {/* Position Assignments - Workflow-style UI */}
       {activeTab === "config" && (
-        <div className="rounded-2xl bg-white p-6 shadow-lg ring-1 ring-zinc-200">
-          <h2 className="mb-6 text-lg font-semibold text-zinc-900">Position Assignments</h2>
-          <p className="mb-6 text-sm text-zinc-600">
-            Assign positions to control who can perform certain actions in the sales pipeline.
-          </p>
-
-          <div className="space-y-6">
-            {configs.map((config) => (
-              <div key={config.id} className="flex items-center justify-between rounded-xl border border-zinc-200 p-4">
-                <div>
-                  <div className="font-medium text-zinc-900">{config.key.replace(/_/g, " ")}</div>
-                  <div className="text-sm text-zinc-500">{config.description}</div>
-                </div>
-                <select
-                  value={config.positionId || ""}
-                  onChange={(e) => handleConfigUpdate(config.key, e.target.value || null)}
-                  className="rounded-xl border border-zinc-200 px-4 py-2.5 text-sm"
-                >
-                  <option value="">Not assigned</option>
-                  {positions.map((pos) => (
-                    <option key={pos.id} value={pos.id}>
-                      {pos.name} ({pos.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
+        <div className="space-y-4">
+          {/* Info Banner */}
+          <div className="rounded-3xl bg-blue-50 p-6 ring-1 ring-blue-200">
+            <h2 className="text-sm font-semibold text-blue-900 mb-2">📋 Sales Pipeline Position Assignments</h2>
+            <p className="text-sm text-blue-700 mb-3">
+              Configure which positions are assigned to each role in the sales pipeline:
+            </p>
+            <ul className="text-sm text-blue-700 list-disc list-inside space-y-1">
+              <li><strong>Head of Sales:</strong> Approves leads and manages the sales team</li>
+              <li><strong>Approval Reviewers:</strong> Reviews and approves leads in the approval stage</li>
+              <li><strong>Assign Leads:</strong> Receives new leads and can assign to other agents</li>
+            </ul>
+            <p className="text-xs text-blue-600 mt-3">
+              💡 Multiple positions can be assigned to each role. Click "Edit Positions" to configure.
+            </p>
           </div>
+
+          {/* Config Cards */}
+          {configs.map((config) => (
+            <div
+              key={config.id}
+              className={`rounded-3xl bg-white p-6 shadow-sm ring-1 ${
+                config.isActive ? "ring-zinc-200" : "ring-zinc-100 opacity-60"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  {/* Icon */}
+                  <div
+                    className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-lg"
+                    style={{ backgroundColor: `${BRAND}15`, color: BRAND }}
+                  >
+                    {getConfigIcon(config.key)}
+                  </div>
+
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-lg font-semibold text-zinc-900">
+                        {config.name || config.key.replace(/_/g, " ")}
+                      </h3>
+                    </div>
+                    {config.description && (
+                      <p className="mt-1 text-sm text-zinc-600">{config.description}</p>
+                    )}
+
+                    {/* Assigned Positions */}
+                    <div className="mt-3">
+                      <div className="text-xs font-medium text-zinc-500 mb-2">
+                        Assigned Positions ({config.assignedPositions.length})
+                      </div>
+                      {config.assignedPositions.length === 0 ? (
+                        <div className="text-xs text-amber-600">
+                          ⚠️ No positions assigned - configure to enable this feature
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {config.assignedPositions.map((ap) => (
+                            <span
+                              key={ap.id}
+                              className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ring-1"
+                              style={{
+                                backgroundColor: `${BRAND}10`,
+                                color: BRAND,
+                                borderColor: `${BRAND}30`,
+                              }}
+                            >
+                              👤 {ap.position.name}
+                              {ap.isPrimaryAssignee && (
+                                <span className="text-emerald-600">★</span>
+                              )}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleEditConfig(config)}
+                    className="rounded-xl px-3 py-1.5 text-xs font-semibold text-white"
+                    style={{ backgroundColor: BRAND }}
+                  >
+                    Edit Positions
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -480,6 +605,76 @@ export default function SalesConfigPage() {
             ))}
           </div>
         </div>
+      )}
+
+      {/* Edit Positions Modal */}
+      {selectedConfig && mounted && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl mx-4">
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold text-zinc-900">
+                Edit Positions for: {selectedConfig.name || selectedConfig.key.replace(/_/g, " ")}
+              </h2>
+              <p className="mt-1 text-sm text-zinc-600">
+                Select which positions should be assigned to this role
+              </p>
+            </div>
+
+            <div className="max-h-80 overflow-y-auto space-y-2 mb-6">
+              {positions.map((position) => {
+                const isSelected = selectedPositions.includes(position.id);
+                return (
+                  <button
+                    key={position.id}
+                    type="button"
+                    onClick={() => togglePosition(position.id)}
+                    className={`w-full flex items-center gap-3 p-3 rounded-2xl text-left transition ring-1 ${
+                      isSelected
+                        ? "bg-emerald-50 ring-emerald-300"
+                        : "bg-zinc-50 ring-zinc-200 hover:bg-zinc-100"
+                    }`}
+                  >
+                    <div
+                      className={`flex h-5 w-5 items-center justify-center rounded-md ${
+                        isSelected ? "bg-emerald-600" : "bg-white ring-1 ring-zinc-300"
+                      }`}
+                    >
+                      {isSelected && (
+                        <svg className="h-3 w-3 text-white" fill="currentColor" viewBox="0 0 12 12">
+                          <path d="M10.28 2.28L3.989 8.575 1.695 6.28A1 1 0 00.28 7.695l3 3a1 1 0 001.414 0l7-7A1 1 0 0010.28 2.28z" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm font-semibold text-zinc-900">{position.name}</div>
+                      <div className="text-xs text-zinc-500">{position.code}</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleCloseEdit}
+                className="flex-1 rounded-2xl bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSavePositions}
+                disabled={saving}
+                className="flex-1 rounded-2xl px-4 py-2.5 text-sm font-semibold text-white hover:opacity-95 disabled:opacity-50"
+                style={{ backgroundColor: BRAND }}
+              >
+                {saving ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );
