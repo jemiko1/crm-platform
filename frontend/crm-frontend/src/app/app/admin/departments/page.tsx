@@ -6,6 +6,7 @@ import AddDepartmentModal from "./add-department-modal";
 import EditDepartmentModal from "./edit-department-modal";
 import AddPositionModal from "../positions/add-position-modal";
 import EmployeePopup from "./employee-popup";
+import { PermissionGuard } from "@/lib/permission-guard";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -378,7 +379,8 @@ export default function DepartmentsPage() {
   }
 
   return (
-    <div className="p-6">
+    <PermissionGuard permission="admin.access">
+      <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-zinc-900">Company Structure</h1>
@@ -768,6 +770,7 @@ export default function DepartmentsPage() {
         />
       )}
     </div>
+    </PermissionGuard>
   );
 }
 

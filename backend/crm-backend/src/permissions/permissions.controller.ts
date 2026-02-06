@@ -22,11 +22,6 @@ export class PermissionsController {
     return this.permissionsService.findByResource(resource);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.permissionsService.findOne(id);
-  }
-
   @Get('me/effective')
   async getMyPermissions(@Request() req: any) {
     const userId = req.user.id;
@@ -42,5 +37,12 @@ export class PermissionsController {
     const permissions = await this.permissionsService.getCurrentUserPermissions(userId);
     console.log(`[Permissions] Returning ${permissions.length} permissions for ${userEmail}`);
     return permissions; // Return array directly
+  }
+
+  // IMPORTANT: :id route must be LAST to avoid catching specific routes like
+  // 'my-effective-permissions' or 'grouped' as an :id parameter
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.permissionsService.findOne(id);
   }
 }

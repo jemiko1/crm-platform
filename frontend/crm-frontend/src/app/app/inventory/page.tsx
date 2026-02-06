@@ -6,6 +6,8 @@ import AddProductModal from "./add-product-modal";
 import EditProductModal from "./edit-product-modal";
 import CreatePurchaseOrderModal from "./create-purchase-order-modal";
 import EditPurchaseOrderModal from "./edit-purchase-order-modal";
+import { PermissionGuard } from "@/lib/permission-guard";
+import { usePermissions } from "@/lib/use-permissions";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -20,6 +22,7 @@ type Product = {
   unit: string;
   currentStock: number;
   lowStockThreshold: number;
+  defaultPurchasePrice: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -152,8 +155,9 @@ export default function InventoryPage() {
   const lowStockCount = products.filter((p) => p.currentStock <= p.lowStockThreshold).length;
 
   return (
-    <div className="w-full space-y-6">
-      {/* Header */}
+    <PermissionGuard permission="inventory.menu">
+      <div className="w-full space-y-6">
+        {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-zinc-900">Inventory Management</h1>
@@ -261,7 +265,8 @@ export default function InventoryPage() {
         products={products}
         purchaseOrder={selectedPO}
       />
-    </div>
+      </div>
+    </PermissionGuard>
   );
 }
 
@@ -303,6 +308,8 @@ function ProductsTab({
   onEditClick: (product: Product) => void;
   onRefresh: () => void;
 }) {
+  const { hasPermission } = usePermissions();
+
   function getCategoryBadge(category: string) {
     const styles: Record<string, string> = {
       ROUTER: "bg-blue-50 text-blue-700 ring-blue-200",
@@ -332,14 +339,16 @@ function ProductsTab({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-zinc-900">Product Catalog</h2>
-          <button
-            onClick={onAddClick}
-            className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
-            style={{ backgroundColor: BRAND }}
-          >
-            <IconPlus />
-            Add Product
-          </button>
+          {hasPermission("inventory.create") && (
+            <button
+              onClick={onAddClick}
+              className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+              style={{ backgroundColor: BRAND }}
+            >
+              <IconPlus />
+              Add Product
+            </button>
+          )}
         </div>
 
         <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
@@ -353,14 +362,16 @@ function ProductsTab({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-zinc-900">Product Catalog ({products.length})</h2>
-        <button
-          onClick={onAddClick}
-          className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
-          style={{ backgroundColor: BRAND }}
-        >
-          <IconPlus />
-          Add Product
-        </button>
+        {hasPermission("inventory.create") && (
+          <button
+            onClick={onAddClick}
+            className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+            style={{ backgroundColor: BRAND }}
+          >
+            <IconPlus />
+            Add Product
+          </button>
+        )}
       </div>
 
       <div className="overflow-x-auto">
@@ -729,7 +740,7 @@ function DeactivatedDevicesTab() {
       try {
         setLoading(true);
         setError(null);
-        const data = await apiGet("/v1/inventory/deactivated-devices?transferred=false");
+        const data = await apiGet<any[]>("/v1/inventory/deactivated-devices?transferred=false");
         if (!cancelled) setDevices(data);
       } catch (err: any) {
         if (!cancelled) {
@@ -814,7 +825,7 @@ function DeactivatedDevicesTab() {
                   type="button"
                   onClick={async () => {
                     try {
-                      await apiPost(`/v1/inventory/deactivated-devices/${device.id}/mark-working`);
+                      await apiPost(`/v1/inventory/deactivated-devices/${device.id}/mark-working`, {});
                       window.location.reload();
                     } catch (err: any) {
                       alert(err.message || "Failed to mark as working condition");
@@ -832,7 +843,7 @@ function DeactivatedDevicesTab() {
                   onClick={async () => {
                     if (!confirm("Transfer this device to active stock?")) return;
                     try {
-                      await apiPost(`/v1/inventory/deactivated-devices/${device.id}/transfer-to-stock`);
+                      await apiPost(`/v1/inventory/deactivated-devices/${device.id}/transfer-to-stock`, {});
                       window.location.reload();
                     } catch (err: any) {
                       alert(err.message || "Failed to transfer to stock");

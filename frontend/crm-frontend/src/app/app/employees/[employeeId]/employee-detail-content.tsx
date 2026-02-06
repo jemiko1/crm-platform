@@ -81,6 +81,9 @@ type Employee = {
       };
     };
   }>;
+  departmentId: string | null;
+  roleId: string | null;
+  managerId: string | null;
   hireDate?: string;
   exitDate?: string | null;
 };

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet, ApiError } from "@/lib/api";
 import CreateLeadModal from "./create-lead-modal";
+import { PermissionGuard } from "@/lib/permission-guard";
+import { usePermissions } from "@/lib/use-permissions";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -93,6 +95,7 @@ function getStatusLabel(status: Lead["status"]) {
 export default function LeadsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { hasPermission } = usePermissions();
 
   const [leads, setLeads] = useState<Lead[]>([]);
   const [stages, setStages] = useState<LeadStage[]>([]);
@@ -171,7 +174,8 @@ export default function LeadsPage() {
   }, [leads, stages]);
 
   return (
-    <div className="min-h-screen p-8">
+    <PermissionGuard permission="sales.read">
+      <div className="min-h-screen p-8">
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between">
@@ -181,16 +185,18 @@ export default function LeadsPage() {
               Manage leads and track sales progress
             </p>
           </div>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 rounded-2xl px-5 py-2.5 text-sm font-medium text-white shadow-lg transition-all hover:shadow-xl active:scale-[0.98]"
-            style={{ backgroundColor: BRAND }}
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            New Lead
-          </button>
+          {hasPermission("leads.create") && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center gap-2 rounded-2xl px-5 py-2.5 text-sm font-medium text-white shadow-lg transition-all hover:shadow-xl active:scale-[0.98]"
+              style={{ backgroundColor: BRAND }}
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              New Lead
+            </button>
+          )}
         </div>
       </div>
 
@@ -348,13 +354,15 @@ export default function LeadsPage() {
               />
             </svg>
             <p className="text-zinc-500">No leads found</p>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="mt-2 rounded-lg px-4 py-2 text-sm font-medium text-white"
-              style={{ backgroundColor: BRAND }}
-            >
-              Create First Lead
-            </button>
+            {hasPermission("leads.create") && (
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="mt-2 rounded-lg px-4 py-2 text-sm font-medium text-white"
+                style={{ backgroundColor: BRAND }}
+              >
+                Create First Lead
+              </button>
+            )}
           </div>
         ) : (
           <>
@@ -494,5 +502,6 @@ export default function LeadsPage() {
         />
       )}
     </div>
+    </PermissionGuard>
   );
 }

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiGet, apiPatch, apiPost, apiDelete, ApiError } from "@/lib/api";
+import { PermissionGuard } from "@/lib/permission-guard";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -175,7 +176,8 @@ export default function WorkflowConfigPage() {
   }
 
   return (
-    <div className="w-full">
+    <PermissionGuard permission="admin.access">
+      <div className="w-full">
       {/* Header */}
       <div className="mb-6">
         <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs text-zinc-700 shadow-sm ring-1 ring-zinc-200">
@@ -390,5 +392,6 @@ export default function WorkflowConfigPage() {
         </div>
       )}
     </div>
+    </PermissionGuard>
   );
 }

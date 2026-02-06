@@ -7,6 +7,7 @@ import { useParams, useRouter } from "next/navigation";
 import { apiGet, apiPost, ApiError, API_BASE } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
 import AssignEmployeesModal from "../../work-orders/[id]/assign-employees-modal";
+import { PermissionGuard } from "@/lib/permission-guard";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -480,7 +481,7 @@ export default function TaskDetailPage() {
       const validProducts = modifiedProducts.filter(p => p.quantity > 0);
       
       // If there were products submitted by tech employee but all were removed
-      if (task.productUsages && task.productUsages.length > 0 && validProducts.length === 0) {
+      if (task?.productUsages && task.productUsages.length > 0 && validProducts.length === 0) {
         if (!window.confirm("Are you sure you want to remove all products? This will approve the work order without any products.")) {
           setActionLoading(false);
           return;
@@ -671,7 +672,8 @@ export default function TaskDetailPage() {
   const techEmployeeSubmitted = task.status === "IN_PROGRESS" && !!task.techEmployeeComment;
 
   return (
-    <div className="w-full">
+    <PermissionGuard permission="tasks.read">
+      <div className="w-full">
       <div className="mx-auto w-full px-4 py-6 md:px-6 md:py-8">
         {/* Breadcrumb */}
         <div className="mb-6">
@@ -1846,5 +1848,6 @@ export default function TaskDetailPage() {
       )}
       
     </div>
+    </PermissionGuard>
   );
 }

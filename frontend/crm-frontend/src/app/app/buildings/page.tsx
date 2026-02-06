@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet } from "@/lib/api";
 import AddBuildingModal from "./add-building-modal";
 import BuildingStatistics from "./building-statistics";
+import { PermissionGuard } from "@/lib/permission-guard";
+import { usePermissions } from "@/lib/use-permissions";
 
 type Building = {
   coreId: number;
@@ -115,6 +117,7 @@ export default function BuildingsPage() {
   const hasMounted = useHasMounted();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { hasPermission } = usePermissions();
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -218,7 +221,8 @@ export default function BuildingsPage() {
   const paged = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   return (
-    <div className="w-full">
+    <PermissionGuard permission="buildings.menu">
+      <div className="w-full">
       <div className="mx-auto w-full px-4 py-6 md:px-6 md:py-8">
         {/* Header */}
         <div className="mb-6 flex flex-col gap-4 md:mb-8 md:flex-row md:items-end md:justify-between">
@@ -283,14 +287,16 @@ export default function BuildingsPage() {
                   placeholder="Search by ID, name, address, city..."
                   className="min-w-0 flex-1 rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-md ring-2 ring-emerald-500/40 border border-emerald-500/30 hover:ring-emerald-500/60 hover:border-emerald-500/50 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/70 focus:shadow-lg focus:border-emerald-500/60 transition-all sm:max-w-md"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(true)}
-                  className="shrink-0 ml-auto rounded-2xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95 whitespace-nowrap"
-                  style={{ backgroundColor: BRAND }}
-                >
-                  + Add Building
-                </button>
+                {hasPermission("buildings.create") && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddModal(true)}
+                    className="shrink-0 ml-auto rounded-2xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95 whitespace-nowrap"
+                    style={{ backgroundColor: BRAND }}
+                  >
+                    + Add Building
+                  </button>
+                )}
               </div>
 
               <div className="overflow-hidden rounded-2xl ring-1 ring-zinc-200">
@@ -476,6 +482,7 @@ export default function BuildingsPage() {
         }}
       />
     </div>
+    </PermissionGuard>
   );
 }
 

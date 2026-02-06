@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet, ApiError } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
+import { PermissionGuard } from "@/lib/permission-guard";
+import { usePermissions } from "@/lib/use-permissions";
 import CreateWorkOrderModal from "./create-work-order-modal";
 import WorkOrderStatistics from "./work-order-statistics";
 
@@ -113,6 +115,7 @@ export default function WorkOrdersPage() {
   const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { hasPermission } = usePermissions();
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -209,8 +212,9 @@ export default function WorkOrdersPage() {
   }, [workOrders, q, t]);
 
   return (
-    <div className="w-full">
-      <div className="mx-auto w-full px-4 py-6 md:px-6 md:py-8">
+    <PermissionGuard permission="work_orders.menu">
+      <div className="w-full">
+        <div className="mx-auto w-full px-4 py-6 md:px-6 md:py-8">
         {/* Header */}
         <div className="mb-6 flex flex-col gap-4 md:mb-8 md:flex-row md:items-end md:justify-between">
           <div>
@@ -273,14 +277,16 @@ export default function WorkOrdersPage() {
                   placeholder="Search by title, building, asset, status, type..."
                   className="min-w-0 flex-1 rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-md ring-2 ring-emerald-500/40 border border-emerald-500/30 hover:ring-emerald-500/60 hover:border-emerald-500/50 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/70 focus:shadow-lg focus:border-emerald-500/60 transition-all sm:max-w-md"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(true)}
-                  className="shrink-0 ml-auto rounded-2xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95 whitespace-nowrap"
-                  style={{ backgroundColor: BRAND }}
-                >
-                  + {t("workOrders.actions.create", "Create Work Order")}
-                </button>
+                {hasPermission("work_orders.create") && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(true)}
+                    className="shrink-0 ml-auto rounded-2xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95 whitespace-nowrap"
+                    style={{ backgroundColor: BRAND }}
+                  >
+                    + {t("workOrders.actions.create", "Create Work Order")}
+                  </button>
+                )}
               </div>
 
               <div className="overflow-hidden rounded-2xl ring-1 ring-zinc-200">
@@ -454,6 +460,7 @@ export default function WorkOrdersPage() {
           window.location.reload();
         }}
       />
-    </div>
+      </div>
+    </PermissionGuard>
   );
 }

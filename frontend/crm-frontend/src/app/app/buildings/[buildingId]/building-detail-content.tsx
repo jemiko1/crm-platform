@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { apiGet } from "@/lib/api";
+import { usePermissions } from "@/lib/use-permissions";
 import AddDeviceModal from "./add-device-modal";
 import AddClientModal from "./add-client-modal";
 import EditBuildingModal from "./edit-building-modal";
@@ -518,6 +519,7 @@ function DevicesTab({
   deviceCounts: Record<string, number>;
   onAddClick: () => void;
 }) {
+  const { hasPermission } = usePermissions();
   const allTypes = useMemo(() => {
     const keys = Object.keys(deviceCounts);
     return keys.sort((a, b) => typeRank(a) - typeRank(b) || a.localeCompare(b));
@@ -584,14 +586,16 @@ function DevicesTab({
           </div>
         </div>
 
-        <button
-          type="button"
-          className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-          style={{ backgroundColor: BRAND }}
-          onClick={onAddClick}
-        >
-          + Add Device
-        </button>
+        {hasPermission('assets.create') && (
+          <button
+            type="button"
+            className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+            style={{ backgroundColor: BRAND }}
+            onClick={onAddClick}
+          >
+            + Add Device
+          </button>
+        )}
       </div>
 
       <div className="rounded-3xl bg-zinc-50 p-4 ring-1 ring-zinc-200">
@@ -783,18 +787,21 @@ const FilterPill = React.memo(function FilterPill({
 
 /* ========== CLIENTS TAB ========== */
 function ClientsTab({ clients, onAddClick, buildingId }: { clients: Client[]; onAddClick: () => void; buildingId: string }) {
+  const { hasPermission } = usePermissions();
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-zinc-900">Clients ({clients.length})</h2>
-        <button
-          type="button"
-          className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-          style={{ backgroundColor: BRAND }}
-          onClick={onAddClick}
-        >
-          + Add Client
-        </button>
+        {hasPermission('clients.create') && (
+          <button
+            type="button"
+            className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+            style={{ backgroundColor: BRAND }}
+            onClick={onAddClick}
+          >
+            + Add Client
+          </button>
+        )}
       </div>
 
       {clients.length === 0 ? (
@@ -858,6 +865,7 @@ function WorkOrdersTab({
   building: Building;
   buildingId: string;
 }) {
+  const { hasPermission } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [workOrders, setWorkOrders] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -900,18 +908,34 @@ function WorkOrdersTab({
     };
   }, [buildingCoreId]);
 
+  if (!hasPermission('work_orders.read')) {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold text-zinc-900">Work Orders</h2>
+        <div className="rounded-2xl bg-rose-50 p-6 ring-1 ring-rose-200 text-center">
+          <div className="text-sm font-semibold text-rose-900">Insufficient Permissions</div>
+          <div className="mt-1 text-sm text-rose-700">
+            You do not have permission to view work orders.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-zinc-900">Work Orders</h2>
-        <button
-          type="button"
-          className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-          style={{ backgroundColor: BRAND }}
-          onClick={() => setShowCreateModal(true)}
-        >
-          + Create Work Order
-        </button>
+        {hasPermission('work_orders.create') && (
+          <button
+            type="button"
+            className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+            style={{ backgroundColor: BRAND }}
+            onClick={() => setShowCreateModal(true)}
+          >
+            + Create Work Order
+          </button>
+        )}
       </div>
 
       {loading && (
@@ -995,6 +1019,7 @@ function IncidentsTab({
   onAddClick: () => void;
   buildingId: string;
 }) {
+  const { hasPermission } = usePermissions();
   function getStatusBadge(status: Incident["status"]) {
     const styles = {
       CREATED: "bg-blue-50 text-blue-700 ring-blue-200",
@@ -1046,16 +1071,32 @@ function IncidentsTab({
     return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
   }
 
+  if (!hasPermission('incidents.read')) {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold text-zinc-900">Incidents</h2>
+        <div className="rounded-2xl bg-rose-50 p-6 ring-1 ring-rose-200 text-center">
+          <div className="text-sm font-semibold text-rose-900">Insufficient Permissions</div>
+          <div className="mt-1 text-sm text-rose-700">
+            You do not have permission to view incidents.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-zinc-900">Incidents ({incidents.length})</h2>
-        <button
-          onClick={onAddClick}
-          className="rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition"
-        >
-          Report Incident
-        </button>
+        {hasPermission('incidents.create') && (
+          <button
+            onClick={onAddClick}
+            className="rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition"
+          >
+            Report Incident
+          </button>
+        )}
       </div>
 
       {loading ? (

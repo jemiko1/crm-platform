@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiGet, ApiError } from "@/lib/api";
+import { PermissionGuard } from "@/lib/permission-guard";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -162,7 +163,8 @@ export default function SalesDashboardPage() {
   const currentPlan = myProgress.find((p) => p.planType === "MONTHLY");
 
   return (
-    <div className="min-h-screen p-8">
+    <PermissionGuard permission="sales.menu">
+      <div className="min-h-screen p-8">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-zinc-900">Sales Dashboard</h1>
@@ -443,5 +445,6 @@ export default function SalesDashboardPage() {
         </Link>
       </div>
     </div>
+    </PermissionGuard>
   );
 }

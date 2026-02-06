@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { PermissionGuard } from "@/lib/permission-guard";
 
 const DeleteItemModal = dynamic(() => import("./delete-item-modal"), {
   loading: () => <div>Loading...</div>,
@@ -183,7 +184,8 @@ export default function CategoryDetailPage() {
   const inactiveItems = category.items.filter((i) => !i.isActive);
 
   return (
-    <div className="space-y-6">
+    <PermissionGuard permission="admin.access">
+      <div className="space-y-6">
       {/* Header */}
       <div>
         <Link
@@ -527,5 +529,6 @@ export default function CategoryDetailPage() {
         />
       )}
     </div>
+    </PermissionGuard>
   );
 }

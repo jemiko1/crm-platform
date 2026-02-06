@@ -4,6 +4,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet } from "@/lib/api";
+import { PermissionGuard } from "@/lib/permission-guard";
+import { usePermissions } from "@/lib/use-permissions";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -44,6 +46,7 @@ function fullNameOf(c: Pick<ClientRow, "firstName" | "lastName" | "coreId">) {
 export default function ClientsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { hasPermission } = usePermissions();
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const pageSize = 10;
@@ -128,7 +131,8 @@ export default function ClientsPage() {
   const paged = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   return (
-    <div className="w-full">
+    <PermissionGuard permission="clients.menu">
+      <div className="w-full">
       <div className="mx-auto w-full px-4 py-6 md:px-6 md:py-8">
         {/* Header */}
         <div className="mb-6 flex flex-col gap-3 md:mb-8">
@@ -336,8 +340,8 @@ export default function ClientsPage() {
           )}
         </div>
       </div>
-
       </div>
+    </PermissionGuard>
   );
 }
 

@@ -8,8 +8,8 @@ const BRAND = "rgb(8, 117, 56)";
 
 type WorkOrderDetail = {
   id: string;
-  type: "INSTALLATION" | "DIAGNOSTIC" | "RESEARCH" | "DEACTIVATE" | "REPAIR_CHANGE" | "ACTIVATE";
-  status: "CREATED" | "LINKED_TO_GROUP" | "IN_PROGRESS" | "PENDING_APPROVAL" | "APPROVED" | "CANCELED";
+  type: "INSTALLATION" | "DIAGNOSTIC" | "RESEARCH" | "DEACTIVATE" | "REPAIR_CHANGE" | "ACTIVATE" | "INSTALL" | "REPAIR";
+  status: "CREATED" | "LINKED_TO_GROUP" | "IN_PROGRESS" | "PENDING_APPROVAL" | "APPROVED" | "CANCELED" | "COMPLETED" | "DONE" | "NEW" | "DISPATCHED" | "ACCEPTED";
   title: string;
   notes: string | null;
 };

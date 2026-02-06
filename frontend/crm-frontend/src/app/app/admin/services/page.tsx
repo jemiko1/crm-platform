@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { apiGet, apiPost, apiPatch, apiDelete, ApiError } from "@/lib/api";
+import { PermissionGuard } from "@/lib/permission-guard";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -175,7 +176,8 @@ export default function ServicesAdminPage() {
   }
 
   return (
-    <div className="min-h-screen p-8">
+    <PermissionGuard permission="admin.access">
+      <div className="min-h-screen p-8">
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between">
@@ -416,5 +418,6 @@ export default function ServicesAdminPage() {
         )}
       </div>
     </div>
+    </PermissionGuard>
   );
 }

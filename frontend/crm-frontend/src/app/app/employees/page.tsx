@@ -3,6 +3,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet } from "@/lib/api";
+import { PermissionGuard } from "@/lib/permission-guard";
+import { usePermissions } from "@/lib/use-permissions";
 import AddEmployeeModal from "./add-employee-modal";
 
 const BRAND = "rgb(8, 117, 56)";
@@ -34,6 +36,7 @@ type Employee = {
 export default function EmployeesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { hasPermission } = usePermissions();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -110,8 +113,9 @@ export default function EmployeesPage() {
   }
 
   return (
-    <div className="p-8">
-      {/* Header */}
+    <PermissionGuard permission="employees.menu">
+      <div className="p-8">
+        {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-zinc-900">Employees</h1>
@@ -119,13 +123,15 @@ export default function EmployeesPage() {
             Manage your organization's employees
           </p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="rounded-full px-6 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
-          style={{ backgroundColor: BRAND }}
-        >
-          Add Employee
-        </button>
+        {hasPermission("employees.create") && (
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="rounded-full px-6 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+            style={{ backgroundColor: BRAND }}
+          >
+            Add Employee
+          </button>
+        )}
       </div>
 
       {/* Search & Filters */}
@@ -163,7 +169,7 @@ export default function EmployeesPage() {
           <div className="text-sm text-zinc-600">
             {q || statusFilter !== "ALL" ? "No employees match your filters" : "No employees yet"}
           </div>
-          {!q && statusFilter === "ALL" && (
+          {!q && statusFilter === "ALL" && hasPermission("employees.create") && (
             <button
               onClick={() => setShowAddModal(true)}
               className="mt-4 text-sm font-semibold text-emerald-600 hover:text-emerald-700"
@@ -286,7 +292,8 @@ export default function EmployeesPage() {
           fetchEmployees();
         }}
       />
-    </div>
+      </div>
+    </PermissionGuard>
   );
 }
 

@@ -4,6 +4,7 @@ import React, { useEffect, useState, createContext, useContext, useCallback } fr
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
 import { apiGet } from "@/lib/api";
+import { usePermissions } from "@/lib/use-permissions";
 
 // Import content components (not modals)
 import BuildingDetailContent from "./buildings/[buildingId]/building-detail-content";
@@ -130,6 +131,9 @@ type Employee = {
       };
     };
   }>;
+  departmentId: string | null;
+  roleId: string | null;
+  managerId: string | null;
   hireDate?: string;
   exitDate?: string | null;
 };
@@ -410,6 +414,7 @@ function EmployeeModal({ employeeId, onClose }: { employeeId: string; onClose: (
 // Work Order Modal - uses lazy import of the full existing modal
 // The work order modal is complex and has its own internal state management
 function WorkOrderModal({ workOrderId, onClose }: { workOrderId: string; onClose: () => void }) {
+  const { hasPermission, loading: permLoading } = usePermissions();
   const [WorkOrderDetailModal, setWorkOrderDetailModal] = useState<React.ComponentType<any> | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -424,7 +429,29 @@ function WorkOrderModal({ workOrderId, onClose }: { workOrderId: string; onClose
     });
   }, []);
 
-  if (loading || !WorkOrderDetailModal) {
+  // Check permission – show error inside modal shell if denied
+  if (!permLoading && !hasPermission('work_orders.read')) {
+    return (
+      <ModalShell onClose={onClose}>
+        <div className="flex items-center justify-center h-full p-6">
+          <div className="max-w-sm rounded-2xl bg-rose-50 p-8 ring-1 ring-rose-200 text-center">
+            <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-rose-100 ring-1 ring-rose-200">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-rose-600">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+              </svg>
+            </div>
+            <div className="mt-4 text-base font-semibold text-rose-900">Insufficient Permissions</div>
+            <div className="mt-2 text-sm text-rose-700">
+              You do not have the required permissions to view work order details.
+            </div>
+          </div>
+        </div>
+      </ModalShell>
+    );
+  }
+
+  if (loading || permLoading || !WorkOrderDetailModal) {
     return (
       <ModalShell 
         onClose={onClose} 

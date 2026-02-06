@@ -1,4 +1,9 @@
+"use client";
+
+import { usePermissions } from "@/lib/use-permissions";
+
 export default function DashboardPage() {
+    const { hasPermission } = usePermissions();
     return (
       <div className="space-y-6">
         {/* Hero header (matches login style) */}
@@ -87,18 +92,26 @@ export default function DashboardPage() {
             <div className="mt-4 rounded-2xl border border-zinc-200/70 bg-white shadow-sm p-4">
               <div className="text-sm font-medium text-zinc-900">Quick actions</div>
               <div className="mt-3 grid grid-cols-2 gap-2">
-                <button className="rounded-2xl border bg-white px-3 py-2 text-sm hover:bg-zinc-50">
-                  Add Building
-                </button>
-                <button className="rounded-2xl border bg-white px-3 py-2 text-sm hover:bg-zinc-50">
-                  Add Asset
-                </button>
-                <button className="rounded-2xl border bg-white px-3 py-2 text-sm hover:bg-zinc-50">
-                  Create WO
-                </button>
-                <button className="rounded-2xl border bg-white px-3 py-2 text-sm hover:bg-zinc-50">
-                  Inventory Log
-                </button>
+                {hasPermission('buildings.create') && (
+                  <button className="rounded-2xl border bg-white px-3 py-2 text-sm hover:bg-zinc-50">
+                    Add Building
+                  </button>
+                )}
+                {hasPermission('assets.create') && (
+                  <button className="rounded-2xl border bg-white px-3 py-2 text-sm hover:bg-zinc-50">
+                    Add Asset
+                  </button>
+                )}
+                {hasPermission('work_orders.create') && (
+                  <button className="rounded-2xl border bg-white px-3 py-2 text-sm hover:bg-zinc-50">
+                    Create WO
+                  </button>
+                )}
+                {hasPermission('inventory.read') && (
+                  <button className="rounded-2xl border bg-white px-3 py-2 text-sm hover:bg-zinc-50">
+                    Inventory Log
+                  </button>
+                )}
               </div>
             </div>
           </Card>

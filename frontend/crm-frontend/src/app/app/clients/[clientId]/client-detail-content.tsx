@@ -6,6 +6,7 @@ import ReportIncidentModal from "../../incidents/report-incident-modal";
 import ModalDialog from "../../../modal-dialog";
 import IncidentDetailContent from "../../incidents/incident-detail-content";
 import { apiGet, API_BASE } from "@/lib/api";
+import { usePermissions } from "@/lib/use-permissions";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -184,6 +185,7 @@ type Props = {
 
 export default function ClientDetailContent({ client, clientId, onUpdate }: Props) {
   const clientCoreId = Number(clientId);
+  const { hasPermission } = usePermissions();
   const [incLoading, setIncLoading] = useState(true);
   const [incError, setIncError] = useState<string | null>(null);
   const [incidents, setIncidents] = useState<Incident[]>([]);
@@ -277,22 +279,26 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
 
         {/* Right actions */}
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            className="rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50"
-            onClick={() => alert("Edit client — later phase")}
-          >
-            Edit
-          </button>
+          {hasPermission('clients.update') && (
+            <button
+              type="button"
+              className="rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50"
+              onClick={() => alert("Edit client — later phase")}
+            >
+              Edit
+            </button>
+          )}
 
-          <button
-            type="button"
-            className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-            style={{ backgroundColor: BRAND }}
-            onClick={() => setShowReportModal(true)}
-          >
-            + Report Incident
-          </button>
+          {hasPermission('incidents.create') && (
+            <button
+              type="button"
+              className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+              style={{ backgroundColor: BRAND }}
+              onClick={() => setShowReportModal(true)}
+            >
+              + Report Incident
+            </button>
+          )}
         </div>
       </div>
 
@@ -375,14 +381,16 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
             <p className="mt-1 text-sm text-zinc-600">All incidents created for this client.</p>
           </div>
 
-          <button
-            type="button"
-            className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-            style={{ backgroundColor: BRAND }}
-            onClick={() => setShowReportModal(true)}
-          >
-            + Report Incident
-          </button>
+          {hasPermission('incidents.create') && (
+            <button
+              type="button"
+              className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+              style={{ backgroundColor: BRAND }}
+              onClick={() => setShowReportModal(true)}
+            >
+              + Report Incident
+            </button>
+          )}
         </div>
 
         {incLoading ? (
@@ -411,15 +419,17 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
               <div className="mt-1 text-xs text-zinc-600">
                 When issues are reported for this client, they'll appear here.
               </div>
-              <button
-                type="button"
-                className="mt-5 inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-                style={{ backgroundColor: BRAND }}
-                onClick={() => setShowReportModal(true)}
-              >
-                <IconPlus />
-                Report First Incident
-              </button>
+              {hasPermission('incidents.create') && (
+                <button
+                  type="button"
+                  className="mt-5 inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+                  style={{ backgroundColor: BRAND }}
+                  onClick={() => setShowReportModal(true)}
+                >
+                  <IconPlus />
+                  Report First Incident
+                </button>
+              )}
             </div>
           </div>
         ) : (

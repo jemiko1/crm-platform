@@ -8,6 +8,7 @@ import LeadServicesSection from "./lead-services-section";
 import LeadNotesSection from "./lead-notes-section";
 import ApprovalActionsModal from "./approval-actions-modal";
 import ChangeStageModal from "./change-stage-modal";
+import { PermissionGuard } from "@/lib/permission-guard";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -160,7 +161,8 @@ export default function LeadDetailPage() {
   const canSubmitForApproval = !lead.isLocked && !lead.stage.isTerminal && lead.stage.code !== "APPROVAL";
 
   return (
-    <div className="min-h-screen p-8">
+    <PermissionGuard permission="sales.read">
+      <div className="min-h-screen p-8">
       {/* Header */}
       <div className="mb-8">
         <button
@@ -536,5 +538,6 @@ export default function LeadDetailPage() {
         />
       )}
     </div>
+    </PermissionGuard>
   );
 }

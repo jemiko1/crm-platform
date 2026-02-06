@@ -44,6 +44,8 @@ export class LeadsController {
   }
 
   @Get()
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('sales.read')
   async findAll(@Query() query: QueryLeadsDto, @Request() req: any) {
     const employeeId = req.user.employee?.id;
     const permissions = req.user.permissions || [];
@@ -56,6 +58,8 @@ export class LeadsController {
   }
 
   @Get('statistics')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('sales.read')
   async getStatistics(@Request() req: any) {
     const employeeId = req.user.employee?.id;
     const permissions = req.user.permissions || [];
@@ -67,6 +71,8 @@ export class LeadsController {
   }
 
   @Get(':id')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('sales.read')
   async findOne(@Param('id') id: string) {
     return this.leadsService.findOne(id);
   }
@@ -265,6 +271,8 @@ export class LeadsController {
   // ==================== ACTIVITY LOG ====================
 
   @Get(':id/activity')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('sales.read')
   async getActivityLog(
     @Param('id') id: string,
     @Query('category') category?: 'MAIN' | 'DETAIL' | 'SYSTEM',
