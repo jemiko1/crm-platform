@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { usePermissions } from "@/lib/use-permissions";
 
 const BRAND_GREEN = "rgb(8,117,56)";
 
@@ -9,23 +10,30 @@ type NavItem = {
   href: string;
   label: string;
   icon: React.ReactNode;
+  requiredPermission?: string; // If set, item is only shown when user has this permission
 };
 
 export default function SidebarNav() {
   const pathname = usePathname();
+  const { hasPermission, loading } = usePermissions();
 
   const items: NavItem[] = [
     { href: "/app/dashboard", label: "Dashboard", icon: <IconDashboard /> },
-    { href: "/app/buildings", label: "Buildings", icon: <IconBuilding /> },
-    { href: "/app/clients", label: "Clients", icon: <IconClients /> },
-    { href: "/app/incidents", label: "Incidents", icon: <IconIncident /> },
-    { href: "/app/assets", label: "Assets", icon: <IconWrench /> },
-    { href: "/app/work-orders", label: "Work Orders", icon: <IconClipboard /> },
-    { href: "/app/sales/dashboard", label: "Sales", icon: <IconSales /> },
-    { href: "/app/inventory", label: "Inventory", icon: <IconBox /> },
-    { href: "/app/employees", label: "Employees", icon: <IconEmployees /> },
-    { href: "/app/admin", label: "Admin", icon: <IconAdmin /> },
+    { href: "/app/buildings", label: "Buildings", icon: <IconBuilding />, requiredPermission: "buildings.menu" },
+    { href: "/app/clients", label: "Clients", icon: <IconClients />, requiredPermission: "clients.menu" },
+    { href: "/app/incidents", label: "Incidents", icon: <IconIncident />, requiredPermission: "incidents.menu" },
+    { href: "/app/assets", label: "Assets", icon: <IconWrench />, requiredPermission: "assets.menu" },
+    { href: "/app/work-orders", label: "Work Orders", icon: <IconClipboard />, requiredPermission: "work_orders.menu" },
+    { href: "/app/sales/dashboard", label: "Sales", icon: <IconSales />, requiredPermission: "sales.menu" },
+    { href: "/app/inventory", label: "Inventory", icon: <IconBox />, requiredPermission: "inventory.menu" },
+    { href: "/app/employees", label: "Employees", icon: <IconEmployees />, requiredPermission: "employees.menu" },
+    { href: "/app/admin", label: "Admin", icon: <IconAdmin />, requiredPermission: "admin.menu" },
   ];
+
+  // Filter items based on permissions (show only unpermissioned items like Dashboard while loading)
+  const visibleItems = loading
+    ? items.filter((item) => !item.requiredPermission)
+    : items.filter((item) => !item.requiredPermission || hasPermission(item.requiredPermission));
 
   const settingsHref = "/app/settings";
   const isSettingsActive =
@@ -34,7 +42,7 @@ export default function SidebarNav() {
   return (
     <nav className="px-2 pb-3">
       <div className="space-y-2">
-        {items.map((item) => {
+        {visibleItems.map((item) => {
           const isActive =
             pathname === item.href || pathname.startsWith(item.href + "/");
 

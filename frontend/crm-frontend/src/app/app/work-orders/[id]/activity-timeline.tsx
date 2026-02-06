@@ -309,7 +309,7 @@ export default function ActivityTimeline({ workOrderId }: Props) {
                                       key={i}
                                       className="rounded-lg bg-cyan-50 px-2 py-1 text-xs text-cyan-700 ring-1 ring-cyan-200"
                                     >
-                                      {name} × {activity.metadata.quantities?.[i] || 1}
+                                      {name} × {activity.metadata?.quantities?.[i] || 1}
                                     </div>
                                   ))}
                                 </div>
@@ -390,7 +390,7 @@ export default function ActivityTimeline({ workOrderId }: Props) {
                                       key={i}
                                       className="rounded-lg bg-orange-50 px-2 py-1 text-xs text-orange-700 ring-1 ring-orange-200"
                                     >
-                                      {name} × {activity.metadata.quantities?.[i] || 1}
+                                      {name} × {activity.metadata?.quantities?.[i] || 1}
                                     </div>
                                   ))}
                                 </div>

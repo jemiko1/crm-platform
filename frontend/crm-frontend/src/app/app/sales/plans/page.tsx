@@ -3,6 +3,8 @@
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { apiGet, apiPost, apiDelete, ApiError } from "@/lib/api";
+import { PermissionGuard } from "@/lib/permission-guard";
+import { usePermissions } from "@/lib/use-permissions";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -67,6 +69,7 @@ function getStatusBadge(status: SalesPlan["status"]) {
 }
 
 export default function SalesPlansPage() {
+  const { hasPermission } = usePermissions();
   const [plans, setPlans] = useState<SalesPlan[]>([]);
   const [services, setServices] = useState<SalesService[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -178,7 +181,8 @@ export default function SalesPlansPage() {
   }
 
   return (
-    <div className="min-h-screen p-8">
+    <PermissionGuard permission="sales.read">
+      <div className="min-h-screen p-8">
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between">
@@ -186,16 +190,18 @@ export default function SalesPlansPage() {
             <h1 className="text-2xl font-bold text-zinc-900">Sales Plans</h1>
             <p className="mt-1 text-sm text-zinc-600">Create and manage sales targets for your team</p>
           </div>
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 rounded-2xl px-5 py-2.5 text-sm font-medium text-white shadow-lg"
-            style={{ backgroundColor: BRAND }}
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Create Plan
-          </button>
+          {hasPermission("plans.create") && (
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex items-center gap-2 rounded-2xl px-5 py-2.5 text-sm font-medium text-white shadow-lg"
+              style={{ backgroundColor: BRAND }}
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Create Plan
+            </button>
+          )}
         </div>
       </div>
 
@@ -428,5 +434,6 @@ export default function SalesPlansPage() {
         )}
       </div>
     </div>
+    </PermissionGuard>
   );
 }

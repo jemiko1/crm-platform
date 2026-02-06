@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { apiGet, apiPost } from "@/lib/api";
 
 const BRAND = "rgb(8, 117, 56)";
@@ -145,7 +146,7 @@ export default function AssignPermissionsModal({
 
   const categories = Object.keys(permissionsByCategory).sort();
 
-  return (
+  return createPortal(
     <>
       <div
         className="fixed inset-0 z-[9998] bg-black/40 backdrop-blur-sm"
@@ -288,7 +289,8 @@ export default function AssignPermissionsModal({
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }
 

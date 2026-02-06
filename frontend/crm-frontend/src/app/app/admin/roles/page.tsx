@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { apiGet } from "@/lib/api";
+import { PermissionGuard } from "@/lib/permission-guard";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -70,7 +71,8 @@ export default function RolesPage() {
   }
 
   return (
-    <div className="p-8">
+    <PermissionGuard permission="admin.access">
+      <div className="p-8">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
@@ -191,5 +193,6 @@ export default function RolesPage() {
         </div>
       )}
     </div>
+    </PermissionGuard>
   );
 }

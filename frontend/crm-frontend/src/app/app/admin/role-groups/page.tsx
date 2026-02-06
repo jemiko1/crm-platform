@@ -7,6 +7,7 @@ import AddRoleGroupModal from "./add-role-group-modal";
 import EditRoleGroupModal from "./edit-role-group-modal";
 import AssignPermissionsModal from "./assign-permissions-modal";
 import DeleteRoleGroupDialog from "./delete-role-group-dialog";
+import { PermissionGuard } from "@/lib/permission-guard";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -22,6 +23,7 @@ type RoleGroup = {
       resource: string;
       action: string;
       description: string | null;
+      category: string;
     };
   }>;
   positions?: Array<{
@@ -89,7 +91,8 @@ export default function RoleGroupsPage() {
   }
 
   return (
-    <div className="p-8">
+    <PermissionGuard permission="admin.access">
+      <div className="p-8">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
@@ -312,5 +315,6 @@ export default function RoleGroupsPage() {
         }}
       />
     </div>
+    </PermissionGuard>
   );
 }

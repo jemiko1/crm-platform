@@ -29,11 +29,15 @@ export class SalesConfigController {
   // ==================== PIPELINE CONFIGURATION ====================
 
   @Get('pipeline')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('sales.read')
   async getAllConfigs() {
     return this.configService.getAllConfigs();
   }
 
   @Get('pipeline/:key')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('sales.read')
   async getConfig(@Param('key') key: string) {
     return this.configService.getConfig(key);
   }
@@ -48,11 +52,15 @@ export class SalesConfigController {
   // ==================== STAGES ====================
 
   @Get('stages')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('sales.read')
   async getAllStages() {
     return this.configService.getAllStages();
   }
 
   @Get('stages/:id')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('sales.read')
   async getStage(@Param('id') id: string) {
     return this.configService.getStage(id);
   }
@@ -67,11 +75,15 @@ export class SalesConfigController {
   // ==================== LEAD SOURCES ====================
 
   @Get('sources')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('sales.read')
   async getAllSources(@Query('includeInactive') includeInactive?: string) {
     return this.configService.getAllSources(includeInactive === 'true');
   }
 
   @Get('sources/:id')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('sales.read')
   async getSource(@Param('id') id: string) {
     return this.configService.getSource(id);
   }
@@ -100,11 +112,15 @@ export class SalesConfigController {
   // ==================== PIPELINE PERMISSIONS ====================
 
   @Get('permissions')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('sales.read')
   async getAllPipelinePermissions() {
     return this.configService.getAllPipelinePermissions();
   }
 
   @Get('permissions/:key')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('sales.read')
   async getPipelinePermission(@Param('key') key: string) {
     return this.configService.getPipelinePermission(key);
   }
@@ -122,6 +138,8 @@ export class SalesConfigController {
   // ==================== POSITIONS ====================
 
   @Get('positions')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('sales.read')
   async getAllPositions() {
     return this.configService.getAllPositions();
   }

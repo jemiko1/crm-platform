@@ -11,6 +11,8 @@ import ReportIncidentModal from "../../incidents/report-incident-modal";
 import ModalDialog from "../../../modal-dialog";
 import IncidentDetailContent from "../../incidents/incident-detail-content";
 import CreateWorkOrderModal from "../../work-orders/create-work-order-modal";
+import { PermissionGuard } from "@/lib/permission-guard";
+import { usePermissions } from "@/lib/use-permissions";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -265,7 +267,8 @@ export default function BuildingDetailPage() {
   }
 
   return (
-    <div className="w-full">
+    <PermissionGuard permission="buildings.read">
+      <div className="w-full">
       <div className="mx-auto w-full px-4 py-6 md:px-6 md:py-8">
         {/* Header */}
         <div className="mb-6 flex flex-col gap-4 md:mb-8">
@@ -459,6 +462,7 @@ export default function BuildingDetailPage() {
         )}
       </ModalDialog>
     </div>
+    </PermissionGuard>
   );
 }
 
@@ -591,6 +595,7 @@ function DevicesTab({
   deviceCounts: Record<string, number>;
   onAddClick: () => void;
 }) {
+  const { hasPermission } = usePermissions();
   const allTypes = useMemo(() => {
     const keys = Object.keys(deviceCounts);
     return keys.sort((a, b) => typeRank(a) - typeRank(b) || a.localeCompare(b));
@@ -661,14 +666,16 @@ function DevicesTab({
           </div>
         </div>
 
-        <button
-          type="button"
-          className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-          style={{ backgroundColor: BRAND }}
-          onClick={onAddClick}
-        >
-          + Add Device
-        </button>
+        {hasPermission("buildings.update") && (
+          <button
+            type="button"
+            className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+            style={{ backgroundColor: BRAND }}
+            onClick={onAddClick}
+          >
+            + Add Device
+          </button>
+        )}
       </div>
 
       {/* Filter toolbar */}
@@ -886,19 +893,22 @@ const FilterPill = React.memo(function FilterPill({
 
 /* ========== CLIENTS TAB ========== */
 function ClientsTab({ clients, onAddClick }: { clients: Client[]; onAddClick: () => void }) {
+  const { hasPermission } = usePermissions();
   return (
     <div className="space-y-4">
       {/* Header + Add Button */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-zinc-900">Clients ({clients.length})</h2>
-        <button
-          type="button"
-          className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-          style={{ backgroundColor: BRAND }}
-          onClick={onAddClick}
-        >
-          + Add Client
-        </button>
+        {hasPermission("clients.create") && (
+          <button
+            type="button"
+            className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+            style={{ backgroundColor: BRAND }}
+            onClick={onAddClick}
+          >
+            + Add Client
+          </button>
+        )}
       </div>
 
       {/* Clients Table */}
@@ -959,6 +969,7 @@ function WorkOrdersTab({
   buildingCoreId: number;
   building: Building;
 }) {
+  const { hasPermission } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [workOrders, setWorkOrders] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -1005,14 +1016,16 @@ function WorkOrdersTab({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-zinc-900">Work Orders</h2>
-        <button
-          type="button"
-          className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-          style={{ backgroundColor: BRAND }}
-          onClick={() => setShowCreateModal(true)}
-        >
-          + Create Work Order
-        </button>
+        {hasPermission("work_orders.create") && (
+          <button
+            type="button"
+            className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+            style={{ backgroundColor: BRAND }}
+            onClick={() => setShowCreateModal(true)}
+          >
+            + Create Work Order
+          </button>
+        )}
       </div>
 
       {loading && (
@@ -1096,6 +1109,7 @@ function IncidentsTab({
   onIncidentClick: (incidentId: string) => void;
   onAddClick: () => void;
 }) {
+  const { hasPermission } = usePermissions();
   function getStatusBadge(status: Incident["status"]) {
     const styles = {
       CREATED: "bg-blue-50 text-blue-700 ring-blue-200",
@@ -1151,12 +1165,14 @@ function IncidentsTab({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-zinc-900">Incidents ({incidents.length})</h2>
-        <button
-          onClick={onAddClick}
-          className="rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition"
-        >
-          Report Incident
-        </button>
+        {hasPermission("incidents.create") && (
+          <button
+            onClick={onAddClick}
+            className="rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition"
+          >
+            Report Incident
+          </button>
+        )}
       </div>
 
       {loading ? (

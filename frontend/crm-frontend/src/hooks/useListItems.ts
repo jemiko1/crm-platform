@@ -8,6 +8,7 @@ type ListItem = {
   isActive: boolean;
   isDefault: boolean;
   sortOrder: number;
+  colorHex?: string | null;
 };
 
 type ListCategory = {

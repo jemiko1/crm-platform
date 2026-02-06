@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { PermissionGuard } from "@/lib/permission-guard";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -83,7 +84,8 @@ export default function AdminPanelPage() {
   const pathname = usePathname();
 
   return (
-    <div className="p-8">
+    <PermissionGuard permission="admin.access">
+      <div className="p-8">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-zinc-900">Admin Panel</h1>
@@ -160,6 +162,7 @@ export default function AdminPanelPage() {
         })}
       </div>
     </div>
+    </PermissionGuard>
   );
 }
 

@@ -6,6 +6,8 @@ import { apiGet } from "@/lib/api";
 import ReportIncidentModal from "./report-incident-modal";
 import ModalDialog from "../../modal-dialog";
 import IncidentDetailContent from "./incident-detail-content";
+import { PermissionGuard } from "@/lib/permission-guard";
+import { usePermissions } from "@/lib/use-permissions";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -201,6 +203,7 @@ function normalizeIncident(raw: any): Incident {
 }
 
 export default function IncidentsPage() {
+  const { hasPermission } = usePermissions();
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<Incident["status"] | "ALL">("ALL");
   const [priorityFilter, setPriorityFilter] = useState<Incident["priority"] | "ALL">("ALL");
@@ -314,7 +317,8 @@ export default function IncidentsPage() {
   }
 
   return (
-    <div className="w-full">
+    <PermissionGuard permission="incidents.menu">
+      <div className="w-full">
       <div className="mx-auto w-full px-4 py-6 md:px-6 md:py-8">
         <div className="mb-6 flex flex-col gap-3 md:mb-8">
           <div>
@@ -364,14 +368,16 @@ export default function IncidentsPage() {
                   className="w-full max-w-md rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-md ring-2 ring-emerald-500/40 border border-emerald-500/30 hover:ring-emerald-500/60 hover:border-emerald-500/50 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/70 focus:shadow-lg focus:border-emerald-500/60 transition-all"
                 />
 
-                <button
-                  type="button"
-                  className="rounded-2xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-                  style={{ backgroundColor: BRAND }}
-                  onClick={() => setShowReportModal(true)}
-                >
-                  + Report Incident
-                </button>
+                {hasPermission("incidents.create") && (
+                  <button
+                    type="button"
+                    className="rounded-2xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+                    style={{ backgroundColor: BRAND }}
+                    onClick={() => setShowReportModal(true)}
+                  >
+                    + Report Incident
+                  </button>
+                )}
               </div>
 
               <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -488,15 +494,17 @@ export default function IncidentsPage() {
                     <div className="mt-1 text-xs text-zinc-600">
                       When customers report issues, they will appear here.
                     </div>
-                      <button
-                        type="button"
-                        className="mt-5 inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-                        style={{ backgroundColor: BRAND }}
-                        onClick={() => setShowReportModal(true)}
-                      >
-                        <IconPlus />
-                        Report First Incident
-                      </button>
+                      {hasPermission("incidents.create") && (
+                        <button
+                          type="button"
+                          className="mt-5 inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+                          style={{ backgroundColor: BRAND }}
+                          onClick={() => setShowReportModal(true)}
+                        >
+                          <IconPlus />
+                          Report First Incident
+                        </button>
+                      )}
                   </div>
                 </div>
               ) : filtered.length === 0 ? (
@@ -756,6 +764,7 @@ export default function IncidentsPage() {
         )}
       </ModalDialog>
     </div>
+    </PermissionGuard>
   );
 }
 

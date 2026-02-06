@@ -119,7 +119,7 @@ export default function StagesMonitoring({ workOrder }: Props) {
       try {
         setLoadingActivities(true);
         const data = await apiGet<ActivityLog[]>(
-          `/v1/work-orders/${workOrder.workOrderNumber || workOrder.id}/activity?includeDetails=true`,
+          `/v1/work-orders/${workOrder!.workOrderNumber || workOrder!.id}/activity?includeDetails=true`,
         );
         if (!cancelled) {
           setActivities(data);

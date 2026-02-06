@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { PermissionGuard } from "@/lib/permission-guard";
 
 export default function EmployeeDetailPage() {
   const params = useParams();
@@ -17,8 +18,10 @@ export default function EmployeeDetailPage() {
 
   // Show loading while redirecting
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="text-zinc-600">Redirecting...</div>
-    </div>
+    <PermissionGuard permission="employees.read">
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-zinc-600">Redirecting...</div>
+      </div>
+    </PermissionGuard>
   );
 }

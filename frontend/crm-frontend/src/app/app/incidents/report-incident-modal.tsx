@@ -746,7 +746,7 @@ export default function ReportIncidentModal({
                             backgroundColor: isSelected ? `${hexColor}20` : "white",
                             borderColor: isSelected ? hexColor : "#e5e7eb",
                             color: isSelected ? hexColor : "#18181b",
-                            ringColor: hexColor,
+                            outlineColor: hexColor,
                           }}
                         >
                           {priority.displayName}

@@ -28,6 +28,8 @@ type WorkOrderDetail = {
     | "CREATED"
     | "LINKED_TO_GROUP"
     | "IN_PROGRESS"
+    | "PENDING_APPROVAL"
+    | "APPROVED"
     | "COMPLETED"
     | "CANCELED"
     | "NEW"
@@ -897,7 +899,7 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
     
     try {
       // Check inventory impact first
-      const impact = await apiGet(`/v1/work-orders/${workOrder.id}/inventory-impact`);
+      const impact = await apiGet<any>(`/v1/work-orders/${workOrder.id}/inventory-impact`);
       setInventoryImpact(impact);
       
       if (impact.hasImpact) {

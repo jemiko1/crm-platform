@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { API_BASE } from "@/lib/api";
+import { usePermissions } from "@/lib/use-permissions";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -96,6 +97,7 @@ export default function IncidentDetailContent({
   incidentId,
   onStatusChange,
 }: IncidentDetailContentProps) {
+  const { hasPermission } = usePermissions();
   const [incident, setIncident] = useState<IncidentDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -300,7 +302,7 @@ export default function IncidentDetailContent({
           Update Status
         </div>
         <div className="flex flex-wrap gap-2">
-          {incident.status === "CREATED" && (
+          {incident.status === "CREATED" && hasPermission('incidents.update') && (
             <button
               type="button"
               onClick={() => updateStatus("IN_PROGRESS")}
@@ -313,23 +315,27 @@ export default function IncidentDetailContent({
 
           {(incident.status === "CREATED" || incident.status === "IN_PROGRESS") && (
             <>
-              <button
-                type="button"
-                onClick={() => updateStatus("COMPLETED")}
-                disabled={updating}
-                className="rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
-              >
-                Mark Completed
-              </button>
-              <button
-                type="button"
-                onClick={() => updateStatus("WORK_ORDER_INITIATED")}
-                disabled={updating}
-                className="rounded-2xl px-4 py-2 text-sm font-semibold text-white hover:opacity-95 disabled:opacity-50"
-                style={{ backgroundColor: BRAND }}
-              >
-                Create Work Order
-              </button>
+              {hasPermission('incidents.update') && (
+                <button
+                  type="button"
+                  onClick={() => updateStatus("COMPLETED")}
+                  disabled={updating}
+                  className="rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  Mark Completed
+                </button>
+              )}
+              {hasPermission('work_orders.create') && (
+                <button
+                  type="button"
+                  onClick={() => updateStatus("WORK_ORDER_INITIATED")}
+                  disabled={updating}
+                  className="rounded-2xl px-4 py-2 text-sm font-semibold text-white hover:opacity-95 disabled:opacity-50"
+                  style={{ backgroundColor: BRAND }}
+                >
+                  Create Work Order
+                </button>
+              )}
             </>
           )}
 

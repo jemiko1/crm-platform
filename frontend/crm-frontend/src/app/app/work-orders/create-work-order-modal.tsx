@@ -162,7 +162,7 @@ export default function CreateWorkOrderModal({
     let cancelled = false;
     async function fetchAssets() {
       try {
-        const data = await apiGet<Asset[]>(`/v1/buildings/${selectedBuilding.coreId}/assets`);
+        const data = await apiGet<Asset[]>(`/v1/buildings/${selectedBuilding!.coreId}/assets`);
         if (!cancelled) setBuildingAssets(data);
       } catch (err) {
         if (!cancelled) console.error("Failed to fetch assets:", err);

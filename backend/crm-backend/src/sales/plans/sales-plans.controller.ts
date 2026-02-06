@@ -30,11 +30,15 @@ export class SalesPlansController {
   }
 
   @Get()
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('sales.read')
   async findAll(@Query() query: QuerySalesPlansDto) {
     return this.plansService.findAll(query);
   }
 
   @Get('my-progress')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('sales.read')
   async getMyProgress(@Request() req: any) {
     const employeeId = req.user.employee?.id;
     return this.plansService.getMyProgress(employeeId);
@@ -48,6 +52,8 @@ export class SalesPlansController {
   }
 
   @Get(':id')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('sales.read')
   async findOne(@Param('id') id: string) {
     return this.plansService.findOne(id);
   }

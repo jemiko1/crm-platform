@@ -28,11 +28,15 @@ export class SalesServicesController {
   // ==================== SERVICES ====================
 
   @Get()
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('sales.read')
   async findAllServices(@Query('includeInactive') includeInactive?: string) {
     return this.servicesService.findAllServices(includeInactive === 'true');
   }
 
   @Get(':id')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('sales.read')
   async findServiceById(@Param('id') id: string) {
     return this.servicesService.findServiceById(id);
   }
@@ -61,11 +65,15 @@ export class SalesServicesController {
   // ==================== CATEGORIES ====================
 
   @Get('categories/all')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('sales.read')
   async findAllCategories(@Query('includeInactive') includeInactive?: string) {
     return this.servicesService.findAllCategories(includeInactive === 'true');
   }
 
   @Get('categories/:id')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('sales.read')
   async findCategoryById(@Param('id') id: string) {
     return this.servicesService.findCategoryById(id);
   }

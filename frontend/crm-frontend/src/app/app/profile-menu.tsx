@@ -231,10 +231,17 @@ export default function ProfileMenu() {
 
         {/* Name + role */}
         <div className="hidden sm:block text-left leading-tight">
-          <div className="text-sm font-semibold text-zinc-900">
-            {loadingMe ? "Loading..." : displayName}
-          </div>
-          <div className="text-xs text-zinc-600">{roleLabel}</div>
+          {loadingMe ? (
+            <>
+              <div className="h-4 w-24 rounded bg-zinc-200 animate-pulse" />
+              <div className="mt-1 h-3 w-16 rounded bg-zinc-100 animate-pulse" />
+            </>
+          ) : (
+            <>
+              <div className="text-sm font-semibold text-zinc-900">{displayName}</div>
+              <div className="text-xs text-zinc-600">{roleLabel}</div>
+            </>
+          )}
         </div>
 
         <span className="text-zinc-600">▾</span>

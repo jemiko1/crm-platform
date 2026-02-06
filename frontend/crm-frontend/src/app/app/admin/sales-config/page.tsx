@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { apiGet, apiPatch, apiPost, apiDelete, ApiError } from "@/lib/api";
+import { PermissionGuard } from "@/lib/permission-guard";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -255,7 +256,8 @@ export default function SalesConfigPage() {
   }
 
   return (
-    <div className="w-full p-8">
+    <PermissionGuard permission="admin.access">
+      <div className="w-full p-8">
       {/* Header */}
       <div className="mb-6">
         <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs text-zinc-700 shadow-sm ring-1 ring-zinc-200">
@@ -677,5 +679,6 @@ export default function SalesConfigPage() {
         document.body
       )}
     </div>
+    </PermissionGuard>
   );
 }
