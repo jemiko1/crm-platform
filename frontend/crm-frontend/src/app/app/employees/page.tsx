@@ -6,6 +6,7 @@ import { apiGet } from "@/lib/api";
 import { PermissionGuard } from "@/lib/permission-guard";
 import { usePermissions } from "@/lib/use-permissions";
 import AddEmployeeModal from "./add-employee-modal";
+import { useModalContext } from "../modal-manager";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -44,10 +45,10 @@ export default function EmployeesPage() {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [showAddModal, setShowAddModal] = useState(false);
 
-  // Helper function to open employee modal via URL
-  // Simple URL - browser history handles "back" navigation
+  const { openModal } = useModalContext();
+
   function openEmployeeModal(employeeId: string) {
-    router.push(`/app/employees?employee=${employeeId}`);
+    openModal("employee", employeeId);
   }
 
   async function fetchEmployees() {

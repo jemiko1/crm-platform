@@ -7,8 +7,9 @@ This document contains guidelines and best practices for developing features in 
 ## Table of Contents
 
 1. [Dynamic List Items (Dropdowns/Enums)](#dynamic-list-items-dropdownsenums)
-2. [Modal/Popup Implementation](#modalpopup-implementation)
-3. [Future Guidelines](#future-guidelines)
+2. [Modal/Popup Implementation (Action Modals)](#modalpopup-implementation)
+3. [Entity Detail Modal Stack (Side Panels)](#entity-detail-modal-stack-side-panels)
+4. [Future Guidelines](#future-guidelines)
 
 ---
 
@@ -378,6 +379,37 @@ Use custom modal implementation when you need:
 - Complex layouts
 - Custom header/footer behavior
 - Special animations
+
+---
+
+## Entity Detail Modal Stack (Side Panels)
+
+The CRM uses a **Bitrix24-style LIFO modal stack** for viewing entity details (buildings, clients, employees, work orders, incidents). These are full-height side-panel sliders that stack on top of each other — distinct from the centered action modals described above.
+
+**Full documentation**: See [`MODAL_STACK_ARCHITECTURE.md`](./MODAL_STACK_ARCHITECTURE.md) for the complete architecture, code examples, and guide for adding new entity types.
+
+### Quick Reference
+
+**Open a detail modal** from any component inside `/app/*`:
+```tsx
+import { useModalContext } from "../modal-manager";
+
+const { openModal } = useModalContext();
+openModal("building", String(buildingId));
+```
+
+**Supported types**: `"building"`, `"client"`, `"employee"`, `"workOrder"`, `"incident"`
+
+**Key rules**:
+- NEVER use `router.push()` to open detail modals — always use `openModal()`
+- NEVER use `<Link>` for cross-entity navigation inside modals — use `openModal()`
+- NEVER use `window.location.reload()` inside modals — use `onUpdate` callbacks
+- Action modals (add/edit/delete forms) should NOT use the stack — use local `useState` + `ModalDialog`
+
+**Key files**:
+- `src/app/app/modal-stack-context.tsx` — Stack state + context provider
+- `src/app/app/modal-manager.tsx` — Renderer + URL sync + `useModalContext` export
+- `src/app/app/modal-provider.tsx` — Composition wrapper for layout
 
 ---
 

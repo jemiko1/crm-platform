@@ -880,17 +880,6 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
     setTimeout(() => {
       setIsClosing(false);
       onClose();
-      // Navigate back to referrer URL if available, otherwise remove query param
-      if (referrerUrl) {
-        router.push(referrerUrl);
-      } else {
-        const params = new URLSearchParams(searchParams?.toString() || "");
-        params.delete("workOrder");
-        const newUrl = params.toString() 
-          ? `${window.location.pathname}?${params.toString()}` 
-          : window.location.pathname;
-        router.push(newUrl);
-      }
     }, 300);
   }
 
@@ -932,14 +921,7 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
       setLoading(false);
       setShowDeleteConfirm(false);
       setShowSimpleDeleteConfirm(false);
-      // Close immediately and navigate away
       setIsClosing(true);
-      const params = new URLSearchParams(searchParams?.toString() || "");
-      params.delete("workOrder");
-      const newUrl = params.toString() 
-        ? `${window.location.pathname}?${params.toString()}` 
-        : window.location.pathname;
-      router.push(newUrl);
       setTimeout(() => {
         setIsClosing(false);
         setIsDeleting(false);

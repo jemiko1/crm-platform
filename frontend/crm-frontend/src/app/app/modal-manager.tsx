@@ -1,39 +1,37 @@
 "use client";
 
-import React, { useEffect, useState, createContext, useContext, useCallback } from "react";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import { apiGet } from "@/lib/api";
 import { usePermissions } from "@/lib/use-permissions";
 
-// Import content components (not modals)
+// Stack context (holds all state, provided higher in the tree)
+import {
+  useModalContext,
+  useModalStackInternals,
+  readEntryFromParams,
+  type ModalType,
+  type StackEntry,
+} from "./modal-stack-context";
+
+// Re-export so existing imports keep working
+export { useModalContext } from "./modal-stack-context";
+
+// Import content components
 import BuildingDetailContent from "./buildings/[buildingId]/building-detail-content";
 import ClientDetailContent from "./clients/[clientId]/client-detail-content";
 import EmployeeDetailContent from "./employees/[employeeId]/employee-detail-content";
 import IncidentDetailContent from "./incidents/incident-detail-content";
 
-const BRAND = "rgb(8, 117, 56)";
+// Base z-index for the stack. Each layer adds +10.
+const STACK_BASE_Z_INDEX = 10000;
+const Z_INDEX_PER_LAYER = 10;
 
-// Modal type definitions
-type ModalType = "building" | "client" | "employee" | "workOrder" | "incident";
-
-// Context for modal navigation
-interface ModalContextValue {
-  openModal: (type: ModalType, id: string) => void;
-  closeModal: () => void;
-}
-
-const ModalContext = createContext<ModalContextValue>({
-  openModal: () => {},
-  closeModal: () => {},
-});
-
-export const useModalContext = () => useContext(ModalContext);
-
-// Fixed z-index for all detail modals (action modals use 50000+)
-const MODAL_Z_INDEX = 10000;
-
+// ─────────────────────────────────────────────────────────
 // Type definitions for each entity
+// ─────────────────────────────────────────────────────────
+
 type Building = {
   coreId: number;
   name: string;
@@ -139,16 +137,33 @@ type Employee = {
   exitDate?: string | null;
 };
 
-// Generic Modal Shell Component
+// ─────────────────────────────────────────────────────────
+// ModalShell — stack-aware
+// ─────────────────────────────────────────────────────────
+
 interface ModalShellProps {
   children: React.ReactNode;
   onClose: () => void;
   loading?: boolean;
   error?: string | null;
   loadingMessage?: string;
+  zIndex: number;
+  isTopmost: boolean;
+  stackDepth: number;
+  stackSize: number;
 }
 
-function ModalShell({ children, onClose, loading, error, loadingMessage = "Loading..." }: ModalShellProps) {
+function ModalShell({
+  children,
+  onClose,
+  loading,
+  error,
+  loadingMessage = "Loading...",
+  zIndex,
+  isTopmost,
+  stackDepth,
+  stackSize,
+}: ModalShellProps) {
   const [mounted, setMounted] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [isOpening, setIsOpening] = useState(true);
@@ -159,14 +174,16 @@ function ModalShell({ children, onClose, loading, error, loadingMessage = "Loadi
     return () => clearTimeout(timer);
   }, []);
 
-  // Prevent body scroll
+  // Prevent body scroll only from the bottom-most modal
   useEffect(() => {
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = originalOverflow;
-    };
-  }, []);
+    if (stackDepth === 0) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [stackDepth]);
 
   function handleClose() {
     setIsClosing(true);
@@ -177,66 +194,95 @@ function ModalShell({ children, onClose, loading, error, loadingMessage = "Loadi
 
   if (!mounted) return null;
 
+  const depthFromTop = stackSize - 1 - stackDepth;
+  const offsetPx = isTopmost ? 0 : depthFromTop * 32;
+
   const modalContent = (
     <div
-      className={`fixed inset-0 flex items-end lg:items-center justify-end lg:justify-start bg-black/50 backdrop-blur-sm transition-opacity duration-300 ${
+      className={`fixed inset-0 transition-opacity duration-300 ${
         isClosing ? "opacity-0" : "opacity-100"
       }`}
-      style={{ zIndex: MODAL_Z_INDEX }}
-      onClick={handleClose}
+      style={{ zIndex }}
     >
-      <div className="relative w-full lg:w-[calc(100%-148px)] lg:ml-[148px] h-full">
+      {stackDepth === 0 && (
         <div
-          className={`relative w-full h-full bg-white shadow-2xl flex flex-col transition-transform duration-300 rounded-t-3xl lg:rounded-l-3xl lg:rounded-tr-none lg:rounded-br-none ${
-            isClosing ? "translate-y-full lg:translate-y-0 lg:translate-x-full" : isOpening ? "translate-y-full lg:translate-y-0 lg:translate-x-full" : "translate-y-0 lg:translate-x-0"
-          }`}
-          onClick={(e) => e.stopPropagation()}
-          style={{ maxHeight: "100vh" }}
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          onClick={handleClose}
+        />
+      )}
+
+      {!isTopmost && !isClosing && (
+        <div
+          className="absolute inset-0 bg-black/15 transition-opacity duration-200"
+          style={{ zIndex: zIndex + 1 }}
+        />
+      )}
+
+      <div className="absolute inset-0 flex items-end lg:items-center justify-end lg:justify-start pointer-events-none">
+        <div
+          className="relative w-full lg:w-[calc(100%-148px)] lg:ml-[148px] h-full pointer-events-none"
+          style={{
+            transform: offsetPx > 0 ? `translateX(-${offsetPx}px)` : undefined,
+            transition: "transform 300ms ease",
+          }}
         >
-          {/* Close button - desktop */}
-          <button
-            onClick={handleClose}
-            className="hidden lg:flex absolute -left-12 top-6 h-12 w-12 bg-emerald-500 text-white shadow-lg hover:bg-emerald-600 transition-colors items-center justify-center"
-            style={{ 
-              zIndex: MODAL_Z_INDEX + 1,
-              borderRadius: "9999px 0 0 9999px",
-              clipPath: "inset(0 0 0 0 round 9999px 0 0 9999px)"
-            }}
-            aria-label="Close"
+          <div
+            className={`pointer-events-auto relative w-full h-full bg-white shadow-2xl flex flex-col transition-transform duration-300 rounded-t-3xl lg:rounded-l-3xl lg:rounded-tr-none lg:rounded-br-none ${
+              isClosing
+                ? "translate-y-full lg:translate-y-0 lg:translate-x-full"
+                : isOpening
+                ? "translate-y-full lg:translate-y-0 lg:translate-x-full"
+                : "translate-y-0 lg:translate-x-0"
+            }`}
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxHeight: "100vh" }}
           >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-
-          {/* Close button - mobile */}
-          <button
-            onClick={handleClose}
-            className="lg:hidden absolute top-4 right-4 h-10 w-10 bg-emerald-500 text-white shadow-lg hover:bg-emerald-600 transition-colors flex items-center justify-center rounded-full"
-            style={{ zIndex: MODAL_Z_INDEX + 1 }}
-            aria-label="Close"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto">
-            {loading ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-sm text-zinc-600">{loadingMessage}</div>
-              </div>
-            ) : error ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="rounded-2xl bg-red-50 p-6 ring-1 ring-red-200">
-                  <div className="text-sm font-semibold text-red-900">Error</div>
-                  <div className="mt-1 text-sm text-red-700">{error}</div>
-                </div>
-              </div>
-            ) : (
-              children
+            {isTopmost && (
+              <button
+                onClick={handleClose}
+                className="hidden lg:flex absolute -left-12 top-6 h-12 w-12 bg-emerald-500 text-white shadow-lg hover:bg-emerald-600 transition-colors items-center justify-center"
+                style={{
+                  zIndex: zIndex + 2,
+                  borderRadius: "9999px 0 0 9999px",
+                  clipPath: "inset(0 0 0 0 round 9999px 0 0 9999px)",
+                }}
+                aria-label="Close"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             )}
+
+            {isTopmost && (
+              <button
+                onClick={handleClose}
+                className="lg:hidden absolute top-4 right-4 h-10 w-10 bg-emerald-500 text-white shadow-lg hover:bg-emerald-600 transition-colors flex items-center justify-center rounded-full"
+                style={{ zIndex: zIndex + 2 }}
+                aria-label="Close"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+
+            <div className="flex-1 overflow-y-auto">
+              {loading ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-sm text-zinc-600">{loadingMessage}</div>
+                </div>
+              ) : error ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="rounded-2xl bg-red-50 p-6 ring-1 ring-red-200">
+                    <div className="text-sm font-semibold text-red-900">Error</div>
+                    <div className="mt-1 text-sm text-red-700">{error}</div>
+                  </div>
+                </div>
+              ) : (
+                children
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -246,229 +292,190 @@ function ModalShell({ children, onClose, loading, error, loadingMessage = "Loadi
   return createPortal(modalContent, document.body);
 }
 
+// ─────────────────────────────────────────────────────────
+// Permission denied shell
+// ─────────────────────────────────────────────────────────
+
+function PermissionDeniedShell({ onClose, zIndex, isTopmost, stackDepth, stackSize, message }: {
+  onClose: () => void;
+  zIndex: number;
+  isTopmost: boolean;
+  stackDepth: number;
+  stackSize: number;
+  message: string;
+}) {
+  return (
+    <ModalShell onClose={onClose} zIndex={zIndex} isTopmost={isTopmost} stackDepth={stackDepth} stackSize={stackSize}>
+      <div className="flex items-center justify-center h-full p-6">
+        <div className="max-w-sm rounded-2xl bg-rose-50 p-8 ring-1 ring-rose-200 text-center">
+          <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-rose-100 ring-1 ring-rose-200">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-rose-600">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+            </svg>
+          </div>
+          <div className="mt-4 text-base font-semibold text-rose-900">Insufficient Permissions</div>
+          <div className="mt-2 text-sm text-rose-700">{message}</div>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
+// Shared props for each modal wrapper
+interface StackedModalProps {
+  onClose: () => void;
+  zIndex: number;
+  isTopmost: boolean;
+  stackDepth: number;
+  stackSize: number;
+  onRefresh: () => void;
+}
+
+// ─────────────────────────────────────────────────────────
 // Building Modal Wrapper
-function BuildingModal({ buildingId, onClose }: { buildingId: string; onClose: () => void }) {
+// ─────────────────────────────────────────────────────────
+
+function BuildingModal({ buildingId, onClose, zIndex, isTopmost, stackDepth, stackSize, onRefresh }: { buildingId: string } & StackedModalProps) {
   const { hasPermission, loading: permLoading } = usePermissions();
   const [building, setBuilding] = useState<Building | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function fetchBuilding() {
-      try {
-        setLoading(true);
-        setError(null);
-        // Fetch all buildings and find by coreId (matches original modal behavior)
-        const data = await apiGet<Building[]>("/v1/buildings", { cache: "no-store" });
-        const foundBuilding = Array.isArray(data) 
-          ? data.find((b) => String(b.coreId) === buildingId)
-          : null;
-        
-        if (!cancelled) {
-          if (foundBuilding) {
-            setBuilding(foundBuilding);
-          } else {
-            setError(`Building ${buildingId} not found`);
-          }
-        }
-      } catch (err: any) {
-        if (!cancelled) {
-          setError(err.message || "Failed to load building");
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+  const fetchBuilding = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await apiGet<Building[]>("/v1/buildings", { cache: "no-store" });
+      const foundBuilding = Array.isArray(data) ? data.find((b) => String(b.coreId) === buildingId) : null;
+      if (foundBuilding) {
+        setBuilding(foundBuilding);
+      } else {
+        setError(`Building ${buildingId} not found`);
       }
+    } catch (err: any) {
+      setError(err.message || "Failed to load building");
+    } finally {
+      setLoading(false);
     }
-
-    fetchBuilding();
-    return () => { cancelled = true; };
   }, [buildingId]);
 
-  // Check permission -- show error inside modal shell if denied
-  if (!permLoading && !hasPermission('buildings.details_read')) {
-    return (
-      <ModalShell onClose={onClose}>
-        <div className="flex items-center justify-center h-full p-6">
-          <div className="max-w-sm rounded-2xl bg-rose-50 p-8 ring-1 ring-rose-200 text-center">
-            <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-rose-100 ring-1 ring-rose-200">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-rose-600">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
-              </svg>
-            </div>
-            <div className="mt-4 text-base font-semibold text-rose-900">Insufficient Permissions</div>
-            <div className="mt-2 text-sm text-rose-700">
-              You do not have the required permissions to view building details.
-            </div>
-          </div>
-        </div>
-      </ModalShell>
-    );
+  useEffect(() => { fetchBuilding(); }, [fetchBuilding, refreshKey]);
+
+  const handleUpdate = useCallback(() => {
+    setRefreshKey((k) => k + 1);
+    onRefresh();
+  }, [onRefresh]);
+
+  if (!permLoading && !hasPermission("buildings.details_read")) {
+    return <PermissionDeniedShell onClose={onClose} zIndex={zIndex} isTopmost={isTopmost} stackDepth={stackDepth} stackSize={stackSize} message="You do not have the required permissions to view building details." />;
   }
 
   return (
-    <ModalShell 
-      onClose={onClose} 
-      loading={loading || permLoading} 
-      error={error}
-      loadingMessage="Loading building details..."
-    >
-      {building && (
-        <BuildingDetailContent 
-          building={building} 
-          buildingId={buildingId}
-          onUpdate={() => window.location.reload()}
-        />
-      )}
+    <ModalShell onClose={onClose} loading={loading || permLoading} error={error} loadingMessage="Loading building details..." zIndex={zIndex} isTopmost={isTopmost} stackDepth={stackDepth} stackSize={stackSize}>
+      {building && <BuildingDetailContent building={building} buildingId={buildingId} onUpdate={handleUpdate} />}
     </ModalShell>
   );
 }
 
+// ─────────────────────────────────────────────────────────
 // Client Modal Wrapper
-function ClientModal({ clientId, onClose }: { clientId: string; onClose: () => void }) {
+// ─────────────────────────────────────────────────────────
+
+function ClientModal({ clientId, onClose, zIndex, isTopmost, stackDepth, stackSize, onRefresh }: { clientId: string } & StackedModalProps) {
   const { hasPermission, loading: permLoading } = usePermissions();
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function fetchClient() {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await apiGet<Client[]>("/v1/clients", { cache: "no-store" });
-        const clientCoreId = Number(clientId);
-        const foundClient = Array.isArray(data) ? data.find((c) => Number(c.coreId) === clientCoreId) : null;
-        
-        if (!cancelled) {
-          if (foundClient) {
-            setClient(foundClient);
-          } else {
-            setError(`Client ${clientId} not found`);
-          }
-        }
-      } catch (err: any) {
-        if (!cancelled) {
-          setError(err.message || "Failed to load client");
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+  const fetchClient = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await apiGet<Client[]>("/v1/clients", { cache: "no-store" });
+      const clientCoreId = Number(clientId);
+      const foundClient = Array.isArray(data) ? data.find((c) => Number(c.coreId) === clientCoreId) : null;
+      if (foundClient) {
+        setClient(foundClient);
+      } else {
+        setError(`Client ${clientId} not found`);
       }
+    } catch (err: any) {
+      setError(err.message || "Failed to load client");
+    } finally {
+      setLoading(false);
     }
-
-    fetchClient();
-    return () => { cancelled = true; };
   }, [clientId]);
 
-  // Check permission -- show error inside modal shell if denied
-  if (!permLoading && !hasPermission('clients.details_read')) {
-    return (
-      <ModalShell onClose={onClose}>
-        <div className="flex items-center justify-center h-full p-6">
-          <div className="max-w-sm rounded-2xl bg-rose-50 p-8 ring-1 ring-rose-200 text-center">
-            <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-rose-100 ring-1 ring-rose-200">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-rose-600">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
-              </svg>
-            </div>
-            <div className="mt-4 text-base font-semibold text-rose-900">Insufficient Permissions</div>
-            <div className="mt-2 text-sm text-rose-700">
-              You do not have the required permissions to view client details.
-            </div>
-          </div>
-        </div>
-      </ModalShell>
-    );
+  useEffect(() => { fetchClient(); }, [fetchClient, refreshKey]);
+
+  const handleUpdate = useCallback(() => {
+    setRefreshKey((k) => k + 1);
+    onRefresh();
+  }, [onRefresh]);
+
+  if (!permLoading && !hasPermission("clients.details_read")) {
+    return <PermissionDeniedShell onClose={onClose} zIndex={zIndex} isTopmost={isTopmost} stackDepth={stackDepth} stackSize={stackSize} message="You do not have the required permissions to view client details." />;
   }
 
   return (
-    <ModalShell 
-      onClose={onClose} 
-      loading={loading || permLoading} 
-      error={error}
-      loadingMessage="Loading client details..."
-    >
-      {client && (
-        <ClientDetailContent 
-          client={client} 
-          clientId={clientId}
-          onUpdate={() => window.location.reload()}
-        />
-      )}
+    <ModalShell onClose={onClose} loading={loading || permLoading} error={error} loadingMessage="Loading client details..." zIndex={zIndex} isTopmost={isTopmost} stackDepth={stackDepth} stackSize={stackSize}>
+      {client && <ClientDetailContent client={client} clientId={clientId} onUpdate={handleUpdate} />}
     </ModalShell>
   );
 }
 
+// ─────────────────────────────────────────────────────────
 // Employee Modal Wrapper
-function EmployeeModal({ employeeId, onClose }: { employeeId: string; onClose: () => void }) {
+// ─────────────────────────────────────────────────────────
+
+function EmployeeModal({ employeeId, onClose, zIndex, isTopmost, stackDepth, stackSize, onRefresh }: { employeeId: string } & StackedModalProps) {
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function fetchEmployee() {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await apiGet<Employee>(`/v1/employees/${employeeId}`);
-        if (!cancelled) {
-          setEmployee(data);
-        }
-      } catch (err: any) {
-        if (!cancelled) {
-          setError(err.message || "Failed to load employee");
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
+  const fetchEmployee = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await apiGet<Employee>(`/v1/employees/${employeeId}`);
+      setEmployee(data);
+    } catch (err: any) {
+      setError(err.message || "Failed to load employee");
+    } finally {
+      setLoading(false);
     }
-
-    fetchEmployee();
-    return () => { cancelled = true; };
   }, [employeeId]);
 
+  useEffect(() => { fetchEmployee(); }, [fetchEmployee, refreshKey]);
+
+  const handleUpdate = useCallback(() => {
+    setRefreshKey((k) => k + 1);
+    onRefresh();
+  }, [onRefresh]);
+
   return (
-    <ModalShell 
-      onClose={onClose} 
-      loading={loading} 
-      error={error}
-      loadingMessage="Loading employee details..."
-    >
-      {employee && (
-        <EmployeeDetailContent 
-          employee={employee} 
-          employeeId={employeeId}
-          onUpdate={() => window.location.reload()}
-        />
-      )}
+    <ModalShell onClose={onClose} loading={loading} error={error} loadingMessage="Loading employee details..." zIndex={zIndex} isTopmost={isTopmost} stackDepth={stackDepth} stackSize={stackSize}>
+      {employee && <EmployeeDetailContent employee={employee} employeeId={employeeId} onUpdate={handleUpdate} />}
     </ModalShell>
   );
 }
 
-// Work Order Modal - uses lazy import of the full existing modal
-// The work order modal is complex and has its own internal state management
-function WorkOrderModal({ workOrderId, onClose }: { workOrderId: string; onClose: () => void }) {
+// ─────────────────────────────────────────────────────────
+// Work Order Modal
+// ─────────────────────────────────────────────────────────
+
+function WorkOrderModal({ workOrderId, onClose, zIndex, isTopmost, stackDepth, stackSize, onRefresh }: { workOrderId: string } & StackedModalProps) {
   const { hasPermission, loading: permLoading } = usePermissions();
-  const [WorkOrderDetailModal, setWorkOrderDetailModal] = useState<React.ComponentType<any> | null>(null);
+  const [WorkOrderDetailModalCmp, setWorkOrderDetailModalCmp] = useState<React.ComponentType<any> | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Dynamic import the existing work order modal
     import("./work-orders/[id]/work-order-detail-modal").then((mod) => {
-      setWorkOrderDetailModal(() => mod.default);
+      setWorkOrderDetailModalCmp(() => mod.default);
       setLoading(false);
     }).catch((err) => {
       console.error("Failed to load work order modal:", err);
@@ -476,178 +483,129 @@ function WorkOrderModal({ workOrderId, onClose }: { workOrderId: string; onClose
     });
   }, []);
 
-  // Check permission – show error inside modal shell if denied
-  if (!permLoading && !hasPermission('work_orders.read')) {
-    return (
-      <ModalShell onClose={onClose}>
-        <div className="flex items-center justify-center h-full p-6">
-          <div className="max-w-sm rounded-2xl bg-rose-50 p-8 ring-1 ring-rose-200 text-center">
-            <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-rose-100 ring-1 ring-rose-200">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-rose-600">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
-              </svg>
-            </div>
-            <div className="mt-4 text-base font-semibold text-rose-900">Insufficient Permissions</div>
-            <div className="mt-2 text-sm text-rose-700">
-              You do not have the required permissions to view work order details.
-            </div>
-          </div>
-        </div>
-      </ModalShell>
-    );
+  const handleUpdate = useCallback(() => { onRefresh(); }, [onRefresh]);
+
+  if (!permLoading && !hasPermission("work_orders.read")) {
+    return <PermissionDeniedShell onClose={onClose} zIndex={zIndex} isTopmost={isTopmost} stackDepth={stackDepth} stackSize={stackSize} message="You do not have the required permissions to view work order details." />;
   }
 
-  if (loading || permLoading || !WorkOrderDetailModal) {
+  if (loading || permLoading || !WorkOrderDetailModalCmp) {
     return (
-      <ModalShell 
-        onClose={onClose} 
-        loading={true}
-        loadingMessage="Loading work order..."
-      >
+      <ModalShell onClose={onClose} loading={true} loadingMessage="Loading work order..." zIndex={zIndex} isTopmost={isTopmost} stackDepth={stackDepth} stackSize={stackSize}>
         <div />
       </ModalShell>
     );
   }
 
-  // Render the existing modal
-  return (
-    <WorkOrderDetailModal
-      open={true}
-      onClose={onClose}
-      workOrderId={workOrderId}
-      onUpdate={() => window.location.reload()}
-      zIndex={MODAL_Z_INDEX}
-    />
-  );
+  return <WorkOrderDetailModalCmp open={true} onClose={onClose} workOrderId={workOrderId} onUpdate={handleUpdate} zIndex={zIndex} />;
 }
 
+// ─────────────────────────────────────────────────────────
 // Incident Modal Wrapper
-function IncidentModal({ incidentId, onClose }: { incidentId: string; onClose: () => void }) {
-  const { hasPermission, loading: permLoading } = usePermissions();
+// ─────────────────────────────────────────────────────────
 
-  // Check permission -- show error inside modal shell if denied
-  if (!permLoading && !hasPermission('incidents.details_read')) {
-    return (
-      <ModalShell onClose={onClose}>
-        <div className="flex items-center justify-center h-full p-6">
-          <div className="max-w-sm rounded-2xl bg-rose-50 p-8 ring-1 ring-rose-200 text-center">
-            <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-rose-100 ring-1 ring-rose-200">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-rose-600">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
-              </svg>
-            </div>
-            <div className="mt-4 text-base font-semibold text-rose-900">Insufficient Permissions</div>
-            <div className="mt-2 text-sm text-rose-700">
-              You do not have the required permissions to view incident details.
-            </div>
-          </div>
-        </div>
-      </ModalShell>
-    );
+function IncidentModal({ incidentId, onClose, zIndex, isTopmost, stackDepth, stackSize, onRefresh }: { incidentId: string } & StackedModalProps) {
+  const { hasPermission, loading: permLoading } = usePermissions();
+  const handleStatusChange = useCallback(() => { onRefresh(); }, [onRefresh]);
+
+  if (!permLoading && !hasPermission("incidents.details_read")) {
+    return <PermissionDeniedShell onClose={onClose} zIndex={zIndex} isTopmost={isTopmost} stackDepth={stackDepth} stackSize={stackSize} message="You do not have the required permissions to view incident details." />;
   }
 
   if (permLoading) {
     return (
-      <ModalShell onClose={onClose} loading={true} loadingMessage="Loading incident details...">
+      <ModalShell onClose={onClose} loading={true} loadingMessage="Loading incident details..." zIndex={zIndex} isTopmost={isTopmost} stackDepth={stackDepth} stackSize={stackSize}>
         <div />
       </ModalShell>
     );
   }
 
   return (
-    <ModalShell onClose={onClose}>
+    <ModalShell onClose={onClose} zIndex={zIndex} isTopmost={isTopmost} stackDepth={stackDepth} stackSize={stackSize}>
       <div className="p-6">
-        <IncidentDetailContent
-          incidentId={incidentId}
-          onStatusChange={() => window.location.reload()}
-        />
+        <IncidentDetailContent incidentId={incidentId} onStatusChange={handleStatusChange} />
       </div>
     </ModalShell>
   );
 }
 
-// Main ModalManager Component
+// ─────────────────────────────────────────────────────────
+// Main ModalManager — Renderer + URL Sync
+// ─────────────────────────────────────────────────────────
+
 export default function ModalManager() {
-  const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { stack, closeModal, emitRefresh } = useModalContext();
+  const { _seedFromUrl, _restoreFromState, _syncFromSearchParams, _clearStack, handlingPopstateRef } = useModalStackInternals();
 
-  // Get current modal params
-  const searchParamsString = searchParams?.toString() || "";
-  const params = new URLSearchParams(searchParamsString);
-  
-  const buildingId = params.get("building");
-  const clientId = params.get("client");
-  const employeeId = params.get("employee");
-  const workOrderId = params.get("workOrder");
-  const incidentId = params.get("incident");
+  const initializedRef = useRef(false);
 
-  // Determine which modal to show (only one at a time)
-  // Priority: incident > workOrder > employee > client > building
-  // This determines which modal is "active" when URL has multiple params
-  const activeModal = incidentId
-    ? { type: "incident" as ModalType, id: incidentId }
-    : workOrderId 
-    ? { type: "workOrder" as ModalType, id: workOrderId }
-    : employeeId 
-    ? { type: "employee" as ModalType, id: employeeId }
-    : clientId 
-    ? { type: "client" as ModalType, id: clientId }
-    : buildingId 
-    ? { type: "building" as ModalType, id: buildingId }
-    : null;
+  // Initialize from URL on first mount
+  useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
 
-  // Open a new modal - navigates to new URL (adds to browser history)
-  const openModal = useCallback((type: ModalType, id: string) => {
-    const currentPath = pathname || "/app";
-    router.push(`${currentPath}?${type}=${id}`);
-  }, [router, pathname]);
+    const existingState = window.history.state?.["__modalStack"];
+    if (Array.isArray(existingState) && existingState.length > 0) {
+      _restoreFromState(existingState);
+      return;
+    }
 
-  // Close modal - go back in browser history
-  const closeModal = useCallback(() => {
-    router.back();
-  }, [router]);
+    const params = new URLSearchParams(searchParams?.toString() || "");
+    const entry = readEntryFromParams(params);
+    if (entry) {
+      _seedFromUrl(entry);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Render the active modal
+  // Respond to URL changes from Next.js navigation
+  useEffect(() => {
+    if (!initializedRef.current) return;
+    if (handlingPopstateRef.current) return;
+
+    const params = new URLSearchParams(searchParams?.toString() || "");
+    const entry = readEntryFromParams(params);
+
+    if (!entry) {
+      _clearStack();
+      return;
+    }
+
+    _syncFromSearchParams(entry);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // Render all stack entries
   return (
-    <ModalContext.Provider value={{ openModal, closeModal }}>
-      {activeModal?.type === "building" && activeModal.id && (
-        <BuildingModal
-          key={`building-${activeModal.id}`}
-          buildingId={activeModal.id}
-          onClose={closeModal}
-        />
-      )}
-      {activeModal?.type === "client" && activeModal.id && (
-        <ClientModal
-          key={`client-${activeModal.id}`}
-          clientId={activeModal.id}
-          onClose={closeModal}
-        />
-      )}
-      {activeModal?.type === "employee" && activeModal.id && (
-        <EmployeeModal
-          key={`employee-${activeModal.id}`}
-          employeeId={activeModal.id}
-          onClose={closeModal}
-        />
-      )}
-      {activeModal?.type === "workOrder" && activeModal.id && (
-        <WorkOrderModal
-          key={`workOrder-${activeModal.id}`}
-          workOrderId={activeModal.id}
-          onClose={closeModal}
-        />
-      )}
-      {activeModal?.type === "incident" && activeModal.id && (
-        <IncidentModal
-          key={`incident-${activeModal.id}`}
-          incidentId={activeModal.id}
-          onClose={closeModal}
-        />
-      )}
-    </ModalContext.Provider>
+    <>
+      {stack.map((entry, index) => {
+        const zIndex = STACK_BASE_Z_INDEX + index * Z_INDEX_PER_LAYER;
+        const isTopmost = index === stack.length - 1;
+        const sharedProps: StackedModalProps = {
+          onClose: closeModal,
+          zIndex,
+          isTopmost,
+          stackDepth: index,
+          stackSize: stack.length,
+          onRefresh: emitRefresh,
+        };
+
+        switch (entry.type) {
+          case "building":
+            return <BuildingModal key={entry.key} buildingId={entry.id} {...sharedProps} />;
+          case "client":
+            return <ClientModal key={entry.key} clientId={entry.id} {...sharedProps} />;
+          case "employee":
+            return <EmployeeModal key={entry.key} employeeId={entry.id} {...sharedProps} />;
+          case "workOrder":
+            return <WorkOrderModal key={entry.key} workOrderId={entry.id} {...sharedProps} />;
+          case "incident":
+            return <IncidentModal key={entry.key} incidentId={entry.id} {...sharedProps} />;
+          default:
+            return null;
+        }
+      })}
+    </>
   );
 }

@@ -9,6 +9,7 @@ import { PermissionGuard } from "@/lib/permission-guard";
 import { usePermissions } from "@/lib/use-permissions";
 import CreateWorkOrderModal from "./create-work-order-modal";
 import WorkOrderStatistics from "./work-order-statistics";
+import { useModalContext } from "../modal-manager";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -127,10 +128,10 @@ export default function WorkOrdersPage() {
   const [statsLoading, setStatsLoading] = useState(true);
   const [statsError, setStatsError] = useState<string | null>(null);
 
-  // Helper function to open work order modal via URL
-  // Simple URL - browser history handles "back" navigation
+  const { openModal } = useModalContext();
+
   function openWorkOrderModal(workOrderNumber: number) {
-    router.push(`/app/work-orders?workOrder=${workOrderNumber}`);
+    openModal("workOrder", String(workOrderNumber));
   }
 
   const pageSize = 10;
@@ -351,11 +352,7 @@ export default function WorkOrdersPage() {
                               <td className="px-4 py-4 align-middle">
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    const params = new URLSearchParams(searchParams?.toString() || "");
-                                    params.set("building", String(wo.building.coreId));
-                                    router.push(`/app/buildings?${params.toString()}`);
-                                  }}
+                                  onClick={() => openModal("building", String(wo.building.coreId))}
                                   className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-sm text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50"
                                   title="Open building"
                                 >

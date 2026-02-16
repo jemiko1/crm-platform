@@ -8,6 +8,7 @@ import AddBuildingModal from "./add-building-modal";
 import BuildingStatistics from "./building-statistics";
 import { PermissionGuard } from "@/lib/permission-guard";
 import { usePermissions } from "@/lib/use-permissions";
+import { useModalContext } from "../modal-manager";
 
 type Building = {
   coreId: number;
@@ -130,10 +131,10 @@ export default function BuildingsPage() {
 
   const pageSize = 10;
 
-  // Helper function to open building modal via URL
-  // Simple URL - browser history handles "back" navigation
+  const { openModal } = useModalContext();
+
   function openBuildingModal(buildingId: number) {
-    router.push(`/app/buildings?building=${buildingId}`);
+    openModal("building", String(buildingId));
   }
 
   // Fetch buildings from API
