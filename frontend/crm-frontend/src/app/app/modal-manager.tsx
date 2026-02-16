@@ -10,11 +10,12 @@ import { usePermissions } from "@/lib/use-permissions";
 import BuildingDetailContent from "./buildings/[buildingId]/building-detail-content";
 import ClientDetailContent from "./clients/[clientId]/client-detail-content";
 import EmployeeDetailContent from "./employees/[employeeId]/employee-detail-content";
+import IncidentDetailContent from "./incidents/incident-detail-content";
 
 const BRAND = "rgb(8, 117, 56)";
 
 // Modal type definitions
-type ModalType = "building" | "client" | "employee" | "workOrder";
+type ModalType = "building" | "client" | "employee" | "workOrder" | "incident";
 
 // Context for modal navigation
 interface ModalContextValue {
@@ -247,6 +248,7 @@ function ModalShell({ children, onClose, loading, error, loadingMessage = "Loadi
 
 // Building Modal Wrapper
 function BuildingModal({ buildingId, onClose }: { buildingId: string; onClose: () => void }) {
+  const { hasPermission, loading: permLoading } = usePermissions();
   const [building, setBuilding] = useState<Building | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -286,10 +288,32 @@ function BuildingModal({ buildingId, onClose }: { buildingId: string; onClose: (
     return () => { cancelled = true; };
   }, [buildingId]);
 
+  // Check permission -- show error inside modal shell if denied
+  if (!permLoading && !hasPermission('buildings.details_read')) {
+    return (
+      <ModalShell onClose={onClose}>
+        <div className="flex items-center justify-center h-full p-6">
+          <div className="max-w-sm rounded-2xl bg-rose-50 p-8 ring-1 ring-rose-200 text-center">
+            <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-rose-100 ring-1 ring-rose-200">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-rose-600">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+              </svg>
+            </div>
+            <div className="mt-4 text-base font-semibold text-rose-900">Insufficient Permissions</div>
+            <div className="mt-2 text-sm text-rose-700">
+              You do not have the required permissions to view building details.
+            </div>
+          </div>
+        </div>
+      </ModalShell>
+    );
+  }
+
   return (
     <ModalShell 
       onClose={onClose} 
-      loading={loading} 
+      loading={loading || permLoading} 
       error={error}
       loadingMessage="Loading building details..."
     >
@@ -306,6 +330,7 @@ function BuildingModal({ buildingId, onClose }: { buildingId: string; onClose: (
 
 // Client Modal Wrapper
 function ClientModal({ clientId, onClose }: { clientId: string; onClose: () => void }) {
+  const { hasPermission, loading: permLoading } = usePermissions();
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -343,10 +368,32 @@ function ClientModal({ clientId, onClose }: { clientId: string; onClose: () => v
     return () => { cancelled = true; };
   }, [clientId]);
 
+  // Check permission -- show error inside modal shell if denied
+  if (!permLoading && !hasPermission('clients.details_read')) {
+    return (
+      <ModalShell onClose={onClose}>
+        <div className="flex items-center justify-center h-full p-6">
+          <div className="max-w-sm rounded-2xl bg-rose-50 p-8 ring-1 ring-rose-200 text-center">
+            <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-rose-100 ring-1 ring-rose-200">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-rose-600">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+              </svg>
+            </div>
+            <div className="mt-4 text-base font-semibold text-rose-900">Insufficient Permissions</div>
+            <div className="mt-2 text-sm text-rose-700">
+              You do not have the required permissions to view client details.
+            </div>
+          </div>
+        </div>
+      </ModalShell>
+    );
+  }
+
   return (
     <ModalShell 
       onClose={onClose} 
-      loading={loading} 
+      loading={loading || permLoading} 
       error={error}
       loadingMessage="Loading client details..."
     >
@@ -475,6 +522,52 @@ function WorkOrderModal({ workOrderId, onClose }: { workOrderId: string; onClose
   );
 }
 
+// Incident Modal Wrapper
+function IncidentModal({ incidentId, onClose }: { incidentId: string; onClose: () => void }) {
+  const { hasPermission, loading: permLoading } = usePermissions();
+
+  // Check permission -- show error inside modal shell if denied
+  if (!permLoading && !hasPermission('incidents.details_read')) {
+    return (
+      <ModalShell onClose={onClose}>
+        <div className="flex items-center justify-center h-full p-6">
+          <div className="max-w-sm rounded-2xl bg-rose-50 p-8 ring-1 ring-rose-200 text-center">
+            <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-rose-100 ring-1 ring-rose-200">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-rose-600">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+              </svg>
+            </div>
+            <div className="mt-4 text-base font-semibold text-rose-900">Insufficient Permissions</div>
+            <div className="mt-2 text-sm text-rose-700">
+              You do not have the required permissions to view incident details.
+            </div>
+          </div>
+        </div>
+      </ModalShell>
+    );
+  }
+
+  if (permLoading) {
+    return (
+      <ModalShell onClose={onClose} loading={true} loadingMessage="Loading incident details...">
+        <div />
+      </ModalShell>
+    );
+  }
+
+  return (
+    <ModalShell onClose={onClose}>
+      <div className="p-6">
+        <IncidentDetailContent
+          incidentId={incidentId}
+          onStatusChange={() => window.location.reload()}
+        />
+      </div>
+    </ModalShell>
+  );
+}
+
 // Main ModalManager Component
 export default function ModalManager() {
   const router = useRouter();
@@ -489,11 +582,14 @@ export default function ModalManager() {
   const clientId = params.get("client");
   const employeeId = params.get("employee");
   const workOrderId = params.get("workOrder");
+  const incidentId = params.get("incident");
 
   // Determine which modal to show (only one at a time)
-  // Priority: workOrder > employee > client > building
+  // Priority: incident > workOrder > employee > client > building
   // This determines which modal is "active" when URL has multiple params
-  const activeModal = workOrderId 
+  const activeModal = incidentId
+    ? { type: "incident" as ModalType, id: incidentId }
+    : workOrderId 
     ? { type: "workOrder" as ModalType, id: workOrderId }
     : employeeId 
     ? { type: "employee" as ModalType, id: employeeId }
@@ -542,6 +638,13 @@ export default function ModalManager() {
         <WorkOrderModal
           key={`workOrder-${activeModal.id}`}
           workOrderId={activeModal.id}
+          onClose={closeModal}
+        />
+      )}
+      {activeModal?.type === "incident" && activeModal.id && (
+        <IncidentModal
+          key={`incident-${activeModal.id}`}
+          incidentId={activeModal.id}
           onClose={closeModal}
         />
       )}

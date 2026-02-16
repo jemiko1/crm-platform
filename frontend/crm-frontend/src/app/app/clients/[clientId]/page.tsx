@@ -19,7 +19,7 @@ export default function ClientDetailPage() {
 
   // Show loading while redirecting
   return (
-    <PermissionGuard permission="clients.read">
+    <PermissionGuard permission="clients.details_read">
       <div className="w-full">
       <div className="mx-auto w-full px-4 py-6 md:px-6 md:py-8">
         <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200">

@@ -2,14 +2,12 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter, usePathname } from "next/navigation";
 import { apiGet } from "@/lib/api";
 import AddDeviceModal from "./add-device-modal";
 import AddClientModal from "./add-client-modal";
 import EditBuildingModal from "./edit-building-modal";
 import ReportIncidentModal from "../../incidents/report-incident-modal";
-import ModalDialog from "../../../modal-dialog";
-import IncidentDetailContent from "../../incidents/incident-detail-content";
 import CreateWorkOrderModal from "../../work-orders/create-work-order-modal";
 import { PermissionGuard } from "@/lib/permission-guard";
 import { usePermissions } from "@/lib/use-permissions";
@@ -111,6 +109,8 @@ function getStatusPill(status: string) {
 export default function BuildingDetailPage() {
   const params = useParams();
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const buildingId = params?.buildingId as string;
 
   const [activeTab, setActiveTab] = useState<Tab>("overview");
@@ -127,7 +127,6 @@ export default function BuildingDetailPage() {
   const [showAddClientModal, setShowAddClientModal] = useState(false);
   const [showEditBuildingModal, setShowEditBuildingModal] = useState(false);
   const [showReportIncidentModal, setShowReportIncidentModal] = useState(false);
-  const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
 
   // Handle URL query param for tab
   useEffect(() => {
@@ -226,10 +225,6 @@ export default function BuildingDetailPage() {
     }
   }, [buildingId]);
 
-  function handleStatusChange() {
-    // Refresh incidents after status update
-    fetchIncidents();
-  }
 
   if (loading) {
     return (
@@ -267,7 +262,7 @@ export default function BuildingDetailPage() {
   }
 
   return (
-    <PermissionGuard permission="buildings.read">
+    <PermissionGuard permission="buildings.details_read">
       <div className="w-full">
       <div className="mx-auto w-full px-4 py-6 md:px-6 md:py-8">
         {/* Header */}
@@ -400,7 +395,7 @@ export default function BuildingDetailPage() {
             <IncidentsTab
               incidents={incidents}
               loading={incidentsLoading}
-              onIncidentClick={(incidentId) => setSelectedIncidentId(incidentId)}
+              onIncidentClick={(incidentId) => router.push(`${pathname}?incident=${incidentId}`)}
               onAddClick={() => setShowReportIncidentModal(true)}
             />
           )}
@@ -447,20 +442,6 @@ export default function BuildingDetailPage() {
         lockBuilding={true}
       />
 
-      {/* Incident Detail Modal */}
-      <ModalDialog
-        open={selectedIncidentId !== null}
-        onClose={() => setSelectedIncidentId(null)}
-        title="Incident Details"
-        maxWidth="4xl"
-      >
-        {selectedIncidentId && (
-          <IncidentDetailContent
-            incidentId={selectedIncidentId}
-            onStatusChange={handleStatusChange}
-          />
-        )}
-      </ModalDialog>
     </div>
     </PermissionGuard>
   );
