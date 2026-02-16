@@ -6,6 +6,7 @@ import { useRouter, usePathname } from "next/navigation";
 import ReportIncidentModal from "../../incidents/report-incident-modal";
 import { apiGet, API_BASE } from "@/lib/api";
 import { usePermissions } from "@/lib/use-permissions";
+import { useModalContext } from "../../modal-manager";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -187,6 +188,7 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
   const { hasPermission } = usePermissions();
   const router = useRouter();
   const pathname = usePathname();
+  const { openModal } = useModalContext();
   const [incLoading, setIncLoading] = useState(true);
   const [incError, setIncError] = useState<string | null>(null);
   const [incidents, setIncidents] = useState<Incident[]>([]);
@@ -251,11 +253,11 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
 
   function handleReportSuccess() {
     setShowReportModal(false);
-    window.location.reload();
+    if (onUpdate) onUpdate();
   }
 
   function openIncidentModal(incidentId: string) {
-    router.push(`${pathname}?incident=${incidentId}`);
+    openModal("incident", incidentId);
   }
 
   return (
@@ -403,7 +405,7 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
             <div className="mt-1 text-sm text-red-700">{incError}</div>
             <button
               type="button"
-              onClick={() => window.location.reload()}
+              onClick={() => { if (onUpdate) onUpdate(); }}
               className="mt-3 rounded-2xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
             >
               Retry

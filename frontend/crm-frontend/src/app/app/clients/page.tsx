@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet } from "@/lib/api";
 import { PermissionGuard } from "@/lib/permission-guard";
 import { usePermissions } from "@/lib/use-permissions";
+import { useModalContext } from "../modal-manager";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -55,10 +56,10 @@ export default function ClientsPage() {
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<ClientRow[]>([]);
 
-  // Helper function to open client modal via URL
-  // Simple URL - browser history handles "back" navigation
+  const { openModal } = useModalContext();
+
   function openClientModal(clientId: number) {
-    router.push(`/app/clients?client=${clientId}`);
+    openModal("client", String(clientId));
   }
 
   useEffect(() => {

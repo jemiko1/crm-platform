@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { apiGet } from "@/lib/api";
 import { usePermissions } from "@/lib/use-permissions";
+import { useModalContext } from "../../modal-manager";
 import AddDeviceModal from "./add-device-modal";
 import AddClientModal from "./add-client-modal";
 import EditBuildingModal from "./edit-building-modal";
@@ -115,6 +116,7 @@ export default function BuildingDetailContent({ building, buildingId, onUpdate }
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+  const { openModal } = useModalContext();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [assets, setAssets] = useState<Asset[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -321,7 +323,7 @@ export default function BuildingDetailContent({ building, buildingId, onUpdate }
           <IncidentsTab
             incidents={incidents}
             loading={incidentsLoading}
-            onIncidentClick={(incidentId) => router.push(`${pathname}?incident=${incidentId}`)}
+            onIncidentClick={(incidentId) => openModal("incident", String(incidentId))}
             onAddClick={() => setShowReportIncidentModal(true)}
             buildingId={buildingId}
           />
@@ -974,7 +976,7 @@ function WorkOrdersTab({
         onClose={() => setShowCreateModal(false)}
         onSuccess={() => {
           setShowCreateModal(false);
-          window.location.reload();
+          if (onUpdate) onUpdate();
         }}
         presetBuilding={{
           coreId: building.coreId,

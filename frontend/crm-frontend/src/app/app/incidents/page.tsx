@@ -7,6 +7,7 @@ import { apiGet } from "@/lib/api";
 import ReportIncidentModal from "./report-incident-modal";
 import { PermissionGuard } from "@/lib/permission-guard";
 import { usePermissions } from "@/lib/use-permissions";
+import { useModalContext } from "../modal-manager";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -311,8 +312,10 @@ export default function IncidentsPage() {
     loadIncidents();
   }
 
+  const { openModal } = useModalContext();
+
   function openIncidentModal(incidentId: string) {
-    router.push(`${pathname}?incident=${incidentId}`);
+    openModal("incident", incidentId);
   }
 
   return (
