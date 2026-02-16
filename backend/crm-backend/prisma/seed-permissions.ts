@@ -13,19 +13,19 @@ const prisma = new PrismaClient({
 
 const DEFAULT_PERMISSIONS = [
   // Buildings
-  { resource: "buildings", action: "read", category: PermissionCategory.BUILDINGS, description: "View buildings" },
+  { resource: "buildings", action: "details_read", category: PermissionCategory.BUILDINGS, description: "View building detailed information" },
   { resource: "buildings", action: "create", category: PermissionCategory.BUILDINGS, description: "Create new buildings" },
   { resource: "buildings", action: "update", category: PermissionCategory.BUILDINGS, description: "Update building information" },
   { resource: "buildings", action: "delete", category: PermissionCategory.BUILDINGS, description: "Delete buildings" },
 
   // Clients
-  { resource: "clients", action: "read", category: PermissionCategory.CLIENTS, description: "View clients" },
+  { resource: "clients", action: "details_read", category: PermissionCategory.CLIENTS, description: "View client detailed information" },
   { resource: "clients", action: "create", category: PermissionCategory.CLIENTS, description: "Create new clients" },
   { resource: "clients", action: "update", category: PermissionCategory.CLIENTS, description: "Update client information" },
   { resource: "clients", action: "delete", category: PermissionCategory.CLIENTS, description: "Delete clients" },
 
   // Incidents
-  { resource: "incidents", action: "read", category: PermissionCategory.INCIDENTS, description: "View incidents" },
+  { resource: "incidents", action: "details_read", category: PermissionCategory.INCIDENTS, description: "View incident detailed information" },
   { resource: "incidents", action: "create", category: PermissionCategory.INCIDENTS, description: "Create new incidents" },
   { resource: "incidents", action: "update", category: PermissionCategory.INCIDENTS, description: "Update incident information" },
   { resource: "incidents", action: "assign", category: PermissionCategory.INCIDENTS, description: "Assign incidents to employees" },
@@ -198,6 +198,29 @@ async function main() {
 
   console.log(`✅ Permissions seeded: ${created} created, ${skipped} already existed`);
   console.log(`📊 Total permissions: ${DEFAULT_PERMISSIONS.length}`);
+
+  // Clean up deprecated permissions that are no longer used
+  const DEPRECATED_PERMISSIONS = [
+    { resource: "buildings", action: "read" },
+    { resource: "clients", action: "read" },
+    { resource: "incidents", action: "read" },
+  ];
+
+  let removed = 0;
+  for (const dep of DEPRECATED_PERMISSIONS) {
+    try {
+      await prisma.permission.delete({
+        where: { resource_action: { resource: dep.resource, action: dep.action } },
+      });
+      removed++;
+      console.log(`🗑️  Removed deprecated permission: ${dep.resource}.${dep.action}`);
+    } catch {
+      // Permission doesn't exist or is still referenced — skip silently
+    }
+  }
+  if (removed > 0) {
+    console.log(`🧹 Cleaned up ${removed} deprecated permission(s)`);
+  }
 }
 
 main()

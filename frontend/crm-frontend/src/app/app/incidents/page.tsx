@@ -2,10 +2,9 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
 import { apiGet } from "@/lib/api";
 import ReportIncidentModal from "./report-incident-modal";
-import ModalDialog from "../../modal-dialog";
-import IncidentDetailContent from "./incident-detail-content";
 import { PermissionGuard } from "@/lib/permission-guard";
 import { usePermissions } from "@/lib/use-permissions";
 
@@ -204,6 +203,8 @@ function normalizeIncident(raw: any): Incident {
 
 export default function IncidentsPage() {
   const { hasPermission } = usePermissions();
+  const router = useRouter();
+  const pathname = usePathname();
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<Incident["status"] | "ALL">("ALL");
   const [priorityFilter, setPriorityFilter] = useState<Incident["priority"] | "ALL">("ALL");
@@ -215,7 +216,6 @@ export default function IncidentsPage() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
 
   const [showReportModal, setShowReportModal] = useState(false);
-  const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
 
   async function loadIncidents() {
     try {
@@ -311,9 +311,8 @@ export default function IncidentsPage() {
     loadIncidents();
   }
 
-  function handleStatusChange() {
-    // Refresh list after status update
-    loadIncidents();
+  function openIncidentModal(incidentId: string) {
+    router.push(`${pathname}?incident=${incidentId}`);
   }
 
   return (
@@ -566,7 +565,7 @@ export default function IncidentsPage() {
                                 "hover:shadow-lg hover:-translate-y-0.5 hover:z-10",
                                 !isLast && "border-b border-zinc-100",
                               ].join(" ")}
-                              onClick={() => setSelectedIncidentId(incident.id)}
+                              onClick={() => openIncidentModal(incident.id)}
                             >
                               {/* Incident # */}
                               <td className="px-5 py-4 align-middle">
@@ -694,7 +693,7 @@ export default function IncidentsPage() {
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setSelectedIncidentId(incident.id);
+                                    openIncidentModal(incident.id);
                                   }}
                                   className="inline-flex items-center gap-1 rounded-2xl bg-white px-3 py-1.5 text-xs font-semibold text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50"
                                 >
@@ -750,19 +749,6 @@ export default function IncidentsPage() {
         onSuccess={handleReportSuccess}
       />
 
-      <ModalDialog
-        open={selectedIncidentId !== null}
-        onClose={() => setSelectedIncidentId(null)}
-        title="Incident Details"
-        maxWidth="4xl"
-      >
-        {selectedIncidentId && (
-          <IncidentDetailContent
-            incidentId={selectedIncidentId}
-            onStatusChange={handleStatusChange}
-          />
-        )}
-      </ModalDialog>
     </div>
     </PermissionGuard>
   );

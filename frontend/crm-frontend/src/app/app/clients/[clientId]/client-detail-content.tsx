@@ -2,9 +2,8 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
 import ReportIncidentModal from "../../incidents/report-incident-modal";
-import ModalDialog from "../../../modal-dialog";
-import IncidentDetailContent from "../../incidents/incident-detail-content";
 import { apiGet, API_BASE } from "@/lib/api";
 import { usePermissions } from "@/lib/use-permissions";
 
@@ -186,11 +185,12 @@ type Props = {
 export default function ClientDetailContent({ client, clientId, onUpdate }: Props) {
   const clientCoreId = Number(clientId);
   const { hasPermission } = usePermissions();
+  const router = useRouter();
+  const pathname = usePathname();
   const [incLoading, setIncLoading] = useState(true);
   const [incError, setIncError] = useState<string | null>(null);
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [showReportModal, setShowReportModal] = useState(false);
-  const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
 
   // Load incidents for this client
   useEffect(() => {
@@ -254,8 +254,8 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
     window.location.reload();
   }
 
-  function handleStatusChange() {
-    window.location.reload();
+  function openIncidentModal(incidentId: string) {
+    router.push(`${pathname}?incident=${incidentId}`);
   }
 
   return (
@@ -438,7 +438,7 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
               <button
                 key={inc.id}
                 type="button"
-                onClick={() => setSelectedIncidentId(inc.id)}
+                onClick={() => openIncidentModal(inc.id)}
                 className="group block w-full text-left rounded-3xl bg-white p-5 ring-1 ring-zinc-200 transition hover:bg-emerald-50/50 hover:ring-emerald-300 cursor-pointer"
               >
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -518,20 +518,6 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
         allowedBuildingCoreIds={(client.buildings ?? []).map((b) => b.coreId)}
       />
 
-      {/* Incident Detail Modal */}
-      <ModalDialog
-        open={selectedIncidentId !== null}
-        onClose={() => setSelectedIncidentId(null)}
-        title="Incident Details"
-        maxWidth="4xl"
-      >
-        {selectedIncidentId && (
-          <IncidentDetailContent
-            incidentId={selectedIncidentId}
-            onStatusChange={handleStatusChange}
-          />
-        )}
-      </ModalDialog>
     </div>
   );
 }

@@ -152,9 +152,9 @@ export class PermissionsService {
       if (allPermissions.length === 0) {
         // If no permissions exist in DB, return common permissions for admin
         return [
-          'buildings.create', 'buildings.read', 'buildings.update', 'buildings.delete',
-          'clients.create', 'clients.read', 'clients.update', 'clients.delete',
-          'incidents.create', 'incidents.read', 'incidents.update', 'incidents.delete',
+          'buildings.create', 'buildings.details_read', 'buildings.update', 'buildings.delete',
+          'clients.create', 'clients.details_read', 'clients.update', 'clients.delete',
+          'incidents.create', 'incidents.details_read', 'incidents.update', 'incidents.delete',
           'work-orders.create', 'work-orders.read', 'work-orders.update', 'work-orders.delete',
           'employees.create', 'employees.read', 'employees.update', 'employees.delete',
           'inventory.create', 'inventory.read', 'inventory.update', 'inventory.delete',

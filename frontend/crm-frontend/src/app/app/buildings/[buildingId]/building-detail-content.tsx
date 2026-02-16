@@ -2,15 +2,13 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { apiGet } from "@/lib/api";
 import { usePermissions } from "@/lib/use-permissions";
 import AddDeviceModal from "./add-device-modal";
 import AddClientModal from "./add-client-modal";
 import EditBuildingModal from "./edit-building-modal";
 import ReportIncidentModal from "../../incidents/report-incident-modal";
-import ModalDialog from "../../../modal-dialog";
-import IncidentDetailContent from "../../incidents/incident-detail-content";
 import CreateWorkOrderModal from "../../work-orders/create-work-order-modal";
 
 const BRAND = "rgb(8, 117, 56)";
@@ -115,6 +113,8 @@ type Props = {
 
 export default function BuildingDetailContent({ building, buildingId, onUpdate }: Props) {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [assets, setAssets] = useState<Asset[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -124,7 +124,6 @@ export default function BuildingDetailContent({ building, buildingId, onUpdate }
   const [showAddClientModal, setShowAddClientModal] = useState(false);
   const [showEditBuildingModal, setShowEditBuildingModal] = useState(false);
   const [showReportIncidentModal, setShowReportIncidentModal] = useState(false);
-  const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
 
   // Handle URL query param for tab
   useEffect(() => {
@@ -211,9 +210,6 @@ export default function BuildingDetailContent({ building, buildingId, onUpdate }
     }
   }, [buildingId]);
 
-  function handleStatusChange() {
-    fetchIncidents();
-  }
 
   return (
     <div className="p-6 bg-emerald-50/30 rounded-t-3xl lg:rounded-l-3xl lg:rounded-tr-none lg:rounded-br-none">
@@ -325,7 +321,7 @@ export default function BuildingDetailContent({ building, buildingId, onUpdate }
           <IncidentsTab
             incidents={incidents}
             loading={incidentsLoading}
-            onIncidentClick={(incidentId) => setSelectedIncidentId(incidentId)}
+            onIncidentClick={(incidentId) => router.push(`${pathname}?incident=${incidentId}`)}
             onAddClick={() => setShowReportIncidentModal(true)}
             buildingId={buildingId}
           />
@@ -370,19 +366,6 @@ export default function BuildingDetailContent({ building, buildingId, onUpdate }
         lockBuilding={true}
       />
 
-      <ModalDialog
-        open={selectedIncidentId !== null}
-        onClose={() => setSelectedIncidentId(null)}
-        title="Incident Details"
-        maxWidth="4xl"
-      >
-        {selectedIncidentId && (
-          <IncidentDetailContent
-            incidentId={selectedIncidentId}
-            onStatusChange={handleStatusChange}
-          />
-        )}
-      </ModalDialog>
     </div>
   );
 }
@@ -1071,7 +1054,7 @@ function IncidentsTab({
     return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
   }
 
-  if (!hasPermission('incidents.read')) {
+  if (!hasPermission('incidents.menu')) {
     return (
       <div className="space-y-4">
         <h2 className="text-lg font-semibold text-zinc-900">Incidents</h2>
