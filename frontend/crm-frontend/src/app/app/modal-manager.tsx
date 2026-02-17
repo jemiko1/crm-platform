@@ -23,6 +23,7 @@ import BuildingDetailContent from "./buildings/[buildingId]/building-detail-cont
 import ClientDetailContent from "./clients/[clientId]/client-detail-content";
 import EmployeeDetailContent from "./employees/[employeeId]/employee-detail-content";
 import IncidentDetailContent from "./incidents/incident-detail-content";
+import FullMessengerContent from "./messenger/full-messenger-content";
 
 // Base z-index for the stack. Each layer adds +10.
 const STACK_BASE_Z_INDEX = 10000;
@@ -530,6 +531,18 @@ function IncidentModal({ incidentId, onClose, zIndex, isTopmost, stackDepth, sta
 }
 
 // ─────────────────────────────────────────────────────────
+// Messenger Modal Wrapper
+// ─────────────────────────────────────────────────────────
+
+function MessengerModal({ conversationId, onClose, zIndex, isTopmost, stackDepth, stackSize, onRefresh }: { conversationId: string } & StackedModalProps) {
+  return (
+    <ModalShell onClose={onClose} zIndex={zIndex} isTopmost={isTopmost} stackDepth={stackDepth} stackSize={stackSize}>
+      <FullMessengerContent initialConversationId={conversationId !== "_" ? conversationId : undefined} />
+    </ModalShell>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
 // Main ModalManager — Renderer + URL Sync
 // ─────────────────────────────────────────────────────────
 
@@ -602,6 +615,8 @@ export default function ModalManager() {
             return <WorkOrderModal key={entry.key} workOrderId={entry.id} {...sharedProps} />;
           case "incident":
             return <IncidentModal key={entry.key} incidentId={entry.id} {...sharedProps} />;
+          case "messenger":
+            return <MessengerModal key={entry.key} conversationId={entry.id} {...sharedProps} />;
           default:
             return null;
         }

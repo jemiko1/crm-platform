@@ -427,12 +427,62 @@ Complete frontend route documentation for CRM Platform.
 
 ---
 
+## Messenger (Global Component - not a route)
+
+**Files**:
+- `messenger/messenger-context.tsx` - Global React Context with Socket.IO client, state management, MessageBus
+- `messenger/types.ts` - TypeScript interfaces (Conversation, Message, Participant, MessageReaction, etc.)
+- `messenger/chat-bubble.tsx` - Bottom-anchored chat window (Facebook-style)
+- `messenger/chat-bubble-container.tsx` - Container managing multiple open chat bubbles
+- `messenger/full-messenger-content.tsx` - Three-column full messenger view (conversations | chat | employee info)
+- `messenger/messenger-modal-bridge.tsx` - Bridge between messenger events and modal stack system
+- `messenger/messenger-dropdown.tsx` - Header dropdown showing recent conversations
+- `messenger/conversation-list.tsx` - Conversation list with filters (All, Groups, Unread)
+- `messenger/conversation-item.tsx` - Individual conversation row component
+- `messenger/message-list.tsx` - Message list with polling, status tracking, auto-scroll
+- `messenger/message-item.tsx` - Message bubble with reactions, status icons, seen avatars
+- `messenger/message-input.tsx` - Message input with emoji picker and typing indicator
+- `messenger/employee-info-panel.tsx` - Right-side employee card in full messenger
+- `messenger/create-group-dialog.tsx` - Group creation dialog (permission-gated)
+- `messenger/typing-indicator.tsx` - Animated typing indicator
+
+**Header Components**:
+- `app-header.tsx` - Sticky header with CRM28 branding, search, workspace, icons, profile
+- `header-messenger-icon.tsx` - Messenger icon with unread badge and dropdown
+- `header-notifications.tsx` - Notification bell with unread badge and dropdown
+- `header-search.tsx` - Pill-shaped search bar with Ctrl+K shortcut
+- `profile-menu.tsx` - Circular avatar button with dropdown menu
+
+**API Calls**:
+- `GET /v1/messenger/me` - Get current employee ID
+- `GET /v1/messenger/conversations` - List conversations
+- `POST /v1/messenger/conversations` - Create conversation
+- `GET /v1/messenger/conversations/:id/messages` - List messages (cursor-based)
+- `POST /v1/messenger/conversations/:id/messages` - Send message
+- `POST /v1/messenger/conversations/:id/read` - Mark as read
+- `POST /v1/messenger/messages/:id/reactions` - Toggle reaction
+- `GET /v1/messenger/unread-count` - Unread count
+- `GET /v1/messenger/search/employees` - Employee search
+- `GET /v1/messenger/permissions` - Messenger permissions
+- WebSocket: `/messenger` namespace (Socket.IO)
+
+**Status**: ✅ **Working**  
+**Notes**:
+- Not a page route; rendered globally in `layout.tsx` via `MessengerProvider`, `ChatBubbleContainer`, `MessengerModalBridge`
+- Full messenger opens as slider modal via `ModalManager` (type: `"messenger"`)
+- Chat bubbles are fixed-position windows at bottom-right
+- Real-time via WebSocket with REST polling fallback (3s)
+- Sound notifications via `notification.wav`
+
+---
+
 ## Summary
 
 **Total Routes**: 28  
 **Working**: 21 routes (Buildings, Clients, Incidents, Work Orders, Work Order Detail, Tasks, Task Detail, Inventory, Employees, Employee Detail, Admin Panel, Positions, Role Groups, Departments, Workflow Configuration, Sales Leads, Lead Detail, Sales Config)  
 **Partial**: 3 routes (Dashboard - static UI, Roles - read-only, Admin Employees - duplicate)  
-**Placeholder**: 4 routes (Users, Assets, empty directories)
+**Placeholder**: 4 routes (Users, Assets, empty directories)  
+**Global Components**: Messenger (chat bubbles + full messenger modal + header integration)
 
 **Key Patterns**:
 - Most routes use `apiGet`, `apiPost`, `apiPatch`, `apiDelete` from `@/lib/api`
@@ -441,11 +491,13 @@ Complete frontend route documentation for CRM Platform.
 - Work Orders separated into back-office monitoring and employee workspace
 - Task detail page handles all workflow actions for technical employees
 - Activity timeline shows workflow events on work order detail page
+- Messenger uses `MessengerContext` for global state and `MessageBusContext` for decoupled message delivery
 
-**Modal System (v1.2.0)**:
+**Modal System (v1.2.0+)**:
 - Centralized `ModalManager` in app layout renders all detail modals
 - URL query params control modal state: `?building=1`, `?client=5`, `?employee=abc`, `?workOrder=123`
+- Messenger modal type: `"messenger"` (opened via event bridge, not URL params)
 - History-based navigation: `router.back()` closes modals
 - Z-index architecture: detail modals at 10000, action modals at 50000+
 - All detail views open as full-size, shareable popups
-- Files: `modal-manager.tsx`, `modal-provider.tsx`, `modal-z-index-context.tsx`
+- Files: `modal-manager.tsx`, `modal-provider.tsx`, `modal-z-index-context.tsx`, `modal-stack-context.tsx`

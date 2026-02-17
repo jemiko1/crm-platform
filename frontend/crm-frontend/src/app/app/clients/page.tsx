@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet } from "@/lib/api";
 import { PermissionGuard } from "@/lib/permission-guard";
@@ -233,6 +232,8 @@ export default function ClientsPage() {
                           return (
                             <tr
                               key={c.coreId}
+                              onClick={() => openClientModal(c.coreId)}
+                              style={{ cursor: "pointer" }}
                               className={[
                                 "group transition-all duration-200 ease-out",
                                 "hover:bg-emerald-50/60",
@@ -242,26 +243,20 @@ export default function ClientsPage() {
                             >
                               {/* Client */}
                               <td className="px-5 py-4 align-middle">
-                                <button
-                                  type="button"
-                                  onClick={() => openClientModal(c.coreId)}
-                                  className="block w-full text-left"
-                                >
-                                  <div className="flex items-center justify-between gap-3">
-                                    <div className="min-w-0">
-                                      <div className="text-[15px] font-semibold text-zinc-900 underline-offset-2 group-hover:underline truncate">
-                                        {name}
-                                      </div>
-                                      <div className="mt-1 text-xs text-zinc-500 truncate">
-                                        {safePhone(c.primaryPhone)} • {safeText(c.paymentId)}
-                                      </div>
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <div className="text-[15px] font-semibold text-zinc-900 underline-offset-2 group-hover:underline truncate">
+                                      {name}
                                     </div>
-
-                                    <span className="text-zinc-400 transition-transform group-hover:translate-x-0.5">
-                                      →
-                                    </span>
+                                    <div className="mt-1 text-xs text-zinc-500 truncate">
+                                      {safePhone(c.primaryPhone)} • {safeText(c.paymentId)}
+                                    </div>
                                   </div>
-                                </button>
+
+                                  <span className="text-zinc-400 transition-transform group-hover:translate-x-0.5">
+                                    →
+                                  </span>
+                                </div>
                               </td>
 
                               {/* ID Number */}
@@ -348,6 +343,7 @@ export default function ClientsPage() {
 
 const BuildingsCell = React.memo(function BuildingsCell({ buildings }: { buildings: { coreId: number; name: string }[] }) {
   const [open, setOpen] = useState(false);
+  const { openModal } = useModalContext();
 
   if (!buildings.length) {
     return <span className="text-sm text-zinc-500">—</span>;
@@ -359,17 +355,19 @@ const BuildingsCell = React.memo(function BuildingsCell({ buildings }: { buildin
   return (
     <div
       className="relative inline-flex items-center gap-2"
+      onClick={(e) => e.stopPropagation()}
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >
-      <Link
-        href={`/app/buildings?building=${first.coreId}`}
+      <button
+        type="button"
+        onClick={() => openModal("building", String(first.coreId))}
         className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50"
         title="Open building"
       >
         <span className="h-2 w-2 rounded-full" style={{ backgroundColor: BRAND }} />
         <span className="truncate max-w-[180px]">{first.name}</span>
-      </Link>
+      </button>
 
       {extra > 0 ? (
         <span className="rounded-2xl bg-zinc-50 px-3 py-2 text-xs font-semibold text-zinc-700 ring-1 ring-zinc-200">
@@ -385,16 +383,17 @@ const BuildingsCell = React.memo(function BuildingsCell({ buildings }: { buildin
 
           <div className="max-h-56 space-y-2 overflow-y-auto">
             {buildings.map((b) => (
-              <Link
+              <button
                 key={b.coreId}
-                href={`/app/buildings?building=${b.coreId}`}
-                className="block rounded-xl bg-zinc-50 px-3 py-2 text-sm text-zinc-900 ring-1 ring-zinc-200 hover:bg-emerald-50 hover:ring-emerald-200 transition"
+                type="button"
+                onClick={() => openModal("building", String(b.coreId))}
+                className="block w-full text-left rounded-xl bg-zinc-50 px-3 py-2 text-sm text-zinc-900 ring-1 ring-zinc-200 hover:bg-emerald-50 hover:ring-emerald-200 transition"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0 truncate font-semibold">{b.name}</div>
                   <div className="text-xs text-zinc-500 tabular-nums">#{b.coreId}</div>
                 </div>
-              </Link>
+              </button>
             ))}
           </div>
         </div>

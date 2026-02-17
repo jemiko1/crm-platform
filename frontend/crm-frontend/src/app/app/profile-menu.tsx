@@ -203,48 +203,25 @@ export default function ProfileMenu() {
         ref={btnRef}
         type="button"
         onClick={() => (open ? closeMenu() : openMenu())}
-        className={[
-          "flex items-center gap-3 rounded-2xl px-3 py-2 transition",
-          "bg-white/70 hover:bg-white shadow-sm ring-1 ring-white/60",
-        ].join(" ")}
+        className="relative w-10 h-10 rounded-full overflow-hidden ring-1 ring-zinc-200 hover:ring-zinc-300 transition-all shrink-0"
+        title={displayName}
       >
-        {/* Avatar */}
-        <div className="relative h-10 w-10 overflow-hidden rounded-2xl ring-1 ring-white/60 bg-white grid place-items-center">
-          {me.avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={me.avatarUrl}
-              alt="Profile"
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <span className="text-sm font-semibold text-zinc-800">
-              {initialsOf(me.firstName, me.lastName)}
-            </span>
-          )}
-
-          <span
-            className="absolute bottom-1 right-1 h-2.5 w-2.5 rounded-full ring-2 ring-white"
-            style={{ backgroundColor: BRAND_GREEN }}
+        {me.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={me.avatarUrl}
+            alt="Profile"
+            className="h-full w-full object-cover"
           />
-        </div>
-
-        {/* Name + role */}
-        <div className="hidden sm:block text-left leading-tight">
-          {loadingMe ? (
-            <>
-              <div className="h-4 w-24 rounded bg-zinc-200 animate-pulse" />
-              <div className="mt-1 h-3 w-16 rounded bg-zinc-100 animate-pulse" />
-            </>
-          ) : (
-            <>
-              <div className="text-sm font-semibold text-zinc-900">{displayName}</div>
-              <div className="text-xs text-zinc-600">{roleLabel}</div>
-            </>
-          )}
-        </div>
-
-        <span className="text-zinc-600">▾</span>
+        ) : (
+          <div className="h-full w-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-sm font-semibold">
+            {initialsOf(me.firstName, me.lastName)}
+          </div>
+        )}
+        <span
+          className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full ring-2 ring-white"
+          style={{ backgroundColor: BRAND_GREEN }}
+        />
       </button>
 
       {/* Portal menu */}
