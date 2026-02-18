@@ -773,6 +773,7 @@ const FilterPill = React.memo(function FilterPill({
 /* ========== CLIENTS TAB ========== */
 function ClientsTab({ clients, onAddClick, buildingId }: { clients: Client[]; onAddClick: () => void; buildingId: string }) {
   const { hasPermission } = usePermissions();
+  const { openModal } = useModalContext();
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -802,17 +803,19 @@ function ClientsTab({ clients, onAddClick, buildingId }: { clients: Client[]; on
                 <th className="px-4 py-3 font-medium">ID Number</th>
                 <th className="px-4 py-3 font-medium">Payment ID</th>
                 <th className="px-4 py-3 font-medium">Primary Phone</th>
-                <th className="px-4 py-3 font-medium">Actions</th>
+                <th className="px-4 py-3 font-medium"></th>
               </tr>
             </thead>
             <tbody className="bg-white">
-              {clients.map((client) => {
-                // Simple URL - browser history handles "back" navigation
-                const clientUrl = `/app/clients?client=${client.coreId}`;
-                return (
-                  <tr key={client.coreId} className="group transition-colors hover:bg-emerald-50/60">
+              {clients.map((client) => (
+                  <tr
+                    key={client.coreId}
+                    onClick={() => openModal("client", String(client.coreId))}
+                    style={{ cursor: "pointer" }}
+                    className="group transition-colors hover:bg-emerald-50/60"
+                  >
                     <td className="px-4 py-3 align-middle">
-                      <div className="text-sm font-semibold text-zinc-900">
+                      <div className="text-sm font-semibold text-zinc-900 group-hover:underline underline-offset-2">
                         {client.firstName} {client.lastName}
                       </div>
                       <div className="text-xs text-zinc-500">ID: {client.coreId}</div>
@@ -820,18 +823,11 @@ function ClientsTab({ clients, onAddClick, buildingId }: { clients: Client[]; on
                     <td className="px-4 py-3 align-middle text-sm text-zinc-700">{client.idNumber}</td>
                     <td className="px-4 py-3 align-middle text-sm text-zinc-700">{client.paymentId}</td>
                     <td className="px-4 py-3 align-middle text-sm text-zinc-700">{client.primaryPhone}</td>
-                    <td className="px-4 py-3 align-middle">
-                      <Link
-                        href={clientUrl}
-                        className="inline-flex items-center gap-1 rounded-2xl bg-white px-3 py-1.5 text-xs font-medium text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50"
-                      >
-                        View
-                        <span className="transition-transform group-hover:translate-x-0.5">→</span>
-                      </Link>
+                    <td className="px-4 py-3 align-middle text-right">
+                      <span className="text-zinc-400 transition-transform group-hover:translate-x-0.5 inline-block">→</span>
                     </td>
                   </tr>
-                );
-              })}
+              ))}
             </tbody>
           </table>
         </div>

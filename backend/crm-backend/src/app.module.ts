@@ -32,6 +32,9 @@ import { WorkflowModule } from "./workflow/workflow.module";
 // Sales CRM
 import { SalesModule } from "./sales/sales.module";
 
+// Instant Messenger
+import { MessengerModule } from "./messenger/messenger.module";
+
 import { V1Module } from "./v1/v1.module";
 
 @Module({
@@ -68,6 +71,9 @@ import { V1Module } from "./v1/v1.module";
 
     // Sales CRM
     SalesModule,
+
+    // Instant Messenger
+    MessengerModule,
 
     // API controllers (v1)
     V1Module,

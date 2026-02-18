@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useCallback, useRef, useEff
 
 // ── Types ──────────────────────────────────────────────
 
-export type ModalType = "building" | "client" | "employee" | "workOrder" | "incident";
+export type ModalType = "building" | "client" | "employee" | "workOrder" | "incident" | "messenger";
 
 export interface StackEntry {
   type: ModalType;
@@ -50,7 +50,7 @@ function stackTopToQueryString(entry: StackEntry | undefined): string {
 
 /** Read a single modal entry from URL search params (for initial hydration) */
 export function readEntryFromParams(params: URLSearchParams): StackEntry | null {
-  const modalTypes: ModalType[] = ["incident", "workOrder", "employee", "client", "building"];
+  const modalTypes: ModalType[] = ["messenger", "incident", "workOrder", "employee", "client", "building"];
   for (const type of modalTypes) {
     const value = params.get(type);
     if (value) {

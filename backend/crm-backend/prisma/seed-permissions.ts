@@ -158,6 +158,10 @@ const DEFAULT_PERMISSIONS = [
   { resource: "inventory", action: "menu", category: PermissionCategory.INVENTORY, description: "Show Inventory in left menu" },
   { resource: "employees", action: "menu", category: PermissionCategory.EMPLOYEES, description: "Show Employees in left menu" },
   { resource: "admin", action: "menu", category: PermissionCategory.ADMIN, description: "Show Admin in left menu" },
+
+  // Messenger
+  { resource: "messenger", action: "create_group", category: PermissionCategory.MESSENGER, description: "Create group conversations in messenger" },
+  { resource: "messenger", action: "manage_groups", category: PermissionCategory.MESSENGER, description: "Manage group settings and participants" },
 ];
 
 async function main() {
