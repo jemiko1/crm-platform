@@ -5,7 +5,9 @@ export class UpdatePositionDto {
   @IsOptional()
   name?: string;
 
-  // code is NOT patchable - it never changes after creation
+  @IsOptional()
+  @IsString()
+  nameKa?: string;
 
   @IsString()
   @IsOptional()

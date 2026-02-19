@@ -160,7 +160,7 @@ export default function WorkOrdersPage() {
           if (err instanceof ApiError) {
             setError(err.message);
           } else {
-            setError(err instanceof Error ? err.message : "Failed to load work orders");
+            setError(err instanceof Error ? err.message : t("workOrders.failedToLoad", "Failed to load work orders"));
           }
         }
       } finally {
@@ -224,10 +224,10 @@ export default function WorkOrdersPage() {
               {t("workOrders.title", "Work Orders")}
             </div>
             <h1 className="mt-3 text-2xl font-semibold tracking-tight text-zinc-900 md:text-3xl">
-              {t("workOrders.title", "Work Orders")} Directory
+              {t("workOrders.titleDirectory", "Work Orders Directory")}
             </h1>
             <p className="mt-1 text-sm text-zinc-600">
-              Manage installation, diagnostic, and repair work orders across buildings.
+              {t("workOrders.description", "Manage installation, diagnostic, and repair work orders across buildings.")}
             </p>
           </div>
         </div>
@@ -245,21 +245,21 @@ export default function WorkOrdersPage() {
           {/* Loading State */}
           {loading && (
             <div className="py-12 text-center text-sm text-zinc-600">
-              Loading work orders...
+              {t("workOrders.loading", "Loading work orders...")}
             </div>
           )}
 
           {/* Error State */}
           {error && !loading && (
             <div className="rounded-2xl bg-red-50 p-6 ring-1 ring-red-200">
-              <div className="text-sm font-semibold text-red-900">Error loading work orders</div>
+              <div className="text-sm font-semibold text-red-900">{t("workOrders.errorLoading", "Error loading work orders")}</div>
               <div className="mt-1 text-sm text-red-700">{error}</div>
               <button
                 type="button"
                 onClick={() => window.location.reload()}
                 className="mt-3 rounded-2xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
               >
-                Retry
+                {t("common.retry", "Retry")}
               </button>
             </div>
           )}
@@ -275,7 +275,7 @@ export default function WorkOrdersPage() {
                     setQ(e.target.value);
                     setPage(1);
                   }}
-                  placeholder="Search by title, building, asset, status, type..."
+                  placeholder={t("workOrders.searchPlaceholder", "Search by title, building, asset, status, type...")}
                   className="min-w-0 flex-1 rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-md ring-2 ring-emerald-500/40 border border-emerald-500/30 hover:ring-emerald-500/60 hover:border-emerald-500/50 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/70 focus:shadow-lg focus:border-emerald-500/60 transition-all sm:max-w-md"
                 />
                 {hasPermission("work_orders.create") && (
@@ -290,17 +290,17 @@ export default function WorkOrdersPage() {
                 )}
               </div>
 
-              <div className="overflow-hidden rounded-2xl ring-1 ring-zinc-200">
-                <div className="overflow-x-auto">
+              <div className="rounded-2xl ring-1 ring-zinc-200 overflow-x-clip">
+                <div>
                   <table className="min-w-[980px] w-full border-separate border-spacing-0">
-                    <thead className="bg-zinc-50">
+                    <thead className="bg-zinc-50 sticky top-[52px] z-20 shadow-[0_1px_0_rgba(0,0,0,0.08)]">
                       <tr className="text-left text-xs text-zinc-600">
-                        <th className="px-4 py-3 font-medium">Work Order</th>
-                        <th className="px-4 py-3 font-medium">Building</th>
-                        <th className="px-4 py-3 font-medium">Asset</th>
-                        <th className="px-4 py-3 font-medium">Type</th>
-                        <th className="px-4 py-3 font-medium">Status</th>
-                        <th className="px-4 py-3 font-medium">Created</th>
+                        <th className="px-4 py-3 font-medium bg-zinc-50">{t("workOrders.columns.workOrder", "Work Order")}</th>
+                        <th className="px-4 py-3 font-medium bg-zinc-50">{t("workOrders.columns.building", "Building")}</th>
+                        <th className="px-4 py-3 font-medium bg-zinc-50">{t("workOrders.columns.asset", "Asset")}</th>
+                        <th className="px-4 py-3 font-medium bg-zinc-50">{t("workOrders.columns.type", "Type")}</th>
+                        <th className="px-4 py-3 font-medium bg-zinc-50">{t("workOrders.columns.status", "Status")}</th>
+                        <th className="px-4 py-3 font-medium bg-zinc-50">{t("workOrders.columns.created", "Created")}</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white">
@@ -308,8 +308,8 @@ export default function WorkOrdersPage() {
                         <tr>
                           <td colSpan={6} className="px-4 py-10 text-center text-sm text-zinc-600">
                             {workOrders.length === 0
-                              ? "No work orders found."
-                              : "No work orders match your search."}
+                              ? t("workOrders.noWorkOrders", "No work orders found.")
+                              : t("workOrders.noMatch", "No work orders match your search.")}
                           </td>
                         </tr>
                       ) : (
@@ -354,7 +354,7 @@ export default function WorkOrdersPage() {
                                   type="button"
                                   onClick={() => openModal("building", String(wo.building.coreId))}
                                   className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-sm text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50"
-                                  title="Open building"
+                                  title={t("workOrders.openBuilding", "Open building")}
                                 >
                                   <span className="font-semibold">{wo.building.name}</span>
                                   <span className="text-xs text-zinc-500">#{wo.building.coreId}</span>
@@ -395,7 +395,7 @@ export default function WorkOrdersPage() {
                                 <button
                                   onClick={() => openWorkOrderModal(wo.workOrderNumber)}
                                   className="block text-left hover:bg-zinc-50 rounded-lg transition-colors w-full"
-                                  title="Open work order"
+                                  title={t("workOrders.openWorkOrder", "Open work order")}
                                 >
                                   <div className="text-sm text-zinc-900">
                                     {new Date(wo.createdAt).toLocaleDateString()}
@@ -418,10 +418,10 @@ export default function WorkOrdersPage() {
               {meta && filtered.length > 0 && (
                 <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="text-xs text-zinc-600">
-                    Page <span className="font-semibold text-zinc-900">{meta.page}</span> of{" "}
+                    {t("common.page", "Page")} <span className="font-semibold text-zinc-900">{meta.page}</span> {t("common.of", "of")}{" "}
                     <span className="font-semibold text-zinc-900">{meta.totalPages}</span>
                     <span className="mx-2 text-zinc-300">•</span>
-                    <span className="font-semibold text-zinc-900">{meta.total}</span> total
+                    <span className="font-semibold text-zinc-900">{meta.total}</span> {t("common.total", "total")}
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -430,7 +430,7 @@ export default function WorkOrdersPage() {
                       disabled={meta.page <= 1}
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                     >
-                      Prev
+                      {t("common.previous", "Previous")}
                     </button>
                     <button
                       type="button"
@@ -438,7 +438,7 @@ export default function WorkOrdersPage() {
                       disabled={meta.page >= meta.totalPages}
                       onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
                     >
-                      Next
+                      {t("common.next", "Next")}
                     </button>
                   </div>
                 </div>

@@ -5,9 +5,11 @@ import { ModalStackWrapper } from "./modal-provider";
 import { MessengerProvider } from "./messenger/messenger-context";
 import ChatBubbleContainer from "./messenger/chat-bubble-container";
 import MessengerModalBridge from "./messenger/messenger-modal-bridge";
+import { I18nProvider } from "@/contexts/i18n-context";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
+    <I18nProvider>
     <MessengerProvider>
     <ModalStackWrapper>
       <div className="min-h-screen relative">
@@ -51,8 +53,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             {/* Main content */}
             <main className="flex-1 min-w-0 lg:pl-[148px]">
               <div className="px-4 pt-4 pb-6 space-y-4">
-                <div className="rounded-3xl bg-white/85 backdrop-blur-xl border border-white/60 shadow-[0_30px_70px_-22px_rgba(0,0,0,0.25)]">
-                  <div className="p-6">{children}</div>
+                <div className="rounded-3xl bg-white/85 backdrop-blur-xl border border-white/60 shadow-[0_30px_70px_-22px_rgba(0,0,0,0.25)] overflow-visible">
+                  <div className="p-6 overflow-visible">{children}</div>
                 </div>
               </div>
             </main>
@@ -63,5 +65,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <MessengerModalBridge />
     </ModalStackWrapper>
     </MessengerProvider>
+    </I18nProvider>
   );
 }

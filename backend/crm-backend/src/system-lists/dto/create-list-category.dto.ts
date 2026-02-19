@@ -9,6 +9,10 @@ export class CreateListCategoryDto {
 
   @IsOptional()
   @IsString()
+  nameKa?: string;
+
+  @IsOptional()
+  @IsString()
   description?: string;
 
   @IsOptional()

@@ -7,6 +7,7 @@ import { apiGet, ApiError } from "@/lib/api";
 import CreateLeadModal from "./create-lead-modal";
 import { PermissionGuard } from "@/lib/permission-guard";
 import { usePermissions } from "@/lib/use-permissions";
+import { useI18n } from "@/hooks/useI18n";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -96,6 +97,7 @@ export default function LeadsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { hasPermission } = usePermissions();
+  const { t } = useI18n();
 
   const [leads, setLeads] = useState<Lead[]>([]);
   const [stages, setStages] = useState<LeadStage[]>([]);
@@ -180,9 +182,9 @@ export default function LeadsPage() {
       <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-zinc-900">Sales Pipeline</h1>
+            <h1 className="text-2xl font-bold text-zinc-900">{t("sales.leads.title", "Sales Pipeline")}</h1>
             <p className="mt-1 text-sm text-zinc-600">
-              Manage leads and track sales progress
+              {t("sales.leads.description", "Manage leads and track sales progress")}
             </p>
           </div>
           {hasPermission("leads.create") && (
@@ -194,7 +196,7 @@ export default function LeadsPage() {
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              New Lead
+              {t("sales.leads.newLead", "New Lead")}
             </button>
           )}
         </div>
@@ -204,23 +206,23 @@ export default function LeadsPage() {
       {statistics && (
         <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <div className="rounded-2xl bg-white p-4 shadow-md ring-1 ring-zinc-200">
-            <div className="text-sm font-medium text-zinc-600">Total Leads</div>
+            <div className="text-sm font-medium text-zinc-600">{t("sales.leads.totalLeads", "Total Leads")}</div>
             <div className="mt-1 text-2xl font-bold text-zinc-900">{statistics.total}</div>
           </div>
           <div className="rounded-2xl bg-white p-4 shadow-md ring-1 ring-zinc-200">
-            <div className="text-sm font-medium text-zinc-600">Active</div>
+            <div className="text-sm font-medium text-zinc-600">{t("sales.leads.active", "Active")}</div>
             <div className="mt-1 text-2xl font-bold text-blue-600">{statistics.active}</div>
           </div>
           <div className="rounded-2xl bg-white p-4 shadow-md ring-1 ring-zinc-200">
-            <div className="text-sm font-medium text-zinc-600">Won</div>
+            <div className="text-sm font-medium text-zinc-600">{t("sales.leads.won", "Won")}</div>
             <div className="mt-1 text-2xl font-bold text-emerald-600">{statistics.won}</div>
           </div>
           <div className="rounded-2xl bg-white p-4 shadow-md ring-1 ring-zinc-200">
-            <div className="text-sm font-medium text-zinc-600">Lost</div>
+            <div className="text-sm font-medium text-zinc-600">{t("sales.leads.lost", "Lost")}</div>
             <div className="mt-1 text-2xl font-bold text-red-600">{statistics.lost}</div>
           </div>
           <div className="rounded-2xl bg-white p-4 shadow-md ring-1 ring-zinc-200">
-            <div className="text-sm font-medium text-zinc-600">Conversion Rate</div>
+            <div className="text-sm font-medium text-zinc-600">{t("sales.leads.conversionRate", "Conversion Rate")}</div>
             <div className="mt-1 text-2xl font-bold text-zinc-900">{statistics.conversionRate}%</div>
           </div>
         </div>
@@ -291,7 +293,7 @@ export default function LeadsPage() {
               setSearchQuery(e.target.value);
               setPage(1);
             }}
-            placeholder="Search leads..."
+            placeholder={t("sales.leads.searchPlaceholder", "Search leads...")}
             className="w-full rounded-xl border border-zinc-200 py-2.5 pl-10 pr-4 text-sm transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
           />
         </div>
@@ -353,7 +355,7 @@ export default function LeadsPage() {
                 d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
               />
             </svg>
-            <p className="text-zinc-500">No leads found</p>
+            <p className="text-zinc-500">{t("sales.leads.noLeads", "No leads found")}</p>
             {hasPermission("leads.create") && (
               <button
                 onClick={() => setShowCreateModal(true)}
@@ -366,26 +368,26 @@ export default function LeadsPage() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-clip">
               <table className="w-full">
-                <thead>
-                  <tr className="border-b border-zinc-200 bg-zinc-50/50">
-                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
+                <thead className="sticky top-[52px] z-20 shadow-[0_1px_0_rgba(0,0,0,0.08)]">
+                  <tr className="border-b border-zinc-200 bg-zinc-50">
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600 bg-zinc-50">
                       Lead
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600 bg-zinc-50">
                       Stage
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600 bg-zinc-50">
                       Status
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600 bg-zinc-50">
                       Location
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600 bg-zinc-50">
                       Responsible
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600 bg-zinc-50">
                       Created
                     </th>
                   </tr>

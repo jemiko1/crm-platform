@@ -1,7 +1,206 @@
 {
+  "common": {
+    "search": "Search",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "add": "Add",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "loading": "Loading...",
+    "retry": "Retry",
+    "noResults": "No results found",
+    "error": "Error",
+    "success": "Success",
+    "confirm": "Confirm",
+    "active": "Active",
+    "inactive": "Inactive",
+    "yes": "Yes",
+    "no": "No",
+    "all": "All",
+    "none": "None",
+    "actions": "Actions",
+    "status": "Status",
+    "type": "Type",
+    "description": "Description",
+    "name": "Name",
+    "page": "Page",
+    "of": "of",
+    "total": "total",
+    "showing": "Showing",
+    "viewDetails": "View Details",
+    "export": "Export"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language"
+  },
+  "sidebar": {
+    "dashboard": "Dashboard",
+    "buildings": "Buildings",
+    "clients": "Clients",
+    "incidents": "Incidents",
+    "assets": "Assets",
+    "workOrders": "Work Orders",
+    "sales": "Sales",
+    "inventory": "Inventory",
+    "employees": "Employees",
+    "admin": "Admin"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "HOA Operations Dashboard",
+    "description": "Today's snapshot of work orders, buildings, assets, and inventory signals — designed for quick decisions.",
+    "activeWorkOrders": "Active Work Orders",
+    "openTickets": "Open Tickets",
+    "buildingsManaged": "Buildings Managed",
+    "inventoryAlerts": "Inventory Alerts",
+    "overdue": "overdue",
+    "today": "today",
+    "highPriority": "high priority",
+    "restockNeeded": "restock needed",
+    "workOrderStatus": "Work order status",
+    "liveFlow": "Live operational flow",
+    "newWorkOrder": "New Work Order"
+  },
+  "buildings": {
+    "title": "Buildings Directory",
+    "subtitle": "Buildings",
+    "description": "Synced from your core system via API. Buildings and devices are read-only in this CRM.",
+    "loading": "Loading buildings from API...",
+    "errorLoading": "Error loading buildings",
+    "searchPlaceholder": "Search by ID, name, address, city...",
+    "columns": {
+      "building": "Building",
+      "clients": "Clients",
+      "devices": "Devices",
+      "workOrders": "Work Orders",
+      "lastUpdate": "Last Update"
+    },
+    "openClients": "Open clients list",
+    "openDevices": "Open devices",
+    "openWorkOrders": "Open work orders",
+    "openBuilding": "Open building",
+    "latestSync": "latest core sync",
+    "addBuilding": "Add Building",
+    "noMatch": "No buildings match your search.",
+    "noBuildings": "No buildings found. Click 'Add Building' to create one.",
+    "open": "Open:"
+  },
+  "clients": {
+    "title": "Clients Directory",
+    "subtitle": "Clients",
+    "description": "Central client list across buildings. Assignment is mapped by building coreId.",
+    "loading": "Loading clients from API...",
+    "errorLoading": "Error loading clients",
+    "searchPlaceholder": "Search by name, ID number, payment id, phone, building...",
+    "columns": {
+      "client": "Client",
+      "idNumber": "ID Number",
+      "paymentId": "Payment ID",
+      "primaryPhone": "Primary Phone",
+      "secondaryPhone": "Secondary Phone",
+      "buildings": "Buildings",
+      "clientId": "Client ID"
+    },
+    "assignedBuildings": "Assigned Buildings",
+    "openBuilding": "Open building"
+  },
+  "employees": {
+    "title": "Employees",
+    "description": "Manage your organization's employees",
+    "searchPlaceholder": "Search employees...",
+    "addEmployee": "Add Employee",
+    "columns": {
+      "employee": "Employee",
+      "email": "Email",
+      "position": "Position",
+      "status": "Status",
+      "userAccount": "User Account",
+      "extension": "Extension",
+      "actions": "Actions"
+    },
+    "noPosition": "No position",
+    "statusFilters": {
+      "all": "ALL",
+      "active": "ACTIVE",
+      "inactive": "INACTIVE",
+      "onLeave": "ON_LEAVE",
+      "terminated": "TERMINATED"
+    },
+    "accountActive": "Active login account",
+    "accountDisabled": "Login account disabled",
+    "noAccount": "No login account"
+  },
+  "incidents": {
+    "title": "Incident Management",
+    "description": "Track and manage customer-reported incidents across all buildings.",
+    "loading": "Loading incidents from API...",
+    "errorLoading": "Error loading incidents",
+    "searchPlaceholder": "Search incidents by number, client, building, description...",
+    "reportIncident": "Report Incident",
+    "noIncidents": "No incidents reported yet",
+    "noIncidentsHint": "When customers report issues, they will appear here.",
+    "noMatch": "No incidents match your filters.",
+    "showing": "Showing",
+    "columns": {
+      "incidentNumber": "Incident #",
+      "status": "Status",
+      "productsAffected": "Products Affected",
+      "building": "Building",
+      "client": "Client",
+      "createdOn": "Created On",
+      "priority": "Priority",
+      "createdBy": "Created By",
+      "actions": "Actions"
+    },
+    "statusFilters": {
+      "all": "All Status",
+      "created": "Created",
+      "inProgress": "In Progress",
+      "completed": "Completed",
+      "workOrder": "Work Order"
+    },
+    "priorityFilters": {
+      "all": "All Priority",
+      "critical": "Critical",
+      "high": "High",
+      "medium": "Medium"
+    },
+    "statuses": {
+      "CREATED": "Created",
+      "IN_PROGRESS": "In Progress",
+      "COMPLETED": "Completed",
+      "WORK_ORDER_INITIATED": "Work Order Created"
+    },
+    "priorities": {
+      "LOW": "Low",
+      "MEDIUM": "Medium",
+      "HIGH": "High",
+      "CRITICAL": "Critical"
+    }
+  },
   "workOrders": {
     "title": "Work Orders",
     "create": "Create Work Order",
+    "description": "Manage installation, diagnostic, and repair work orders across buildings.",
+    "loading": "Loading work orders...",
+    "errorLoading": "Error loading work orders",
+    "searchPlaceholder": "Search by title, building, asset, status, type...",
+    "columns": {
+      "workOrder": "Work Order",
+      "building": "Building",
+      "asset": "Asset",
+      "type": "Type",
+      "status": "Status",
+      "created": "Created"
+    },
+    "openBuilding": "Open building",
+    "openWorkOrder": "Open work order",
     "types": {
       "INSTALLATION": "Installation",
       "DIAGNOSTIC": "Diagnostic",
@@ -14,6 +213,8 @@
       "CREATED": "Created",
       "LINKED_TO_GROUP": "Linked To a Group",
       "IN_PROGRESS": "In Progress",
+      "PENDING_APPROVAL": "Pending Approval",
+      "APPROVED": "Approved",
       "COMPLETED": "Completed",
       "CANCELED": "Canceled"
     },
@@ -62,6 +263,125 @@
       "completed": "Work completed",
       "approved": "Work order approved",
       "canceled": "Work order canceled"
+    }
+  },
+  "sales": {
+    "title": "Sales Pipeline",
+    "dashboard": {
+      "title": "Sales Dashboard",
+      "description": "Track your sales performance and team progress",
+      "activeLeads": "Active Leads",
+      "wonThisPeriod": "Won This Period",
+      "lost": "Lost",
+      "conversionRate": "Conversion Rate",
+      "pipelineFunnel": "Pipeline Funnel",
+      "myMonthlyProgress": "My Monthly Progress",
+      "revenueTarget": "Revenue Target",
+      "leadConversions": "Lead Conversions",
+      "serviceTargets": "Service Targets",
+      "noPlan": "No active sales plan assigned. Contact your manager to set up your targets.",
+      "teamLeaderboard": "Team Leaderboard",
+      "viewPipeline": "View Pipeline",
+      "manageLeads": "Manage your leads",
+      "salesPlans": "Sales Plans",
+      "viewPlans": "View and manage plans",
+      "servicesCatalog": "Services Catalog",
+      "manageServices": "Manage sellable services"
+    },
+    "leads": {
+      "title": "Sales Pipeline",
+      "description": "Manage leads and track sales progress",
+      "newLead": "New Lead",
+      "searchPlaceholder": "Search leads...",
+      "noLeads": "No leads found",
+      "totalLeads": "Total Leads",
+      "active": "Active",
+      "won": "Won",
+      "lost": "Lost",
+      "conversionRate": "Conversion Rate"
+    }
+  },
+  "inventory": {
+    "title": "Inventory Management",
+    "description": "Track stock levels, manage purchases, and monitor transactions",
+    "tabs": {
+      "products": "Products",
+      "purchaseOrders": "Purchase Orders",
+      "transactions": "Transactions",
+      "deactivatedDevices": "Deactivated Devices"
+    },
+    "addProduct": "Add Product",
+    "createPO": "Create Purchase Order",
+    "lowStockItems": "Low Stock Item(s)",
+    "productCatalog": "Product Catalog",
+    "noProducts": "No products in catalog yet.",
+    "noPurchaseOrders": "No purchase orders yet.",
+    "noTransactions": "No transactions recorded yet.",
+    "noDeactivated": "No deactivated devices found.",
+    "loadingDevices": "Loading deactivated devices...",
+    "stockStatus": {
+      "outOfStock": "Out of Stock",
+      "lowStock": "Low Stock",
+      "inStock": "In Stock"
+    },
+    "transactionTypes": {
+      "PURCHASE_IN": "Purchase In",
+      "WORK_ORDER_OUT": "Work Order Out",
+      "ADJUSTMENT_IN": "Adjustment In",
+      "ADJUSTMENT_OUT": "Adjustment Out",
+      "RETURN_IN": "Return In",
+      "DAMAGED_OUT": "Damaged Out"
+    },
+    "poStatus": {
+      "DRAFT": "Draft",
+      "ORDERED": "Ordered",
+      "SHIPPED": "Shipped",
+      "RECEIVED": "Received",
+      "CANCELLED": "Cancelled"
+    }
+  },
+  "tasks": {
+    "title": "My Workspace",
+    "myTasks": "My Tasks",
+    "openTasks": "Open Tasks",
+    "closedTasks": "Closed Tasks",
+    "loading": "Loading tasks...",
+    "noOpenTasks": "No open tasks at the moment",
+    "noClosedTasks": "No closed tasks yet",
+    "closedHint": "Completed and canceled tasks will appear here",
+    "startTask": "Start Task",
+    "completeTask": "Complete Task",
+    "requestApproval": "Request Approval",
+    "filters": {
+      "all": "All",
+      "unassigned": "Unassigned",
+      "inProgress": "In Progress",
+      "waitingApproval": "Waiting Approval"
+    }
+  },
+  "messenger": {
+    "title": "Messenger",
+    "conversations": "Conversations",
+    "newConversation": "New Conversation",
+    "typeMessage": "Type a message...",
+    "noConversations": "No conversations yet",
+    "searchPlaceholder": "Search conversations..."
+  },
+  "admin": {
+    "title": "Admin Panel",
+    "description": "Manage your organization's settings, users, and permissions",
+    "manage": "Manage",
+    "sections": {
+      "positions": "Positions",
+      "roleGroups": "Role Groups",
+      "departments": "Departments",
+      "workflow": "Workflow Configuration",
+      "salesPipeline": "Sales Pipeline",
+      "servicesCatalog": "Services Catalog",
+      "listItems": "List Items",
+      "legacyRoles": "Legacy Roles",
+      "users": "User Accounts",
+      "translations": "Translations"
     }
   }
 }

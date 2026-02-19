@@ -12,6 +12,10 @@ export class CreateListItemDto {
 
   @IsOptional()
   @IsString()
+  displayNameKa?: string;
+
+  @IsOptional()
+  @IsString()
   description?: string;
 
   @IsOptional()

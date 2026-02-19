@@ -43,6 +43,7 @@ export default function AddDepartmentModal({
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
+    nameKa: "",
     description: "",
     parentId: "",
     headId: "",
@@ -58,6 +59,7 @@ export default function AddDepartmentModal({
       setError(null);
       setFormData({
         name: "",
+        nameKa: "",
         description: "",
         parentId: initialParentId || "",
         headId: "",
@@ -85,6 +87,7 @@ export default function AddDepartmentModal({
     try {
       const created = await apiPost<Department>("/v1/departments", {
         name: formData.name,
+        nameKa: formData.nameKa || undefined,
         description: formData.description || undefined,
         parentId: formData.parentId || undefined,
         headId: formData.headId || undefined,
@@ -144,7 +147,7 @@ export default function AddDepartmentModal({
             <div className="space-y-4">
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-zinc-700">
-                  Department Name <span className="text-rose-500">*</span>
+                  Department Name (English) <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -154,6 +157,20 @@ export default function AddDepartmentModal({
                   required
                   className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                   placeholder="e.g., Company, IT Department"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-zinc-700">
+                  Department Name (Georgian)
+                </label>
+                <input
+                  type="text"
+                  name="nameKa"
+                  value={formData.nameKa}
+                  onChange={handleChange}
+                  className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  placeholder="მაგ., კომპანია, IT დეპარტამენტი"
                 />
               </div>
 

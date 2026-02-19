@@ -63,6 +63,7 @@ export class DepartmentsService {
     return this.prisma.department.create({
       data: {
         name: createDepartmentDto.name,
+        nameKa: createDepartmentDto.nameKa,
         code,
         description: createDepartmentDto.description,
         parentId: createDepartmentDto.parentId,
@@ -379,6 +380,9 @@ export class DepartmentsService {
     
     if (updateDepartmentDto.name !== undefined) {
       updateData.name = updateDepartmentDto.name;
+    }
+    if (updateDepartmentDto.nameKa !== undefined) {
+      updateData.nameKa = updateDepartmentDto.nameKa;
     }
     if (updateDepartmentDto.code !== undefined) {
       updateData.code = updateDepartmentDto.code;

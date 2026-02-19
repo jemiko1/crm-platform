@@ -5,6 +5,7 @@ import TasksIcon from "./tasks-icon";
 import HeaderSearch from "./header-search";
 import HeaderNotifications from "./header-notifications";
 import HeaderMessengerIcon from "./header-messenger-icon";
+import HeaderSettings from "./header-settings";
 import ProfileMenu from "./profile-menu";
 import SidebarNav from "./sidebar-nav";
 
@@ -100,6 +101,7 @@ export default function AppHeader() {
 
           {/* Right side - Action icons + Profile */}
           <div className="flex items-center gap-1 sm:gap-2">
+            <HeaderSettings />
             <HeaderMessengerIcon />
             <HeaderNotifications />
             <ProfileMenu />

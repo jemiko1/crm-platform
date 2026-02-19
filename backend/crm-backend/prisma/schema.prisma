@@ -12,16 +12,6 @@ enum DeviceStatus {
   UNKNOWN
 }
 
-enum AssetType {
-  ELEVATOR
-  ENTRANCE_DOOR
-  INTERCOM
-  SMART_GSM_GATE
-  SMART_DOOR_GSM
-  BOOM_BARRIER
-  OTHER
-}
-
 enum WorkOrderType {
   INSTALLATION // ინსტალაცია
   DIAGNOSTIC // დიაგნოსტიკა
@@ -112,7 +102,7 @@ model Asset {
   buildingId String
   building   Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
 
-  type   AssetType
+  type   String
   name   String
   ip     String?
   status DeviceStatus @default(UNKNOWN)
@@ -467,6 +457,7 @@ model Department {
   id String @id @default(uuid())
 
   name        String
+  nameKa      String? // Georgian translation
   code        String  @unique // e.g., "TECH", "SALES"
   description String?
 
@@ -580,6 +571,7 @@ model Position {
   id String @id @default(uuid())
 
   name        String  @unique // "CEO", "IT Manager", "Call Center Operator"
+  nameKa      String? // Georgian translation
   code        String  @unique // "CEO", "IT_MGR", "CC_OP"
   description String?
   level       Int? // Optional: for sorting/display (1=Entry, 10=Executive)
@@ -1104,12 +1096,13 @@ model StockTransaction {
  * =========================
  */
 
-// Category of list items (e.g., "Asset Type", "Incident Type", etc.)
+// Category of list items (e.g., "Device Type", "Incident Type", etc.)
 model SystemListCategory {
   id String @id @default(uuid())
 
   code        String  @unique // "ASSET_TYPE", "INCIDENT_TYPE", etc.
-  name        String // "Asset Type", "Incident Type", etc.
+  name        String // "Device Type", "Incident Type", etc.
+  nameKa      String? // Georgian translation
   description String? @db.Text
 
   // Which database table/field uses this category
@@ -1140,9 +1133,10 @@ model SystemListItem {
   categoryId String
   category   SystemListCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
-  value       String // "ELEVATOR", "Hardware Failure", etc. (backend value)
-  displayName String // "Elevator", "Hardware Failure", etc. (UI label)
-  description String? @db.Text
+  value         String // "ELEVATOR", "Hardware Failure", etc. (backend value)
+  displayName   String // "Elevator", "Hardware Failure", etc. (UI label)
+  displayNameKa String? // Georgian translation of display name
+  description   String? @db.Text
 
   // Styling (optional - for priority colors, status colors, etc.)
   colorHex String? // "#ff0000" for HIGH priority, etc.
@@ -1159,6 +1153,25 @@ model SystemListItem {
   @@index([categoryId])
   @@index([isActive])
   @@index([sortOrder])
+}
+
+/**
+ * =========================
+ * UI TRANSLATIONS
+ * =========================
+ */
+
+model Translation {
+  id      String  @id @default(uuid())
+  key     String  @unique
+  en      String  @db.Text
+  ka      String? @db.Text
+  context String?
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@index([context])
 }
 
 /**

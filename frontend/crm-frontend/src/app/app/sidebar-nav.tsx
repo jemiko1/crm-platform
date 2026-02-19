@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { usePermissions } from "@/lib/use-permissions";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { API_BASE } from "@/lib/api";
+import { useI18n } from "@/hooks/useI18n";
 
 const BRAND_GREEN = "rgb(8,117,56)";
 const STORAGE_KEY = "crm28_menu_order";
@@ -12,21 +13,22 @@ const STORAGE_KEY = "crm28_menu_order";
 type NavItemDef = {
   href: string;
   label: string;
+  labelKey: string;
   iconKey: string;
   requiredPermission?: string;
 };
 
 const ALL_ITEMS: NavItemDef[] = [
-  { href: "/app/dashboard", label: "Dashboard", iconKey: "dashboard" },
-  { href: "/app/buildings", label: "Buildings", iconKey: "building", requiredPermission: "buildings.menu" },
-  { href: "/app/clients", label: "Clients", iconKey: "clients", requiredPermission: "clients.menu" },
-  { href: "/app/incidents", label: "Incidents", iconKey: "incident", requiredPermission: "incidents.menu" },
-  { href: "/app/assets", label: "Assets", iconKey: "wrench", requiredPermission: "assets.menu" },
-  { href: "/app/work-orders", label: "Work Orders", iconKey: "clipboard", requiredPermission: "work_orders.menu" },
-  { href: "/app/sales/dashboard", label: "Sales", iconKey: "sales", requiredPermission: "sales.menu" },
-  { href: "/app/inventory", label: "Inventory", iconKey: "box", requiredPermission: "inventory.menu" },
-  { href: "/app/employees", label: "Employees", iconKey: "employees", requiredPermission: "employees.menu" },
-  { href: "/app/admin", label: "Admin", iconKey: "admin", requiredPermission: "admin.menu" },
+  { href: "/app/dashboard", label: "Dashboard", labelKey: "sidebar.dashboard", iconKey: "dashboard" },
+  { href: "/app/buildings", label: "Buildings", labelKey: "sidebar.buildings", iconKey: "building", requiredPermission: "buildings.menu" },
+  { href: "/app/clients", label: "Clients", labelKey: "sidebar.clients", iconKey: "clients", requiredPermission: "clients.menu" },
+  { href: "/app/incidents", label: "Incidents", labelKey: "sidebar.incidents", iconKey: "incident", requiredPermission: "incidents.menu" },
+  { href: "/app/assets", label: "Assets", labelKey: "sidebar.assets", iconKey: "wrench", requiredPermission: "assets.menu" },
+  { href: "/app/work-orders", label: "Work Orders", labelKey: "sidebar.workOrders", iconKey: "clipboard", requiredPermission: "work_orders.menu" },
+  { href: "/app/sales/dashboard", label: "Sales", labelKey: "sidebar.sales", iconKey: "sales", requiredPermission: "sales.menu" },
+  { href: "/app/inventory", label: "Inventory", labelKey: "sidebar.inventory", iconKey: "box", requiredPermission: "inventory.menu" },
+  { href: "/app/employees", label: "Employees", labelKey: "sidebar.employees", iconKey: "employees", requiredPermission: "employees.menu" },
+  { href: "/app/admin", label: "Admin", labelKey: "sidebar.admin", iconKey: "admin", requiredPermission: "admin.menu" },
 ];
 
 const ICON_MAP: Record<string, React.ReactNode> = {
@@ -94,6 +96,7 @@ function applyOrder(items: NavItemDef[], order: string[] | null): NavItemDef[] {
 export default function SidebarNav() {
   const pathname = usePathname();
   const { hasPermission, loading } = usePermissions();
+  const { t } = useI18n();
   const [customizing, setCustomizing] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [savedOrder, setSavedOrder] = useState<string[] | null>(null);
@@ -176,7 +179,7 @@ export default function SidebarNav() {
             <RailItem
               key={item.href}
               href={item.href}
-              label={item.label}
+              label={t(item.labelKey, item.label)}
               icon={ICON_MAP[item.iconKey]}
               isActive={isActive}
             />
