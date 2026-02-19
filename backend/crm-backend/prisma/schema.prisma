@@ -12,16 +12,6 @@ enum DeviceStatus {
   UNKNOWN
 }
 
-enum AssetType {
-  ELEVATOR
-  ENTRANCE_DOOR
-  INTERCOM
-  SMART_GSM_GATE
-  SMART_DOOR_GSM
-  BOOM_BARRIER
-  OTHER
-}
-
 enum WorkOrderType {
   INSTALLATION // ინსტალაცია
   DIAGNOSTIC // დიაგნოსტიკა
@@ -112,7 +102,7 @@ model Asset {
   buildingId String
   building   Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
 
-  type   AssetType
+  type   String
   name   String
   ip     String?
   status DeviceStatus @default(UNKNOWN)
@@ -444,6 +434,12 @@ model Employee {
   createdSalesPlans      SalesPlan[]             @relation("SalesPlanCreatedBy")
   approvedSalesPlans     SalesPlan[]             @relation("SalesPlanApprovedBy")
 
+  // Messenger Relations
+  conversationParticipants ConversationParticipant[]
+  sentMessages             Message[]               @relation("MessageSender")
+  createdConversations     Conversation[]           @relation("ConversationCreator")
+  messageReactions         MessageReaction[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -461,6 +457,7 @@ model Department {
   id String @id @default(uuid())
 
   name        String
+  nameKa      String? // Georgian translation
   code        String  @unique // e.g., "TECH", "SALES"
   description String?
 
@@ -574,6 +571,7 @@ model Position {
   id String @id @default(uuid())
 
   name        String  @unique // "CEO", "IT Manager", "Call Center Operator"
+  nameKa      String? // Georgian translation
   code        String  @unique // "CEO", "IT_MGR", "CC_OP"
   description String?
   level       Int? // Optional: for sorting/display (1=Entry, 10=Executive)
@@ -715,6 +713,7 @@ enum PermissionCategory {
   REPORTS
   ADMIN
   SALES
+  MESSENGER
 }
 
 // Join Tables for Many-to-Many Relationships
@@ -1097,12 +1096,13 @@ model StockTransaction {
  * =========================
  */
 
-// Category of list items (e.g., "Asset Type", "Incident Type", etc.)
+// Category of list items (e.g., "Device Type", "Incident Type", etc.)
 model SystemListCategory {
   id String @id @default(uuid())
 
   code        String  @unique // "ASSET_TYPE", "INCIDENT_TYPE", etc.
-  name        String // "Asset Type", "Incident Type", etc.
+  name        String // "Device Type", "Incident Type", etc.
+  nameKa      String? // Georgian translation
   description String? @db.Text
 
   // Which database table/field uses this category
@@ -1133,9 +1133,10 @@ model SystemListItem {
   categoryId String
   category   SystemListCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
-  value       String // "ELEVATOR", "Hardware Failure", etc. (backend value)
-  displayName String // "Elevator", "Hardware Failure", etc. (UI label)
-  description String? @db.Text
+  value         String // "ELEVATOR", "Hardware Failure", etc. (backend value)
+  displayName   String // "Elevator", "Hardware Failure", etc. (UI label)
+  displayNameKa String? // Georgian translation of display name
+  description   String? @db.Text
 
   // Styling (optional - for priority colors, status colors, etc.)
   colorHex String? // "#ff0000" for HIGH priority, etc.
@@ -1152,6 +1153,25 @@ model SystemListItem {
   @@index([categoryId])
   @@index([isActive])
   @@index([sortOrder])
+}
+
+/**
+ * =========================
+ * UI TRANSLATIONS
+ * =========================
+ */
+
+model Translation {
+  id      String  @id @default(uuid())
+  key     String  @unique
+  en      String  @db.Text
+  ka      String? @db.Text
+  context String?
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@index([context])
 }
 
 /**
@@ -1755,4 +1775,141 @@ model SalesPipelinePermissionPosition {
   @@unique([permissionId, positionId])
   @@index([permissionId])
   @@index([positionId])
+}
+
+/**
+ * =========================
+ * INSTANT MESSENGER
+ * =========================
+ */
+
+enum ConversationType {
+  DIRECT
+  GROUP
+}
+
+enum ConversationParticipantRole {
+  MEMBER
+  ADMIN
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  SYSTEM
+}
+
+model Conversation {
+  id   String           @id @default(uuid())
+  type ConversationType
+
+  // Group-only fields
+  name      String?
+  avatarUrl String?
+
+  // Denormalized for fast sorting (updated on every new message)
+  lastMessageAt   DateTime?
+  lastMessageText String?   @db.Text
+
+  // Creator
+  createdById String
+  createdBy   Employee @relation("ConversationCreator", fields: [createdById], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  @@index([lastMessageAt(sort: Desc)])
+  @@index([type])
+  @@index([createdById])
+}
+
+model ConversationParticipant {
+  id String @id @default(uuid())
+
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  role ConversationParticipantRole @default(MEMBER)
+
+  joinedAt   DateTime  @default(now())
+  lastReadAt DateTime?
+  mutedUntil DateTime?
+  isArchived Boolean   @default(false)
+
+  @@unique([conversationId, employeeId])
+  @@index([employeeId, isArchived])
+  @@index([conversationId])
+}
+
+model Message {
+  id String @id @default(uuid())
+
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  senderId String
+  sender   Employee @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  content String  @db.Text
+  type    MessageType @default(TEXT)
+
+  // Reply threading
+  replyToId String?
+  replyTo   Message?  @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies   Message[] @relation("MessageReplies")
+
+  isEdited  Boolean @default(false)
+  isDeleted Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  attachments MessageAttachment[]
+  reactions   MessageReaction[]
+
+  @@index([conversationId, createdAt(sort: Desc)])
+  @@index([senderId])
+  @@index([replyToId])
+}
+
+model MessageReaction {
+  id String @id @default(uuid())
+
+  messageId  String
+  message    Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  emoji String
+
+  createdAt DateTime @default(now())
+
+  @@unique([messageId, employeeId, emoji])
+  @@index([messageId])
+}
+
+model MessageAttachment {
+  id String @id @default(uuid())
+
+  messageId String
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  url      String
+  fileName String
+  fileSize Int
+  mimeType String
+
+  createdAt DateTime @default(now())
+
+  @@index([messageId])
 }

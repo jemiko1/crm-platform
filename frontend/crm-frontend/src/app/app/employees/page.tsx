@@ -6,6 +6,8 @@ import { apiGet } from "@/lib/api";
 import { PermissionGuard } from "@/lib/permission-guard";
 import { usePermissions } from "@/lib/use-permissions";
 import AddEmployeeModal from "./add-employee-modal";
+import { useModalContext } from "../modal-manager";
+import { useI18n } from "@/hooks/useI18n";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -37,6 +39,7 @@ export default function EmployeesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { hasPermission } = usePermissions();
+  const { t } = useI18n();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,10 +47,10 @@ export default function EmployeesPage() {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [showAddModal, setShowAddModal] = useState(false);
 
-  // Helper function to open employee modal via URL
-  // Simple URL - browser history handles "back" navigation
+  const { openModal } = useModalContext();
+
   function openEmployeeModal(employeeId: string) {
-    router.push(`/app/employees?employee=${employeeId}`);
+    openModal("employee", employeeId);
   }
 
   async function fetchEmployees() {
@@ -139,7 +142,7 @@ export default function EmployeesPage() {
         <div className="flex-1 min-w-[300px]">
           <input
             type="search"
-            placeholder="Search employees..."
+            placeholder={t("employees.searchPlaceholder", "Search employees...")}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             className="w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
@@ -181,28 +184,28 @@ export default function EmployeesPage() {
       ) : (
         <div className="rounded-2xl bg-white shadow ring-1 ring-zinc-200">
           <table className="min-w-full divide-y divide-zinc-200">
-            <thead className="bg-zinc-50">
+            <thead className="bg-zinc-50 sticky top-[52px] z-20 shadow-[0_1px_0_rgba(0,0,0,0.08)]">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-zinc-900">
-                  Employee
+                <th className="px-6 py-3 text-left text-xs font-semibold text-zinc-900 bg-zinc-50">
+                  {t("employees.columns.employee", "Employee")}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-zinc-900">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-zinc-900 bg-zinc-50">
                   Employee ID
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-zinc-900">
-                  Position
+                <th className="px-6 py-3 text-left text-xs font-semibold text-zinc-900 bg-zinc-50">
+                  {t("employees.columns.position", "Position")}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-zinc-900">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-zinc-900 bg-zinc-50">
                   Login
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-zinc-900">
-                  Status
+                <th className="px-6 py-3 text-left text-xs font-semibold text-zinc-900 bg-zinc-50">
+                  {t("employees.columns.status", "Status")}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-zinc-900">
-                  Extension
+                <th className="px-6 py-3 text-left text-xs font-semibold text-zinc-900 bg-zinc-50">
+                  {t("employees.columns.extension", "Extension")}
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-zinc-900">
-                  Actions
+                <th className="px-6 py-3 text-right text-xs font-semibold text-zinc-900 bg-zinc-50">
+                  {t("employees.columns.actions", "Actions")}
                 </th>
               </tr>
             </thead>
@@ -221,7 +224,7 @@ export default function EmployeesPage() {
                     {emp.employeeId}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-sm text-zinc-900">
-                    {emp.position?.name || emp.jobTitle || "No position"}
+                    {emp.position?.name || emp.jobTitle || t("employees.noPosition", "No position")}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4">
                     {emp.user ? (

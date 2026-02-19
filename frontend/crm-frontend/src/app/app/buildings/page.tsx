@@ -8,6 +8,8 @@ import AddBuildingModal from "./add-building-modal";
 import BuildingStatistics from "./building-statistics";
 import { PermissionGuard } from "@/lib/permission-guard";
 import { usePermissions } from "@/lib/use-permissions";
+import { useModalContext } from "../modal-manager";
+import { useI18n } from "@/hooks/useI18n";
 
 type Building = {
   coreId: number;
@@ -114,6 +116,7 @@ const ProductIcons = React.memo(function ProductIcons({ p }: { p: BuildingProduc
 });
 
 export default function BuildingsPage() {
+  const { t } = useI18n();
   const hasMounted = useHasMounted();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -130,10 +133,10 @@ export default function BuildingsPage() {
 
   const pageSize = 10;
 
-  // Helper function to open building modal via URL
-  // Simple URL - browser history handles "back" navigation
+  const { openModal } = useModalContext();
+
   function openBuildingModal(buildingId: number) {
-    router.push(`/app/buildings?building=${buildingId}`);
+    openModal("building", String(buildingId));
   }
 
   // Fetch buildings from API
@@ -229,13 +232,13 @@ export default function BuildingsPage() {
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs text-zinc-700 shadow-sm ring-1 ring-zinc-200">
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: BRAND }} />
-              Buildings
+              {t("buildings.subtitle", "Buildings")}
             </div>
             <h1 className="mt-3 text-2xl font-semibold tracking-tight text-zinc-900 md:text-3xl">
-              Buildings Directory
+              {t("buildings.title", "Buildings Directory")}
             </h1>
             <p className="mt-1 text-sm text-zinc-600">
-              Synced from your core system via API. Buildings and devices are read-only in this CRM.
+              {t("buildings.description", "Synced from your core system via API. Buildings and devices are read-only in this CRM.")}
             </p>
           </div>
 
@@ -254,21 +257,21 @@ export default function BuildingsPage() {
           {/* Loading State */}
           {loading && (
             <div className="py-12 text-center text-sm text-zinc-600">
-              Loading buildings from API...
+              {t("buildings.loading", "Loading buildings from API...")}
             </div>
           )}
 
           {/* Error State */}
           {error && !loading && (
             <div className="rounded-2xl bg-red-50 p-6 ring-1 ring-red-200">
-              <div className="text-sm font-semibold text-red-900">Error loading buildings</div>
+              <div className="text-sm font-semibold text-red-900">{t("buildings.errorLoading", "Error loading buildings")}</div>
               <div className="mt-1 text-sm text-red-700">{error}</div>
               <button
                 type="button"
                 onClick={() => window.location.reload()}
                 className="mt-3 rounded-2xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
               >
-                Retry
+                {t("common.retry", "Retry")}
               </button>
             </div>
           )}
@@ -284,7 +287,7 @@ export default function BuildingsPage() {
                     setQ(e.target.value);
                     setPage(1);
                   }}
-                  placeholder="Search by ID, name, address, city..."
+                  placeholder={t("buildings.searchPlaceholder", "Search by ID, name, address, city...")}
                   className="min-w-0 flex-1 rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-md ring-2 ring-emerald-500/40 border border-emerald-500/30 hover:ring-emerald-500/60 hover:border-emerald-500/50 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/70 focus:shadow-lg focus:border-emerald-500/60 transition-all sm:max-w-md"
                 />
                 {hasPermission("buildings.create") && (
@@ -294,21 +297,21 @@ export default function BuildingsPage() {
                     className="shrink-0 ml-auto rounded-2xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95 whitespace-nowrap"
                     style={{ backgroundColor: BRAND }}
                   >
-                    + Add Building
+                    + {t("buildings.addBuilding", "Add Building")}
                   </button>
                 )}
               </div>
 
-              <div className="overflow-hidden rounded-2xl ring-1 ring-zinc-200">
-                <div className="overflow-x-auto">
+              <div className="rounded-2xl ring-1 ring-zinc-200 overflow-x-clip">
+                <div>
                   <table className="min-w-[980px] w-full border-separate border-spacing-0">
-                    <thead className="bg-zinc-50">
+                    <thead className="bg-zinc-50 sticky top-[52px] z-20 shadow-[0_1px_0_rgba(0,0,0,0.08)]">
                       <tr className="text-left text-xs text-zinc-600">
-                        <th className="px-4 py-3 font-medium">Building</th>
-                        <th className="px-4 py-3 font-medium">Clients</th>
-                        <th className="px-4 py-3 font-medium">Devices</th>
-                        <th className="px-4 py-3 font-medium">Work Orders</th>
-                        <th className="px-4 py-3 font-medium">Last Update</th>
+                        <th className="px-4 py-3 font-medium bg-zinc-50">{t("buildings.columns.building", "Building")}</th>
+                        <th className="px-4 py-3 font-medium bg-zinc-50">{t("buildings.columns.clients", "Clients")}</th>
+                        <th className="px-4 py-3 font-medium bg-zinc-50">{t("buildings.columns.devices", "Devices")}</th>
+                        <th className="px-4 py-3 font-medium bg-zinc-50">{t("buildings.columns.workOrders", "Work Orders")}</th>
+                        <th className="px-4 py-3 font-medium bg-zinc-50">{t("buildings.columns.lastUpdate", "Last Update")}</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white">
@@ -316,8 +319,8 @@ export default function BuildingsPage() {
                         <tr>
                           <td colSpan={5} className="px-4 py-10 text-center text-sm text-zinc-600">
                             {filtered.length === 0 && buildings.length > 0
-                              ? "No buildings match your search."
-                              : "No buildings found. Click 'Add Building' to create one."}
+                              ? t("buildings.noMatch", "No buildings match your search.")
+                              : t("buildings.noBuildings", "No buildings found. Click 'Add Building' to create one.")}
                           </td>
                         </tr>
                       ) : (
@@ -366,7 +369,7 @@ export default function BuildingsPage() {
                                     router.push(`${window.location.pathname}?${params.toString()}`);
                                   }}
                                   className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-sm text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50"
-                                  title="Open clients list"
+                                  title={t("buildings.openClients", "Open clients list")}
                                 >
                                   <span className="text-zinc-500">
                                     <IconClients />
@@ -386,7 +389,7 @@ export default function BuildingsPage() {
                                     router.push(`${window.location.pathname}?${params.toString()}`);
                                   }}
                                   className="block w-full"
-                                  title="Open devices"
+                                  title={t("buildings.openDevices", "Open devices")}
                                 >
                                   <div className="group-hover:opacity-95">
                                     <ProductIcons p={b.products} />
@@ -405,13 +408,13 @@ export default function BuildingsPage() {
                                     router.push(`${window.location.pathname}?${params.toString()}`);
                                   }}
                                   className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-sm text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50"
-                                  title="Open work orders"
+                                  title={t("buildings.openWorkOrders", "Open work orders")}
                                 >
                                   <span className="text-zinc-500">
                                     <IconClipboardSmall />
                                   </span>
                                   <span className="tabular-nums">
-                                    <span className="font-semibold text-zinc-700">Open:</span> {open}
+                                    <span className="font-semibold text-zinc-700">{t("buildings.open", "Open:")}</span> {open}
                                   </span>
                                 </button>
                               </td>
@@ -422,14 +425,14 @@ export default function BuildingsPage() {
                                   type="button"
                                   onClick={() => openBuildingModal(b.coreId)}
                                   className="block w-full text-left"
-                                  title="Open building"
+                                  title={t("buildings.openBuilding", "Open building")}
                                 >
                                   <div className="text-sm text-zinc-900">
                                     {hasMounted
                                       ? new Date(b.updatedAt).toLocaleString()
                                       : formatUtcCompact(b.updatedAt)}
                                   </div>
-                                  <div className="mt-1 text-xs text-zinc-500">latest core sync</div>
+                                  <div className="mt-1 text-xs text-zinc-500">{t("buildings.latestSync", "latest core sync")}</div>
                                 </button>
                               </td>
                             </tr>
@@ -445,7 +448,7 @@ export default function BuildingsPage() {
               {filtered.length > 0 && (
                 <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="text-xs text-zinc-600">
-                    Page <span className="font-semibold text-zinc-900">{safePage}</span> of{" "}
+                    {t("common.page", "Page")} <span className="font-semibold text-zinc-900">{safePage}</span> {t("common.of", "of")}{" "}
                     <span className="font-semibold text-zinc-900">{totalPages}</span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -455,7 +458,7 @@ export default function BuildingsPage() {
                       disabled={safePage <= 1}
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                     >
-                      Prev
+                      {t("common.previous", "Previous")}
                     </button>
                     <button
                       type="button"
@@ -463,7 +466,7 @@ export default function BuildingsPage() {
                       disabled={safePage >= totalPages}
                       onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     >
-                      Next
+                      {t("common.next", "Next")}
                     </button>
                   </div>
                 </div>

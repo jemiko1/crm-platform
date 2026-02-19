@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet } from "@/lib/api";
 import { PermissionGuard } from "@/lib/permission-guard";
 import { usePermissions } from "@/lib/use-permissions";
+import { useModalContext } from "../modal-manager";
+import { useI18n } from "@/hooks/useI18n";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -47,6 +48,7 @@ export default function ClientsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { hasPermission } = usePermissions();
+  const { t } = useI18n();
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const pageSize = 10;
@@ -55,10 +57,10 @@ export default function ClientsPage() {
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<ClientRow[]>([]);
 
-  // Helper function to open client modal via URL
-  // Simple URL - browser history handles "back" navigation
+  const { openModal } = useModalContext();
+
   function openClientModal(clientId: number) {
-    router.push(`/app/clients?client=${clientId}`);
+    openModal("client", String(clientId));
   }
 
   useEffect(() => {
@@ -77,7 +79,7 @@ export default function ClientsPage() {
         setRows(Array.isArray(data) ? data : []);
       } catch (e) {
         if (!alive) return;
-        setError(e instanceof Error ? e.message : "Failed to load clients");
+        setError(e instanceof Error ? e.message : t("clients.errorLoading", "Error loading clients"));
         setRows([]);
       } finally {
         if (!alive) return;
@@ -139,20 +141,20 @@ export default function ClientsPage() {
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs text-zinc-700 shadow-sm ring-1 ring-zinc-200">
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: BRAND }} />
-              Clients
+              {t("clients.subtitle", "Clients")}
             </div>
 
             <h1 className="mt-3 text-2xl font-semibold tracking-tight text-zinc-900 md:text-3xl">
-              Clients Directory
+              {t("clients.title", "Clients Directory")}
             </h1>
             <p className="mt-1 text-sm text-zinc-600">
-              Central client list across buildings. Assignment is mapped by building coreId.
+              {t("clients.description", "Central client list across buildings. Assignment is mapped by building coreId.")}
             </p>
           </div>
         </div>
 
         {/* Main Card */}
-        <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-zinc-200 md:p-6 overflow-hidden">
+        <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-zinc-200 md:p-6">
           {/* Loading / Error */}
           {loading && (
             <div className="py-12 text-center text-sm text-zinc-600">Loading clients from API...</div>
@@ -183,13 +185,13 @@ export default function ClientsPage() {
                     setQ(e.target.value);
                     setPage(1);
                   }}
-                  placeholder="Search by name, ID number, payment id, phone, building..."
+                  placeholder={t("clients.searchPlaceholder", "Search by name, ID number, payment id, phone, building...")}
                   className="w-full max-w-md rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-md ring-2 ring-emerald-500/40 border border-emerald-500/30 hover:ring-emerald-500/60 hover:border-emerald-500/50 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/70 focus:shadow-lg focus:border-emerald-500/60 transition-all"
                 />
               </div>
 
-              <div className="overflow-hidden rounded-2xl ring-1 ring-zinc-200">
-                <div className="overflow-x-auto">
+              <div className="rounded-2xl ring-1 ring-zinc-200 overflow-x-clip">
+                <div>
                   <table className="min-w-[1220px] w-full border-separate border-spacing-0">
                     <colgroup>
                       <col style={{ width: "340px" }} />
@@ -201,17 +203,17 @@ export default function ClientsPage() {
                       <col style={{ width: "120px" }} />
                     </colgroup>
 
-                    <thead className="bg-zinc-50">
+                    <thead className="bg-zinc-50 sticky top-[52px] z-20 shadow-[0_1px_0_rgba(0,0,0,0.08)]">
                       <tr className="text-left text-xs text-zinc-600">
-                        <th className="px-5 py-3 font-medium">Client</th>
-                        <th className="px-4 py-3 font-medium border-l border-zinc-200">
+                        <th className="px-5 py-3 font-medium bg-zinc-50">Client</th>
+                        <th className="px-4 py-3 font-medium border-l border-zinc-200 bg-zinc-50">
                           ID Number
                         </th>
-                        <th className="px-4 py-3 font-medium">Payment ID</th>
-                        <th className="px-4 py-3 font-medium">Primary Phone</th>
-                        <th className="px-4 py-3 font-medium">Secondary Phone</th>
-                        <th className="px-4 py-3 font-medium">Buildings</th>
-                        <th className="px-4 py-3 font-medium text-right">Client ID</th>
+                        <th className="px-4 py-3 font-medium bg-zinc-50">Payment ID</th>
+                        <th className="px-4 py-3 font-medium bg-zinc-50">Primary Phone</th>
+                        <th className="px-4 py-3 font-medium bg-zinc-50">Secondary Phone</th>
+                        <th className="px-4 py-3 font-medium bg-zinc-50">Buildings</th>
+                        <th className="px-4 py-3 font-medium text-right bg-zinc-50">Client ID</th>
                       </tr>
                     </thead>
 
@@ -220,8 +222,8 @@ export default function ClientsPage() {
                         <tr>
                           <td colSpan={7} className="px-4 py-10 text-center text-sm text-zinc-600">
                             {filtered.length === 0 && rows.length > 0
-                              ? "No clients match your search."
-                              : "No clients found."}
+                              ? t("clients.noMatch", "No clients match your search.")
+                              : t("clients.noClientsFound", "No clients found.")}
                           </td>
                         </tr>
                       ) : (
@@ -232,6 +234,8 @@ export default function ClientsPage() {
                           return (
                             <tr
                               key={c.coreId}
+                              onClick={() => openClientModal(c.coreId)}
+                              style={{ cursor: "pointer" }}
                               className={[
                                 "group transition-all duration-200 ease-out",
                                 "hover:bg-emerald-50/60",
@@ -241,26 +245,20 @@ export default function ClientsPage() {
                             >
                               {/* Client */}
                               <td className="px-5 py-4 align-middle">
-                                <button
-                                  type="button"
-                                  onClick={() => openClientModal(c.coreId)}
-                                  className="block w-full text-left"
-                                >
-                                  <div className="flex items-center justify-between gap-3">
-                                    <div className="min-w-0">
-                                      <div className="text-[15px] font-semibold text-zinc-900 underline-offset-2 group-hover:underline truncate">
-                                        {name}
-                                      </div>
-                                      <div className="mt-1 text-xs text-zinc-500 truncate">
-                                        {safePhone(c.primaryPhone)} • {safeText(c.paymentId)}
-                                      </div>
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <div className="text-[15px] font-semibold text-zinc-900 underline-offset-2 group-hover:underline truncate">
+                                      {name}
                                     </div>
-
-                                    <span className="text-zinc-400 transition-transform group-hover:translate-x-0.5">
-                                      →
-                                    </span>
+                                    <div className="mt-1 text-xs text-zinc-500 truncate">
+                                      {safePhone(c.primaryPhone)} • {safeText(c.paymentId)}
+                                    </div>
                                   </div>
-                                </button>
+
+                                  <span className="text-zinc-400 transition-transform group-hover:translate-x-0.5">
+                                    →
+                                  </span>
+                                </div>
                               </td>
 
                               {/* ID Number */}
@@ -311,7 +309,7 @@ export default function ClientsPage() {
               {filtered.length > 0 && (
                 <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="text-xs text-zinc-600">
-                    Page <span className="font-semibold text-zinc-900">{safePage}</span> of{" "}
+                    {t("common.page", "Page")} <span className="font-semibold text-zinc-900">{safePage}</span> {t("common.of", "of")}{" "}
                     <span className="font-semibold text-zinc-900">{totalPages}</span>
                   </div>
 
@@ -322,7 +320,7 @@ export default function ClientsPage() {
                       disabled={safePage <= 1}
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                     >
-                      Prev
+                      {t("common.prev", "Prev")}
                     </button>
 
                     <button
@@ -331,7 +329,7 @@ export default function ClientsPage() {
                       disabled={safePage >= totalPages}
                       onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     >
-                      Next
+                      {t("common.next", "Next")}
                     </button>
                   </div>
                 </div>
@@ -347,6 +345,8 @@ export default function ClientsPage() {
 
 const BuildingsCell = React.memo(function BuildingsCell({ buildings }: { buildings: { coreId: number; name: string }[] }) {
   const [open, setOpen] = useState(false);
+  const { openModal } = useModalContext();
+  const { t } = useI18n();
 
   if (!buildings.length) {
     return <span className="text-sm text-zinc-500">—</span>;
@@ -358,17 +358,19 @@ const BuildingsCell = React.memo(function BuildingsCell({ buildings }: { buildin
   return (
     <div
       className="relative inline-flex items-center gap-2"
+      onClick={(e) => e.stopPropagation()}
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >
-      <Link
-        href={`/app/buildings?building=${first.coreId}`}
+      <button
+        type="button"
+        onClick={() => openModal("building", String(first.coreId))}
         className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50"
-        title="Open building"
+        title={t("clients.openBuilding", "Open building")}
       >
         <span className="h-2 w-2 rounded-full" style={{ backgroundColor: BRAND }} />
         <span className="truncate max-w-[180px]">{first.name}</span>
-      </Link>
+      </button>
 
       {extra > 0 ? (
         <span className="rounded-2xl bg-zinc-50 px-3 py-2 text-xs font-semibold text-zinc-700 ring-1 ring-zinc-200">
@@ -379,21 +381,22 @@ const BuildingsCell = React.memo(function BuildingsCell({ buildings }: { buildin
       {open && buildings.length > 1 ? (
         <div className="absolute left-0 top-full z-50 mt-2 w-[340px] rounded-2xl bg-white p-3 shadow-2xl ring-1 ring-zinc-200">
           <div className="mb-2 text-xs font-semibold text-zinc-900">
-            Assigned Buildings ({buildings.length})
+            {t("clients.assignedBuildings", "Assigned Buildings")} ({buildings.length})
           </div>
 
           <div className="max-h-56 space-y-2 overflow-y-auto">
             {buildings.map((b) => (
-              <Link
+              <button
                 key={b.coreId}
-                href={`/app/buildings?building=${b.coreId}`}
-                className="block rounded-xl bg-zinc-50 px-3 py-2 text-sm text-zinc-900 ring-1 ring-zinc-200 hover:bg-emerald-50 hover:ring-emerald-200 transition"
+                type="button"
+                onClick={() => openModal("building", String(b.coreId))}
+                className="block w-full text-left rounded-xl bg-zinc-50 px-3 py-2 text-sm text-zinc-900 ring-1 ring-zinc-200 hover:bg-emerald-50 hover:ring-emerald-200 transition"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0 truncate font-semibold">{b.name}</div>
                   <div className="text-xs text-zinc-500 tabular-nums">#{b.coreId}</div>
                 </div>
-              </Link>
+              </button>
             ))}
           </div>
         </div>

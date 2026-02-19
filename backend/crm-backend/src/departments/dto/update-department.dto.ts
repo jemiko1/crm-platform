@@ -5,6 +5,10 @@ export class UpdateDepartmentDto {
   @IsOptional()
   name?: string;
 
+  @IsOptional()
+  @IsString()
+  nameKa?: string;
+
   @IsString()
   @IsOptional()
   code?: string;

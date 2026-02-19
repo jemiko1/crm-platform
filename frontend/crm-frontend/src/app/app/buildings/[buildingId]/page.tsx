@@ -11,6 +11,7 @@ import ReportIncidentModal from "../../incidents/report-incident-modal";
 import CreateWorkOrderModal from "../../work-orders/create-work-order-modal";
 import { PermissionGuard } from "@/lib/permission-guard";
 import { usePermissions } from "@/lib/use-permissions";
+import { useModalContext } from "../../modal-manager";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -111,6 +112,7 @@ export default function BuildingDetailPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+  const { openModal } = useModalContext();
   const buildingId = params?.buildingId as string;
 
   const [activeTab, setActiveTab] = useState<Tab>("overview");
@@ -395,7 +397,7 @@ export default function BuildingDetailPage() {
             <IncidentsTab
               incidents={incidents}
               loading={incidentsLoading}
-              onIncidentClick={(incidentId) => router.push(`${pathname}?incident=${incidentId}`)}
+              onIncidentClick={(incidentId) => openModal("incident", String(incidentId))}
               onAddClick={() => setShowReportIncidentModal(true)}
             />
           )}

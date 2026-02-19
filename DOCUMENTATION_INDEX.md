@@ -65,16 +65,21 @@
 3. Read `DEVELOPMENT_GUIDELINES.md` for patterns
 
 ### **Backend Development**
-- `API_ROUTE_MAP.md` - All endpoints
+- `API_ROUTE_MAP.md` - All endpoints (including Messenger REST + WebSocket)
 - `AUTH_CONFIG_SUMMARY.md` - Auth & permissions
 - `SESSION_SUMMARY.md` - Backend patterns section
 - `backend/crm-backend/README.md` - Backend-specific docs
 
 ### **Frontend Development**
-- `FRONTEND_ROUTE_MAP.md` - All routes
+- `FRONTEND_ROUTE_MAP.md` - All routes + global components (Messenger, Header)
 - `DEVELOPMENT_GUIDELINES.md` - Modal patterns
 - `SESSION_SUMMARY.md` - Frontend patterns section
 - `frontend/crm-frontend/README.md` - Frontend-specific docs
+
+### **Messenger / Real-time**
+- `API_ROUTE_MAP.md` - Messenger REST endpoints + WebSocket gateway events
+- `FRONTEND_ROUTE_MAP.md` - Messenger component files and architecture
+- `PROJECT_SNAPSHOT.md` - Messenger feature overview (Section 5: Core Modules)
 
 ### **Database & Migrations**
 - `SESSION_SUMMARY.md` - Migrations list, schema key points
@@ -122,7 +127,7 @@
 - `FRONTEND_ROUTE_MAP.md` - When adding/modifying frontend routes
 - `PROJECT_SNAPSHOT.md` - When project structure changes significantly
 
-**Last Updated**: 2026-01-30
+**Last Updated**: 2026-02-17
 
 ---
 

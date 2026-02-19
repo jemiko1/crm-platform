@@ -349,12 +349,69 @@ Complete API route documentation for CRM Platform backend.
 
 ---
 
+## Messenger Module
+
+**File**: `src/messenger/messenger.controller.ts`  
+**Base Route**: `/v1/messenger`  
+**Guards**: `JwtAuthGuard` (all endpoints)
+
+**REST Endpoints**:
+- `GET /v1/messenger/me` - Get current employee ID for messenger
+- `GET /v1/messenger/conversations` - List conversations (query: type, cursor, limit)
+- `POST /v1/messenger/conversations` - Create conversation (direct or group)
+- `GET /v1/messenger/conversations/:id` - Get conversation details
+- `PATCH /v1/messenger/conversations/:id` - Update conversation (name, etc.)
+- `POST /v1/messenger/conversations/:id/participants` - Add participants to group
+- `DELETE /v1/messenger/conversations/:id/participants/:employeeId` - Remove participant
+- `POST /v1/messenger/conversations/:id/read` - Mark conversation as read
+- `POST /v1/messenger/conversations/:id/mute` - Mute/unmute conversation
+- `POST /v1/messenger/conversations/:id/archive` - Archive/unarchive conversation
+- `GET /v1/messenger/conversations/:id/messages` - List messages (query: cursor, limit, after)
+- `POST /v1/messenger/conversations/:id/messages` - Send message (broadcasts via WebSocket)
+- `PATCH /v1/messenger/messages/:id` - Edit message
+- `DELETE /v1/messenger/messages/:id` - Delete message
+- `POST /v1/messenger/messages/:id/reactions` - Toggle emoji reaction
+- `GET /v1/messenger/messages/:id/reactions` - Get message reactions
+- `GET /v1/messenger/conversations/:id/read-status` - Get read status for conversation
+- `GET /v1/messenger/permissions` - Get messenger permissions for current user
+- `GET /v1/messenger/search/employees` - Search employees (query: q)
+- `GET /v1/messenger/search/messages` - Search messages (query: q, conversationId)
+- `GET /v1/messenger/unread-count` - Get total unread message count
+
+**WebSocket Gateway** (`messenger.gateway.ts`):
+- **Namespace**: `/messenger`
+- **Auth**: JWT cookie-based authentication on connection
+- `conversation:join` - Join a conversation room
+- `conversation:leave` - Leave a conversation room
+- `message:send` - Send message via WebSocket
+- `typing` - Typing indicator broadcast
+- `message:read` - Mark messages as read (broadcasts to participants)
+- `message:react` - Toggle emoji reaction (broadcasts to conversation)
+- `online:check` - Check online status
+
+**Emitted Events**:
+- `message:new` - New message received (to employee rooms + conversation room)
+- `conversation:updated` - Conversation metadata updated
+- `message:read` - Read receipt broadcast
+- `message:reaction` - Reaction toggle broadcast
+- `typing` - Typing indicator
+
+**Notes**:
+- Messages sent via REST are broadcast to all participants via WebSocket gateway
+- Each employee auto-joins a personal room (`employee:{id}`) on connection
+- Cursor-based pagination for conversations and messages
+- `messenger.create_group` permission required for group creation
+
+---
+
 ## Summary
 
-**Total Controllers**: 17  
+**Total Controllers**: 18  
 **Guarded Routes**: Most routes under `/v1/*` require `JwtAuthGuard`  
 **Admin-Only Routes**: Positions, Role Groups, Admin Manual, Workflow Configuration  
 **Permission-Protected**: 
 - `POST /v1/incidents` (requires `incidents.create` permission)
-- Work Orders endpoints have granular permissions (assign, start, approve, cancel, etc.)  
-**Public Routes**: `/v1/buildings/*`, `/v1/clients` (read-only via PublicController)
+- Work Orders endpoints have granular permissions (assign, start, approve, cancel, etc.)
+- `POST /v1/messenger/conversations` with type GROUP (requires `messenger.create_group`)  
+**Public Routes**: `/v1/buildings/*`, `/v1/clients` (read-only via PublicController)  
+**WebSocket**: Messenger gateway at `/messenger` namespace (Socket.IO)

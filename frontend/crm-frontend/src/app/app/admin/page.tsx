@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { PermissionGuard } from "@/lib/permission-guard";
+import { useI18n } from "@/hooks/useI18n";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -78,19 +79,27 @@ const adminSections: AdminSection[] = [
     icon: <IconUsers />,
     href: "/app/admin/users",
   },
+  {
+    id: "translations",
+    title: "Translations",
+    description: "Manage bilingual UI translations (English & Georgian)",
+    icon: <IconTranslations />,
+    href: "/app/admin/translations",
+  },
 ];
 
 export default function AdminPanelPage() {
   const pathname = usePathname();
+  const { t } = useI18n();
 
   return (
     <PermissionGuard permission="admin.access">
       <div className="p-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-zinc-900">Admin Panel</h1>
+        <h1 className="text-3xl font-bold text-zinc-900">{t("admin.title", "Admin Panel")}</h1>
         <p className="mt-2 text-sm text-zinc-600">
-          Manage your organization's settings, users, and permissions
+          {t("admin.description", "Manage your organization's settings, users, and permissions")}
         </p>
       </div>
 
@@ -132,7 +141,7 @@ export default function AdminPanelPage() {
                   isActive ? "text-emerald-700" : "text-zinc-500 group-hover:text-emerald-600"
                 }`}
               >
-                Manage
+                {t("admin.manage", "Manage")}
                 <svg
                   width="16"
                   height="16"
@@ -322,6 +331,26 @@ function IconServices() {
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function IconTranslations() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M5 8l4 12M3 14h8M12.9 3h1.2l4.9 14M16 10h5"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M2 5h10M7 2v3"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
       />
     </svg>
   );

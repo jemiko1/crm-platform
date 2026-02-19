@@ -2,18 +2,6 @@ import { BadRequestException, Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { IdGeneratorService } from "../common/id-generator/id-generator.service";
 
-const VALID_ASSET_TYPES = new Set([
-  "ELEVATOR",
-  "ENTRANCE_DOOR",
-  "INTERCOM",
-  "SMART_GSM_GATE",
-  "SMART_DOOR_GSM",
-  "BOOM_BARRIER",
-  "OTHER",
-]);
-
-const VALID_STATUS = new Set(["ONLINE", "OFFLINE", "UNKNOWN"]);
-
 @Injectable()
 export class AssetsService {
   constructor(
@@ -21,12 +9,23 @@ export class AssetsService {
     private readonly ids: IdGeneratorService,
   ) {}
 
+  private async getValidValues(categoryCode: string): Promise<Set<string>> {
+    const category = await this.prisma.systemListCategory.findUnique({
+      where: { code: categoryCode },
+      include: { items: { where: { isActive: true }, select: { value: true } } },
+    });
+    return new Set(category?.items.map((i) => i.value) ?? []);
+  }
+
   async createManual(buildingId: string, input: any) {
-    if (!VALID_ASSET_TYPES.has(input.type)) {
-      throw new BadRequestException(`Invalid asset type: ${input.type}`);
+    const validTypes = await this.getValidValues("ASSET_TYPE");
+    if (validTypes.size > 0 && !validTypes.has(input.type)) {
+      throw new BadRequestException(`Invalid device type: ${input.type}`);
     }
+
     const status = input.status ?? "UNKNOWN";
-    if (!VALID_STATUS.has(status)) {
+    const validStatuses = await this.getValidValues("DEVICE_STATUS");
+    if (validStatuses.size > 0 && !validStatuses.has(status)) {
       throw new BadRequestException(`Invalid device status: ${status}`);
     }
 

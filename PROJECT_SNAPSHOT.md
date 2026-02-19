@@ -2,8 +2,8 @@
 
 **Single source of truth for AI tools and developers.** Read this file first to understand the project.
 
-**Last Updated**: 2026-01-30 | **Version**: v1.3.0  
-**Stack**: NestJS (Backend) + Next.js 15 App Router (Frontend) + PostgreSQL + Prisma ORM
+**Last Updated**: 2026-02-17 | **Version**: v1.4.0  
+**Stack**: NestJS (Backend) + Next.js App Router (Frontend) + PostgreSQL + Prisma ORM + Socket.IO
 
 ---
 
@@ -96,6 +96,16 @@
 - **Permissions**: Derived from Position → RoleGroup → Permissions
 - **Employee ID**: Auto-generated (EMP-001, EMP-002...), never reused after deletion
 
+### Instant Messenger (v1.4.0+)
+- **Facebook-style messenger**: Real-time chat between employees with Socket.IO WebSockets
+- **Chat bubbles**: Bottom-anchored modal chat windows (like Facebook Messenger)
+- **Full messenger view**: Slider modal with three-column layout (conversations, chat, employee info)
+- **Group chats**: Admin-controlled group creation with permission-based access
+- **Message features**: Emoji reactions, delivered/seen status with Facebook-style seen avatars
+- **Sound notifications**: Audio alerts for new messages
+- **Real-time updates**: WebSocket + REST polling fallback for reliable message delivery
+- **Header integration**: Messenger icon, notification bell, search bar, and My Workspace in sticky header
+
 ### Sales CRM (v1.2.0+)
 - **Leads**: Pipeline management with stages, services, proposals
 - **Services Catalog**: Configurable services with pricing
@@ -124,8 +134,8 @@
 - **Close**: `router.back()` — returns to previous page
 - Browser back button works naturally
 
-**Files**: `modal-manager.tsx`, `modal-provider.tsx`, `modal-z-index-context.tsx`  
-**Content components**: `building-detail-content.tsx`, `client-detail-content.tsx`, `employee-detail-content.tsx`, `work-order-detail-modal.tsx`
+**Files**: `modal-manager.tsx`, `modal-provider.tsx`, `modal-z-index-context.tsx`, `modal-stack-context.tsx`  
+**Content components**: `building-detail-content.tsx`, `client-detail-content.tsx`, `employee-detail-content.tsx`, `work-order-detail-modal.tsx`, `full-messenger-content.tsx`
 
 **Action modals** (Add Client, Create Work Order, Report Incident, etc.): Use `z-[50000]` so they appear above detail modals.
 
@@ -166,6 +176,10 @@
 | Auth controller | `backend/crm-backend/src/auth/auth.controller.ts` |
 | Prisma schema | `backend/crm-backend/prisma/schema.prisma` |
 | Permissions seed | `backend/crm-backend/prisma/seed-permissions.ts` |
+| Messenger context | `frontend/crm-frontend/src/app/app/messenger/messenger-context.tsx` |
+| Messenger gateway | `backend/crm-backend/src/messenger/messenger.gateway.ts` |
+| Messenger controller | `backend/crm-backend/src/messenger/messenger.controller.ts` |
+| App header | `frontend/crm-frontend/src/app/app/app-header.tsx` |
 
 ---
 
@@ -228,6 +242,13 @@ pnpm dev --port 3002
 | `GET /v1/sales/leads` | List sales leads |
 | `POST /v1/sales/leads` | Create lead |
 | `GET /v1/sales/services` | Sales services catalog |
+| `GET /v1/messenger/me` | Current employee for messenger |
+| `GET /v1/messenger/conversations` | List conversations |
+| `POST /v1/messenger/conversations` | Create conversation |
+| `GET /v1/messenger/conversations/:id/messages` | List messages |
+| `POST /v1/messenger/conversations/:id/messages` | Send message |
+| `POST /v1/messenger/messages/:id/reactions` | Toggle emoji reaction |
+| `GET /v1/messenger/unread-count` | Unread message count |
 | `GET /v1/system-lists/*` | Dynamic dropdown values |
 | `GET /v1/positions`, `role-groups`, `departments` | Admin CRUD |
 
@@ -249,6 +270,9 @@ All `/v1/*` endpoints (except public reads) require `JwtAuthGuard`. Many use `@R
 - `employee.reset_password` - Reset employee passwords
 - `employee.hard_delete` - Permanently delete employees
 
+**Messenger-specific permissions**:
+- `messenger.create_group` - Create group conversations
+
 ---
 
 ## 13. Repository Structure
@@ -263,6 +287,7 @@ backend/crm-backend/
 │   ├── buildings, clients, incidents, work-orders, inventory, employees
 │   ├── positions, role-groups, departments, system-lists
 │   ├── sales/ (leads, config, services)
+│   ├── messenger/ (controller, service, gateway, module)
 │   └── prisma/ (PrismaService)
 
 frontend/crm-frontend/
@@ -272,6 +297,8 @@ frontend/crm-frontend/
 │   │   │   ├── buildings, clients, employees, work-orders, incidents, inventory
 │   │   │   ├── tasks, admin, assets
 │   │   │   ├── sales/ (leads, services, plans)
+│   │   │   ├── messenger/ (chat bubbles, full messenger, context, types)
+│   │   │   ├── app-header.tsx, header-search.tsx, header-messenger-icon.tsx, header-notifications.tsx
 │   │   │   └── modal-z-index-context.tsx
 │   │   ├── login/, modal-dialog.tsx
 │   ├── hooks/ (useListItems.ts)
@@ -293,7 +320,36 @@ frontend/crm-frontend/
 
 ---
 
-## 15. Recent Updates (v1.3.0 - 2026-01-30)
+## 15. Recent Updates
+
+### Instant Messenger & Header Redesign (v1.4.0 - 2026-02-17)
+
+#### Messenger
+- ✅ Facebook-style instant messenger with real-time WebSocket communication (Socket.IO)
+- ✅ Chat bubble windows anchored to bottom of screen (open multiple simultaneously)
+- ✅ Full messenger slider modal with three-column layout (conversations | chat | employee info)
+- ✅ Group chat creation with admin permissions (`messenger.create_group`)
+- ✅ Emoji reactions on messages with reaction counts and participant display
+- ✅ Message status indicators: sent (single tick), delivered (double tick), seen (Facebook-style profile avatars)
+- ✅ Sound notifications for new messages (`notification.wav`)
+- ✅ Real-time message delivery via WebSocket + REST polling fallback (3s interval)
+- ✅ Message search, conversation filters (All, Groups, Unread)
+- ✅ Typing indicators with debounce
+- ✅ Cursor-based pagination for conversations and messages
+- ✅ MessageBus architecture for decoupled message delivery with deduplication
+
+#### Header Redesign
+- ✅ Sticky header with floating shadow effect (Facebook-style)
+- ✅ CRM28 branding in top-left corner aligned above sidebar
+- ✅ Pill-shaped search bar, circular messenger/notification icons
+- ✅ Compact circular profile avatar button
+- ✅ My Workspace with task count badge
+
+#### Database Schema
+- ✅ New models: Conversation, ConversationParticipant, Message, MessageAttachment, MessageReaction
+- ✅ Enums: ConversationType, MessageType, ParticipantRole
+
+### Previous Updates (v1.3.0 - 2026-01-30)
 
 ### Employee Lifecycle Management
 - ✅ Dismiss/terminate employees (soft delete with status change)
