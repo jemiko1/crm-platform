@@ -176,7 +176,7 @@ export default function CreateWorkOrderModal({
   useEffect(() => {
     if (!open) return;
     setError(null);
-    setCurrentStep(isBuildingLocked ? 2 : 1);
+    setCurrentStep(1);
     setFormData({
       type: null,
       buildingId: null,

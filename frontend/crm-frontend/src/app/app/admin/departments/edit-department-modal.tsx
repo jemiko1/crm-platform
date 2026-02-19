@@ -9,6 +9,7 @@ const BRAND = "rgb(8, 117, 56)";
 type Department = {
   id: string;
   name: string;
+  nameKa?: string | null;
   code: string;
   description: string | null;
   isActive: boolean;
@@ -55,6 +56,7 @@ export default function EditDepartmentModal({
 }: EditDepartmentModalProps) {
   const [mounted, setMounted] = useState(false);
   const [name, setName] = useState("");
+  const [nameKa, setNameKa] = useState("");
   const [code, setCode] = useState("");
   const [description, setDescription] = useState("");
   const [parentId, setParentId] = useState<string | null>(null);
@@ -71,6 +73,7 @@ export default function EditDepartmentModal({
   useEffect(() => {
     if (department) {
       setName(department.name);
+      setNameKa(department.nameKa || "");
       setCode(department.code);
       setDescription(department.description || "");
       setParentId(department.parent?.id || null);
@@ -109,6 +112,7 @@ export default function EditDepartmentModal({
     try {
       await apiPatch(`/v1/departments/${department.id}`, {
         name: name.trim(),
+        nameKa: nameKa.trim() || null,
         code: code.trim().toUpperCase(),
         description: description.trim() || null,
         parentId: parentId || null,
@@ -226,7 +230,7 @@ export default function EditDepartmentModal({
               <div className="space-y-4">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-zinc-700">
-                    Department Name *
+                    Department Name (English) *
                   </label>
                   <input
                     type="text"
@@ -235,6 +239,19 @@ export default function EditDepartmentModal({
                     required
                     className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                     placeholder="e.g., Sales Department"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-zinc-700">
+                    Department Name (Georgian)
+                  </label>
+                  <input
+                    type="text"
+                    value={nameKa}
+                    onChange={(e) => setNameKa(e.target.value)}
+                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    placeholder="მაგ., გაყიდვების დეპარტამენტი"
                   />
                 </div>
 

@@ -5,7 +5,9 @@ export class CreatePositionDto {
   @IsNotEmpty()
   name: string;
 
-  // code is auto-generated, not required from frontend
+  @IsOptional()
+  @IsString()
+  nameKa?: string;
 
   @IsString()
   @IsOptional()

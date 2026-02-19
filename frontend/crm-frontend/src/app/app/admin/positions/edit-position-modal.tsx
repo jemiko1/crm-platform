@@ -30,6 +30,7 @@ type Employee = {
 type Position = {
   id: string;
   name: string;
+  nameKa?: string | null;
   code: string;
   description: string | null;
   level: number | null;
@@ -62,6 +63,7 @@ export default function EditPositionModal({
 
   const [formData, setFormData] = useState({
     name: "",
+    nameKa: "",
     code: "",
     description: "",
     level: "",
@@ -100,6 +102,7 @@ export default function EditPositionModal({
         .then((data) => {
           setFormData({
             name: data.name,
+            nameKa: data.nameKa || "",
             code: data.code,
             description: data.description || "",
             level: data.level?.toString() || "",
@@ -136,6 +139,7 @@ export default function EditPositionModal({
     try {
       await apiPatch(`/v1/positions/${position.id}`, {
         name: formData.name,
+        nameKa: formData.nameKa || undefined,
         description: formData.description || undefined,
         level: formData.level ? Number(formData.level) : undefined,
         roleGroupId: formData.roleGroupId,
@@ -205,7 +209,7 @@ export default function EditPositionModal({
             <div className="space-y-4">
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-zinc-700">
-                  Position Name <span className="text-rose-500">*</span>
+                  Position Name (English) <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -214,6 +218,20 @@ export default function EditPositionModal({
                   onChange={handleChange}
                   required
                   className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-zinc-700">
+                  Position Name (Georgian)
+                </label>
+                <input
+                  type="text"
+                  name="nameKa"
+                  value={formData.nameKa}
+                  onChange={handleChange}
+                  className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  placeholder="მაგ., დირექტორი"
                 />
               </div>
 
