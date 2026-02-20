@@ -1,34 +1,35 @@
-import { INestApplication } from "@nestjs/common";
 import request from "supertest";
-import { App } from "supertest/types";
-import { PrismaService } from "../src/prisma/prisma.service";
-import { createTestApp, resetDatabase, createTestUser } from "./helpers/test-utils";
+import {
+  createTestApp,
+  closeTestApp,
+  resetDatabase,
+  createTestUser,
+  TestContext,
+} from "./helpers/test-utils";
 
 describe("Auth (e2e)", () => {
-  let app: INestApplication<App>;
-  let prisma: PrismaService;
+  let ctx: TestContext;
 
   beforeAll(async () => {
-    app = await createTestApp();
-    prisma = app.get(PrismaService);
+    ctx = await createTestApp();
   });
 
   afterAll(async () => {
-    await app.close();
+    await closeTestApp(ctx);
   });
 
   beforeEach(async () => {
-    await resetDatabase(prisma);
+    await resetDatabase(ctx.prisma);
   });
 
   describe("POST /auth/login", () => {
     it("returns user and sets httpOnly cookie on valid credentials", async () => {
-      await createTestUser(prisma, {
+      await createTestUser(ctx.prisma, {
         email: "admin@crm.local",
         password: "Admin123!",
       });
 
-      const res = await request(app.getHttpServer())
+      const res = await request(ctx.app.getHttpServer())
         .post("/auth/login")
         .send({ email: "admin@crm.local", password: "Admin123!" })
         .expect(201);
@@ -44,7 +45,7 @@ describe("Auth (e2e)", () => {
     });
 
     it("returns 401 for non-existent user", async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(ctx.app.getHttpServer())
         .post("/auth/login")
         .send({ email: "nobody@crm.local", password: "any" })
         .expect(401);
@@ -53,25 +54,25 @@ describe("Auth (e2e)", () => {
     });
 
     it("returns 401 for wrong password", async () => {
-      await createTestUser(prisma, {
+      await createTestUser(ctx.prisma, {
         email: "admin@crm.local",
         password: "Admin123!",
       });
 
-      await request(app.getHttpServer())
+      await request(ctx.app.getHttpServer())
         .post("/auth/login")
         .send({ email: "admin@crm.local", password: "WrongPassword" })
         .expect(401);
     });
 
     it("returns 401 for inactive (dismissed) user", async () => {
-      await createTestUser(prisma, {
+      await createTestUser(ctx.prisma, {
         email: "dismissed@crm.local",
         password: "Admin123!",
         isActive: false,
       });
 
-      const res = await request(app.getHttpServer())
+      const res = await request(ctx.app.getHttpServer())
         .post("/auth/login")
         .send({ email: "dismissed@crm.local", password: "Admin123!" })
         .expect(401);
@@ -80,7 +81,7 @@ describe("Auth (e2e)", () => {
     });
 
     it("returns 400 for missing fields (validation pipe)", async () => {
-      await request(app.getHttpServer())
+      await request(ctx.app.getHttpServer())
         .post("/auth/login")
         .send({})
         .expect(400);
@@ -89,22 +90,22 @@ describe("Auth (e2e)", () => {
 
   describe("GET /auth/me", () => {
     it("returns 401 without authentication", async () => {
-      await request(app.getHttpServer()).get("/auth/me").expect(401);
+      await request(ctx.app.getHttpServer()).get("/auth/me").expect(401);
     });
 
     it("returns user info with valid cookie", async () => {
-      await createTestUser(prisma, {
+      await createTestUser(ctx.prisma, {
         email: "admin@crm.local",
         password: "Admin123!",
       });
 
-      const loginRes = await request(app.getHttpServer())
+      const loginRes = await request(ctx.app.getHttpServer())
         .post("/auth/login")
         .send({ email: "admin@crm.local", password: "Admin123!" });
 
       const cookies = loginRes.headers["set-cookie"];
 
-      const res = await request(app.getHttpServer())
+      const res = await request(ctx.app.getHttpServer())
         .get("/auth/me")
         .set("Cookie", cookies)
         .expect(200);
@@ -116,7 +117,7 @@ describe("Auth (e2e)", () => {
 
   describe("POST /auth/logout", () => {
     it("clears auth cookie", async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(ctx.app.getHttpServer())
         .post("/auth/logout")
         .expect(201);
 

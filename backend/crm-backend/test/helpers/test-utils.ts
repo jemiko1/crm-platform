@@ -10,11 +10,16 @@ import * as bcrypt from "bcrypt";
 
 config({ path: resolve(__dirname, "../../.env.test") });
 
+export interface TestContext {
+  app: INestApplication;
+  prisma: PrismaService;
+}
+
 /**
  * Bootstraps a NestJS application identical to production
  * (validation pipes, cookie parser, exception filters).
  */
-export async function createTestApp(): Promise<INestApplication> {
+export async function createTestApp(): Promise<TestContext> {
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [AppModule],
   }).compile();
@@ -31,7 +36,17 @@ export async function createTestApp(): Promise<INestApplication> {
   );
 
   await app.init();
-  return app;
+  const prisma = app.get(PrismaService);
+  return { app, prisma };
+}
+
+/**
+ * Tears down app + Prisma cleanly so no handles remain open.
+ * PrismaService.onModuleDestroy handles $disconnect + pool.end,
+ * but we call app.close() which triggers all OnModuleDestroy hooks.
+ */
+export async function closeTestApp({ app }: TestContext): Promise<void> {
+  await app.close();
 }
 
 /**
