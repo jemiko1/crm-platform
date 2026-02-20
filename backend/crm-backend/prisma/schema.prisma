@@ -1387,15 +1387,16 @@ model TelephonyExtension {
 }
 
 model TelephonyQueue {
-  id             String        @id @default(uuid())
-  name           String        @unique
-  strategy       QueueStrategy @default(RRMEMORY)
-  worktimeConfig Json?
-  isActive       Boolean       @default(true)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  callSessions   CallSession[]
-  missedCalls    MissedCall[]
+  id                String        @id @default(uuid())
+  name              String        @unique
+  strategy          QueueStrategy @default(RRMEMORY)
+  isAfterHoursQueue Boolean       @default(false)
+  worktimeConfig    Json?
+  isActive          Boolean       @default(true)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  callSessions      CallSession[]
+  missedCalls       MissedCall[]
 
   @@index([isActive])
 }

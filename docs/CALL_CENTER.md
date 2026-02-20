@@ -42,28 +42,34 @@ The Call Center module provides a foundation for telephony analytics and quality
 
 When a call ends with a non-ANSWERED disposition, the system classifies the reason and optionally creates a callback request.
 
+**After-hours detection:** Asterisk handles after-hours routing by sending calls to a dedicated queue (e.g. `nowork`). The CRM detects after-hours calls by checking the queue's `isAfterHoursQueue` flag -- it does NOT compute local timezone schedules.
+
 ```
 call_end (non-ANSWERED)
   │
   ├─ disposition == ABANDONED
   │   → MissedCall (reason=ABANDONED) + CallbackRequest (status=PENDING)
   │
-  ├─ queue has worktimeConfig AND call outside configured hours
-  │   → MissedCall (reason=OUT_OF_HOURS) + CallbackRequest (status=SCHEDULED)
-  │     scheduledAt = next worktime window start
+  ├─ queue.isAfterHoursQueue == true
+  │   → MissedCall (reason=OUT_OF_HOURS) + CallbackRequest (status=PENDING)
   │
   └─ disposition == NOANSWER / MISSED / other
       → MissedCall (reason=NO_ANSWER), callback optional
 ```
 
+### After-Hours Queue Setup
+
+1. In Asterisk, configure out-of-hours routing to a queue named e.g. `nowork`
+2. In CRM, create a `TelephonyQueue` row with `name='nowork'` and `isAfterHoursQueue=true`
+3. When calls arrive in that queue, they are automatically classified as OUT_OF_HOURS
+
 ### Callback Lifecycle
 
 ```
-PENDING → SCHEDULED → ATTEMPTING → DONE / FAILED / CANCELED
+PENDING → ATTEMPTING → DONE / FAILED / CANCELED
 ```
 
 - **PENDING**: Awaiting agent pickup
-- **SCHEDULED**: Timed for next worktime window
 - **ATTEMPTING**: Agent is calling back (attemptsCount incremented)
 - **DONE**: Callback completed successfully
 - **FAILED**: All attempts exhausted
@@ -71,9 +77,13 @@ PENDING → SCHEDULED → ATTEMPTING → DONE / FAILED / CANCELED
 
 ---
 
-## Worktime Logic
+## Worktime Logic (Reporting Only)
 
-Each `TelephonyQueue` can have a `worktimeConfig` JSON field:
+> **Important:** Worktime config is NOT used for callback scheduling or after-hours detection.
+> Asterisk owns after-hours routing. CRM uses the queue's `isAfterHoursQueue` flag instead.
+> The worktime config below is available for optional reporting use (e.g. "calls outside configured hours" reports).
+
+Each `TelephonyQueue` can optionally have a `worktimeConfig` JSON field:
 
 ```json
 {

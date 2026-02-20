@@ -50,6 +50,7 @@ CREATE TABLE "TelephonyQueue" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "strategy" "QueueStrategy" NOT NULL DEFAULT 'RRMEMORY',
+    "isAfterHoursQueue" BOOLEAN NOT NULL DEFAULT false,
     "worktimeConfig" JSONB,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,

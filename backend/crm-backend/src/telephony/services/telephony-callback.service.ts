@@ -6,26 +6,26 @@ import {
   MissedCallReason,
   MissedCallStatus,
 } from '@prisma/client';
-import { TelephonyWorktimeService } from './telephony-worktime.service';
 
 @Injectable()
 export class TelephonyCallbackService {
   private readonly logger = new Logger(TelephonyCallbackService.name);
 
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly worktimeService: TelephonyWorktimeService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Called when a call ends with a non-ANSWERED disposition.
+   * Classifies the reason using the queue's isAfterHoursQueue flag
+   * (Asterisk routes out-of-hours calls to a dedicated "nowork" queue).
+   */
   async handleNonAnsweredCall(sessionId: string): Promise<void> {
     const session = await this.prisma.callSession.findUnique({
       where: { id: sessionId },
-      include: { queue: true },
+      include: { queue: { select: { id: true, isAfterHoursQueue: true } } },
     });
     if (!session || session.disposition === CallDisposition.ANSWERED) return;
 
     const reason = this.classifyMissedReason(session);
-    const isOutOfHours = reason === MissedCallReason.OUT_OF_HOURS;
 
     const missedCall = await this.prisma.missedCall.upsert({
       where: { callSessionId: sessionId },
@@ -39,29 +39,16 @@ export class TelephonyCallbackService {
       update: {},
     });
 
-    // Create callback request based on the reason
     const shouldCreateCallback =
       reason === MissedCallReason.OUT_OF_HOURS ||
       reason === MissedCallReason.ABANDONED;
 
     if (shouldCreateCallback) {
-      let scheduledAt: Date | null = null;
-
-      if (isOutOfHours && session.queueId) {
-        scheduledAt = await this.worktimeService.nextWorktimeStart(
-          session.queueId,
-          new Date(),
-        );
-      }
-
       await this.prisma.callbackRequest.upsert({
         where: { missedCallId: missedCall.id },
         create: {
           missedCallId: missedCall.id,
-          status: scheduledAt
-            ? CallbackRequestStatus.SCHEDULED
-            : CallbackRequestStatus.PENDING,
-          scheduledAt,
+          status: CallbackRequestStatus.PENDING,
         },
         update: {},
       });
@@ -144,19 +131,14 @@ export class TelephonyCallbackService {
 
   private classifyMissedReason(session: {
     disposition: CallDisposition | null;
-    queueId: string | null;
-    queue: { worktimeConfig: unknown } | null;
+    queue: { isAfterHoursQueue: boolean } | null;
   }): MissedCallReason {
     if (session.disposition === CallDisposition.ABANDONED) {
       return MissedCallReason.ABANDONED;
     }
 
-    // If queue has worktime config, check if call was out of hours
-    if (session.queue?.worktimeConfig) {
-      const config = session.queue.worktimeConfig as { timezone?: string; windows?: unknown[] };
-      if (config.timezone && Array.isArray(config.windows) && config.windows.length > 0) {
-        return MissedCallReason.OUT_OF_HOURS;
-      }
+    if (session.queue?.isAfterHoursQueue) {
+      return MissedCallReason.OUT_OF_HOURS;
     }
 
     return MissedCallReason.NO_ANSWER;
