@@ -45,6 +45,9 @@ import { NotificationsModule } from "./notifications/notifications.module";
 // Core Integration (webhook sync from external core system)
 import { CoreIntegrationModule } from "./core-integration/core-integration.module";
 
+// Telephony / Call Center
+import { TelephonyModule } from "./telephony/telephony.module";
+
 import { V1Module } from "./v1/v1.module";
 
 @Module({
@@ -94,6 +97,9 @@ import { V1Module } from "./v1/v1.module";
 
     // Core Integration (webhook sync)
     CoreIntegrationModule,
+
+    // Telephony / Call Center
+    TelephonyModule,
 
     // API controllers (v1)
     V1Module,
