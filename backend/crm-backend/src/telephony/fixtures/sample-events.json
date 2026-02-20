@@ -1,0 +1,244 @@
+{
+  "description": "Complete inbound call lifecycle: ring → queue → agent connect → answer → hold → resume → wrapup → end → recording ready",
+  "events": [
+    {
+      "eventType": "call_start",
+      "timestamp": "2026-02-21T10:00:00.000Z",
+      "idempotencyKey": "sample-001-call-start",
+      "linkedId": "ast-linked-001",
+      "uniqueId": "ast-unique-001",
+      "payload": {
+        "uniqueId": "ast-unique-001",
+        "linkedId": "ast-linked-001",
+        "channel": "SIP/trunk-0001",
+        "callerIdNum": "555123456",
+        "callerIdName": "John Doe",
+        "connectedLineNum": "100",
+        "context": "inbound",
+        "extension": "s"
+      }
+    },
+    {
+      "eventType": "queue_enter",
+      "timestamp": "2026-02-21T10:00:02.000Z",
+      "idempotencyKey": "sample-001-queue-enter",
+      "linkedId": "ast-linked-001",
+      "payload": {
+        "uniqueId": "ast-unique-001",
+        "linkedId": "ast-linked-001",
+        "queue": "support",
+        "position": 1
+      }
+    },
+    {
+      "eventType": "agent_connect",
+      "timestamp": "2026-02-21T10:00:12.000Z",
+      "idempotencyKey": "sample-001-agent-connect",
+      "linkedId": "ast-linked-001",
+      "payload": {
+        "uniqueId": "ast-unique-001",
+        "linkedId": "ast-linked-001",
+        "extension": "101",
+        "holdTime": 10,
+        "queue": "support"
+      }
+    },
+    {
+      "eventType": "call_answer",
+      "timestamp": "2026-02-21T10:00:14.000Z",
+      "idempotencyKey": "sample-001-call-answer",
+      "linkedId": "ast-linked-001",
+      "payload": {
+        "uniqueId": "ast-unique-001",
+        "linkedId": "ast-linked-001",
+        "channel": "SIP/101-0002"
+      }
+    },
+    {
+      "eventType": "hold_start",
+      "timestamp": "2026-02-21T10:02:00.000Z",
+      "idempotencyKey": "sample-001-hold-start",
+      "linkedId": "ast-linked-001",
+      "payload": {
+        "uniqueId": "ast-unique-001",
+        "linkedId": "ast-linked-001"
+      }
+    },
+    {
+      "eventType": "hold_end",
+      "timestamp": "2026-02-21T10:02:30.000Z",
+      "idempotencyKey": "sample-001-hold-end",
+      "linkedId": "ast-linked-001",
+      "payload": {
+        "uniqueId": "ast-unique-001",
+        "linkedId": "ast-linked-001"
+      }
+    },
+    {
+      "eventType": "call_end",
+      "timestamp": "2026-02-21T10:05:00.000Z",
+      "idempotencyKey": "sample-001-call-end",
+      "linkedId": "ast-linked-001",
+      "payload": {
+        "uniqueId": "ast-unique-001",
+        "linkedId": "ast-linked-001",
+        "cause": "16",
+        "causeTxt": "NORMAL_CLEARING"
+      }
+    },
+    {
+      "eventType": "wrapup_start",
+      "timestamp": "2026-02-21T10:05:01.000Z",
+      "idempotencyKey": "sample-001-wrapup-start",
+      "linkedId": "ast-linked-001",
+      "payload": {
+        "uniqueId": "ast-unique-001",
+        "linkedId": "ast-linked-001"
+      }
+    },
+    {
+      "eventType": "wrapup_end",
+      "timestamp": "2026-02-21T10:05:31.000Z",
+      "idempotencyKey": "sample-001-wrapup-end",
+      "linkedId": "ast-linked-001",
+      "payload": {
+        "uniqueId": "ast-unique-001",
+        "linkedId": "ast-linked-001"
+      }
+    },
+    {
+      "eventType": "recording_ready",
+      "timestamp": "2026-02-21T10:06:00.000Z",
+      "idempotencyKey": "sample-001-recording-ready",
+      "linkedId": "ast-linked-001",
+      "payload": {
+        "uniqueId": "ast-unique-001",
+        "linkedId": "ast-linked-001",
+        "recordingFile": "/var/spool/asterisk/monitor/2026/02/21/sample-001.wav",
+        "recordingDuration": 286
+      }
+    },
+    {
+      "eventType": "call_start",
+      "timestamp": "2026-02-21T10:10:00.000Z",
+      "idempotencyKey": "sample-002-call-start",
+      "linkedId": "ast-linked-002",
+      "uniqueId": "ast-unique-002",
+      "payload": {
+        "uniqueId": "ast-unique-002",
+        "linkedId": "ast-linked-002",
+        "channel": "SIP/trunk-0003",
+        "callerIdNum": "555987654",
+        "callerIdName": "Jane Smith",
+        "context": "inbound"
+      }
+    },
+    {
+      "eventType": "queue_enter",
+      "timestamp": "2026-02-21T10:10:02.000Z",
+      "idempotencyKey": "sample-002-queue-enter",
+      "linkedId": "ast-linked-002",
+      "payload": {
+        "uniqueId": "ast-unique-002",
+        "linkedId": "ast-linked-002",
+        "queue": "support",
+        "position": 1
+      }
+    },
+    {
+      "eventType": "call_end",
+      "timestamp": "2026-02-21T10:10:45.000Z",
+      "idempotencyKey": "sample-002-call-end",
+      "linkedId": "ast-linked-002",
+      "payload": {
+        "uniqueId": "ast-unique-002",
+        "linkedId": "ast-linked-002",
+        "cause": "487",
+        "causeTxt": "ORIGINATOR_CANCEL"
+      }
+    },
+    {
+      "eventType": "call_start",
+      "timestamp": "2026-02-21T10:15:00.000Z",
+      "idempotencyKey": "sample-003-call-start",
+      "linkedId": "ast-linked-003",
+      "uniqueId": "ast-unique-003",
+      "payload": {
+        "uniqueId": "ast-unique-003",
+        "linkedId": "ast-linked-003",
+        "channel": "SIP/trunk-0005",
+        "callerIdNum": "555111222",
+        "context": "inbound"
+      }
+    },
+    {
+      "eventType": "queue_enter",
+      "timestamp": "2026-02-21T10:15:01.000Z",
+      "idempotencyKey": "sample-003-queue-enter",
+      "linkedId": "ast-linked-003",
+      "payload": {
+        "uniqueId": "ast-unique-003",
+        "linkedId": "ast-linked-003",
+        "queue": "support",
+        "position": 1
+      }
+    },
+    {
+      "eventType": "agent_connect",
+      "timestamp": "2026-02-21T10:15:08.000Z",
+      "idempotencyKey": "sample-003-agent-connect",
+      "linkedId": "ast-linked-003",
+      "payload": {
+        "uniqueId": "ast-unique-003",
+        "linkedId": "ast-linked-003",
+        "extension": "102",
+        "queue": "support"
+      }
+    },
+    {
+      "eventType": "call_answer",
+      "timestamp": "2026-02-21T10:15:09.000Z",
+      "idempotencyKey": "sample-003-call-answer",
+      "linkedId": "ast-linked-003",
+      "payload": {
+        "uniqueId": "ast-unique-003",
+        "linkedId": "ast-linked-003"
+      }
+    },
+    {
+      "eventType": "transfer",
+      "timestamp": "2026-02-21T10:17:00.000Z",
+      "idempotencyKey": "sample-003-transfer",
+      "linkedId": "ast-linked-003",
+      "payload": {
+        "uniqueId": "ast-unique-003",
+        "linkedId": "ast-linked-003",
+        "extension": "103"
+      }
+    },
+    {
+      "eventType": "call_end",
+      "timestamp": "2026-02-21T10:20:00.000Z",
+      "idempotencyKey": "sample-003-call-end",
+      "linkedId": "ast-linked-003",
+      "payload": {
+        "uniqueId": "ast-unique-003",
+        "linkedId": "ast-linked-003",
+        "cause": "16",
+        "causeTxt": "NORMAL_CLEARING"
+      }
+    },
+    {
+      "eventType": "recording_ready",
+      "timestamp": "2026-02-21T10:21:00.000Z",
+      "idempotencyKey": "sample-003-recording-ready",
+      "linkedId": "ast-linked-003",
+      "payload": {
+        "uniqueId": "ast-unique-003",
+        "linkedId": "ast-linked-003",
+        "recordingFile": "/var/spool/asterisk/monitor/2026/02/21/sample-003.wav",
+        "recordingDuration": 291
+      }
+    }
+  ]
+}
