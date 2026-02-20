@@ -17,6 +17,7 @@ import { AssetsService } from "../assets/assets.service";
 import { InventoryService } from "../inventory/inventory.service";
 import { WorkOrderActivityService } from "./work-order-activity.service";
 import { WorkflowService } from "../workflow/workflow.service";
+import { WorkflowTriggerEngine } from "../workflow/workflow-trigger-engine.service";
 import { WorkOrderStatus, WorkOrderType } from "@prisma/client";
 
 @Injectable()
@@ -28,6 +29,7 @@ export class WorkOrdersService {
     private readonly inventory: InventoryService,
     private readonly activityService: WorkOrderActivityService,
     private readonly workflowService: WorkflowService,
+    private readonly triggerEngine: WorkflowTriggerEngine,
   ) {}
 
   // ===== CREATE WORK ORDER =====
@@ -257,6 +259,13 @@ export class WorkOrdersService {
       building.name,
       dto.type,
     );
+
+    // Fire workflow triggers for CREATED status
+    this.triggerEngine.evaluateStatusChange(
+      { id: workOrder.id, type: dto.type, title: (workOrder as any).title, workOrderNumber: workOrder.workOrderNumber },
+      null,
+      "CREATED",
+    ).catch(() => {});
 
     return workOrder;
   }
@@ -932,6 +941,13 @@ export class WorkOrdersService {
       "LINKED_TO_GROUP",
     );
 
+    // Fire workflow triggers
+    this.triggerEngine.evaluateStatusChange(
+      { id: workOrder.id, type: workOrder.type, title: workOrder.title, workOrderNumber: workOrder.workOrderNumber },
+      "CREATED",
+      "LINKED_TO_GROUP",
+    ).catch(() => {});
+
     // Update status to LINKED_TO_GROUP
     return this.prisma.workOrder.update({
       where: { id: workOrder.id },
@@ -987,6 +1003,13 @@ export class WorkOrdersService {
       "LINKED_TO_GROUP",
       "IN_PROGRESS",
     );
+
+    // Fire workflow triggers
+    this.triggerEngine.evaluateStatusChange(
+      { id: workOrder.id, type: workOrder.type, title: workOrder.title, workOrderNumber: workOrder.workOrderNumber },
+      "LINKED_TO_GROUP",
+      "IN_PROGRESS",
+    ).catch(() => {});
 
     return this.prisma.workOrder.update({
       where: { id: workOrder.id },
@@ -1261,6 +1284,12 @@ export class WorkOrdersService {
       console.warn("[WorkOrder Submit] Failed to create notifications for FINAL_APPROVAL step:", error);
     }
 
+    // Fire workflow triggers for field change (techEmployeeComment = "Waiting For Approval")
+    this.triggerEngine.evaluateFieldChange(
+      { id: workOrder.id, type: workOrder.type, title: workOrder.title, workOrderNumber: workOrder.workOrderNumber },
+      ["techEmployeeComment"],
+    ).catch(() => {});
+
     // Update with comment - status remains IN_PROGRESS until head approves
     return this.prisma.workOrder.update({
       where: { id: workOrder.id },
@@ -1303,6 +1332,13 @@ export class WorkOrdersService {
         "IN_PROGRESS",
         "CANCELED",
       );
+
+      // Fire workflow triggers
+      this.triggerEngine.evaluateStatusChange(
+        { id: workOrder.id, type: workOrder.type, title: workOrder.title, workOrderNumber: workOrder.workOrderNumber },
+        "IN_PROGRESS",
+        "CANCELED",
+      ).catch(() => {});
 
       // Cancel work order
       return this.prisma.workOrder.update({
@@ -1471,6 +1507,13 @@ export class WorkOrdersService {
       "IN_PROGRESS",
       "COMPLETED",
     );
+
+    // Fire workflow triggers
+    this.triggerEngine.evaluateStatusChange(
+      { id: workOrder.id, type: workOrder.type, title: workOrder.title, workOrderNumber: workOrder.workOrderNumber },
+      "IN_PROGRESS",
+      "COMPLETED",
+    ).catch(() => {});
 
     return this.prisma.workOrder.update({
       where: { id: workOrder.id },

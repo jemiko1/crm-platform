@@ -11,6 +11,7 @@ import { usePermissions } from "@/lib/use-permissions";
 import CreateWorkOrderModal from "./create-work-order-modal";
 import WorkOrderStatistics from "./work-order-statistics";
 import { useModalContext } from "../modal-manager";
+import { getStatusLabel, getStatusBadge, resolveDisplayStatus } from "@/lib/work-order-status";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -28,9 +29,9 @@ type WorkOrder = {
     | "CREATED"
     | "LINKED_TO_GROUP"
     | "IN_PROGRESS"
-    | "PENDING_APPROVAL"
-    | "APPROVED"
+    | "COMPLETED"
     | "CANCELED";
+  techEmployeeComment?: string | null;
   title: string;
   notes: string | null;
   createdAt: string;
@@ -76,31 +77,6 @@ type StatisticsData = {
   overdueCount: number;
   monthlyOverdueBreakdown: Record<number, Record<number, number>>;
 };
-
-function getStatusBadge(status: WorkOrder["status"]) {
-  const styles: Record<string, string> = {
-    CREATED: "bg-blue-50 text-blue-700 ring-blue-200",
-    LINKED_TO_GROUP: "bg-amber-50 text-amber-700 ring-amber-200",
-    IN_PROGRESS: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-    PENDING_APPROVAL: "bg-purple-50 text-purple-700 ring-purple-200",
-    APPROVED: "bg-green-50 text-green-700 ring-green-200",
-    CANCELED: "bg-red-50 text-red-700 ring-red-200",
-  };
-  return styles[status] || "bg-zinc-50 text-zinc-700 ring-zinc-200";
-}
-
-function getStatusLabel(status: WorkOrder["status"], t: (key: string, fallback?: string) => string) {
-  const labels: Record<string, string> = {
-    CREATED: t("workOrders.statuses.CREATED", "Created"),
-    LINKED_TO_GROUP: t("workOrders.statuses.LINKED_TO_GROUP", "Linked To a Group"),
-    IN_PROGRESS: t("workOrders.statuses.IN_PROGRESS", "In Progress"),
-    PENDING_APPROVAL: t("workOrders.statuses.PENDING_APPROVAL", "Pending Approval"),
-    APPROVED: t("workOrders.statuses.APPROVED", "Approved"),
-    CANCELED: t("workOrders.statuses.CANCELED", "Canceled"),
-  };
-  return labels[status] || status;
-}
-
 
 export default function WorkOrdersPage() {
   const { t, language } = useI18n();
@@ -225,8 +201,8 @@ export default function WorkOrdersPage() {
         wo.building.name,
         wo.asset?.name ?? "",
         wo.workOrderAssets?.map((wa) => wa.asset.name).join(" ") ?? "",
-        getStatusLabel(wo.status, t),
-        getWoTypeLabel(wo.type, language),
+        getStatusLabel(resolveDisplayStatus(wo.status, wo.techEmployeeComment), t),
+        getWoTypeLabel(wo.type, language) as string,
       ]
         .join(" ")
         .toLowerCase();
@@ -451,13 +427,16 @@ export default function WorkOrdersPage() {
 
                               {/* Status */}
                               <td className="px-4 py-4 align-middle">
-                                <span
-                                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ${getStatusBadge(
-                                    wo.status
-                                  )}`}
-                                >
-                                  {getStatusLabel(wo.status, t)}
-                                </span>
+                                {(() => {
+                                  const ds = resolveDisplayStatus(wo.status, wo.techEmployeeComment);
+                                  return (
+                                    <span
+                                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ${getStatusBadge(ds)}`}
+                                    >
+                                      {getStatusLabel(ds, t)}
+                                    </span>
+                                  );
+                                })()}
                               </td>
 
                               {/* Created */}

@@ -6,17 +6,26 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   UseGuards,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { WorkflowService } from "../workflow/workflow.service";
+import { WorkflowTriggerService } from "../workflow/workflow-trigger.service";
+import { CreateTriggerDto } from "../workflow/dto/create-trigger.dto";
+import { UpdateTriggerDto } from "../workflow/dto/update-trigger.dto";
+import { CreateTriggerActionDto } from "../workflow/dto/create-trigger-action.dto";
+import { UpdateTriggerActionDto } from "../workflow/dto/update-trigger-action.dto";
 
 @ApiTags("Workflow Configuration")
 @Controller("v1/workflow")
 @UseGuards(JwtAuthGuard)
 export class WorkflowController {
-  constructor(private readonly workflowService: WorkflowService) {}
+  constructor(
+    private readonly workflowService: WorkflowService,
+    private readonly triggerService: WorkflowTriggerService,
+  ) {}
 
   // ===== WORKFLOW STEPS =====
 
@@ -105,5 +114,63 @@ export class WorkflowController {
   @ApiOperation({ summary: "Get employees assigned to a workflow step" })
   getEmployeesForStep(@Param("stepKey") stepKey: string) {
     return this.workflowService.getEmployeesForStep(stepKey);
+  }
+
+  // ===== WORKFLOW TRIGGERS =====
+
+  @Get("triggers")
+  @ApiOperation({ summary: "List all triggers (optional ?workOrderType= filter)" })
+  getTriggers(@Query("workOrderType") workOrderType?: string) {
+    return this.triggerService.findAll(workOrderType);
+  }
+
+  @Get("triggers/overview")
+  @ApiOperation({ summary: "Get triggers overview grouped by type" })
+  getTriggersOverview(@Query("workOrderType") workOrderType?: string) {
+    return this.triggerService.getOverview(workOrderType);
+  }
+
+  @Get("triggers/:id")
+  @ApiOperation({ summary: "Get a single trigger with actions" })
+  getTrigger(@Param("id") id: string) {
+    return this.triggerService.findById(id);
+  }
+
+  @Post("triggers")
+  @ApiOperation({ summary: "Create a workflow trigger" })
+  createTrigger(@Body() dto: CreateTriggerDto) {
+    return this.triggerService.create(dto);
+  }
+
+  @Patch("triggers/:id")
+  @ApiOperation({ summary: "Update a workflow trigger" })
+  updateTrigger(@Param("id") id: string, @Body() dto: UpdateTriggerDto) {
+    return this.triggerService.update(id, dto);
+  }
+
+  @Delete("triggers/:id")
+  @ApiOperation({ summary: "Delete a workflow trigger" })
+  deleteTrigger(@Param("id") id: string) {
+    return this.triggerService.delete(id);
+  }
+
+  // ===== TRIGGER ACTIONS =====
+
+  @Post("triggers/:triggerId/actions")
+  @ApiOperation({ summary: "Add an action to a trigger" })
+  createTriggerAction(@Param("triggerId") triggerId: string, @Body() dto: CreateTriggerActionDto) {
+    return this.triggerService.createAction(triggerId, dto);
+  }
+
+  @Patch("triggers/actions/:actionId")
+  @ApiOperation({ summary: "Update a trigger action" })
+  updateTriggerAction(@Param("actionId") actionId: string, @Body() dto: UpdateTriggerActionDto) {
+    return this.triggerService.updateAction(actionId, dto);
+  }
+
+  @Delete("triggers/actions/:actionId")
+  @ApiOperation({ summary: "Delete a trigger action" })
+  deleteTriggerAction(@Param("actionId") actionId: string) {
+    return this.triggerService.deleteAction(actionId);
   }
 }

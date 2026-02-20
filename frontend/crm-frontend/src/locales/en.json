@@ -211,10 +211,9 @@
     },
     "statuses": {
       "CREATED": "Created",
-      "LINKED_TO_GROUP": "Linked To a Group",
-      "IN_PROGRESS": "In Progress",
-      "PENDING_APPROVAL": "Pending Approval",
-      "APPROVED": "Approved",
+      "LINKED_TO_GROUP": "Technicians Assigned",
+      "IN_PROGRESS": "Working",
+      "WAITING_APPROVAL": "Waiting For Approval",
       "COMPLETED": "Completed",
       "CANCELED": "Canceled"
     },

@@ -90,13 +90,27 @@ Complete API route documentation for CRM Platform backend.
 - `GET /v1/workflow/steps` - List all workflow steps with assigned positions
 - `GET /v1/workflow/steps/:id` - Get workflow step by ID
 - `PATCH /v1/workflow/steps/:id` - Update workflow step
-- `PATCH /v1/workflow/steps/:id/positions` - Set positions for workflow step
+- `POST /v1/workflow/steps/:stepId/positions` - Assign position to step
+- `DELETE /v1/workflow/steps/:stepId/positions/:positionId` - Remove position from step
+- `PATCH /v1/workflow/steps/:stepId/positions` - Set all positions for step
 - `GET /v1/workflow/positions` - List all active positions
+- `GET /v1/workflow/steps/:stepKey/employees` - Get employees for workflow step
+- `GET /v1/workflow/triggers` - List triggers (query: ?workOrderType=)
+- `GET /v1/workflow/triggers/overview` - Triggers grouped by type (query: ?workOrderType=)
+- `GET /v1/workflow/triggers/:id` - Get single trigger with actions
+- `POST /v1/workflow/triggers` - Create workflow trigger
+- `PATCH /v1/workflow/triggers/:id` - Update workflow trigger
+- `DELETE /v1/workflow/triggers/:id` - Delete workflow trigger
+- `POST /v1/workflow/triggers/:triggerId/actions` - Add action to trigger
+- `PATCH /v1/workflow/triggers/actions/:actionId` - Update trigger action
+- `DELETE /v1/workflow/triggers/actions/:actionId` - Delete trigger action
 
 **Notes**: 
-- Admin-only endpoints for configuring workflow steps
+- Admin-only endpoints for configuring workflow steps and automation triggers
 - Each step can have multiple positions assigned
 - Positions determine who receives tasks at each step
+- Triggers fire on status changes, field changes, inactivity, or deadline proximity
+- Each trigger can have multiple actions (System Notification, Email, SMS)
 
 ---
 

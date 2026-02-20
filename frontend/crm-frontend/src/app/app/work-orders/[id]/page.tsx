@@ -9,6 +9,7 @@ import ActivityTimeline from "./activity-timeline";
 import { useI18n } from "@/hooks/useI18n";
 import { usePermissions } from "@/lib/use-permissions";
 import { PermissionGuard } from "@/lib/permission-guard";
+import { getStatusLabel as sharedGetStatusLabel, getStatusBadge as sharedGetStatusBadge, resolveDisplayStatus } from "@/lib/work-order-status";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -29,11 +30,7 @@ type WorkOrderDetail = {
     | "LINKED_TO_GROUP"
     | "IN_PROGRESS"
     | "COMPLETED"
-    | "CANCELED"
-    | "NEW"
-    | "DISPATCHED"
-    | "ACCEPTED"
-    | "DONE"; // Legacy
+    | "CANCELED";
   title: string;
   notes: string | null;
   description?: string | null;
@@ -137,36 +134,20 @@ type WorkOrderDetail = {
   }>;
 };
 
-function getStatusBadge(status: WorkOrderDetail["status"]) {
-  const styles: Record<string, string> = {
-    CREATED: "bg-zinc-100 text-zinc-700 border border-zinc-300",
-    LINKED_TO_GROUP: "bg-zinc-100 text-zinc-700 border border-zinc-300",
-    IN_PROGRESS: "bg-zinc-100 text-zinc-900 border border-zinc-400 font-semibold",
-    COMPLETED: "bg-zinc-100 text-zinc-600 border border-zinc-300",
-    CANCELED: "bg-zinc-100 text-zinc-600 border border-zinc-300",
-    // Legacy
-    NEW: "bg-zinc-100 text-zinc-700 border border-zinc-300",
-    DISPATCHED: "bg-zinc-100 text-zinc-700 border border-zinc-300",
-    ACCEPTED: "bg-zinc-100 text-zinc-700 border border-zinc-300",
-    DONE: "bg-zinc-100 text-zinc-600 border border-zinc-300",
-  };
-  return styles[status] || "bg-zinc-100 text-zinc-700 border border-zinc-300";
+function getStatusBadge(status: string) {
+  return sharedGetStatusBadge(status);
 }
 
-function getStatusLabel(status: WorkOrderDetail["status"], t: (key: string, fallback?: string) => string) {
-  const labels: Record<string, string> = {
-    CREATED: t("workOrders.statuses.CREATED", "Created"),
-    LINKED_TO_GROUP: t("workOrders.statuses.LINKED_TO_GROUP", "Linked To a Group"),
-    IN_PROGRESS: t("workOrders.statuses.IN_PROGRESS", "In Progress"),
-    COMPLETED: t("workOrders.statuses.COMPLETED", "Completed"),
-    CANCELED: t("workOrders.statuses.CANCELED", "Canceled"),
-    // Legacy
-    NEW: "New",
-    DISPATCHED: "Dispatched",
-    ACCEPTED: "Accepted",
-    DONE: "Done",
-  };
-  return labels[status] || status;
+function getStatusLabel(status: string, t: (key: string, fallback?: string) => string) {
+  return sharedGetStatusLabel(status, t);
+}
+
+function getResolvedStatusBadge(wo: { status: string; techEmployeeComment?: string | null }) {
+  return sharedGetStatusBadge(resolveDisplayStatus(wo.status, wo.techEmployeeComment));
+}
+
+function getResolvedStatusLabel(wo: { status: string; techEmployeeComment?: string | null }, t: (key: string, fallback?: string) => string) {
+  return sharedGetStatusLabel(resolveDisplayStatus(wo.status, wo.techEmployeeComment), t);
 }
 
 function getTypeLabel(type: WorkOrderDetail["type"], t: (key: string, fallback?: string) => string) {
@@ -474,11 +455,9 @@ export default function WorkOrderDetailPage() {
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Work Order #{workOrder.workOrderNumber}</span>
                 <span
-                  className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium ${getStatusBadge(
-                    workOrder.status
-                  )}`}
+                  className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium ${getResolvedStatusBadge(workOrder)}`}
                 >
-                  {getStatusLabel(workOrder.status, t)}
+                  {getResolvedStatusLabel(workOrder, t)}
                 </span>
               </div>
               <h1 className="text-2xl font-semibold text-zinc-900 md:text-3xl">
@@ -617,7 +596,7 @@ export default function WorkOrderDetailPage() {
               )}
               <InfoCard
                 label={t("workOrders.fields.status", "Status")}
-                value={getStatusLabel(workOrder.status, t)}
+                value={getResolvedStatusLabel(workOrder, t)}
               />
               <InfoCard
                 label="Created"

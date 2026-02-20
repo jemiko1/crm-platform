@@ -10,6 +10,7 @@ import { usePermissions } from "@/lib/use-permissions";
 import ActivityTimeline from "./activity-timeline";
 import StagesMonitoring from "./stages-monitoring";
 import EditWorkOrderModal from "./edit-work-order-modal";
+import { getStatusLabel, getStatusBadge, resolveDisplayStatus } from "@/lib/work-order-status";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -29,14 +30,8 @@ type WorkOrderDetail = {
     | "CREATED"
     | "LINKED_TO_GROUP"
     | "IN_PROGRESS"
-    | "PENDING_APPROVAL"
-    | "APPROVED"
     | "COMPLETED"
-    | "CANCELED"
-    | "NEW"
-    | "DISPATCHED"
-    | "ACCEPTED"
-    | "DONE";
+    | "CANCELED";
   title: string;
   notes: string | null;
   description?: string | null;
@@ -149,21 +144,6 @@ type Props = {
 };
 
 // getTypeLabel is now handled by useListItems hook inside the component
-
-function getStatusLabel(status: string, t: (key: string, fallback?: string) => string): string {
-  const labels: Record<string, string> = {
-    CREATED: t("workOrders.statuses.CREATED", "Created"),
-    LINKED_TO_GROUP: t("workOrders.statuses.LINKED_TO_GROUP", "Linked To a Group"),
-    IN_PROGRESS: t("workOrders.statuses.IN_PROGRESS", "In Progress"),
-    COMPLETED: t("workOrders.statuses.COMPLETED", "Completed"),
-    CANCELED: t("workOrders.statuses.CANCELED", "Canceled"),
-    NEW: "New",
-    DISPATCHED: "Dispatched",
-    ACCEPTED: "Accepted",
-    DONE: "Done",
-  };
-  return labels[status] || status;
-}
 
 function InfoCard({ label, value, icon }: { label: string; value: string | null | undefined; icon?: string }) {
   return (
@@ -335,8 +315,8 @@ function WorkflowDebugPanel({ workOrder }: { workOrder: WorkOrderDetail }) {
       {
         step: 5,
         name: "Final Approval",
-        status: (workOrder.status === "APPROVED" || workOrder.status === "COMPLETED" ? "completed" : workOrder.status === "CANCELED" ? "skipped" : workOrder.techEmployeeComment ? "in_progress" : "pending") as "completed" | "pending" | "in_progress" | "skipped",
-        description: workOrder.status === "APPROVED" || workOrder.status === "COMPLETED" 
+        status: (workOrder.status === "COMPLETED" ? "completed" : workOrder.status === "CANCELED" ? "skipped" : workOrder.techEmployeeComment ? "in_progress" : "pending") as "completed" | "pending" | "in_progress" | "skipped",
+        description: workOrder.status === "COMPLETED"
           ? "Work approved by head of technical" 
           : workOrder.status === "CANCELED" 
           ? "Work order was canceled"
@@ -441,7 +421,7 @@ function WorkflowDebugPanel({ workOrder }: { workOrder: WorkOrderDetail }) {
       </div>
 
       {/* Stuck Warning with Responsible Employees */}
-      {stuckInfo && workOrder.status !== "APPROVED" && workOrder.status !== "COMPLETED" && workOrder.status !== "CANCELED" && (
+      {stuckInfo && workOrder.status !== "COMPLETED" && workOrder.status !== "CANCELED" && (
         <div className="rounded-xl bg-gradient-to-r from-red-500 to-rose-500 border-2 border-red-400 shadow-lg p-5">
           <div className="flex items-start gap-3">
             <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
@@ -1007,7 +987,7 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
                 workOrder.status === "IN_PROGRESS" ? "bg-emerald-100 text-emerald-700" :
                 "bg-zinc-100 text-zinc-700"
               }`}>
-                {getStatusLabel(workOrder.status, t)}
+                {getStatusLabel(resolveDisplayStatus(workOrder.status, workOrder.techEmployeeComment), t)}
               </span>
             )}
           </div>

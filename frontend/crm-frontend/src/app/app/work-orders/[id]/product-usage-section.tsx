@@ -67,9 +67,10 @@ export default function ProductUsageSection({
 
     async function fetchProducts() {
       try {
-        const data = await apiGet<Product[]>("/v1/inventory/products");
+        const res = await apiGet<any>("/v1/inventory/products");
+        const list = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
         if (!cancelled) {
-          setProducts(data.filter((p) => p.currentStock > 0));
+          setProducts(list.filter((p: any) => p.currentStock > 0));
         }
       } catch (err) {
         if (!cancelled) {

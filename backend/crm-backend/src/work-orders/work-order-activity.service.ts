@@ -53,6 +53,18 @@ export interface ActivityMetadata {
   [key: string]: any;
 }
 
+const STATUS_DISPLAY: Record<string, string> = {
+  CREATED: 'Created',
+  LINKED_TO_GROUP: 'Technicians Assigned',
+  IN_PROGRESS: 'Working',
+  COMPLETED: 'Completed',
+  CANCELED: 'Canceled',
+};
+
+function displayStatus(raw: string): string {
+  return STATUS_DISPLAY[raw] || raw;
+}
+
 @Injectable()
 export class WorkOrderActivityService {
   constructor(private prisma: PrismaService) {}
@@ -339,7 +351,7 @@ export class WorkOrderActivityService {
       action: ActivityAction.STATUS_CHANGED,
       category: ActivityCategory.MAIN,
       title: 'Status Changed',
-      description: `Status changed from ${previousStatus} to ${newStatus}`,
+      description: `Status changed from ${displayStatus(previousStatus)} to ${displayStatus(newStatus)}`,
       performedById,
       performedByName: performerName,
       metadata: {

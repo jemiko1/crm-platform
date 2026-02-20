@@ -9,6 +9,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { useListItems } from "@/hooks/useListItems";
 import AssignEmployeesModal from "../../work-orders/[id]/assign-employees-modal";
 import { PermissionGuard } from "@/lib/permission-guard";
+import { getStatusLabel, getStatusBadge, STAGE_LABELS, resolveDisplayStatus, getProgressWidth } from "@/lib/work-order-status";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -104,28 +105,7 @@ type Product = {
   unit?: string;
 };
 
-function getStatusBadge(status: string) {
-  const styles: Record<string, string> = {
-    CREATED: "bg-blue-50 text-blue-700 ring-blue-200",
-    LINKED_TO_GROUP: "bg-amber-50 text-amber-700 ring-amber-200",
-    IN_PROGRESS: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-    COMPLETED: "bg-zinc-50 text-zinc-700 ring-zinc-200",
-    CANCELED: "bg-red-50 text-red-700 ring-red-200",
-  };
-  return styles[status] || "bg-zinc-50 text-zinc-700 ring-zinc-200";
-}
-
-function getStatusLabel(status: string) {
-  const labels: Record<string, string> = {
-    CREATED: "Created",
-    LINKED_TO_GROUP: "Assigned",
-    IN_PROGRESS: "In Progress",
-    COMPLETED: "Completed",
-    CANCELED: "Canceled",
-  };
-  return labels[status] || status;
-}
-
+// getStatusLabel, getStatusBadge imported from @/lib/work-order-status
 // getTypeLabel is now handled by useListItems hook inside the component
 
 function InfoCard({ label, value, icon }: { label: string; value: string | null | undefined; icon?: string }) {
@@ -309,9 +289,9 @@ export default function TaskDetailPage() {
     ) {
       async function loadProducts() {
         try {
-          const data = await apiGet<Product[]>("/v1/inventory/products");
-          // API returns array directly, not wrapped
-          setProducts(Array.isArray(data) ? data : []);
+          const res = await apiGet<any>("/v1/inventory/products");
+          const list = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
+          setProducts(list);
         } catch (err) {
           console.error("Failed to load products:", err);
         }
@@ -590,8 +570,9 @@ export default function TaskDetailPage() {
   // Fetch available products for adding
   async function loadAvailableProducts() {
     try {
-      const data = await apiGet<Product[]>("/v1/inventory/products");
-      setAvailableProducts(Array.isArray(data) ? data : []);
+      const res = await apiGet<any>("/v1/inventory/products");
+      const list = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
+      setAvailableProducts(list);
     } catch (err) {
       console.error("Failed to load products:", err);
     }
@@ -689,9 +670,9 @@ export default function TaskDetailPage() {
           </h1>
           <div className="mt-2 flex items-center gap-3">
             <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ${getStatusBadge(task.status)}`}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ${getStatusBadge(resolveDisplayStatus(task.status, task.techEmployeeComment))}`}
             >
-              {getStatusLabel(task.status)}
+              {getStatusLabel(resolveDisplayStatus(task.status, task.techEmployeeComment))}
             </span>
             <span className="text-sm text-zinc-500">
               {getTypeLabel(task.type, language)}
@@ -700,38 +681,28 @@ export default function TaskDetailPage() {
         </div>
 
         {/* Status Progress Bar */}
-        <div className="mb-6 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-zinc-700">Progress</span>
-            <span className="text-xs text-zinc-500">{getStatusLabel(task.status)}</span>
-          </div>
-          <div className="relative h-2 bg-zinc-200 rounded-full overflow-hidden">
-            <div
-              className="absolute top-0 left-0 h-full rounded-full transition-all"
-              style={{
-                backgroundColor: BRAND,
-                width:
-                  task.status === "CREATED"
-                    ? "10%"
-                    : task.status === "LINKED_TO_GROUP"
-                      ? "35%"
-                      : task.status === "IN_PROGRESS"
-                        ? "70%"
-                        : task.status === "COMPLETED"
-                          ? "100%"
-                          : task.status === "CANCELED"
-                            ? "100%"
-                            : "0%",
-              }}
-            />
-          </div>
-          <div className="mt-2 flex justify-between text-xs text-zinc-500">
-            <span>Created</span>
-            <span>Assigned</span>
-            <span>In Progress</span>
-            <span>Done</span>
-          </div>
-        </div>
+        {(() => {
+          const displayStatus = resolveDisplayStatus(task.status, task.techEmployeeComment);
+          return (
+            <div className="mb-6 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-zinc-700">Progress</span>
+                <span className="text-xs text-zinc-500">{getStatusLabel(displayStatus)}</span>
+              </div>
+              <div className="relative h-2 bg-zinc-200 rounded-full overflow-hidden">
+                <div
+                  className="absolute top-0 left-0 h-full rounded-full transition-all"
+                  style={{ backgroundColor: BRAND, width: getProgressWidth(displayStatus) }}
+                />
+              </div>
+              <div className="mt-2 flex justify-between text-xs text-zinc-500">
+                {STAGE_LABELS.map((label) => (
+                  <span key={label}>{label}</span>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Task Details */}

@@ -7,6 +7,7 @@ import { apiGet, apiPost, apiPatch, ApiError } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
 import AssignEmployeesModal from "../work-orders/[id]/assign-employees-modal";
 import { PermissionGuard } from "@/lib/permission-guard";
+import { getStatusLabel, getStatusBadge, resolveDisplayStatus } from "@/lib/work-order-status";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -76,16 +77,7 @@ export default function TasksPage() {
     return labels[type] || type;
   }
 
-  function getStatusLabel(status: string): string {
-    const labels: Record<string, string> = {
-      CREATED: "Created",
-      LINKED_TO_GROUP: "Linked To a Group",
-      IN_PROGRESS: "In Progress",
-      COMPLETED: "Completed",
-      CANCELED: "Canceled",
-    };
-    return labels[status] || status;
-  }
+  // getStatusLabel imported from @/lib/work-order-status
 
   // Fetch workflow positions and current employee in parallel
   useEffect(() => {
@@ -449,7 +441,6 @@ export default function TasksPage() {
                 onStart={activeTab === "open" ? () => handleStartWork(task.id) : undefined}
                 actionLoading={actionLoading === task.id}
                 getTypeLabel={getTypeLabel}
-                getStatusLabel={getStatusLabel}
               />
             ))}
           </div>
@@ -488,7 +479,6 @@ function TaskCard({
   onStart,
   actionLoading,
   getTypeLabel,
-  getStatusLabel,
 }: {
   task: WorkOrderTask;
   canAssignEmployees: boolean;
@@ -497,15 +487,7 @@ function TaskCard({
   onStart?: () => void;
   actionLoading?: boolean;
   getTypeLabel: (value: string) => string;
-  getStatusLabel: (value: string) => string;
 }) {
-  const statusColors: Record<string, string> = {
-    CREATED: "bg-blue-100 text-blue-800 ring-blue-200",
-    LINKED_TO_GROUP: "bg-purple-100 text-purple-800 ring-purple-200",
-    IN_PROGRESS: "bg-amber-100 text-amber-800 ring-amber-200",
-    COMPLETED: "bg-emerald-100 text-emerald-800 ring-emerald-200",
-    CANCELED: "bg-red-100 text-red-800 ring-red-200",
-  };
 
   const typeIcons: Record<string, string> = {
     INSTALLATION: "🔧",
@@ -516,7 +498,8 @@ function TaskCard({
     ACTIVATE: "⚡",
   };
 
-  const statusColor = statusColors[task.status] || "bg-zinc-100 text-zinc-800 ring-zinc-200";
+  const displayStatus = resolveDisplayStatus(task.status, task.techEmployeeComment);
+  const statusColor = getStatusBadge(displayStatus);
   const typeIcon = typeIcons[task.type] || "📦";
 
   // Step 1 positions can assign employees for CREATED tasks
@@ -556,7 +539,7 @@ function TaskCard({
             <span
               className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${statusColor}`}
             >
-              {getStatusLabel(task.status)}
+              {getStatusLabel(displayStatus)}
             </span>
           </div>
 

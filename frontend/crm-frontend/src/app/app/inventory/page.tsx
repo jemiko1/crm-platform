@@ -89,8 +89,14 @@ export default function InventoryPage() {
 
   const fetchProducts = useCallback(async () => {
     try {
-      const data = await apiGet<Product[]>("/v1/inventory/products");
-      setProducts(Array.isArray(data) ? data : []);
+      const res = await apiGet<{ data: Product[]; meta: any } | Product[]>("/v1/inventory/products");
+      if (Array.isArray(res)) {
+        setProducts(res);
+      } else if (res && Array.isArray(res.data)) {
+        setProducts(res.data);
+      } else {
+        setProducts([]);
+      }
     } catch (err) {
       console.error("Failed to load products:", err);
       setProducts([]);
