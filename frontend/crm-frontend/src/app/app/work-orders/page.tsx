@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet, apiPost, ApiError } from "@/lib/api";
@@ -78,7 +78,7 @@ type StatisticsData = {
   monthlyOverdueBreakdown: Record<number, Record<number, number>>;
 };
 
-export default function WorkOrdersPage() {
+function WorkOrdersPageContent() {
   const { t, language } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -508,5 +508,13 @@ export default function WorkOrdersPage() {
       />
       </div>
     </PermissionGuard>
+  );
+}
+
+export default function WorkOrdersPage() {
+  return (
+    <Suspense fallback={null}>
+      <WorkOrdersPageContent />
+    </Suspense>
   );
 }

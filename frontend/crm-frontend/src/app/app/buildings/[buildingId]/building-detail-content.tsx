@@ -318,7 +318,7 @@ export default function BuildingDetailContent({ building, buildingId, onUpdate }
           />
         )}
         {activeTab === "clients" && <ClientsTab clients={clients} onAddClick={() => setShowAddClientModal(true)} buildingId={buildingId} />}
-        {activeTab === "work-orders" && <WorkOrdersTab buildingCoreId={building.coreId} building={building} buildingId={buildingId} />}
+        {activeTab === "work-orders" && <WorkOrdersTab buildingCoreId={building.coreId} building={building} buildingId={buildingId} onUpdate={onUpdate} />}
         {activeTab === "incidents" && (
           <IncidentsTab
             incidents={incidents}
@@ -841,10 +841,12 @@ function WorkOrdersTab({
   buildingCoreId,
   building,
   buildingId,
+  onUpdate,
 }: {
   buildingCoreId: number;
   building: Building;
   buildingId: string;
+  onUpdate?: () => void;
 }) {
   const { hasPermission } = usePermissions();
   const [loading, setLoading] = useState(true);

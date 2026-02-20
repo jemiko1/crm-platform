@@ -1,0 +1,35 @@
+---
+description: Enforces safe git branching rules for AI assistants working on the CRM-Platform
+globs:
+alwaysApply: true
+---
+
+# AI Branch Safety Rules
+
+## NEVER push directly to master
+
+The `master` branch is production. All changes reach master exclusively through pull requests from `staging`.
+
+## Allowed branches
+
+You may only commit to and push to:
+- `dev` (integration branch)
+- `staging` (pre-production branch)
+- `feature/*` (short-lived feature branches)
+- `hotfix/*` (urgent production fixes)
+
+## Branch workflow
+
+```
+feature/* ──PR──> dev ──PR──> staging ──PR──> master
+hotfix/*  ──PR──> master, then cherry-pick back to staging and dev
+```
+
+## Rules
+
+1. **Create feature branches from `dev`**: `git checkout -b feature/my-feature dev`
+2. **Never force push** to `dev`, `staging`, or `master`.
+3. **Never commit directly** to `master` -- always use a pull request.
+4. **Run tests before committing**: `pnpm test:unit` at minimum.
+5. **Commit messages** should follow conventional format: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`.
+6. When in doubt, work on a `feature/*` branch and open a PR to `dev`.
