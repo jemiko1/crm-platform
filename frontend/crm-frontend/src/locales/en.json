@@ -49,6 +49,7 @@
     "sales": "Sales",
     "inventory": "Inventory",
     "employees": "Employees",
+    "clientChats": "Client Chats",
     "admin": "Admin"
   },
   "dashboard": {

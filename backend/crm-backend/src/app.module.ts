@@ -48,6 +48,9 @@ import { CoreIntegrationModule } from "./core-integration/core-integration.modul
 // Telephony / Call Center
 import { TelephonyModule } from "./telephony/telephony.module";
 
+// Client Chats (Unified Inbox)
+import { ClientChatsModule } from "./clientchats/clientchats.module";
+
 import { V1Module } from "./v1/v1.module";
 
 @Module({
@@ -100,6 +103,9 @@ import { V1Module } from "./v1/v1.module";
 
     // Telephony / Call Center
     TelephonyModule,
+
+    // Client Chats (Unified Inbox)
+    ClientChatsModule,
 
     // API controllers (v1)
     V1Module,

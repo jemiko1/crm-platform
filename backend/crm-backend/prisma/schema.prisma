@@ -45,8 +45,10 @@ model Client {
   coreCreatedAt   DateTime?
   isActive        Boolean          @default(true)
   deletedAt       DateTime?
-  clientBuildings ClientBuilding[]
-  incidents       Incident[]
+  clientBuildings      ClientBuilding[]
+  incidents            Incident[]
+  chatConversations    ClientChatConversation[] @relation("ClientChatConversations")
+  chatParticipants     ClientChatParticipant[]  @relation("ClientChatParticipants")
 
   @@index([primaryPhone])
   @@index([idNumber])
@@ -259,6 +261,8 @@ model User {
   missedCalls           MissedCall[]        @relation("UserMissedCalls")
   assignedCallbacks     CallbackRequest[]   @relation("UserAssignedCallbacks")
   qualityReviews        QualityReview[]     @relation("UserQualityReviews")
+  assignedClientChats   ClientChatConversation[] @relation("UserAssignedClientChats")
+  clientChatMessages    ClientChatMessage[]      @relation("UserClientChatMessages")
 
   @@index([email])
   @@index([isActive])
@@ -1583,6 +1587,95 @@ model QualityRubric {
   @@index([sortOrder])
 }
 
+// ──────────────────────────────────────────────
+// Client Chats (Unified Inbox)
+// ──────────────────────────────────────────────
+
+model ClientChatChannelAccount {
+  id            String                   @id @default(uuid())
+  type          ClientChatChannelType
+  name          String
+  status        ClientChatAccountStatus  @default(ACTIVE)
+  metadata      Json                     @default("{}")
+  createdAt     DateTime                 @default(now())
+  conversations ClientChatConversation[]
+  participants  ClientChatParticipant[]
+
+  @@index([type])
+}
+
+model ClientChatConversation {
+  id                     String                  @id @default(uuid())
+  channelType            ClientChatChannelType
+  channelAccountId       String
+  externalConversationId String                  @unique
+  assignedUserId         String?
+  clientId               String?
+  status                 ClientChatStatus        @default(OPEN)
+  lastMessageAt          DateTime?
+  createdAt              DateTime                @default(now())
+  channelAccount         ClientChatChannelAccount @relation(fields: [channelAccountId], references: [id], onDelete: Cascade)
+  assignedUser           User?                   @relation("UserAssignedClientChats", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  client                 Client?                 @relation("ClientChatConversations", fields: [clientId], references: [id], onDelete: SetNull)
+  messages               ClientChatMessage[]
+
+  @@index([lastMessageAt(sort: Desc)])
+  @@index([assignedUserId])
+  @@index([status])
+  @@index([channelType])
+}
+
+model ClientChatParticipant {
+  id              String                   @id @default(uuid())
+  channelType     ClientChatChannelType
+  channelAccountId String
+  externalUserId  String                   @unique
+  displayName     String
+  phone           String?
+  email           String?
+  mappedClientId  String?
+  metadata        Json                     @default("{}")
+  createdAt       DateTime                 @default(now())
+  channelAccount  ClientChatChannelAccount @relation(fields: [channelAccountId], references: [id], onDelete: Cascade)
+  mappedClient    Client?                  @relation("ClientChatParticipants", fields: [mappedClientId], references: [id], onDelete: SetNull)
+  messages        ClientChatMessage[]
+
+  @@index([channelType])
+  @@index([mappedClientId])
+}
+
+model ClientChatMessage {
+  id                String                @id @default(uuid())
+  conversationId    String
+  participantId     String?
+  senderUserId      String?
+  direction         ClientChatDirection
+  externalMessageId String                @unique
+  text              String
+  attachments       Json?
+  sentAt            DateTime
+  deliveryStatus    String?
+  rawPayload        Json?
+  createdAt         DateTime              @default(now())
+  conversation      ClientChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  participant       ClientChatParticipant? @relation(fields: [participantId], references: [id], onDelete: SetNull)
+  senderUser        User?                 @relation("UserClientChatMessages", fields: [senderUserId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId, sentAt(sort: Desc)])
+  @@index([externalMessageId])
+}
+
+model ClientChatWebhookFailure {
+  id          String                @id @default(uuid())
+  channelType ClientChatChannelType
+  error       String
+  payloadMeta Json                  @default("{}")
+  createdAt   DateTime              @default(now())
+
+  @@index([channelType])
+  @@index([createdAt(sort: Desc)])
+}
+
 enum DeviceStatus {
   ONLINE
   OFFLINE
@@ -1647,6 +1740,7 @@ enum PermissionCategory {
   SALES
   MESSENGER
   TELEPHONY
+  CLIENT_CHATS
 }
 
 enum PermissionOverride {
@@ -1877,4 +1971,31 @@ enum QualityReviewStatus {
   PROCESSING
   DONE
   FAILED
+}
+
+// ──────────────────────────────────────────────
+// Client Chats enums
+// ──────────────────────────────────────────────
+
+enum ClientChatChannelType {
+  WEB
+  VIBER
+  FACEBOOK
+}
+
+enum ClientChatStatus {
+  OPEN
+  PENDING
+  CLOSED
+  SPAM
+}
+
+enum ClientChatDirection {
+  IN
+  OUT
+}
+
+enum ClientChatAccountStatus {
+  ACTIVE
+  INACTIVE
 }
