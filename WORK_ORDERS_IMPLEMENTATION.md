@@ -1036,7 +1036,7 @@ frontend/crm-frontend/src/app/app/
 - Steps 2-4 are automatically handled by employees assigned in Step 1
 - Step 5 positions can modify products before final approval
 - Products are deducted from inventory only after Step 5 position approves
-- Work order creation modal has been visually improved with modern, professional design
+- Work order creation modal has been visually improved with modern, professional design.
 
 ---
 

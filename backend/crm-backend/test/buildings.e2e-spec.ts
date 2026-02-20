@@ -1,24 +1,24 @@
-import { INestApplication } from "@nestjs/common";
 import request from "supertest";
-import { App } from "supertest/types";
-import { PrismaService } from "../src/prisma/prisma.service";
-import { createTestApp, resetDatabase } from "./helpers/test-utils";
+import {
+  createTestApp,
+  closeTestApp,
+  resetDatabase,
+  TestContext,
+} from "./helpers/test-utils";
 
 describe("Buildings (e2e)", () => {
-  let app: INestApplication<App>;
-  let prisma: PrismaService;
+  let ctx: TestContext;
 
   beforeAll(async () => {
-    app = await createTestApp();
-    prisma = app.get(PrismaService);
+    ctx = await createTestApp();
   });
 
   afterAll(async () => {
-    await app.close();
+    await closeTestApp(ctx);
   });
 
   beforeEach(async () => {
-    await resetDatabase(prisma);
+    await resetDatabase(ctx.prisma);
   });
 
   async function seedBuilding(
@@ -26,7 +26,7 @@ describe("Buildings (e2e)", () => {
     name: string,
     opts: { city?: string; createdAt?: Date } = {},
   ) {
-    return prisma.building.create({
+    return ctx.prisma.building.create({
       data: {
         coreId,
         name,
@@ -38,7 +38,7 @@ describe("Buildings (e2e)", () => {
 
   describe("GET /buildings", () => {
     it("returns an empty array when no buildings exist", async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(ctx.app.getHttpServer())
         .get("/buildings")
         .expect(200);
 
@@ -49,7 +49,7 @@ describe("Buildings (e2e)", () => {
       await seedBuilding(1, "HQ Tower", { city: "Tbilisi" });
       await seedBuilding(2, "Branch Office");
 
-      const res = await request(app.getHttpServer())
+      const res = await request(ctx.app.getHttpServer())
         .get("/buildings")
         .expect(200);
 
@@ -66,7 +66,7 @@ describe("Buildings (e2e)", () => {
     it("returns building by coreId", async () => {
       await seedBuilding(10, "Test Building", { city: "Batumi" });
 
-      const res = await request(app.getHttpServer())
+      const res = await request(ctx.app.getHttpServer())
         .get("/buildings/10")
         .expect(200);
 
@@ -75,7 +75,7 @@ describe("Buildings (e2e)", () => {
     });
 
     it("returns 404 for non-existent coreId", async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(ctx.app.getHttpServer())
         .get("/buildings/99999")
         .expect(404);
 
@@ -83,7 +83,7 @@ describe("Buildings (e2e)", () => {
     });
 
     it("returns 400 for non-numeric coreId", async () => {
-      await request(app.getHttpServer())
+      await request(ctx.app.getHttpServer())
         .get("/buildings/abc")
         .expect(400);
     });
@@ -91,7 +91,7 @@ describe("Buildings (e2e)", () => {
 
   describe("GET /buildings/statistics/summary", () => {
     it("returns zero-value stats with no buildings", async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(ctx.app.getHttpServer())
         .get("/buildings/statistics/summary")
         .expect(200);
 
@@ -105,7 +105,7 @@ describe("Buildings (e2e)", () => {
       await seedBuilding(2, "B");
       await seedBuilding(3, "C");
 
-      const res = await request(app.getHttpServer())
+      const res = await request(ctx.app.getHttpServer())
         .get("/buildings/statistics/summary")
         .expect(200);
 

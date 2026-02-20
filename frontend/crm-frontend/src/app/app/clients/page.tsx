@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet } from "@/lib/api";
 import { PermissionGuard } from "@/lib/permission-guard";
@@ -44,7 +44,7 @@ function fullNameOf(c: Pick<ClientRow, "firstName" | "lastName" | "coreId">) {
   return full || `Client #${c.coreId}`;
 }
 
-export default function ClientsPage() {
+function ClientsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { hasPermission } = usePermissions();
@@ -340,6 +340,14 @@ export default function ClientsPage() {
       </div>
       </div>
     </PermissionGuard>
+  );
+}
+
+export default function ClientsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ClientsPageContent />
+    </Suspense>
   );
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams, useRouter, usePathname } from "next/navigation";
 import { apiGet } from "@/lib/api";
@@ -107,7 +107,7 @@ function getStatusPill(status: string) {
   return "bg-zinc-50 text-zinc-700 ring-zinc-200";
 }
 
-export default function BuildingDetailPage() {
+function BuildingDetailPageContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -1583,5 +1583,13 @@ function ProductFlowTab({ buildingCoreId }: { buildingCoreId: number }) {
         </>
       )}
     </div>
+  );
+}
+
+export default function BuildingDetailPage() {
+  return (
+    <Suspense fallback={null}>
+      <BuildingDetailPageContent />
+    </Suspense>
   );
 }

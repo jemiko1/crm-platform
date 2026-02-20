@@ -1774,8 +1774,8 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
           onSuccess={handleEditSuccess}
           workOrder={{
             id: workOrder.id,
-            type: (workOrder.type === "INSTALLATION" ? "INSTALL" : workOrder.type === "REPAIR_CHANGE" ? "REPAIR" : "DIAGNOSTIC") as "INSTALL" | "DIAGNOSTIC" | "REPAIR",
-            status: (workOrder.status === "CREATED" ? "NEW" : workOrder.status === "LINKED_TO_GROUP" ? "DISPATCHED" : workOrder.status === "IN_PROGRESS" ? "IN_PROGRESS" : workOrder.status === "COMPLETED" ? "DONE" : workOrder.status === "CANCELED" ? "CANCELED" : "NEW") as "NEW" | "DISPATCHED" | "ACCEPTED" | "IN_PROGRESS" | "DONE" | "CANCELED",
+            type: workOrder.type,
+            status: workOrder.status,
             title: workOrder.title,
             notes: workOrder.notes,
           }}
