@@ -47,7 +47,7 @@ describe("Auth (e2e)", () => {
     it("returns 401 for non-existent user", async () => {
       const res = await request(ctx.app.getHttpServer())
         .post("/auth/login")
-        .send({ email: "nobody@crm.local", password: "any" })
+        .send({ email: "nobody@crm.local", password: "noSuchUser1!" })
         .expect(401);
 
       expect(res.body.statusCode).toBe(401);
