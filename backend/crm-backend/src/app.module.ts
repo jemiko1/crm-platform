@@ -38,6 +38,9 @@ import { MessengerModule } from "./messenger/messenger.module";
 // Translations (i18n)
 import { TranslationsModule } from "./translations/translations.module";
 
+// Notifications (Email / SMS)
+import { NotificationsModule } from "./notifications/notifications.module";
+
 import { V1Module } from "./v1/v1.module";
 
 @Module({
@@ -80,6 +83,9 @@ import { V1Module } from "./v1/v1.module";
 
     // Translations (i18n)
     TranslationsModule,
+
+    // Notifications (Email / SMS)
+    NotificationsModule,
 
     // API controllers (v1)
     V1Module,

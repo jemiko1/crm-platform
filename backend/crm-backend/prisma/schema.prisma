@@ -440,6 +440,9 @@ model Employee {
   createdConversations     Conversation[]           @relation("ConversationCreator")
   messageReactions         MessageReaction[]
 
+  // Notifications
+  notificationLogs NotificationLog[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1143,11 +1146,12 @@ model SystemListItem {
   icon     String? // Icon name or emoji
 
   // Metadata
-  sortOrder Int      @default(0) // For display ordering
-  isDefault Boolean  @default(false) // One item per category can be default
-  isActive  Boolean  @default(true) // Soft delete
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  sortOrder       Int      @default(0) // For display ordering
+  isDefault       Boolean  @default(false) // One item per category can be default
+  isActive        Boolean  @default(true) // Soft delete
+  isSystemManaged Boolean  @default(false) // true = value + deletion locked
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@unique([categoryId, value]) // Prevent duplicate values within same category
   @@index([categoryId])
@@ -1775,6 +1779,98 @@ model SalesPipelinePermissionPosition {
   @@unique([permissionId, positionId])
   @@index([permissionId])
   @@index([positionId])
+}
+
+/**
+ * =========================
+ * NOTIFICATIONS (EMAIL / SMS)
+ * =========================
+ */
+
+enum NotificationType {
+  EMAIL
+  SMS
+}
+
+// Singleton row -- SMTP (outgoing) and IMAP (incoming) credentials
+model EmailConfig {
+  id String @id @default(uuid())
+
+  // SMTP (outgoing)
+  smtpHost   String  @default("")
+  smtpPort   Int     @default(587)
+  smtpSecure Boolean @default(false)
+  smtpUser   String  @default("")
+  smtpPass   String  @default("")
+
+  // IMAP (incoming)
+  imapHost   String  @default("")
+  imapPort   Int     @default(993)
+  imapSecure Boolean @default(true)
+  imapUser   String  @default("")
+  imapPass   String  @default("")
+
+  // Display
+  fromName  String @default("")
+  fromEmail String @default("")
+
+  isActive  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Singleton row -- SMS provider credentials
+model SmsConfig {
+  id String @id @default(uuid())
+
+  provider   String @default("twilio") // twilio, vonage, etc.
+  accountSid String @default("")
+  authToken  String @default("")
+  fromNumber String @default("")
+
+  isActive  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Reusable notification templates with {{variable}} placeholders
+model NotificationTemplate {
+  id String @id @default(uuid())
+
+  name    String
+  code    String           @unique
+  type    NotificationType
+  subject String? // email only
+  body    String           @db.Text
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type])
+  @@index([isActive])
+}
+
+// Audit trail for every sent notification
+model NotificationLog {
+  id String @id @default(uuid())
+
+  type         NotificationType
+  recipientId  String
+  recipient    Employee         @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  templateId   String?
+  subject      String?
+  body         String           @db.Text
+  status       String           @default("PENDING") // PENDING, SENT, FAILED
+  errorMessage String?          @db.Text
+  sentAt       DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([recipientId])
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
 }
 
 /**

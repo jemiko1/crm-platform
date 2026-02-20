@@ -40,6 +40,7 @@ type ListItem = {
   sortOrder: number;
   isDefault: boolean;
   isActive: boolean;
+  isSystemManaged: boolean;
 };
 
 export default function CategoryDetailPage() {
@@ -321,18 +322,27 @@ export default function CategoryDetailPage() {
                     >
                       Edit
                     </button>
-                    <button
-                      onClick={() => setDeletingItem(item)}
-                      className="rounded-xl bg-rose-100 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-200"
-                    >
-                      Delete
-                    </button>
-                    <button
-                      onClick={() => handleDeactivate(item)}
-                      className="rounded-xl bg-amber-100 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-200"
-                    >
-                      Deactivate
-                    </button>
+                    {!item.isSystemManaged && (
+                      <>
+                        <button
+                          onClick={() => setDeletingItem(item)}
+                          className="rounded-xl bg-rose-100 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-200"
+                        >
+                          Delete
+                        </button>
+                        <button
+                          onClick={() => handleDeactivate(item)}
+                          className="rounded-xl bg-amber-100 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-200"
+                        >
+                          Deactivate
+                        </button>
+                      </>
+                    )}
+                    {item.isSystemManaged && (
+                      <span className="rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-600 ring-1 ring-blue-200">
+                        System
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
@@ -415,11 +425,18 @@ export default function CategoryDetailPage() {
                       type="text"
                       value={formData.value}
                       onChange={(e) => setFormData((p) => ({ ...p, value: e.target.value }))}
-                      className="mt-2 w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm"
+                      className={`mt-2 w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm ${
+                        editingItem ? "bg-zinc-100 text-zinc-500 cursor-not-allowed" : ""
+                      }`}
                       placeholder="ELEVATOR"
                       required
                       disabled={!!editingItem}
                     />
+                    {editingItem?.isSystemManaged && (
+                      <p className="mt-1 text-xs text-amber-600">
+                        System value — cannot be changed. This value is required for core application logic.
+                      </p>
+                    )}
                   </div>
 
                   <div>
