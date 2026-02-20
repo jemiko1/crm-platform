@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet } from "@/lib/api";
@@ -115,7 +115,7 @@ const ProductIcons = React.memo(function ProductIcons({ p }: { p: BuildingProduc
   );
 });
 
-export default function BuildingsPage() {
+function BuildingsPageContent() {
   const { t } = useI18n();
   const hasMounted = useHasMounted();
   const router = useRouter();
@@ -624,5 +624,13 @@ function IconClipboardSmall() {
         strokeLinejoin="round"
       />
     </svg>
+  );
+}
+
+export default function BuildingsPage() {
+  return (
+    <Suspense fallback={null}>
+      <BuildingsPageContent />
+    </Suspense>
   );
 }

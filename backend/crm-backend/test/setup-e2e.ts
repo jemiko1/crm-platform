@@ -3,7 +3,7 @@ import { resolve } from "path";
 import { config } from "dotenv";
 
 export default async function globalSetup() {
-  config({ path: resolve(__dirname, "../.env.test"), override: true });
+  config({ path: resolve(__dirname, "../.env.test") });
 
   if (!process.env.DATABASE_URL) {
     throw new Error(

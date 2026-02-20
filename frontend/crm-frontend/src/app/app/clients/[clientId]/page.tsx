@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { PermissionGuard } from "@/lib/permission-guard";
 
-export default function ClientDetailPage() {
+function ClientDetailPageContent() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -30,5 +30,13 @@ export default function ClientDetailPage() {
       </div>
     </div>
     </PermissionGuard>
+  );
+}
+
+export default function ClientDetailPage() {
+  return (
+    <Suspense fallback={null}>
+      <ClientDetailPageContent />
+    </Suspense>
   );
 }

@@ -8,7 +8,7 @@ import { config } from "dotenv";
 import { resolve } from "path";
 import * as bcrypt from "bcrypt";
 
-config({ path: resolve(__dirname, "../../.env.test"), override: true });
+config({ path: resolve(__dirname, "../../.env.test") });
 
 /**
  * Bootstraps a NestJS application identical to production
