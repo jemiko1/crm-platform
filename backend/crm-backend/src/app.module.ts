@@ -42,6 +42,9 @@ import { TranslationsModule } from "./translations/translations.module";
 // Notifications (Email / SMS)
 import { NotificationsModule } from "./notifications/notifications.module";
 
+// Core Integration (webhook sync from external core system)
+import { CoreIntegrationModule } from "./core-integration/core-integration.module";
+
 import { V1Module } from "./v1/v1.module";
 
 @Module({
@@ -88,6 +91,9 @@ import { V1Module } from "./v1/v1.module";
 
     // Notifications (Email / SMS)
     NotificationsModule,
+
+    // Core Integration (webhook sync)
+    CoreIntegrationModule,
 
     // API controllers (v1)
     V1Module,

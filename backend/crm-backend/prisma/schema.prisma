@@ -14,6 +14,11 @@ model Building {
   updatedAt       DateTime         @updatedAt
   city            String?
   coreId          Int              @unique
+  lastSyncedAt    DateTime?
+  coreUpdatedAt   DateTime?
+  coreCreatedAt   DateTime?
+  isActive        Boolean          @default(true)
+  deletedAt       DateTime?
   assets          Asset[]
   clientBuildings ClientBuilding[]
   incidents       Incident[]
@@ -21,6 +26,7 @@ model Building {
 
   @@index([name])
   @@index([city])
+  @@index([isActive])
 }
 
 model Client {
@@ -34,11 +40,17 @@ model Client {
   secondaryPhone  String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
+  lastSyncedAt    DateTime?
+  coreUpdatedAt   DateTime?
+  coreCreatedAt   DateTime?
+  isActive        Boolean          @default(true)
+  deletedAt       DateTime?
   clientBuildings ClientBuilding[]
   incidents       Incident[]
 
   @@index([primaryPhone])
   @@index([idNumber])
+  @@index([isActive])
 }
 
 model ClientBuilding {
@@ -63,6 +75,11 @@ model Asset {
   coreId          Int              @unique
   ip              String?
   status          DeviceStatus     @default(UNKNOWN)
+  lastSyncedAt    DateTime?
+  coreUpdatedAt   DateTime?
+  coreCreatedAt   DateTime?
+  isActive        Boolean          @default(true)
+  deletedAt       DateTime?
   building        Building         @relation(fields: [buildingId], references: [id], onDelete: Cascade)
   incidentAssets  IncidentAsset[]
   workOrders      WorkOrder[]
@@ -71,6 +88,7 @@ model Asset {
   @@index([buildingId])
   @@index([type])
   @@index([status])
+  @@index([isActive])
 }
 
 model WorkOrder {
@@ -553,10 +571,31 @@ model EmployeePermission {
 ///  * DEV/TEST ONLY:
 ///  * generate "core-like" external IDs when core system is not connected yet.
 ///  * Also used for ADMIN manual creation (fallback if core is down).
+///  * WARNING: When CORE_INTEGRATION_ENABLED=true, seed nextId above core's max
+///  * to avoid collisions with real core IDs.
 model ExternalIdCounter {
   entity    String   @id
   nextId    Int
   updatedAt DateTime @updatedAt
+}
+
+/// Idempotency inbox for core-integration webhook events.
+/// Prevents duplicate processing of the same event.
+model SyncEvent {
+  id           String    @id @default(uuid())
+  source       String
+  eventId      String    @unique
+  entityType   String
+  entityCoreId Int?
+  receivedAt   DateTime  @default(now())
+  processedAt  DateTime?
+  status       String    @default("RECEIVED")
+  error        String?
+  payload      Json?
+
+  @@index([status])
+  @@index([entityType, entityCoreId])
+  @@index([receivedAt])
 }
 
 model AuditLog {
