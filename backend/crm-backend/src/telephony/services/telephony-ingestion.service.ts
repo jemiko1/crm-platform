@@ -235,8 +235,8 @@ export class TelephonyIngestionService {
   }
 
   private async handleQueueLeave(
-    payload: AsteriskEventPayload,
-    existingSession: { id: string } | null,
+    _payload: AsteriskEventPayload,
+    _existingSession: { id: string } | null,
   ): Promise<void> {
     // Queue leave is informational; metrics computed on call_end
   }

@@ -156,6 +156,6 @@ export class TelephonyCallsService {
   }
 
   private normalizePhone(phone: string): string {
-    return phone.replace(/[\s\-\(\)\+]/g, '').slice(-9);
+    return phone.replace(/[\s\-()+]/g, '').slice(-9);
   }
 }

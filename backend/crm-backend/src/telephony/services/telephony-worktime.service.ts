@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { WorktimeConfig, WorktimeWindow } from '../types/telephony.types';
+import { WorktimeConfig } from '../types/telephony.types';
 
 @Injectable()
 export class TelephonyWorktimeService {
