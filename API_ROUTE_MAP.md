@@ -404,11 +404,47 @@ Complete API route documentation for CRM Platform backend.
 
 ---
 
+## 19. NotificationsController
+
+**Base**: `/v1/admin/notifications`  
+**Guards**: `JwtAuthGuard`, `AdminOnlyGuard`  
+**Source**: `src/v1/notifications.controller.ts`
+
+### Email Configuration
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/v1/admin/notifications/email-config` | Get SMTP/IMAP config (passwords masked) |
+| PUT | `/v1/admin/notifications/email-config` | Upsert email config |
+| POST | `/v1/admin/notifications/email-config/test` | Test SMTP and IMAP connections |
+
+### SMS Configuration
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/v1/admin/notifications/sms-config` | Get SMS provider config (token masked) |
+| PUT | `/v1/admin/notifications/sms-config` | Upsert SMS config |
+| POST | `/v1/admin/notifications/sms-config/test` | Send test SMS (body: `{ testNumber }`) |
+
+### Notification Templates
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/v1/admin/notifications/templates` | List all templates |
+| POST | `/v1/admin/notifications/templates` | Create template |
+| PATCH | `/v1/admin/notifications/templates/:id` | Update template |
+| DELETE | `/v1/admin/notifications/templates/:id` | Delete template |
+
+### Send & Logs
+| Method | Route | Description |
+|--------|-------|-------------|
+| POST | `/v1/admin/notifications/send` | Send email/SMS to selected employees |
+| GET | `/v1/admin/notifications/logs` | Paginated notification logs (`?page=&limit=&type=`) |
+
+---
+
 ## Summary
 
-**Total Controllers**: 18  
+**Total Controllers**: 19  
 **Guarded Routes**: Most routes under `/v1/*` require `JwtAuthGuard`  
-**Admin-Only Routes**: Positions, Role Groups, Admin Manual, Workflow Configuration  
+**Admin-Only Routes**: Positions, Role Groups, Admin Manual, Workflow Configuration, Notifications  
 **Permission-Protected**: 
 - `POST /v1/incidents` (requires `incidents.create` permission)
 - Work Orders endpoints have granular permissions (assign, start, approve, cancel, etc.)

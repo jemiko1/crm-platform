@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { apiGet, apiPost, ApiError } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
+import { useListItems } from "@/hooks/useListItems";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -28,16 +29,8 @@ type Employee = {
   employeeId: string;
 };
 
-type WorkOrderType =
-  | "INSTALLATION"
-  | "DIAGNOSTIC"
-  | "RESEARCH"
-  | "DEACTIVATE"
-  | "REPAIR_CHANGE"
-  | "ACTIVATE";
-
 type WorkOrderFormData = {
-  type: WorkOrderType | null;
+  type: string | null;
   buildingId: number | null;
   assetIds: number[];
   contactNumber: string;
@@ -47,19 +40,6 @@ type WorkOrderFormData = {
   inventoryProcessingType: "ASG" | "Building" | null;
   employeeIdsToNotify: string[];
 };
-
-const WORK_ORDER_TYPES: Array<{
-  value: WorkOrderType;
-  labelEn: string;
-  labelKa: string;
-}> = [
-  { value: "INSTALLATION", labelEn: "Installation", labelKa: "ინსტალაცია" },
-  { value: "DIAGNOSTIC", labelEn: "Diagnostic", labelKa: "დიაგნოსტიკა" },
-  { value: "RESEARCH", labelEn: "Research", labelKa: "მოკვლევა" },
-  { value: "DEACTIVATE", labelEn: "Deactivate", labelKa: "დემონტაჟი" },
-  { value: "REPAIR_CHANGE", labelEn: "Repair/Change", labelKa: "შეცვლა" },
-  { value: "ACTIVATE", labelEn: "Activate", labelKa: "ჩართვა" },
-];
 
 const STEPS = [
   { id: 1, title: "Work Order Type", description: "Select type" },
@@ -83,6 +63,7 @@ export default function CreateWorkOrderModal({
   lockBuilding?: boolean;
 }) {
   const { t, language } = useI18n();
+  const { items: workOrderTypes, getLabel: getWoTypeLabel } = useListItems("WORK_ORDER_TYPE");
   const [mounted, setMounted] = useState(false);
   const isBuildingLocked = Boolean(lockBuilding && presetBuilding);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
@@ -445,7 +426,7 @@ export default function CreateWorkOrderModal({
                       Select Work Order Type <span className="text-red-500">*</span>
                     </label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                      {WORK_ORDER_TYPES.map((type) => {
+                      {workOrderTypes.map((type) => {
                         const isSelected = formData.type === type.value;
                         return (
                           <button
@@ -466,7 +447,7 @@ export default function CreateWorkOrderModal({
                             }`}
                           >
                             <div className={`text-sm sm:text-base font-semibold ${isSelected ? "text-emerald-900" : "text-zinc-900"}`}>
-                              {language === "ka" ? type.labelKa : type.labelEn}
+                              {getWoTypeLabel(type.value, language)}
                             </div>
                           </button>
                         );
@@ -812,7 +793,7 @@ export default function CreateWorkOrderModal({
                     <div>
                       <div className="text-xs font-semibold text-zinc-600 uppercase mb-1">Work Order Type</div>
                       <div className="text-sm font-medium text-zinc-900">
-                        {WORK_ORDER_TYPES.find((t) => t.value === formData.type)?.[language === "ka" ? "labelKa" : "labelEn"]}
+                        {formData.type ? getWoTypeLabel(formData.type, language) : ""}
                       </div>
                     </div>
 

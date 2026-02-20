@@ -17,6 +17,7 @@ type ListItem = {
   sortOrder: number;
   isDefault: boolean;
   isActive: boolean;
+  isSystemManaged: boolean;
 };
 
 type ListCategory = {
@@ -171,14 +172,35 @@ export default function DeleteItemModal({
 
           {/* Content */}
           <div className="p-6 space-y-6">
+            {/* System-managed guard */}
+            {item.isSystemManaged && (
+              <div className="rounded-2xl border-2 border-blue-200 bg-blue-50 p-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🔒</span>
+                  <div className="font-semibold text-blue-900">System-Managed Item</div>
+                </div>
+                <p className="mt-1 text-sm text-blue-700">
+                  This item is required for core application logic and cannot be deleted or deactivated.
+                  You may rename its display name from the edit form instead.
+                </p>
+                <button
+                  onClick={onClose}
+                  className="mt-4 w-full rounded-xl bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-200"
+                >
+                  Close
+                </button>
+              </div>
+            )}
+
             {/* Error */}
-            {error && (
+            {!item.isSystemManaged && error && (
               <div className="rounded-2xl bg-rose-50 p-4 ring-1 ring-rose-200">
                 <div className="text-sm font-semibold text-rose-900">Error</div>
                 <div className="mt-1 text-sm text-rose-700">{error}</div>
               </div>
             )}
 
+            {!item.isSystemManaged && <>
             {/* Item Info */}
             <div className="flex items-center gap-4 rounded-2xl border-2 border-zinc-200 bg-zinc-50 p-4">
               {item.colorHex && (
@@ -383,6 +405,7 @@ export default function DeleteItemModal({
                 Cancel
               </button>
             </div>
+            </>}
           </div>
         </div>
       </div>

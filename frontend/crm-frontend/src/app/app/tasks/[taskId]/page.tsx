@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { apiGet, apiPost, ApiError, API_BASE } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
+import { useListItems } from "@/hooks/useListItems";
 import AssignEmployeesModal from "../../work-orders/[id]/assign-employees-modal";
 import { PermissionGuard } from "@/lib/permission-guard";
 
@@ -125,17 +126,7 @@ function getStatusLabel(status: string) {
   return labels[status] || status;
 }
 
-function getTypeLabel(type: string) {
-  const labels: Record<string, string> = {
-    INSTALLATION: "Installation",
-    DIAGNOSTIC: "Diagnostic",
-    RESEARCH: "Research",
-    DEACTIVATE: "Deactivate",
-    REPAIR_CHANGE: "Repair/Change",
-    ACTIVATE: "Activate",
-  };
-  return labels[type] || type;
-}
+// getTypeLabel is now handled by useListItems hook inside the component
 
 function InfoCard({ label, value, icon }: { label: string; value: string | null | undefined; icon?: string }) {
   return (
@@ -152,7 +143,8 @@ function InfoCard({ label, value, icon }: { label: string; value: string | null 
 export default function TaskDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const { getLabel: getTypeLabel } = useListItems("WORK_ORDER_TYPE");
   const taskId = params?.taskId as string | undefined;
 
   const [loading, setLoading] = useState(true);
@@ -702,7 +694,7 @@ export default function TaskDetailPage() {
               {getStatusLabel(task.status)}
             </span>
             <span className="text-sm text-zinc-500">
-              {getTypeLabel(task.type)}
+              {getTypeLabel(task.type, language)}
             </span>
           </div>
         </div>
@@ -1611,7 +1603,7 @@ export default function TaskDetailPage() {
                     >
                       <div className="text-sm font-semibold text-zinc-900">{child.title}</div>
                       <div className="mt-1 text-xs text-zinc-500">
-                        {getTypeLabel(child.type)} • {getStatusLabel(child.status)}
+                        {getTypeLabel(child.type, language)} • {getStatusLabel(child.status)}
                       </div>
                     </Link>
                   ))}

@@ -47,6 +47,15 @@ export class WorkOrdersController {
     return this.workOrdersService.findAll(query);
   }
 
+  @Post("bulk-delete")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Delete multiple work orders with optional inventory revert" })
+  async bulkDelete(
+    @Body() body: { ids: string[]; revertInventory?: boolean },
+  ) {
+    return this.workOrdersService.bulkRemove(body.ids, body.revertInventory ?? false);
+  }
+
   @Get("statistics/summary")
   @ApiOperation({ summary: "Get work order statistics summary" })
   getStatistics() {

@@ -16,6 +16,7 @@ type SeedItem = {
   colorHex?: string;
   icon?: string;
   isDefault?: boolean;
+  isSystemManaged?: boolean;
 };
 
 async function seedSystemLists() {
@@ -149,9 +150,12 @@ async function seedSystemLists() {
       isUserEditable: true,
       sortOrder: 7,
       items: [
-        { value: 'INSTALL', displayName: 'Install', displayNameKa: 'ინსტალაცია', sortOrder: 1 },
-        { value: 'DIAGNOSTIC', displayName: 'Diagnostic', displayNameKa: 'დიაგნოსტიკა', sortOrder: 2 },
-        { value: 'REPAIR', displayName: 'Repair', displayNameKa: 'შეკეთება', sortOrder: 3, isDefault: true },
+        { value: 'INSTALLATION', displayName: 'Installation', displayNameKa: 'ინსტალაცია', sortOrder: 1, isSystemManaged: true },
+        { value: 'DIAGNOSTIC', displayName: 'Diagnostic', displayNameKa: 'დიაგნოსტიკა', sortOrder: 2, isSystemManaged: true },
+        { value: 'RESEARCH', displayName: 'Research', displayNameKa: 'მოკვლევა', sortOrder: 3, isSystemManaged: true },
+        { value: 'DEACTIVATE', displayName: 'Deactivate', displayNameKa: 'დემონტაჟი', sortOrder: 4, isSystemManaged: true },
+        { value: 'REPAIR_CHANGE', displayName: 'Repair/Change', displayNameKa: 'შეცვლა', sortOrder: 5, isDefault: true, isSystemManaged: true },
+        { value: 'ACTIVATE', displayName: 'Activate', displayNameKa: 'ჩართვა', sortOrder: 6, isSystemManaged: true },
       ],
     },
     {
@@ -269,6 +273,7 @@ async function seedSystemLists() {
           sortOrder: item.sortOrder,
           isDefault: item.isDefault ?? false,
           isActive: true,
+          isSystemManaged: item.isSystemManaged ?? false,
         },
         create: {
           categoryId: createdCategory.id,
@@ -280,6 +285,7 @@ async function seedSystemLists() {
           sortOrder: item.sortOrder,
           isDefault: item.isDefault ?? false,
           isActive: true,
+          isSystemManaged: item.isSystemManaged ?? false,
         },
       });
     }

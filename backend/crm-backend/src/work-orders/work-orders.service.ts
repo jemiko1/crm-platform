@@ -78,25 +78,8 @@ export class WorkOrdersService {
       assetIds.push(assetId);
     }
 
-    // Generate title if not provided: "WO-{number} - {Building Name} - {Work Order Type}"
-    if (!dto.title) {
-      // Get the highest work order number using aggregation (not full table scan)
-      const maxResult = await this.prisma.workOrder.aggregate({
-        _max: { workOrderNumber: true },
-      });
-      const workOrderNumber = (maxResult._max.workOrderNumber ?? 0) + 1;
-
-      const workOrderTypeLabels: Record<WorkOrderType, string> = {
-        INSTALLATION: "Installation",
-        DIAGNOSTIC: "Diagnostic",
-        RESEARCH: "Research",
-        DEACTIVATE: "Deactivate",
-        REPAIR_CHANGE: "Repair/Change",
-        ACTIVATE: "Activate",
-      };
-
-      dto.title = `WO-${workOrderNumber} - ${building.name} - ${workOrderTypeLabels[dto.type]}`;
-    }
+    // Title is generated AFTER creation using DB-assigned workOrderNumber (never reused)
+    const shouldAutoTitle = !dto.title;
 
     // Find employees to notify based on workflow configuration (Step 1: ASSIGN_EMPLOYEES)
     let workflowEmployeeIds: string[] = [];
@@ -176,14 +159,14 @@ export class WorkOrdersService {
       ...workflowEmployeeIds,
     ].filter((id, index, self) => self.indexOf(id) === index); // Remove duplicates
 
-    // Create work order
+    // Create work order (workOrderNumber auto-assigned by DB sequence — never reused)
     const workOrder = await this.prisma.workOrder.create({
       data: {
         buildingId,
-        assetId: assetIds[0] || null, // Keep for backward compat
+        assetId: assetIds[0] || null,
         type: dto.type,
         status: "CREATED",
-        title: dto.title,
+        title: dto.title ?? "PENDING",
         notes: dto.description ?? null,
         contactNumber: dto.contactNumber ?? null,
         deadline: dto.deadline ? new Date(dto.deadline) : null,
@@ -238,8 +221,28 @@ export class WorkOrdersService {
       },
     });
 
+    // Generate title from the DB-assigned workOrderNumber (guaranteed unique, never reused)
+    if (shouldAutoTitle) {
+      let typeLabel: string = dto.type;
+      try {
+        const listItem = await this.prisma.systemListItem.findFirst({
+          where: {
+            value: dto.type,
+            category: { code: "WORK_ORDER_TYPE" },
+          },
+          select: { displayName: true },
+        });
+        if (listItem) typeLabel = listItem.displayName;
+      } catch {}
+      const generatedTitle = `ID-${workOrder.workOrderNumber} - ${building.name} - ${typeLabel}`;
+      await this.prisma.workOrder.update({
+        where: { id: workOrder.id },
+        data: { title: generatedTitle },
+      });
+      (workOrder as any).title = generatedTitle;
+    }
+
     // Log activity - Work Order Created
-    // Get the employee who created this (if available)
     let creatorEmployeeId: string | undefined;
     if (createdByUserId) {
       const creator = await this.prisma.employee.findFirst({
@@ -788,6 +791,23 @@ export class WorkOrdersService {
     return this.prisma.workOrder.delete({
       where: { id: workOrder.id },
     });
+  }
+
+  async bulkRemove(ids: string[], revertInventory: boolean = false) {
+    const results: { id: string; success: boolean; error?: string }[] = [];
+    for (const id of ids) {
+      try {
+        await this.remove(id, revertInventory);
+        results.push({ id, success: true });
+      } catch (err: any) {
+        results.push({ id, success: false, error: err.message ?? "Unknown error" });
+      }
+    }
+    return {
+      deleted: results.filter((r) => r.success).length,
+      failed: results.filter((r) => !r.success).length,
+      results,
+    };
   }
 
   /**

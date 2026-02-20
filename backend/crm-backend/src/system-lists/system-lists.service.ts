@@ -142,6 +142,12 @@ export class SystemListsService {
   async updateItem(id: string, dto: UpdateListItemDto) {
     const item = await this.findItemById(id);
 
+    if (item.isSystemManaged && dto.value !== undefined && dto.value !== item.value) {
+      throw new BadRequestException(
+        'Cannot change the backend value of a system-managed item. You may rename its display name instead.',
+      );
+    }
+
     // If isDefault is being set to true, unset other defaults
     if (dto.isDefault === true) {
       await this.prisma.systemListItem.updateMany({
@@ -253,6 +259,13 @@ export class SystemListsService {
    * Delete a list item (only if not in use)
    */
   async deleteItem(id: string) {
+    const item = await this.findItemById(id);
+    if (item.isSystemManaged) {
+      throw new BadRequestException(
+        'Cannot delete a system-managed item. It is required for core application logic.',
+      );
+    }
+
     const usage = await this.getItemUsageCount(id);
 
     if (usage.usageCount > 0) {
@@ -271,6 +284,13 @@ export class SystemListsService {
    * Deactivate (soft delete) a list item
    */
   async deactivateItem(id: string) {
+    const item = await this.findItemById(id);
+    if (item.isSystemManaged) {
+      throw new BadRequestException(
+        'Cannot deactivate a system-managed item. It is required for core application logic.',
+      );
+    }
+
     return this.prisma.systemListItem.update({
       where: { id },
       data: { isActive: false },
@@ -282,6 +302,13 @@ export class SystemListsService {
    */
   async reassignAndDeleteItem(sourceItemId: string, dto: ReassignAndDeleteDto) {
     const sourceItem = await this.findItemById(sourceItemId);
+
+    if (sourceItem.isSystemManaged) {
+      throw new BadRequestException(
+        'Cannot reassign and delete a system-managed item. It is required for core application logic.',
+      );
+    }
+
     const targetItem = await this.findItemById(dto.targetItemId);
 
     // Verify both items are in same category
