@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ClientMetricsService } from '../services/client-metrics.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { PhoneResolverService } from '../../common/phone-resolver/phone-resolver.service';
 import { NotFoundException } from '@nestjs/common';
 
 describe('ClientMetricsService', () => {
@@ -12,6 +13,19 @@ describe('ClientMetricsService', () => {
     coreId: 100,
     primaryPhone: '+995555123456',
     secondaryPhone: null,
+  };
+
+  const mockPhoneResolver = {
+    buildCallSessionFilter: jest.fn((phones: string[]) =>
+      phones.flatMap((p) => {
+        const digits = p.replace(/[^\d]/g, '').slice(-9);
+        return [
+          { callerNumber: { contains: digits } },
+          { calleeNumber: { contains: digits } },
+        ];
+      }),
+    ),
+    localDigits: jest.fn((p: string) => p.replace(/[^\d]/g, '').slice(-9)),
   };
 
   beforeEach(async () => {
@@ -34,6 +48,7 @@ describe('ClientMetricsService', () => {
       providers: [
         ClientMetricsService,
         { provide: PrismaService, useValue: prisma },
+        { provide: PhoneResolverService, useValue: mockPhoneResolver },
       ],
     }).compile();
 

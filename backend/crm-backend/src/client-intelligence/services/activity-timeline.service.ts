@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { PhoneResolverService } from '../../common/phone-resolver/phone-resolver.service';
 import { TimelineEntry } from '../interfaces/intelligence.types';
 
 @Injectable()
 export class ActivityTimelineService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly phoneResolver: PhoneResolverService,
+  ) {}
 
   async getTimeline(
     clientCoreId: number,
@@ -42,10 +46,7 @@ export class ActivityTimelineService {
 
     const sessions = await this.prisma.callSession.findMany({
       where: {
-        OR: phones.flatMap((p) => [
-          { callerNumber: { contains: this.normalizePhone(p) } },
-          { calleeNumber: { contains: this.normalizePhone(p) } },
-        ]),
+        OR: this.phoneResolver.buildCallSessionFilter(phones),
       },
       include: {
         callMetrics: true,
@@ -138,7 +139,4 @@ export class ActivityTimelineService {
     }));
   }
 
-  private normalizePhone(phone: string): string {
-    return phone.replace(/[\s\-()]/g, '');
-  }
 }

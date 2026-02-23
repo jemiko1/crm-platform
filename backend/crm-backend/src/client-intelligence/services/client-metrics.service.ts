@@ -1,12 +1,16 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { PhoneResolverService } from '../../common/phone-resolver/phone-resolver.service';
 import { ClientMetrics } from '../interfaces/intelligence.types';
 
 const DEFAULT_PERIOD_DAYS = 180;
 
 @Injectable()
 export class ClientMetricsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly phoneResolver: PhoneResolverService,
+  ) {}
 
   async computeMetrics(
     clientCoreId: number,
@@ -83,13 +87,7 @@ export class ClientMetricsService {
     const sessions = await this.prisma.callSession.findMany({
       where: {
         startAt: { gte: since },
-        OR: phones.flatMap((p) => {
-          const norm = p.replace(/[\s\-()]/g, '');
-          return [
-            { callerNumber: { contains: norm } },
-            { calleeNumber: { contains: norm } },
-          ];
-        }),
+        OR: this.phoneResolver.buildCallSessionFilter(phones),
       },
       include: { callMetrics: true },
       orderBy: { startAt: 'desc' },

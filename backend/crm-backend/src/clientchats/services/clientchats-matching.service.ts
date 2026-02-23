@@ -4,12 +4,16 @@ import {
   ClientChatParticipant,
   ClientChatConversation,
 } from '@prisma/client';
+import { PhoneResolverService } from '../../common/phone-resolver/phone-resolver.service';
 
 @Injectable()
 export class ClientChatsMatchingService {
   private readonly logger = new Logger(ClientChatsMatchingService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly phoneResolver: PhoneResolverService,
+  ) {}
 
   /**
    * Attempt to auto-match a participant to an existing CRM Client by phone or email.
@@ -47,16 +51,7 @@ export class ClientChatsMatchingService {
     if (!phone && !email) return null;
 
     if (phone) {
-      const normalised = phone.replace(/[\s\-()]/g, '');
-      const byPhone = await this.prisma.client.findFirst({
-        where: {
-          OR: [
-            { primaryPhone: { contains: normalised } },
-            { secondaryPhone: { contains: normalised } },
-          ],
-          isActive: true,
-        },
-      });
+      const byPhone = await this.phoneResolver.resolveClient(phone);
       if (byPhone) return byPhone;
     }
 
