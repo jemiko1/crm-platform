@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
+import { PhoneResolverModule } from '../common/phone-resolver/phone-resolver.module';
 import { TelephonyIngestionController } from './controllers/telephony-ingestion.controller';
 import { TelephonyStatsController } from './controllers/telephony-stats.controller';
 import { TelephonyCallsController } from './controllers/telephony-calls.controller';
@@ -14,7 +15,7 @@ import { TelephonyCallbackService } from './services/telephony-callback.service'
 import { TelephonyWorktimeService } from './services/telephony-worktime.service';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, PhoneResolverModule],
   controllers: [
     TelephonyIngestionController,
     TelephonyStatsController,

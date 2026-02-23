@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PrismaModule } from '../prisma/prisma.module';
+import { PhoneResolverModule } from '../common/phone-resolver/phone-resolver.module';
 
 import { WebChatAdapter } from './adapters/web-chat.adapter';
 import { ViberAdapter } from './adapters/viber.adapter';
@@ -21,6 +22,7 @@ import { ViberWebhookGuard, FacebookWebhookGuard } from './guards/webhook-signat
 @Module({
   imports: [
     PrismaModule,
+    PhoneResolverModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'dev-secret',
     }),

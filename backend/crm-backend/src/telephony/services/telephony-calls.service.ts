@@ -3,10 +3,14 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { QueryCallsDto } from '../dto/query-calls.dto';
 import { CallerLookupResult } from '../types/telephony.types';
+import { PhoneResolverService } from '../../common/phone-resolver/phone-resolver.service';
 
 @Injectable()
 export class TelephonyCallsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly phoneResolver: PhoneResolverService,
+  ) {}
 
   async findAll(query: QueryCallsDto) {
     const page = query.page ?? 1;
@@ -52,9 +56,8 @@ export class TelephonyCallsService {
   }
 
   async lookupPhone(phone: string): Promise<CallerLookupResult> {
-    const normalized = this.normalizePhone(phone);
+    const normalized = this.phoneResolver.localDigits(phone);
 
-    // Search clients by primary/secondary phone
     const client = await this.prisma.client.findFirst({
       where: {
         isActive: true,
@@ -155,7 +158,4 @@ export class TelephonyCallsService {
     };
   }
 
-  private normalizePhone(phone: string): string {
-    return phone.replace(/[\s\-()+]/g, '').slice(-9);
-  }
 }
