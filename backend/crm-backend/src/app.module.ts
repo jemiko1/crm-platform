@@ -51,6 +51,9 @@ import { TelephonyModule } from "./telephony/telephony.module";
 // Client Chats (Unified Inbox)
 import { ClientChatsModule } from "./clientchats/clientchats.module";
 
+// Client Intelligence
+import { ClientIntelligenceModule } from "./client-intelligence/client-intelligence.module";
+
 import { V1Module } from "./v1/v1.module";
 
 @Module({
@@ -106,6 +109,9 @@ import { V1Module } from "./v1/v1.module";
 
     // Client Chats (Unified Inbox)
     ClientChatsModule,
+
+    // Client Intelligence
+    ClientIntelligenceModule,
 
     // API controllers (v1)
     V1Module,
