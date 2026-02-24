@@ -6,26 +6,40 @@
 
 ## Branch Rules
 
-### Never push to master
+### CRITICAL: Never touch master or staging
 
-The `master` branch is production. AI tools must **never** commit directly to `master` or push to it.
+The `master` branch is production. The `staging` branch is pre-production.
+AI tools must **never**:
+- Commit to `master` or `staging`
+- Push to `master` or `staging`
+- Merge any branch into `master` or `staging`
+- Run `git checkout master` for the purpose of making changes
+- Create PRs targeting `master` or `staging`
+
+Only the developer manually promotes `dev → staging → master`.
 
 ### Allowed branches
 
-| Branch | AI can commit? | AI can push? |
-|--------|---------------|--------------|
-| `master` | NO | NO |
-| `staging` | With caution | With caution |
-| `dev` | Yes | Yes |
-| `feature/*` | Yes | Yes |
-| `hotfix/*` | Yes | Yes |
+| Branch | AI can commit? | AI can push? | AI can merge into? |
+|--------|---------------|--------------|-------------------|
+| `master` | **NO** | **NO** | **NO** |
+| `staging` | **NO** | **NO** | **NO** |
+| `dev` | Yes | Yes | Yes (via PR) |
+| `feature/*` | Yes | Yes | Yes (into dev via PR) |
+| `hotfix/*` | Yes | Yes | Yes (into dev via PR) |
 
 ### Creating branches
 
 Always create feature branches from `dev`:
 ```bash
-git checkout -b feature/descriptive-name dev
+git checkout dev
+git pull origin dev
+git checkout -b feature/descriptive-name
 ```
+
+### PR target branch
+
+All PRs created by AI must target `dev`. Never target `master` or `staging`.
 
 ---
 
