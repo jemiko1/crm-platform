@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
+import { paginate, buildPaginatedResponse } from '../common/dto/pagination.dto';
 import * as bcrypt from 'bcrypt';
 import { UserRole } from '@prisma/client';
 
@@ -177,13 +178,12 @@ export class EmployeesService {
     });
   }
 
-  async findAll(status?: string, search?: string, includeTerminated = false) {
+  async findAll(status?: string, search?: string, includeTerminated = false, page = 1, pageSize = 20) {
     const where: any = {};
 
     if (status && status !== 'ALL') {
       where.status = status;
     } else if (!includeTerminated) {
-      // Exclude terminated (dismissed) from default list and company structure
       where.status = { not: 'TERMINATED' };
     }
 
@@ -196,25 +196,29 @@ export class EmployeesService {
       ];
     }
 
-    return this.prisma.employee.findMany({
-      where,
-      include: {
-        user: { select: { id: true, isActive: true } }, // For showing login account status
-        department: { select: { id: true, name: true, code: true } },
-        position: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-            departmentId: true,
-            department: { select: { id: true, name: true, code: true } },
-          },
+    const { skip, take } = paginate(page, pageSize);
+    const include = {
+      user: { select: { id: true, isActive: true } },
+      department: { select: { id: true, name: true, code: true } },
+      position: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          departmentId: true,
+          department: { select: { id: true, name: true, code: true } },
         },
-        role: { select: { id: true, name: true, code: true } },
-        manager: { select: { id: true, firstName: true, lastName: true } },
       },
-      orderBy: { createdAt: 'desc' },
-    });
+      role: { select: { id: true, name: true, code: true } },
+      manager: { select: { id: true, firstName: true, lastName: true } },
+    };
+
+    const [data, total] = await Promise.all([
+      this.prisma.employee.findMany({ where, include, orderBy: { createdAt: 'desc' }, skip, take }),
+      this.prisma.employee.count({ where }),
+    ]);
+
+    return buildPaginatedResponse(data, total, page, pageSize);
   }
 
   async findOne(id: string) {

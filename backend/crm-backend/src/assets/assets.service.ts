@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { IdGeneratorService } from "../common/id-generator/id-generator.service";
+import { paginate, buildPaginatedResponse } from "../common/dto/pagination.dto";
 
 @Injectable()
 export class AssetsService {
@@ -52,19 +53,19 @@ export class AssetsService {
     });
   }
 
-  async listByBuilding(buildingId: string) {
-    return this.prisma.asset.findMany({
-      where: { buildingId },
-      orderBy: [{ type: "asc" }, { coreId: "asc" }],
-      select: {
-        coreId: true,
-        type: true,
-        name: true,
-        ip: true,
-        status: true,
-        updatedAt: true,
-      },
-    });
+  async listByBuilding(buildingId: string, page = 1, pageSize = 20) {
+    const { skip, take } = paginate(page, pageSize);
+    const where = { buildingId };
+    const select = {
+      coreId: true, type: true, name: true, ip: true, status: true, updatedAt: true,
+    } as const;
+
+    const [data, total] = await Promise.all([
+      this.prisma.asset.findMany({ where, orderBy: [{ type: "asc" }, { coreId: "asc" }], select, skip, take }),
+      this.prisma.asset.count({ where }),
+    ]);
+
+    return buildPaginatedResponse(data, total, page, pageSize);
   }
 
   async internalId(coreId: number): Promise<string | null> {

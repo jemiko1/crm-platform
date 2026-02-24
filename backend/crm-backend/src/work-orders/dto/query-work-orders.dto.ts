@@ -1,4 +1,4 @@
-import { IsOptional, IsInt, Min, IsEnum } from "class-validator";
+import { IsOptional, IsInt, Min, Max, IsEnum } from "class-validator";
 import { Type } from "class-transformer";
 import { WorkOrderStatus, WorkOrderType } from "@prisma/client";
 
@@ -13,6 +13,7 @@ export class QueryWorkOrdersDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(100)
   pageSize?: number = 10;
 
   @IsOptional()
