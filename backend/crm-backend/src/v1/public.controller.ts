@@ -1,9 +1,11 @@
-import { Controller, Get, Param, ParseIntPipe } from "@nestjs/common";
+import { Controller, Get, Param, ParseIntPipe, UseGuards } from "@nestjs/common";
 import { BuildingsService } from "../buildings/buildings.service";
 import { ClientsService } from "../clients/clients.service";
 import { AssetsService } from "../assets/assets.service";
+import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 
 @Controller("v1")
+@UseGuards(JwtAuthGuard)
 export class PublicController {
   constructor(
     private readonly buildings: BuildingsService,
