@@ -7,6 +7,7 @@ import cookieParser from "cookie-parser";
 import { config } from "dotenv";
 import { resolve } from "path";
 import * as bcrypt from "bcrypt";
+import request from "supertest";
 
 config({ path: resolve(__dirname, "../../.env.test") });
 
@@ -113,7 +114,7 @@ export async function getAuthCookies(
 ): Promise<string[]> {
   const { email, password } = await createTestUser(ctx.prisma, overrides);
 
-  const res = await (await import("supertest")).default(ctx.app.getHttpServer())
+  const res = await request(ctx.app.getHttpServer())
     .post("/auth/login")
     .send({ email, password });
 
