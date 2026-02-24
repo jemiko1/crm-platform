@@ -47,36 +47,37 @@ export class SalesPlansService {
       throw new ConflictException('A plan for this period already exists');
     }
 
-    // Use the assigned employee as creator if current user is not an employee
     const actualCreatedById = createdById || dto.employeeId;
 
-    // Create the plan
-    const plan = await this.prisma.salesPlan.create({
-      data: {
-        type: dto.type,
-        year: dto.year,
-        month: dto.type === SalesPlanType.MONTHLY ? dto.month : null,
-        quarter: dto.type === SalesPlanType.QUARTERLY ? dto.quarter : null,
-        name: dto.name,
-        description: dto.description,
-        employeeId: dto.employeeId,
-        targetRevenue: dto.targetRevenue,
-        targetLeadConversions: dto.targetLeadConversions,
-        createdById: actualCreatedById!,
-      },
-    });
-
-    // Add targets if provided
-    if (dto.targets && dto.targets.length > 0) {
-      await this.prisma.salesPlanTarget.createMany({
-        data: dto.targets.map((t) => ({
-          planId: plan.id,
-          serviceId: t.serviceId,
-          targetQuantity: t.targetQuantity,
-          targetRevenue: t.targetRevenue,
-        })),
+    const plan = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.salesPlan.create({
+        data: {
+          type: dto.type,
+          year: dto.year,
+          month: dto.type === SalesPlanType.MONTHLY ? dto.month : null,
+          quarter: dto.type === SalesPlanType.QUARTERLY ? dto.quarter : null,
+          name: dto.name,
+          description: dto.description,
+          employeeId: dto.employeeId,
+          targetRevenue: dto.targetRevenue,
+          targetLeadConversions: dto.targetLeadConversions,
+          createdById: actualCreatedById!,
+        },
       });
-    }
+
+      if (dto.targets && dto.targets.length > 0) {
+        await tx.salesPlanTarget.createMany({
+          data: dto.targets.map((t) => ({
+            planId: created.id,
+            serviceId: t.serviceId,
+            targetQuantity: t.targetQuantity,
+            targetRevenue: t.targetRevenue,
+          })),
+        });
+      }
+
+      return created;
+    });
 
     return this.findOne(plan.id);
   }
@@ -141,36 +142,34 @@ export class SalesPlansService {
       throw new BadRequestException('Only draft plans can be edited');
     }
 
-    // Update basic info
-    await this.prisma.salesPlan.update({
-      where: { id },
-      data: {
-        name: dto.name,
-        description: dto.description,
-        targetRevenue: dto.targetRevenue,
-        targetLeadConversions: dto.targetLeadConversions,
-      },
-    });
-
-    // Update targets if provided
-    if (dto.targets) {
-      // Delete existing targets
-      await this.prisma.salesPlanTarget.deleteMany({
-        where: { planId: id },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.salesPlan.update({
+        where: { id },
+        data: {
+          name: dto.name,
+          description: dto.description,
+          targetRevenue: dto.targetRevenue,
+          targetLeadConversions: dto.targetLeadConversions,
+        },
       });
 
-      // Create new targets
-      if (dto.targets.length > 0) {
-        await this.prisma.salesPlanTarget.createMany({
-          data: dto.targets.map((t) => ({
-            planId: id,
-            serviceId: t.serviceId,
-            targetQuantity: t.targetQuantity,
-            targetRevenue: t.targetRevenue,
-          })),
+      if (dto.targets) {
+        await tx.salesPlanTarget.deleteMany({
+          where: { planId: id },
         });
+
+        if (dto.targets.length > 0) {
+          await tx.salesPlanTarget.createMany({
+            data: dto.targets.map((t) => ({
+              planId: id,
+              serviceId: t.serviceId,
+              targetQuantity: t.targetQuantity,
+              targetRevenue: t.targetRevenue,
+            })),
+          });
+        }
       }
-    }
+    });
 
     return this.findOne(id);
   }
