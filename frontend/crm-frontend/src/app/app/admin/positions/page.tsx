@@ -6,6 +6,7 @@ import Link from "next/link";
 import AddPositionModal from "./add-position-modal";
 import EditPositionModal from "./edit-position-modal";
 import DeletePositionDialog from "./delete-position-dialog";
+import { PermissionGuard } from "@/lib/permission-guard";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -15,6 +16,7 @@ type Position = {
   code: string;
   description: string | null;
   level: number | null;
+  roleGroupId: string;
   isActive: boolean;
   department: {
     id: string;
@@ -94,7 +96,8 @@ export default function PositionsPage() {
   }
 
   return (
-    <div className="p-8">
+    <PermissionGuard permission="admin.access">
+      <div className="p-8">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
@@ -307,5 +310,6 @@ export default function PositionsPage() {
         }}
       />
     </div>
+    </PermissionGuard>
   );
 }

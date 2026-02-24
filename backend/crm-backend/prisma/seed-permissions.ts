@@ -13,19 +13,19 @@ const prisma = new PrismaClient({
 
 const DEFAULT_PERMISSIONS = [
   // Buildings
-  { resource: "buildings", action: "read", category: PermissionCategory.BUILDINGS, description: "View buildings" },
+  { resource: "buildings", action: "details_read", category: PermissionCategory.BUILDINGS, description: "View building detailed information" },
   { resource: "buildings", action: "create", category: PermissionCategory.BUILDINGS, description: "Create new buildings" },
   { resource: "buildings", action: "update", category: PermissionCategory.BUILDINGS, description: "Update building information" },
   { resource: "buildings", action: "delete", category: PermissionCategory.BUILDINGS, description: "Delete buildings" },
 
   // Clients
-  { resource: "clients", action: "read", category: PermissionCategory.CLIENTS, description: "View clients" },
+  { resource: "clients", action: "details_read", category: PermissionCategory.CLIENTS, description: "View client detailed information" },
   { resource: "clients", action: "create", category: PermissionCategory.CLIENTS, description: "Create new clients" },
   { resource: "clients", action: "update", category: PermissionCategory.CLIENTS, description: "Update client information" },
   { resource: "clients", action: "delete", category: PermissionCategory.CLIENTS, description: "Delete clients" },
 
   // Incidents
-  { resource: "incidents", action: "read", category: PermissionCategory.INCIDENTS, description: "View incidents" },
+  { resource: "incidents", action: "details_read", category: PermissionCategory.INCIDENTS, description: "View incident detailed information" },
   { resource: "incidents", action: "create", category: PermissionCategory.INCIDENTS, description: "Create new incidents" },
   { resource: "incidents", action: "update", category: PermissionCategory.INCIDENTS, description: "Update incident information" },
   { resource: "incidents", action: "assign", category: PermissionCategory.INCIDENTS, description: "Assign incidents to employees" },
@@ -85,6 +85,11 @@ const DEFAULT_PERMISSIONS = [
   { resource: "employees", action: "update", category: PermissionCategory.EMPLOYEES, description: "Update employee information" },
   { resource: "employees", action: "delete", category: PermissionCategory.EMPLOYEES, description: "Delete employees" },
   { resource: "employees", action: "assign", category: PermissionCategory.EMPLOYEES, description: "Assign employees to departments/roles" },
+  { resource: "employee", action: "reset_password", category: PermissionCategory.EMPLOYEES, description: "Reset employee passwords" },
+  { resource: "employee", action: "dismiss", category: PermissionCategory.EMPLOYEES, description: "Dismiss/terminate employees" },
+  { resource: "employee", action: "activate", category: PermissionCategory.EMPLOYEES, description: "Reactivate dismissed employees" },
+  { resource: "employee", action: "hard_delete", category: PermissionCategory.EMPLOYEES, description: "Permanently delete employees" },
+  { resource: "employee", action: "create_account", category: PermissionCategory.EMPLOYEES, description: "Create user accounts for employees" },
 
   // Departments
   { resource: "departments", action: "read", category: PermissionCategory.EMPLOYEES, description: "View departments" },
@@ -111,6 +116,52 @@ const DEFAULT_PERMISSIONS = [
   { resource: "admin", action: "access", category: PermissionCategory.ADMIN, description: "Access admin panel" },
   { resource: "admin", action: "manage_users", category: PermissionCategory.ADMIN, description: "Manage user accounts" },
   { resource: "admin", action: "manage_settings", category: PermissionCategory.ADMIN, description: "Manage system settings" },
+
+  // Sales
+  { resource: "sales", action: "read", category: PermissionCategory.SALES, description: "View sales dashboard and data" },
+  { resource: "sales", action: "create", category: PermissionCategory.SALES, description: "Create sales records" },
+  { resource: "sales", action: "update", category: PermissionCategory.SALES, description: "Update sales records" },
+  { resource: "sales", action: "delete", category: PermissionCategory.SALES, description: "Delete sales records" },
+
+  // Leads
+  { resource: "leads", action: "read", category: PermissionCategory.SALES, description: "View leads" },
+  { resource: "leads", action: "create", category: PermissionCategory.SALES, description: "Create new leads" },
+  { resource: "leads", action: "update", category: PermissionCategory.SALES, description: "Update lead information" },
+  { resource: "leads", action: "delete", category: PermissionCategory.SALES, description: "Delete leads" },
+  { resource: "leads", action: "convert", category: PermissionCategory.SALES, description: "Convert leads to clients" },
+
+  // Plans
+  { resource: "plans", action: "read", category: PermissionCategory.SALES, description: "View sales plans" },
+  { resource: "plans", action: "create", category: PermissionCategory.SALES, description: "Create sales plans" },
+  { resource: "plans", action: "update", category: PermissionCategory.SALES, description: "Update sales plans" },
+  { resource: "plans", action: "delete", category: PermissionCategory.SALES, description: "Delete sales plans" },
+
+  // Tasks (employee workspace)
+  { resource: "tasks", action: "read", category: PermissionCategory.GENERAL, description: "View tasks" },
+  { resource: "tasks", action: "create", category: PermissionCategory.GENERAL, description: "Create tasks" },
+  { resource: "tasks", action: "update", category: PermissionCategory.GENERAL, description: "Update tasks" },
+
+  // Dashboard
+  { resource: "dashboard", action: "read", category: PermissionCategory.GENERAL, description: "View dashboard" },
+
+  // Settings
+  { resource: "settings", action: "read", category: PermissionCategory.GENERAL, description: "View settings" },
+  { resource: "settings", action: "update", category: PermissionCategory.GENERAL, description: "Update settings" },
+
+  // Menu Visibility — controls sidebar visibility & list-page access
+  { resource: "buildings", action: "menu", category: PermissionCategory.BUILDINGS, description: "Show Buildings in left menu" },
+  { resource: "clients", action: "menu", category: PermissionCategory.CLIENTS, description: "Show Clients in left menu" },
+  { resource: "incidents", action: "menu", category: PermissionCategory.INCIDENTS, description: "Show Incidents in left menu" },
+  { resource: "assets", action: "menu", category: PermissionCategory.GENERAL, description: "Show Assets in left menu" },
+  { resource: "work_orders", action: "menu", category: PermissionCategory.WORK_ORDERS, description: "Show Work Orders in left menu" },
+  { resource: "sales", action: "menu", category: PermissionCategory.SALES, description: "Show Sales in left menu" },
+  { resource: "inventory", action: "menu", category: PermissionCategory.INVENTORY, description: "Show Inventory in left menu" },
+  { resource: "employees", action: "menu", category: PermissionCategory.EMPLOYEES, description: "Show Employees in left menu" },
+  { resource: "admin", action: "menu", category: PermissionCategory.ADMIN, description: "Show Admin in left menu" },
+
+  // Messenger
+  { resource: "messenger", action: "create_group", category: PermissionCategory.MESSENGER, description: "Create group conversations in messenger" },
+  { resource: "messenger", action: "manage_groups", category: PermissionCategory.MESSENGER, description: "Manage group settings and participants" },
 ];
 
 async function main() {
@@ -151,6 +202,29 @@ async function main() {
 
   console.log(`✅ Permissions seeded: ${created} created, ${skipped} already existed`);
   console.log(`📊 Total permissions: ${DEFAULT_PERMISSIONS.length}`);
+
+  // Clean up deprecated permissions that are no longer used
+  const DEPRECATED_PERMISSIONS = [
+    { resource: "buildings", action: "read" },
+    { resource: "clients", action: "read" },
+    { resource: "incidents", action: "read" },
+  ];
+
+  let removed = 0;
+  for (const dep of DEPRECATED_PERMISSIONS) {
+    try {
+      await prisma.permission.delete({
+        where: { resource_action: { resource: dep.resource, action: dep.action } },
+      });
+      removed++;
+      console.log(`🗑️  Removed deprecated permission: ${dep.resource}.${dep.action}`);
+    } catch {
+      // Permission doesn't exist or is still referenced — skip silently
+    }
+  }
+  if (removed > 0) {
+    console.log(`🧹 Cleaned up ${removed} deprecated permission(s)`);
+  }
 }
 
 main()

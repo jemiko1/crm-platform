@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { PermissionGuard } from "@/lib/permission-guard";
+import { useI18n } from "@/hooks/useI18n";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -43,6 +45,20 @@ const adminSections: AdminSection[] = [
     href: "/app/admin/workflow",
   },
   {
+    id: "sales-config",
+    title: "Sales Pipeline",
+    description: "Configure sales pipeline stages, sources, and position assignments",
+    icon: <IconSalesPipeline />,
+    href: "/app/admin/sales-config",
+  },
+  {
+    id: "services",
+    title: "Services Catalog",
+    description: "Manage sellable services with pricing for sales leads",
+    icon: <IconServices />,
+    href: "/app/admin/services",
+  },
+  {
     id: "list-items",
     title: "List Items",
     description: "Manage dropdown values, categories, and system lists",
@@ -63,18 +79,48 @@ const adminSections: AdminSection[] = [
     icon: <IconUsers />,
     href: "/app/admin/users",
   },
+  {
+    id: "translations",
+    title: "Translations",
+    description: "Manage bilingual UI translations (English & Georgian)",
+    icon: <IconTranslations />,
+    href: "/app/admin/translations",
+  },
+  {
+    id: "email-config",
+    title: "Email Configuration",
+    description: "Configure SMTP and IMAP email server settings",
+    icon: <IconEmail />,
+    href: "/app/admin/email-config",
+  },
+  {
+    id: "sms-config",
+    title: "SMS Configuration",
+    description: "Configure SMS provider credentials and sender number",
+    icon: <IconSms />,
+    href: "/app/admin/sms-config",
+  },
+  {
+    id: "notifications",
+    title: "Notifications",
+    description: "Manage notification templates, send notifications, and view logs",
+    icon: <IconNotifications />,
+    href: "/app/admin/notifications",
+  },
 ];
 
 export default function AdminPanelPage() {
   const pathname = usePathname();
+  const { t } = useI18n();
 
   return (
-    <div className="p-8">
+    <PermissionGuard permission="admin.access">
+      <div className="p-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-zinc-900">Admin Panel</h1>
+        <h1 className="text-3xl font-bold text-zinc-900">{t("admin.title", "Admin Panel")}</h1>
         <p className="mt-2 text-sm text-zinc-600">
-          Manage your organization's settings, users, and permissions
+          {t("admin.description", "Manage your organization's settings, users, and permissions")}
         </p>
       </div>
 
@@ -116,7 +162,7 @@ export default function AdminPanelPage() {
                   isActive ? "text-emerald-700" : "text-zinc-500 group-hover:text-emerald-600"
                 }`}
               >
-                Manage
+                {t("admin.manage", "Manage")}
                 <svg
                   width="16"
                   height="16"
@@ -146,6 +192,7 @@ export default function AdminPanelPage() {
         })}
       </div>
     </div>
+    </PermissionGuard>
   );
 }
 
@@ -278,6 +325,93 @@ function IconWorkflow() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  );
+}
+
+function IconSalesPipeline() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M22 12h-4l-3 9L9 3l-3 9H2"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function IconServices() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M12 2v20M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function IconTranslations() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M5 8l4 12M3 14h8M12.9 3h1.2l4.9 14M16 10h5"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M2 5h10M7 2v3"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function IconEmail() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" strokeWidth="2" />
+      <path d="M22 7l-10 7L2 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconSms() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M8 10h.01M12 10h.01M16 10h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconNotifications() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M18 8A6 6 0 1 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

@@ -34,8 +34,18 @@ export class InventoryController {
   }
 
   @Get('products')
-  findAllProducts(@Query('category') category?: string, @Query('lowStock') lowStock?: string) {
-    return this.inventoryService.findAllProducts(category, lowStock === 'true');
+  findAllProducts(
+    @Query('category') category?: string,
+    @Query('lowStock') lowStock?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.inventoryService.findAllProducts(
+      category,
+      lowStock === 'true',
+      page ? parseInt(page, 10) : 1,
+      pageSize ? parseInt(pageSize, 10) : 50,
+    );
   }
 
   @Get('products/:id')

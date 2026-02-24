@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import Link from "next/link";
 import { API_BASE } from "@/lib/api";
+import { usePermissions } from "@/lib/use-permissions";
+import { useModalContext } from "../modal-manager";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -96,6 +97,8 @@ export default function IncidentDetailContent({
   incidentId,
   onStatusChange,
 }: IncidentDetailContentProps) {
+  const { hasPermission } = usePermissions();
+  const { openModal } = useModalContext();
   const [incident, setIncident] = useState<IncidentDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -252,16 +255,17 @@ export default function IncidentDetailContent({
         {/* Client */}
         <div className="rounded-2xl bg-zinc-50 p-4 ring-1 ring-zinc-200">
           <div className="text-xs font-semibold uppercase tracking-wide text-zinc-600">Client</div>
-          <Link
-            href={`/app/clients?client=${incident.client.coreId}`}
-            className="mt-2 block group hover:opacity-80 transition"
+          <button
+            type="button"
+            onClick={() => openModal("client", String(incident.client.coreId))}
+            className="mt-2 block group hover:opacity-80 transition text-left w-full"
           >
             <div className="text-sm font-semibold text-zinc-900 group-hover:underline">
               {incident.client.firstName} {incident.client.lastName}
             </div>
             <div className="mt-1 text-xs text-zinc-600">Client #{incident.client.coreId}</div>
             <div className="mt-1 text-xs text-zinc-500">{incident.client.primaryPhone}</div>
-          </Link>
+          </button>
         </div>
 
         {/* Building */}
@@ -269,9 +273,10 @@ export default function IncidentDetailContent({
           <div className="text-xs font-semibold uppercase tracking-wide text-zinc-600">
             Building
           </div>
-          <Link
-            href={`/app/buildings?building=${incident.building.coreId}`}
-            className="mt-2 block group hover:opacity-80 transition"
+          <button
+            type="button"
+            onClick={() => openModal("building", String(incident.building.coreId))}
+            className="mt-2 block group hover:opacity-80 transition text-left w-full"
           >
             <div className="text-sm font-semibold text-zinc-900 group-hover:underline">
               {incident.building.name}
@@ -282,7 +287,7 @@ export default function IncidentDetailContent({
                 ? `${incident.building.address}, ${incident.building.city}`
                 : incident.building.address || incident.building.city || "—"}
             </div>
-          </Link>
+          </button>
         </div>
       </div>
 
@@ -300,7 +305,7 @@ export default function IncidentDetailContent({
           Update Status
         </div>
         <div className="flex flex-wrap gap-2">
-          {incident.status === "CREATED" && (
+          {incident.status === "CREATED" && hasPermission('incidents.update') && (
             <button
               type="button"
               onClick={() => updateStatus("IN_PROGRESS")}
@@ -313,23 +318,27 @@ export default function IncidentDetailContent({
 
           {(incident.status === "CREATED" || incident.status === "IN_PROGRESS") && (
             <>
-              <button
-                type="button"
-                onClick={() => updateStatus("COMPLETED")}
-                disabled={updating}
-                className="rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
-              >
-                Mark Completed
-              </button>
-              <button
-                type="button"
-                onClick={() => updateStatus("WORK_ORDER_INITIATED")}
-                disabled={updating}
-                className="rounded-2xl px-4 py-2 text-sm font-semibold text-white hover:opacity-95 disabled:opacity-50"
-                style={{ backgroundColor: BRAND }}
-              >
-                Create Work Order
-              </button>
+              {hasPermission('incidents.update') && (
+                <button
+                  type="button"
+                  onClick={() => updateStatus("COMPLETED")}
+                  disabled={updating}
+                  className="rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  Mark Completed
+                </button>
+              )}
+              {hasPermission('work_orders.create') && (
+                <button
+                  type="button"
+                  onClick={() => updateStatus("WORK_ORDER_INITIATED")}
+                  disabled={updating}
+                  className="rounded-2xl px-4 py-2 text-sm font-semibold text-white hover:opacity-95 disabled:opacity-50"
+                  style={{ backgroundColor: BRAND }}
+                >
+                  Create Work Order
+                </button>
+              )}
             </>
           )}
 

@@ -1,92 +1,70 @@
 import type { ReactNode } from "react";
 import SidebarNav from "./sidebar-nav";
-import ProfileMenu from "./profile-menu";
-import TasksIcon from "./tasks-icon";
-import ModalProvider from "./modal-provider";
-
-const BRAND_GREEN = "rgb(8,117,56)";
+import AppHeader from "./app-header";
+import { ModalStackWrapper } from "./modal-provider";
+import { MessengerProvider } from "./messenger/messenger-context";
+import ChatBubbleContainer from "./messenger/chat-bubble-container";
+import MessengerModalBridge from "./messenger/messenger-modal-bridge";
+import { I18nProvider } from "@/contexts/i18n-context";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      {/* App background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-emerald-200 via-emerald-100 to-slate-200" />
-      <div className="absolute inset-0 bg-slate-900/12" />
-      <div className="absolute -top-24 -left-24 h-80 w-80 rounded-full bg-emerald-500/30 blur-3xl" />
-      <div className="absolute top-24 -right-24 h-96 w-96 rounded-full bg-emerald-600/25 blur-3xl" />
-      <div className="absolute -bottom-24 left-1/3 h-96 w-96 rounded-full bg-slate-600/20 blur-3xl" />
-      <div className="absolute inset-0 opacity-[0.22] bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.22)_1px,transparent_0)] bg-[length:22px_22px]" />
+    <I18nProvider>
+    <MessengerProvider>
+    <ModalStackWrapper>
+      <div className="min-h-screen relative">
+        {/* App background */}
+        <div className="fixed inset-0 bg-gradient-to-br from-emerald-200 via-emerald-100 to-slate-200 -z-10" />
+        <div className="fixed inset-0 bg-slate-900/12 -z-10" />
+        <div className="fixed -top-24 -left-24 h-80 w-80 rounded-full bg-emerald-500/30 blur-3xl -z-10" />
+        <div className="fixed top-24 -right-24 h-96 w-96 rounded-full bg-emerald-600/25 blur-3xl -z-10" />
+        <div className="fixed -bottom-24 left-1/3 h-96 w-96 rounded-full bg-slate-600/20 blur-3xl -z-10" />
+        <div className="fixed inset-0 opacity-[0.22] bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.22)_1px,transparent_0)] bg-[length:22px_22px] -z-10" />
 
-      {/* Layout wrapper */}
-      <div className="relative w-full">
-        <div className="flex">
-          {/* Left Rail Sidebar (fixed, full height, internal scroll) */}
-          <aside className="hidden lg:block fixed left-4 top-6 bottom-6 w-[108px] shrink-0 z-40">
-            <div className="h-full">
-              <div className="h-full rounded-[32px] bg-white/85 backdrop-blur-xl border border-white/60 shadow-[0_30px_70px_-22px_rgba(0,0,0,0.35)] overflow-hidden flex flex-col">
-                {/* Logo */}
-                <div className="px-3 pt-4 pb-3 flex items-center justify-center border-b border-white/60 shrink-0">
+        {/* Full-width sticky header */}
+        <AppHeader />
+
+        {/* Below header: sidebar + content */}
+        <div className="relative w-full">
+          <div className="flex">
+            {/* Left Rail Sidebar - starts below the header */}
+            <aside className="hidden lg:block fixed left-4 top-[68px] bottom-6 w-[108px] shrink-0 z-40">
+              <div className="h-full">
+                <div className="h-full rounded-[32px] bg-white/85 backdrop-blur-xl border border-white/60 shadow-[0_10px_40px_rgba(0,0,0,0.3),0_0_80px_-5px_rgba(0,0,0,0.2)] overflow-hidden flex flex-col">
+                  {/* Top padding where CRM28 logo used to be */}
+                  <div className="shrink-0 h-4" />
                   <div
-                    className="h-10 w-10 rounded-2xl shadow"
-                    style={{ backgroundColor: BRAND_GREEN }}
-                    title="CRM Platform"
-                  />
-                </div>
-
-                <div
-  className={[
-    "flex-1 overflow-y-auto overscroll-contain",
-    // ✅ Hide scrollbar cross-browser (no plugin)
-    "[scrollbar-width:none]", // Firefox
-    "[-ms-overflow-style:none]", // IE/old Edge
-    "[&::-webkit-scrollbar]:w-0",
-    "[&::-webkit-scrollbar]:h-0",
-  ].join(" ")}
->
-  <SidebarNav />
-</div>
-
-                {/* Subtle bottom fade hint */}
-                <div className="shrink-0 h-6 bg-gradient-to-t from-white/80 to-transparent pointer-events-none" />
-              </div>
-            </div>
-          </aside>
-
-          {/* Main */}
-          <main className="flex-1 space-y-4 min-w-0 px-4 py-6 lg:pl-[148px]">
-            {/* Top bar - Sticky and Floating */}
-            <div className="sticky top-4 z-50 rounded-3xl bg-white/85 backdrop-blur-xl border border-white/60 shadow-[0_30px_70px_-22px_rgba(0,0,0,0.25)]">
-              <div className="px-6 py-4 flex items-center justify-between gap-4">
-                {/* Left side - Workspace button */}
-                <div className="flex items-center gap-4">
-                  <TasksIcon />
-                  <div className="min-w-0 hidden md:block">
-                    <div className="text-sm font-medium text-zinc-900">
-                      Workspace
-                    </div>
-                    <div className="text-xs text-zinc-500 truncate">
-                      Protected area: /app/*
-                    </div>
+                    className={[
+                      "flex-1 overflow-y-auto overscroll-contain",
+                      "[scrollbar-width:none]",
+                      "[-ms-overflow-style:none]",
+                      "[&::-webkit-scrollbar]:w-0",
+                      "[&::-webkit-scrollbar]:h-0",
+                    ].join(" ")}
+                  >
+                    <SidebarNav />
                   </div>
-                </div>
 
-                {/* Right side - Profile */}
-                <div className="flex items-center gap-3">
-                  <ProfileMenu />
+                  <div className="shrink-0 h-6 bg-gradient-to-t from-white/80 to-transparent pointer-events-none" />
                 </div>
               </div>
-            </div>
+            </aside>
 
-            {/* Content container */}
-            <div className="rounded-3xl bg-white/85 backdrop-blur-xl border border-white/60 shadow-[0_30px_70px_-22px_rgba(0,0,0,0.25)]">
-              <div className="p-6">{children}</div>
-            </div>
-          </main>
+            {/* Main content */}
+            <main className="flex-1 min-w-0 lg:pl-[148px]">
+              <div className="px-4 pt-4 pb-6 space-y-4">
+                <div className="rounded-3xl bg-white/85 backdrop-blur-xl border border-white/60 shadow-[0_30px_70px_-22px_rgba(0,0,0,0.25)] overflow-visible">
+                  <div className="p-6 overflow-visible">{children}</div>
+                </div>
+              </div>
+            </main>
+          </div>
         </div>
       </div>
-
-      {/* Centralized Modal Manager - handles all detail modals */}
-      <ModalProvider />
-    </div>
+      <ChatBubbleContainer />
+      <MessengerModalBridge />
+    </ModalStackWrapper>
+    </MessengerProvider>
+    </I18nProvider>
   );
 }

@@ -64,9 +64,8 @@ export default function LoginPage() {
           <div className="p-6 sm:p-7">
             {/* Logo */}
             <div className="mb-6 text-center">
-              {/* Replace with your real logo later */}
-              <div className="mx-auto mb-3 h-12 w-12 rounded-2xl bg-[rgb(8,117,56)] text-white flex items-center justify-center font-semibold shadow">
-                HOA
+              <div className="mx-auto mb-3">
+                <span className="text-2xl font-bold text-zinc-900">CRM28</span>
               </div>
 
               <h1 className="text-xl font-semibold text-zinc-900">Sign in</h1>

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { apiGet, apiPost, apiPatch, ApiError } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
 import AssignEmployeesModal from "../work-orders/[id]/assign-employees-modal";
+import { PermissionGuard } from "@/lib/permission-guard";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -278,7 +279,8 @@ export default function TasksPage() {
   }
 
   return (
-    <div className="w-full">
+    <PermissionGuard permission="tasks.read">
+      <div className="w-full">
       {/* Header */}
       <div className="mb-6">
         <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs text-zinc-700 shadow-sm ring-1 ring-zinc-200">
@@ -474,6 +476,7 @@ export default function TasksPage() {
         />
       )}
     </div>
+    </PermissionGuard>
   );
 }
 

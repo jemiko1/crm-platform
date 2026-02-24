@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiGet } from "@/lib/api";
+import { PermissionGuard } from "@/lib/permission-guard";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -63,7 +64,8 @@ export default function ListItemsPage() {
   const systemCategories = categories.filter((c) => !c.isUserEditable);
 
   return (
-    <div className="space-y-6">
+    <PermissionGuard permission="admin.access">
+      <div className="space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-zinc-900">List Items Management</h1>
@@ -188,5 +190,6 @@ export default function ListItemsPage() {
         </div>
       )}
     </div>
+    </PermissionGuard>
   );
 }

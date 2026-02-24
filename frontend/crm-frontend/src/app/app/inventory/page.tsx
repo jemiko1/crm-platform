@@ -6,6 +6,9 @@ import AddProductModal from "./add-product-modal";
 import EditProductModal from "./edit-product-modal";
 import CreatePurchaseOrderModal from "./create-purchase-order-modal";
 import EditPurchaseOrderModal from "./edit-purchase-order-modal";
+import { PermissionGuard } from "@/lib/permission-guard";
+import { usePermissions } from "@/lib/use-permissions";
+import { useI18n } from "@/hooks/useI18n";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -20,6 +23,7 @@ type Product = {
   unit: string;
   currentStock: number;
   lowStockThreshold: number;
+  defaultPurchasePrice: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -67,6 +71,7 @@ type StockTransaction = {
 };
 
 export default function InventoryPage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<Tab>("products");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -152,13 +157,14 @@ export default function InventoryPage() {
   const lowStockCount = products.filter((p) => p.currentStock <= p.lowStockThreshold).length;
 
   return (
-    <div className="w-full space-y-6">
-      {/* Header */}
+    <PermissionGuard permission="inventory.menu">
+      <div className="w-full space-y-6">
+        {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-900">Inventory Management</h1>
+          <h1 className="text-2xl font-bold text-zinc-900">{t("inventory.title", "Inventory Management")}</h1>
           <p className="mt-1 text-sm text-zinc-600">
-            Track stock levels, manage purchases, and monitor transactions
+            {t("inventory.description", "Track stock levels, manage purchases, and monitor transactions")}
           </p>
         </div>
 
@@ -166,7 +172,7 @@ export default function InventoryPage() {
           {lowStockCount > 0 && (
             <div className="rounded-2xl bg-amber-50 px-4 py-2 ring-1 ring-amber-200">
               <div className="text-xs font-semibold text-amber-900">
-                {lowStockCount} Low Stock Item{lowStockCount !== 1 ? "s" : ""}
+                {lowStockCount} {t("inventory.lowStockItems", "Low Stock Item(s)")}
               </div>
             </div>
           )}
@@ -177,22 +183,22 @@ export default function InventoryPage() {
       <div className="border-b border-zinc-200">
         <div className="flex gap-1">
           <TabButton
-            label={`Products (${products.length})`}
+            label={`${t("inventory.tabs.products", "Products")} (${products.length})`}
             active={activeTab === "products"}
             onClick={() => setActiveTab("products")}
           />
           <TabButton
-            label={`Purchase Orders (${purchaseOrders.length})`}
+            label={`${t("inventory.tabs.purchaseOrders", "Purchase Orders")} (${purchaseOrders.length})`}
             active={activeTab === "purchase-orders"}
             onClick={() => setActiveTab("purchase-orders")}
           />
           <TabButton
-            label={`Transactions (${transactions.length})`}
+            label={`${t("inventory.tabs.transactions", "Transactions")} (${transactions.length})`}
             active={activeTab === "transactions"}
             onClick={() => setActiveTab("transactions")}
           />
           <TabButton
-            label="Deactivated Devices"
+            label={t("inventory.tabs.deactivatedDevices", "Deactivated Devices")}
             active={activeTab === "deactivated-devices"}
             onClick={() => setActiveTab("deactivated-devices")}
           />
@@ -261,7 +267,8 @@ export default function InventoryPage() {
         products={products}
         purchaseOrder={selectedPO}
       />
-    </div>
+      </div>
+    </PermissionGuard>
   );
 }
 
@@ -303,6 +310,9 @@ function ProductsTab({
   onEditClick: (product: Product) => void;
   onRefresh: () => void;
 }) {
+  const { t } = useI18n();
+  const { hasPermission } = usePermissions();
+
   function getCategoryBadge(category: string) {
     const styles: Record<string, string> = {
       ROUTER: "bg-blue-50 text-blue-700 ring-blue-200",
@@ -332,18 +342,20 @@ function ProductsTab({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-zinc-900">Product Catalog</h2>
-          <button
-            onClick={onAddClick}
-            className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
-            style={{ backgroundColor: BRAND }}
-          >
-            <IconPlus />
-            Add Product
-          </button>
+          {hasPermission("inventory.create") && (
+            <button
+              onClick={onAddClick}
+              className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+              style={{ backgroundColor: BRAND }}
+            >
+              <IconPlus />
+              {t("inventory.addProduct", "Add Product")}
+            </button>
+          )}
         </div>
 
         <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
-          <div className="text-sm text-zinc-600">No products in catalog yet.</div>
+          <div className="text-sm text-zinc-600">{t("inventory.noProducts", "No products in catalog yet.")}</div>
         </div>
       </div>
     );
@@ -353,15 +365,17 @@ function ProductsTab({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-zinc-900">Product Catalog ({products.length})</h2>
-        <button
-          onClick={onAddClick}
-          className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
-          style={{ backgroundColor: BRAND }}
-        >
-          <IconPlus />
-          Add Product
-        </button>
-      </div>
+        {hasPermission("inventory.create") && (
+          <button
+            onClick={onAddClick}
+            className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+            style={{ backgroundColor: BRAND }}
+          >
+            <IconPlus />
+              {t("inventory.addProduct", "Add Product")}
+            </button>
+          )}
+        </div>
 
       <div className="overflow-x-auto">
         <table className="w-full">
@@ -459,6 +473,7 @@ function PurchaseOrdersTab({
   onEditClick: (po: PurchaseOrder) => void;
   onRefresh: () => void;
 }) {
+  const { t } = useI18n();
   function getStatusBadge(status: string) {
     const styles: Record<string, string> = {
       DRAFT: "bg-zinc-50 text-zinc-700 ring-zinc-200",
@@ -488,12 +503,12 @@ function PurchaseOrdersTab({
             style={{ backgroundColor: BRAND }}
           >
             <IconPlus />
-            Create PO
+            {t("inventory.createPO", "Create Purchase Order")}
           </button>
         </div>
 
         <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
-          <div className="text-sm text-zinc-600">No purchase orders yet.</div>
+          <div className="text-sm text-zinc-600">{t("inventory.noPurchaseOrders", "No purchase orders yet.")}</div>
         </div>
       </div>
     );
@@ -511,7 +526,7 @@ function PurchaseOrdersTab({
           style={{ backgroundColor: BRAND }}
         >
           <IconPlus />
-          Create PO
+          {t("inventory.createPO", "Create Purchase Order")}
         </button>
       </div>
 
@@ -628,6 +643,7 @@ function PurchaseOrdersTab({
 
 /* ========== TRANSACTIONS TAB ========== */
 function TransactionsTab({ transactions }: { transactions: StockTransaction[] }) {
+  const { t } = useI18n();
   function getTypeBadge(type: string) {
     const styles: Record<string, string> = {
       PURCHASE_IN: "bg-emerald-50 text-emerald-700 ring-emerald-200",
@@ -663,7 +679,7 @@ function TransactionsTab({ transactions }: { transactions: StockTransaction[] })
       <div className="space-y-4">
         <h2 className="text-lg font-semibold text-zinc-900">Transaction History</h2>
         <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
-          <div className="text-sm text-zinc-600">No transactions recorded yet.</div>
+          <div className="text-sm text-zinc-600">{t("inventory.noTransactions", "No transactions recorded yet.")}</div>
         </div>
       </div>
     );
@@ -718,6 +734,7 @@ function TransactionsTab({ transactions }: { transactions: StockTransaction[] })
 
 /* ========== DEACTIVATED DEVICES TAB ========== */
 function DeactivatedDevicesTab() {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [devices, setDevices] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -729,7 +746,7 @@ function DeactivatedDevicesTab() {
       try {
         setLoading(true);
         setError(null);
-        const data = await apiGet("/v1/inventory/deactivated-devices?transferred=false");
+        const data = await apiGet<any[]>("/v1/inventory/deactivated-devices?transferred=false");
         if (!cancelled) setDevices(data);
       } catch (err: any) {
         if (!cancelled) {
@@ -752,9 +769,9 @@ function DeactivatedDevicesTab() {
   if (loading) {
     return (
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-zinc-900">Deactivated Devices</h2>
+        <h2 className="text-lg font-semibold text-zinc-900">{t("inventory.tabs.deactivatedDevices", "Deactivated Devices")}</h2>
         <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
-          <div className="text-sm text-zinc-600">Loading deactivated devices...</div>
+          <div className="text-sm text-zinc-600">{t("inventory.loadingDevices", "Loading deactivated devices...")}</div>
         </div>
       </div>
     );
@@ -763,7 +780,7 @@ function DeactivatedDevicesTab() {
   if (error) {
     return (
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-zinc-900">Deactivated Devices</h2>
+        <h2 className="text-lg font-semibold text-zinc-900">{t("inventory.tabs.deactivatedDevices", "Deactivated Devices")}</h2>
         <div className="rounded-2xl bg-red-50 p-4 ring-1 ring-red-200">
           <div className="text-sm text-red-900">{error}</div>
         </div>
@@ -774,9 +791,9 @@ function DeactivatedDevicesTab() {
   if (devices.length === 0) {
     return (
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-zinc-900">Deactivated Devices</h2>
+        <h2 className="text-lg font-semibold text-zinc-900">{t("inventory.tabs.deactivatedDevices", "Deactivated Devices")}</h2>
         <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
-          <div className="text-sm text-zinc-600">No deactivated devices found.</div>
+          <div className="text-sm text-zinc-600">{t("inventory.noDeactivated", "No deactivated devices found.")}</div>
           <p className="mt-2 text-xs text-zinc-500">
             Devices from DEACTIVATE work orders will appear here.
           </p>
@@ -788,7 +805,7 @@ function DeactivatedDevicesTab() {
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold text-zinc-900">
-        Deactivated Devices ({devices.length})
+        {t("inventory.tabs.deactivatedDevices", "Deactivated Devices")} ({devices.length})
       </h2>
       <div className="space-y-2">
         {devices.map((device) => (
@@ -814,7 +831,7 @@ function DeactivatedDevicesTab() {
                   type="button"
                   onClick={async () => {
                     try {
-                      await apiPost(`/v1/inventory/deactivated-devices/${device.id}/mark-working`);
+                      await apiPost(`/v1/inventory/deactivated-devices/${device.id}/mark-working`, {});
                       window.location.reload();
                     } catch (err: any) {
                       alert(err.message || "Failed to mark as working condition");
@@ -832,7 +849,7 @@ function DeactivatedDevicesTab() {
                   onClick={async () => {
                     if (!confirm("Transfer this device to active stock?")) return;
                     try {
-                      await apiPost(`/v1/inventory/deactivated-devices/${device.id}/transfer-to-stock`);
+                      await apiPost(`/v1/inventory/deactivated-devices/${device.id}/transfer-to-stock`, {});
                       window.location.reload();
                     } catch (err: any) {
                       alert(err.message || "Failed to transfer to stock");

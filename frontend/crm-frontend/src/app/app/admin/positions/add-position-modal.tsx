@@ -22,12 +22,16 @@ type AddPositionModalProps = {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  defaultDepartmentId?: string; // Pre-select department when adding from department page
+  defaultDepartmentName?: string; // Display name for locked department
 };
 
 export default function AddPositionModal({
   open,
   onClose,
   onSuccess,
+  defaultDepartmentId,
+  defaultDepartmentName,
 }: AddPositionModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,12 +47,20 @@ export default function AddPositionModal({
 
   const [formData, setFormData] = useState({
     name: "",
+    nameKa: "",
     description: "",
     level: "",
     roleGroupId: "",
-    departmentId: "",
+    departmentId: defaultDepartmentId || "",
     isActive: true,
   });
+
+  // Update departmentId when defaultDepartmentId changes
+  useEffect(() => {
+    if (defaultDepartmentId) {
+      setFormData((prev) => ({ ...prev, departmentId: defaultDepartmentId }));
+    }
+  }, [defaultDepartmentId]);
 
   // Load role groups and departments
   useEffect(() => {
@@ -92,6 +104,7 @@ export default function AddPositionModal({
     try {
       await apiPost("/v1/positions", {
         name: formData.name,
+        nameKa: formData.nameKa || undefined,
         description: formData.description || undefined,
         level: formData.level ? Number(formData.level) : undefined,
         roleGroupId: formData.roleGroupId,
@@ -102,10 +115,11 @@ export default function AddPositionModal({
       onSuccess();
       setFormData({
         name: "",
+        nameKa: "",
         description: "",
         level: "",
         roleGroupId: "",
-        departmentId: "",
+        departmentId: defaultDepartmentId || "",
         isActive: true,
       });
       onClose();
@@ -163,7 +177,7 @@ export default function AddPositionModal({
             <div className="space-y-4">
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-zinc-700">
-                  Position Name <span className="text-rose-500">*</span>
+                  Position Name (English) <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -173,6 +187,20 @@ export default function AddPositionModal({
                   required
                   className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                   placeholder="e.g., CEO, IT Manager"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-zinc-700">
+                  Position Name (Georgian)
+                </label>
+                <input
+                  type="text"
+                  name="nameKa"
+                  value={formData.nameKa}
+                  onChange={handleChange}
+                  className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  placeholder="მაგ., დირექტორი, IT მენეჯერი"
                 />
               </div>
 
@@ -236,9 +264,13 @@ export default function AddPositionModal({
 
             <div>
               <label className="mb-1.5 block text-sm font-medium text-zinc-700">
-                Department
+                Department {defaultDepartmentId && <span className="text-emerald-600 text-xs">(locked)</span>}
               </label>
-              {loadingDepartments ? (
+              {defaultDepartmentId ? (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-700">
+                  {defaultDepartmentName || "Selected Department"}
+                </div>
+              ) : loadingDepartments ? (
                 <div className="rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-500">
                   Loading...
                 </div>

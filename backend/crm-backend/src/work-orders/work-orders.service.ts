@@ -78,45 +78,8 @@ export class WorkOrdersService {
       assetIds.push(assetId);
     }
 
-    // Generate title if not provided: "WO-{number} - {Building Name} - {Work Order Type}"
-    if (!dto.title) {
-      // Get the highest work order number from existing titles (extract WO-{number} pattern)
-      // This ensures unique numbering even after deletions
-      const existingWorkOrders = await this.prisma.workOrder.findMany({
-        where: {
-          title: {
-            startsWith: "WO-",
-          },
-        },
-        select: {
-          title: true,
-        },
-      });
-
-      let maxNumber = 0;
-      for (const wo of existingWorkOrders) {
-        const match = wo.title.match(/^WO-(\d+)/);
-        if (match) {
-          const num = parseInt(match[1], 10);
-          if (num > maxNumber) {
-            maxNumber = num;
-          }
-        }
-      }
-
-      const workOrderNumber = maxNumber + 1;
-
-      const workOrderTypeLabels: Record<WorkOrderType, string> = {
-        INSTALLATION: "Installation",
-        DIAGNOSTIC: "Diagnostic",
-        RESEARCH: "Research",
-        DEACTIVATE: "Deactivate",
-        REPAIR_CHANGE: "Repair/Change",
-        ACTIVATE: "Activate",
-      };
-
-      dto.title = `WO-${workOrderNumber} - ${building.name} - ${workOrderTypeLabels[dto.type]}`;
-    }
+    // Title is generated AFTER creation using DB-assigned workOrderNumber (never reused)
+    const shouldAutoTitle = !dto.title;
 
     // Find employees to notify based on workflow configuration (Step 1: ASSIGN_EMPLOYEES)
     let workflowEmployeeIds: string[] = [];
@@ -196,14 +159,14 @@ export class WorkOrdersService {
       ...workflowEmployeeIds,
     ].filter((id, index, self) => self.indexOf(id) === index); // Remove duplicates
 
-    // Create work order
+    // Create work order (workOrderNumber auto-assigned by DB sequence — never reused)
     const workOrder = await this.prisma.workOrder.create({
       data: {
         buildingId,
-        assetId: assetIds[0] || null, // Keep for backward compat
+        assetId: assetIds[0] || null,
         type: dto.type,
         status: "CREATED",
-        title: dto.title,
+        title: dto.title ?? "PENDING",
         notes: dto.description ?? null,
         contactNumber: dto.contactNumber ?? null,
         deadline: dto.deadline ? new Date(dto.deadline) : null,
@@ -258,8 +221,28 @@ export class WorkOrdersService {
       },
     });
 
+    // Generate title from the DB-assigned workOrderNumber (guaranteed unique, never reused)
+    if (shouldAutoTitle) {
+      let typeLabel: string = dto.type;
+      try {
+        const listItem = await this.prisma.systemListItem.findFirst({
+          where: {
+            value: dto.type,
+            category: { code: "WORK_ORDER_TYPE" },
+          },
+          select: { displayName: true },
+        });
+        if (listItem) typeLabel = listItem.displayName;
+      } catch {}
+      const generatedTitle = `ID-${workOrder.workOrderNumber} - ${building.name} - ${typeLabel}`;
+      await this.prisma.workOrder.update({
+        where: { id: workOrder.id },
+        data: { title: generatedTitle },
+      });
+      (workOrder as any).title = generatedTitle;
+    }
+
     // Log activity - Work Order Created
-    // Get the employee who created this (if available)
     let creatorEmployeeId: string | undefined;
     if (createdByUserId) {
       const creator = await this.prisma.employee.findFirst({
@@ -362,6 +345,180 @@ export class WorkOrdersService {
         total,
         totalPages: Math.ceil(total / pageSize),
       },
+    };
+  }
+
+  async getStatistics() {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+
+    // Efficient count queries (these are already optimal)
+    const [totalCount, openCount, currentMonthCreated, currentMonthActive, overdueCount] =
+      await Promise.all([
+        this.prisma.workOrder.count(),
+        this.prisma.workOrder.count({
+          where: { status: { notIn: ["COMPLETED", "CANCELED"] } },
+        }),
+        this.prisma.workOrder.count({
+          where: {
+            createdAt: {
+              gte: new Date(currentYear, currentMonth - 1, 1),
+              lt: new Date(currentYear, currentMonth, 1),
+            },
+          },
+        }),
+        this.prisma.workOrder.count({
+          where: {
+            status: { notIn: ["CANCELED"] },
+            createdAt: {
+              gte: new Date(currentYear, currentMonth - 1, 1),
+              lt: new Date(currentYear, currentMonth, 1),
+            },
+          },
+        }),
+        this.prisma.workOrder.count({
+          where: {
+            status: { notIn: ["CANCELED"] },
+            deadline: { not: null, lt: now },
+          },
+        }),
+      ]);
+
+    // Use SQL aggregations instead of loading all records into memory
+    // 1. Monthly created breakdown - GROUP BY year/month
+    const monthlyCreatedRaw = await this.prisma.$queryRaw<
+      { year: number; month: number; count: bigint }[]
+    >`
+      SELECT
+        EXTRACT(YEAR FROM "createdAt")::int as year,
+        EXTRACT(MONTH FROM "createdAt")::int as month,
+        COUNT(*)::bigint as count
+      FROM "WorkOrder"
+      GROUP BY 1, 2
+      ORDER BY 1, 2
+    `;
+
+    const monthlyCreatedBreakdown: Record<number, Record<number, number>> = {};
+    for (const row of monthlyCreatedRaw) {
+      if (!monthlyCreatedBreakdown[row.year]) monthlyCreatedBreakdown[row.year] = {};
+      monthlyCreatedBreakdown[row.year][row.month] = Number(row.count);
+    }
+
+    // Completion rate for current month
+    const completedThisMonth = await this.prisma.workOrder.count({
+      where: {
+        status: "COMPLETED",
+        completedAt: {
+          gte: new Date(currentYear, currentMonth - 1, 1),
+          lt: new Date(currentYear, currentMonth, 1),
+        },
+      },
+    });
+
+    const createdThisMonthExclCanceled = await this.prisma.workOrder.count({
+      where: {
+        status: { notIn: ["CANCELED"] },
+        createdAt: {
+          gte: new Date(currentYear, currentMonth - 1, 1),
+          lt: new Date(currentYear, currentMonth, 1),
+        },
+      },
+    });
+
+    const currentMonthCompletionRate =
+      createdThisMonthExclCanceled > 0
+        ? Math.round((completedThisMonth / createdThisMonthExclCanceled) * 1000) / 10
+        : 0;
+
+    // 2. Monthly completion stats - GROUP BY with FILTER for completed count
+    const monthlyCompletionRaw = await this.prisma.$queryRaw<
+      { year: number; month: number; created: bigint; completed: bigint }[]
+    >`
+      SELECT
+        EXTRACT(YEAR FROM "createdAt")::int as year,
+        EXTRACT(MONTH FROM "createdAt")::int as month,
+        COUNT(*) as created,
+        COUNT(*) FILTER (WHERE status = 'COMPLETED') as completed
+      FROM "WorkOrder"
+      WHERE status NOT IN ('CANCELED')
+      GROUP BY 1, 2
+      ORDER BY 1, 2
+    `;
+
+    const monthlyCompletionBreakdown: Record<number, Record<number, number>> = {};
+    for (const row of monthlyCompletionRaw) {
+      const created = Number(row.created);
+      const completed = Number(row.completed);
+      const rate = created > 0 ? Math.round((completed / created) * 1000) / 10 : 0;
+      if (!monthlyCompletionBreakdown[row.year]) monthlyCompletionBreakdown[row.year] = {};
+      monthlyCompletionBreakdown[row.year][row.month] = rate;
+    }
+
+    // 3. Monthly overdue breakdown - GROUP BY deadline year/month
+    const monthlyOverdueRaw = await this.prisma.$queryRaw<
+      { year: number; month: number; count: bigint }[]
+    >`
+      SELECT
+        EXTRACT(YEAR FROM deadline)::int as year,
+        EXTRACT(MONTH FROM deadline)::int as month,
+        COUNT(*)::bigint as count
+      FROM "WorkOrder"
+      WHERE status NOT IN ('CANCELED')
+        AND deadline IS NOT NULL
+        AND deadline < NOW()
+      GROUP BY 1, 2
+      ORDER BY 1, 2
+    `;
+
+    const monthlyOverdueBreakdown: Record<number, Record<number, number>> = {};
+    for (const row of monthlyOverdueRaw) {
+      if (!monthlyOverdueBreakdown[row.year]) monthlyOverdueBreakdown[row.year] = {};
+      monthlyOverdueBreakdown[row.year][row.month] = Number(row.count);
+    }
+
+    // Calculate percentage changes
+    let lastMonth = currentMonth - 1;
+    let lastMonthYear = currentYear;
+    if (lastMonth === 0) {
+      lastMonth = 12;
+      lastMonthYear = currentYear - 1;
+    }
+    const lastMonthCreated = monthlyCreatedBreakdown[lastMonthYear]?.[lastMonth] ?? 0;
+    let currentMonthPercentageChange = 0;
+    if (lastMonthCreated > 0) {
+      currentMonthPercentageChange =
+        ((currentMonthCreated - lastMonthCreated) / lastMonthCreated) * 100;
+    } else if (currentMonthCreated > 0) {
+      currentMonthPercentageChange = 100;
+    }
+
+    const allMonthCounts = Object.values(monthlyCreatedBreakdown).flatMap((v) =>
+      Object.values(v),
+    );
+    const avg =
+      allMonthCounts.length > 0
+        ? allMonthCounts.reduce((a, b) => a + b, 0) / allMonthCounts.length
+        : 0;
+    let averagePercentageChange = 0;
+    if (avg > 0) {
+      averagePercentageChange = ((currentMonthCreated - avg) / avg) * 100;
+    } else if (currentMonthCreated > 0) {
+      averagePercentageChange = 100;
+    }
+
+    return {
+      totalWorkOrdersCount: totalCount,
+      openWorkOrdersCount: openCount,
+      currentMonthCreated,
+      currentMonthActive,
+      currentMonthPercentageChange: Math.round(currentMonthPercentageChange * 10) / 10,
+      averagePercentageChange: Math.round(averagePercentageChange * 10) / 10,
+      monthlyCreatedBreakdown,
+      currentMonthCompletionRate,
+      monthlyCompletionBreakdown,
+      overdueCount,
+      monthlyOverdueBreakdown,
     };
   }
 
@@ -634,6 +791,23 @@ export class WorkOrdersService {
     return this.prisma.workOrder.delete({
       where: { id: workOrder.id },
     });
+  }
+
+  async bulkRemove(ids: string[], revertInventory: boolean = false) {
+    const results: { id: string; success: boolean; error?: string }[] = [];
+    for (const id of ids) {
+      try {
+        await this.remove(id, revertInventory);
+        results.push({ id, success: true });
+      } catch (err: any) {
+        results.push({ id, success: false, error: err.message ?? "Unknown error" });
+      }
+    }
+    return {
+      deleted: results.filter((r) => r.success).length,
+      failed: results.filter((r) => !r.success).length,
+      results,
+    };
   }
 
   /**

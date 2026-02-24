@@ -2,10 +2,13 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
 import { apiGet } from "@/lib/api";
 import ReportIncidentModal from "./report-incident-modal";
-import ModalDialog from "../../modal-dialog";
-import IncidentDetailContent from "./incident-detail-content";
+import { PermissionGuard } from "@/lib/permission-guard";
+import { usePermissions } from "@/lib/use-permissions";
+import { useModalContext } from "../modal-manager";
+import { useI18n } from "@/hooks/useI18n";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -38,12 +41,12 @@ function getStatusBadge(status: Incident["status"]) {
   return styles[status];
 }
 
-function getStatusLabel(status: Incident["status"]) {
+function getStatusLabel(status: Incident["status"], t: (key: string, fallback: string) => string) {
   const labels = {
-    CREATED: "Created",
-    IN_PROGRESS: "In Progress",
-    COMPLETED: "Completed",
-    WORK_ORDER_INITIATED: "Work Order Created",
+    CREATED: t("incidents.statusFilters.created", "Created"),
+    IN_PROGRESS: t("incidents.statusFilters.inProgress", "In Progress"),
+    COMPLETED: t("incidents.statusFilters.completed", "Completed"),
+    WORK_ORDER_INITIATED: t("incidents.statusFilters.workOrderCreated", "Work Order Created"),
   };
   return labels[status];
 }
@@ -68,12 +71,12 @@ function getPriorityDot(priority: Incident["priority"]) {
   return colors[priority];
 }
 
-function StatusProgressBar({ status }: { status: Incident["status"] }) {
+function StatusProgressBar({ status, t }: { status: Incident["status"]; t: (key: string, fallback: string) => string }) {
   const stages: Array<{ key: Incident["status"]; label: string; color: string }> = [
-    { key: "CREATED", label: "Created", color: "bg-blue-500" },
-    { key: "IN_PROGRESS", label: "In Progress", color: "bg-amber-500" },
-    { key: "COMPLETED", label: "Completed", color: "bg-emerald-500" },
-    { key: "WORK_ORDER_INITIATED", label: "Work Order", color: "bg-purple-500" },
+    { key: "CREATED", label: t("incidents.statusFilters.created", "Created"), color: "bg-blue-500" },
+    { key: "IN_PROGRESS", label: t("incidents.statusFilters.inProgress", "In Progress"), color: "bg-amber-500" },
+    { key: "COMPLETED", label: t("incidents.statusFilters.completed", "Completed"), color: "bg-emerald-500" },
+    { key: "WORK_ORDER_INITIATED", label: t("incidents.statusFilters.workOrder", "Work Order"), color: "bg-purple-500" },
   ];
 
   const currentIndex = stages.findIndex((s) => s.key === status);
@@ -201,6 +204,10 @@ function normalizeIncident(raw: any): Incident {
 }
 
 export default function IncidentsPage() {
+  const { t } = useI18n();
+  const { hasPermission } = usePermissions();
+  const router = useRouter();
+  const pathname = usePathname();
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<Incident["status"] | "ALL">("ALL");
   const [priorityFilter, setPriorityFilter] = useState<Incident["priority"] | "ALL">("ALL");
@@ -212,7 +219,6 @@ export default function IncidentsPage() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
 
   const [showReportModal, setShowReportModal] = useState(false);
-  const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
 
   async function loadIncidents() {
     try {
@@ -308,45 +314,47 @@ export default function IncidentsPage() {
     loadIncidents();
   }
 
-  function handleStatusChange() {
-    // Refresh list after status update
-    loadIncidents();
+  const { openModal } = useModalContext();
+
+  function openIncidentModal(incidentId: string) {
+    openModal("incident", incidentId);
   }
 
   return (
-    <div className="w-full">
+    <PermissionGuard permission="incidents.menu">
+      <div className="w-full">
       <div className="mx-auto w-full px-4 py-6 md:px-6 md:py-8">
         <div className="mb-6 flex flex-col gap-3 md:mb-8">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs text-zinc-700 shadow-sm ring-1 ring-zinc-200">
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: BRAND }} />
-              Incidents
+              {t("incidents.badge", "Incidents")}
             </div>
 
             <h1 className="mt-3 text-2xl font-semibold tracking-tight text-zinc-900 md:text-3xl">
-              Incident Management
+              {t("incidents.title", "Incident Management")}
             </h1>
             <p className="mt-1 text-sm text-zinc-600">
-              Track and manage customer-reported incidents across all buildings.
+              {t("incidents.description", "Track and manage customer-reported incidents across all buildings.")}
             </p>
           </div>
         </div>
 
-        <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-zinc-200 md:p-6 overflow-hidden">
+        <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-zinc-200 md:p-6">
           {loading && (
-            <div className="py-12 text-center text-sm text-zinc-600">Loading incidents from API...</div>
+            <div className="py-12 text-center text-sm text-zinc-600">{t("incidents.loading", "Loading incidents from API...")}</div>
           )}
 
           {error && !loading && (
             <div className="rounded-2xl bg-red-50 p-6 ring-1 ring-red-200">
-              <div className="text-sm font-semibold text-red-900">Error loading incidents</div>
+              <div className="text-sm font-semibold text-red-900">{t("incidents.errorLoading", "Error loading incidents")}</div>
               <div className="mt-1 text-sm text-red-700">{error}</div>
               <button
                 type="button"
                 onClick={() => loadIncidents()}
                 className="mt-3 rounded-2xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
               >
-                Retry
+                {t("common.retry", "Retry")}
               </button>
             </div>
           )}
@@ -360,23 +368,25 @@ export default function IncidentsPage() {
                     setQ(e.target.value);
                     setPage(1);
                   }}
-                  placeholder="Search incidents by number, client, building, description..."
+                  placeholder={t("incidents.searchPlaceholder", "Search incidents by number, client, building, description...")}
                   className="w-full max-w-md rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-md ring-2 ring-emerald-500/40 border border-emerald-500/30 hover:ring-emerald-500/60 hover:border-emerald-500/50 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/70 focus:shadow-lg focus:border-emerald-500/60 transition-all"
                 />
 
-                <button
-                  type="button"
-                  className="rounded-2xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-                  style={{ backgroundColor: BRAND }}
-                  onClick={() => setShowReportModal(true)}
-                >
-                  + Report Incident
-                </button>
+                {hasPermission("incidents.create") && (
+                  <button
+                    type="button"
+                    className="rounded-2xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+                    style={{ backgroundColor: BRAND }}
+                    onClick={() => setShowReportModal(true)}
+                  >
+                    + {t("incidents.reportIncident", "Report Incident")}
+                  </button>
+                )}
               </div>
 
               <div className="mb-4 flex flex-wrap items-center gap-2">
                 <FilterPill
-                  label="All Status"
+                  label={t("incidents.statusFilters.all", "All Status")}
                   count={incidents.length}
                   active={statusFilter === "ALL"}
                   onClick={() => {
@@ -386,7 +396,7 @@ export default function IncidentsPage() {
                   tone="neutral"
                 />
                 <FilterPill
-                  label="Created"
+                  label={t("incidents.statusFilters.created", "Created")}
                   count={statusCounts.CREATED}
                   active={statusFilter === "CREATED"}
                   onClick={() => {
@@ -396,7 +406,7 @@ export default function IncidentsPage() {
                   tone="blue"
                 />
                 <FilterPill
-                  label="In Progress"
+                  label={t("incidents.statusFilters.inProgress", "In Progress")}
                   count={statusCounts.IN_PROGRESS}
                   active={statusFilter === "IN_PROGRESS"}
                   onClick={() => {
@@ -406,7 +416,7 @@ export default function IncidentsPage() {
                   tone="amber"
                 />
                 <FilterPill
-                  label="Completed"
+                  label={t("incidents.statusFilters.completed", "Completed")}
                   count={statusCounts.COMPLETED}
                   active={statusFilter === "COMPLETED"}
                   onClick={() => {
@@ -416,7 +426,7 @@ export default function IncidentsPage() {
                   tone="emerald"
                 />
                 <FilterPill
-                  label="Work Order"
+                  label={t("incidents.statusFilters.workOrder", "Work Order")}
                   count={statusCounts.WORK_ORDER_INITIATED}
                   active={statusFilter === "WORK_ORDER_INITIATED"}
                   onClick={() => {
@@ -429,7 +439,7 @@ export default function IncidentsPage() {
                 <div className="mx-2 h-6 w-px bg-zinc-200" />
 
                 <FilterPill
-                  label="All Priority"
+                  label={t("incidents.priorityFilters.all", "All Priority")}
                   count={incidents.length}
                   active={priorityFilter === "ALL"}
                   onClick={() => {
@@ -439,7 +449,7 @@ export default function IncidentsPage() {
                   tone="neutral"
                 />
                 <FilterPill
-                  label="Critical"
+                  label={t("incidents.priorityFilters.critical", "Critical")}
                   count={priorityCounts.CRITICAL}
                   active={priorityFilter === "CRITICAL"}
                   onClick={() => {
@@ -449,7 +459,7 @@ export default function IncidentsPage() {
                   tone="rose"
                 />
                 <FilterPill
-                  label="High"
+                  label={t("incidents.priorityFilters.high", "High")}
                   count={priorityCounts.HIGH}
                   active={priorityFilter === "HIGH"}
                   onClick={() => {
@@ -459,7 +469,7 @@ export default function IncidentsPage() {
                   tone="amber"
                 />
                 <FilterPill
-                  label="Medium"
+                  label={t("incidents.priorityFilters.medium", "Medium")}
                   count={priorityCounts.MEDIUM}
                   active={priorityFilter === "MEDIUM"}
                   onClick={() => {
@@ -471,11 +481,11 @@ export default function IncidentsPage() {
               </div>
 
               <div className="mb-4 text-xs text-zinc-600">
-                Showing{" "}
+                {t("incidents.showing", "Showing")}{" "}
                 <span className="font-semibold text-zinc-900 tabular-nums">{filtered.length}</span>{" "}
-                of{" "}
+                {t("incidents.of", "of")}{" "}
                 <span className="font-semibold text-zinc-900 tabular-nums">{incidents.length}</span>{" "}
-                incidents
+                {t("incidents.incidents", "incidents")}
               </div>
 
               {incidents.length === 0 ? (
@@ -484,24 +494,26 @@ export default function IncidentsPage() {
                     <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-white ring-1 ring-zinc-200">
                       <IconIncident />
                     </div>
-                    <div className="mt-4 text-sm font-semibold text-zinc-900">No incidents reported yet</div>
+                    <div className="mt-4 text-sm font-semibold text-zinc-900">{t("incidents.noIncidents", "No incidents reported yet")}</div>
                     <div className="mt-1 text-xs text-zinc-600">
-                      When customers report issues, they will appear here.
+                      {t("incidents.noIncidentsDescription", "When customers report issues, they will appear here.")}
                     </div>
-                      <button
-                        type="button"
-                        className="mt-5 inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-                        style={{ backgroundColor: BRAND }}
-                        onClick={() => setShowReportModal(true)}
-                      >
-                        <IconPlus />
-                        Report First Incident
-                      </button>
+                      {hasPermission("incidents.create") && (
+                        <button
+                          type="button"
+                          className="mt-5 inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+                          style={{ backgroundColor: BRAND }}
+                          onClick={() => setShowReportModal(true)}
+                        >
+                          <IconPlus />
+                          {t("incidents.reportFirstIncident", "Report First Incident")}
+                        </button>
+                      )}
                   </div>
                 </div>
               ) : filtered.length === 0 ? (
                 <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
-                  <div className="text-sm text-zinc-600">No incidents match your filters.</div>
+                  <div className="text-sm text-zinc-600">{t("incidents.noMatch", "No incidents match your filters.")}</div>
                   <button
                     type="button"
                     className="mt-3 text-xs text-zinc-500 hover:text-zinc-700 underline"
@@ -512,12 +524,12 @@ export default function IncidentsPage() {
                       setPage(1);
                     }}
                   >
-                    Clear all filters
+                    {t("incidents.clearFilters", "Clear all filters")}
                   </button>
                 </div>
               ) : (
-                <div className="overflow-hidden rounded-2xl ring-1 ring-zinc-200">
-                  <div className="overflow-x-auto">
+                <div className="rounded-2xl ring-1 ring-zinc-200 overflow-x-clip">
+                  <div>
                     <table className="min-w-[1600px] w-full border-separate border-spacing-0">
                       <colgroup>
                         <col style={{ width: "340px" }} />
@@ -531,17 +543,17 @@ export default function IncidentsPage() {
                         <col style={{ width: "100px" }} />
                       </colgroup>
 
-                      <thead className="bg-zinc-50">
+                      <thead className="bg-zinc-50 sticky top-[52px] z-20 shadow-[0_1px_0_rgba(0,0,0,0.08)]">
                         <tr className="text-left text-xs text-zinc-600">
-                          <th className="px-5 py-3 font-medium">Incident #</th>
-                          <th className="px-4 py-3 font-medium border-l border-zinc-200">Status</th>
-                          <th className="px-4 py-3 font-medium">Products Affected</th>
-                          <th className="px-4 py-3 font-medium">Building</th>
-                          <th className="px-4 py-3 font-medium">Client</th>
-                          <th className="px-4 py-3 font-medium">Created On</th>
-                          <th className="px-4 py-3 font-medium">Priority</th>
-                          <th className="px-4 py-3 font-medium">Created By</th>
-                          <th className="px-4 py-3 font-medium text-right">Actions</th>
+                          <th className="px-5 py-3 font-medium bg-zinc-50">{t("incidents.columns.incidentNumber", "Incident #")}</th>
+                          <th className="px-4 py-3 font-medium border-l border-zinc-200 bg-zinc-50">{t("incidents.columns.status", "Status")}</th>
+                          <th className="px-4 py-3 font-medium bg-zinc-50">{t("incidents.columns.productsAffected", "Products Affected")}</th>
+                          <th className="px-4 py-3 font-medium bg-zinc-50">{t("incidents.columns.building", "Building")}</th>
+                          <th className="px-4 py-3 font-medium bg-zinc-50">{t("incidents.columns.client", "Client")}</th>
+                          <th className="px-4 py-3 font-medium bg-zinc-50">{t("incidents.columns.createdOn", "Created On")}</th>
+                          <th className="px-4 py-3 font-medium bg-zinc-50">{t("incidents.columns.priority", "Priority")}</th>
+                          <th className="px-4 py-3 font-medium bg-zinc-50">{t("incidents.columns.createdBy", "Created By")}</th>
+                          <th className="px-4 py-3 font-medium text-right bg-zinc-50">{t("incidents.columns.actions", "Actions")}</th>
                         </tr>
                       </thead>
 
@@ -558,7 +570,7 @@ export default function IncidentsPage() {
                                 "hover:shadow-lg hover:-translate-y-0.5 hover:z-10",
                                 !isLast && "border-b border-zinc-100",
                               ].join(" ")}
-                              onClick={() => setSelectedIncidentId(incident.id)}
+                              onClick={() => openIncidentModal(incident.id)}
                             >
                               {/* Incident # */}
                               <td className="px-5 py-4 align-middle">
@@ -579,7 +591,7 @@ export default function IncidentsPage() {
 
                               {/* Status - Progress Bar */}
                               <td className="px-4 py-4 align-middle border-l border-zinc-200">
-                                <StatusProgressBar status={incident.status} />
+                                <StatusProgressBar status={incident.status} t={t} />
                               </td>
 
                               {/* Products Affected */}
@@ -612,7 +624,7 @@ export default function IncidentsPage() {
                                     {incident.buildingName}
                                   </div>
                                   <div className="mt-0.5 text-xs text-zinc-500">
-                                    Building #{incident.buildingId}
+                                    {t("incidents.buildingNumber", "Building #")}{incident.buildingId}
                                   </div>
                                 </Link>
                               </td>
@@ -628,7 +640,7 @@ export default function IncidentsPage() {
                                     {incident.clientName}
                                   </div>
                                   <div className="mt-0.5 text-xs text-zinc-500">
-                                    Client #{incident.clientId}
+                                    {t("incidents.clientNumber", "Client #")}{incident.clientId}
                                   </div>
                                 </Link>
                               </td>
@@ -686,11 +698,11 @@ export default function IncidentsPage() {
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setSelectedIncidentId(incident.id);
+                                    openIncidentModal(incident.id);
                                   }}
                                   className="inline-flex items-center gap-1 rounded-2xl bg-white px-3 py-1.5 text-xs font-semibold text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50"
                                 >
-                                  View
+                                  {t("common.viewDetails", "View Details")}
                                   <span className="transition-transform group-hover:translate-x-0.5">→</span>
                                 </button>
                               </td>
@@ -706,7 +718,7 @@ export default function IncidentsPage() {
               {filtered.length > 0 && (
                 <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="text-xs text-zinc-600">
-                    Page <span className="font-semibold text-zinc-900">{safePage}</span> of{" "}
+                    {t("incidents.page", "Page")} <span className="font-semibold text-zinc-900">{safePage}</span> {t("incidents.of", "of")}{" "}
                     <span className="font-semibold text-zinc-900">{totalPages}</span>
                   </div>
 
@@ -717,7 +729,7 @@ export default function IncidentsPage() {
                       disabled={safePage <= 1}
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                     >
-                      Prev
+                      {t("common.prev", "Prev")}
                     </button>
 
                     <button
@@ -726,7 +738,7 @@ export default function IncidentsPage() {
                       disabled={safePage >= totalPages}
                       onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     >
-                      Next
+                      {t("common.next", "Next")}
                     </button>
                   </div>
                 </div>
@@ -742,20 +754,8 @@ export default function IncidentsPage() {
         onSuccess={handleReportSuccess}
       />
 
-      <ModalDialog
-        open={selectedIncidentId !== null}
-        onClose={() => setSelectedIncidentId(null)}
-        title="Incident Details"
-        maxWidth="4xl"
-      >
-        {selectedIncidentId && (
-          <IncidentDetailContent
-            incidentId={selectedIncidentId}
-            onStatusChange={handleStatusChange}
-          />
-        )}
-      </ModalDialog>
     </div>
+    </PermissionGuard>
   );
 }
 

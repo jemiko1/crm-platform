@@ -7,8 +7,9 @@ This document contains guidelines and best practices for developing features in 
 ## Table of Contents
 
 1. [Dynamic List Items (Dropdowns/Enums)](#dynamic-list-items-dropdownsenums)
-2. [Modal/Popup Implementation](#modalpopup-implementation)
-3. [Future Guidelines](#future-guidelines)
+2. [Modal/Popup Implementation (Action Modals)](#modalpopup-implementation)
+3. [Entity Detail Modal Stack (Side Panels)](#entity-detail-modal-stack-side-panels)
+4. [Future Guidelines](#future-guidelines)
 
 ---
 
@@ -381,6 +382,37 @@ Use custom modal implementation when you need:
 
 ---
 
+## Entity Detail Modal Stack (Side Panels)
+
+The CRM uses a **Bitrix24-style LIFO modal stack** for viewing entity details (buildings, clients, employees, work orders, incidents). These are full-height side-panel sliders that stack on top of each other — distinct from the centered action modals described above.
+
+**Full documentation**: See [`MODAL_STACK_ARCHITECTURE.md`](./MODAL_STACK_ARCHITECTURE.md) for the complete architecture, code examples, and guide for adding new entity types.
+
+### Quick Reference
+
+**Open a detail modal** from any component inside `/app/*`:
+```tsx
+import { useModalContext } from "../modal-manager";
+
+const { openModal } = useModalContext();
+openModal("building", String(buildingId));
+```
+
+**Supported types**: `"building"`, `"client"`, `"employee"`, `"workOrder"`, `"incident"`
+
+**Key rules**:
+- NEVER use `router.push()` to open detail modals — always use `openModal()`
+- NEVER use `<Link>` for cross-entity navigation inside modals — use `openModal()`
+- NEVER use `window.location.reload()` inside modals — use `onUpdate` callbacks
+- Action modals (add/edit/delete forms) should NOT use the stack — use local `useState` + `ModalDialog`
+
+**Key files**:
+- `src/app/app/modal-stack-context.tsx` — Stack state + context provider
+- `src/app/app/modal-manager.tsx` — Renderer + URL sync + `useModalContext` export
+- `src/app/app/modal-provider.tsx` — Composition wrapper for layout
+
+---
+
 ## Known Issues & TODO
 
 ### Incident Creation Without Client (2025-01-15)
@@ -598,6 +630,8 @@ const data = await apiGet<Building[]>("/v1/buildings", {
 - Consistent error handling via `ApiError` class
 - Easier to add authentication, retry logic, interceptors
 - Better TypeScript support
+
+**Port configuration:** Backend = 3000, Frontend = 3002. The `api.ts` client defaults to `http://localhost:3000`. Do NOT use port 4000 — the backend does not run there. See PROJECT_SNAPSHOT.md for details.
 
 ---
 
@@ -909,6 +943,105 @@ function WorkOrderActions() {
 
 ---
 
+## Employee Lifecycle Management
+
+### Overview
+
+Employees in the CRM have a complete lifecycle with optional user accounts. This allows HR to track employees who don't need system access.
+
+### Employee vs User Account
+
+```
+Employee (always exists)
+    └── User (optional, for login)
+           └── Position → RoleGroup → Permissions
+```
+
+**Creating Employees:**
+- Admin can choose to create user account during employee creation
+- If creating user account, Position is required (for permission derivation)
+- If no user account, employee record exists but cannot login
+- "Create Login" button available later to add user account
+
+### Employee Status Lifecycle
+
+```
+ACTIVE → TERMINATED (dismissal) → ACTIVE (reactivation)
+                               → DELETED (permanent)
+```
+
+**Actions by status:**
+- **ACTIVE with User**: Reset Password, Dismiss
+- **ACTIVE without User**: Create Login, Delete
+- **TERMINATED**: Activate (rehire), Delete Permanently
+
+### Dismissal vs Deletion
+
+| Action | User Account | Employee Record | Historical Data |
+|--------|--------------|-----------------|-----------------|
+| **Dismiss** | Deactivated (cannot login) | Status = TERMINATED | Preserved, shows employee name |
+| **Delete** | Deleted | Deleted | Cached name preserved, FK set to null |
+
+### Permanent Deletion with Delegation
+
+When deleting an employee with active items:
+
+1. System checks for **active leads** (status = ACTIVE) and **open work orders** (not COMPLETED/CANCELED)
+2. If found, deletion requires selecting a delegate employee
+3. Active items are transferred to the delegate
+4. Historical/closed items keep cached employee name (FK set to null)
+
+**Frontend Implementation:**
+```tsx
+// Check deletion constraints
+const constraints = await apiGet(`/v1/employees/${id}/deletion-constraints`);
+
+if (!constraints.canDelete) {
+  // Show delegation UI
+  // User must select employee to receive active items
+}
+
+// Delete with delegation
+await apiDelete(`/v1/employees/${id}/hard-delete`, {
+  body: { delegateToEmployeeId: selectedEmployee.id }
+});
+```
+
+### Employee ID Generation
+
+Employee IDs (EMP-001, EMP-002, etc.) use a counter that never decreases:
+- Counter stored in `ExternalIdCounter` table
+- IDs are **never reused** even after deletion
+- If EMP-004 is deleted, next employee gets EMP-005, not EMP-004
+
+### Cached Names for Historical Records
+
+When an employee is deleted, related records preserve the name:
+- `Lead.responsibleEmployeeName` - cached when `responsibleEmployeeId` is set to null
+- `LeadNote.createdByName`, `LeadReminder.createdByName`, etc.
+- `WorkOrderActivityLog.performedByName`
+
+**Schema pattern:**
+```prisma
+model Lead {
+  responsibleEmployeeId   String?
+  responsibleEmployee     Employee? @relation(..., onDelete: SetNull)
+  responsibleEmployeeName String?   // Cached name for when employee is deleted
+}
+```
+
+### Permission Requirements
+
+| Action | Permission |
+|--------|------------|
+| Dismiss employee | `employee.dismiss` |
+| Activate employee | `employee.activate` |
+| Reset password | `employee.reset_password` |
+| Permanently delete | `employee.hard_delete` |
+| Create user account | `employee.create` (standard create permission) |
+
+---
+
 ## Future Guidelines
 
 This section will be expanded with additional development guidelines as needed:
@@ -934,5 +1067,5 @@ This section will be expanded with additional development guidelines as needed:
 
 ---
 
-**Last Updated**: 2026-01-27
+**Last Updated**: 2026-01-30
 **Maintained By**: Development Team

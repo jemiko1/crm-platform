@@ -33,6 +33,7 @@ export default function AddEmployeeModal({
     firstName: "",
     lastName: "",
     email: "",
+    createUserAccount: false,
     password: "",
     phone: "",
     extensionNumber: "",
@@ -98,12 +99,20 @@ export default function AddEmployeeModal({
     setLoading(true);
     setError(null);
 
+    // Validate: if creating user account, require position
+    if (formData.createUserAccount && !formData.positionId) {
+      setError("Position is required when creating a login account (for role-based permissions)");
+      setLoading(false);
+      return;
+    }
+
     try {
       await apiPost("/v1/employees", {
         firstName: formData.firstName,
         lastName: formData.lastName,
         email: formData.email,
-        password: formData.password,
+        createUserAccount: formData.createUserAccount,
+        password: formData.createUserAccount ? formData.password : undefined,
         phone: formData.phone || undefined,
         extensionNumber: formData.extensionNumber || undefined,
         birthday: formData.birthday || undefined,
@@ -121,6 +130,7 @@ export default function AddEmployeeModal({
         firstName: "",
         lastName: "",
         email: "",
+        createUserAccount: false,
         password: "",
         phone: "",
         extensionNumber: "",
@@ -231,22 +241,6 @@ export default function AddEmployeeModal({
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-zinc-900">
-                Password <span className="text-rose-600">*</span>
-              </label>
-              <input
-                type="password"
-                name="password"
-                required
-                minLength={6}
-                value={formData.password}
-                onChange={handleChange}
-                placeholder="Minimum 6 characters"
-                className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-              />
-            </div>
-
-            <div>
               <label className="block text-sm font-semibold text-zinc-900">Phone</label>
               <input
                 type="tel"
@@ -340,6 +334,58 @@ export default function AddEmployeeModal({
               )}
             </div>
           </div>
+        </div>
+
+        {/* Login Account */}
+        <div>
+          <h3 className="text-sm font-semibold text-zinc-900 mb-4">Login Account</h3>
+          
+          <div className="rounded-xl bg-blue-50 p-4 ring-1 ring-blue-200 mb-4">
+            <div className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                id="createUserAccount"
+                checked={formData.createUserAccount}
+                onChange={(e) => setFormData((prev) => ({ ...prev, createUserAccount: e.target.checked }))}
+                className="mt-1 h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+              />
+              <label htmlFor="createUserAccount" className="flex-1">
+                <span className="text-sm font-semibold text-blue-900">Create login account</span>
+                <p className="mt-1 text-xs text-blue-700">
+                  Enable this to allow the employee to log into the system. 
+                  {!formData.createUserAccount && " You can create a login account later if needed."}
+                </p>
+              </label>
+            </div>
+          </div>
+
+          {formData.createUserAccount && (
+            <div className="space-y-4">
+              {!formData.positionId && (
+                <div className="rounded-xl bg-amber-50 p-3 ring-1 ring-amber-200">
+                  <div className="text-sm text-amber-700">
+                    <strong>Note:</strong> Position is required for login accounts. The employee's permissions will be derived from the position's role group.
+                  </div>
+                </div>
+              )}
+              
+              <div>
+                <label className="block text-sm font-semibold text-zinc-900">
+                  Password <span className="text-rose-600">*</span>
+                </label>
+                <input
+                  type="password"
+                  name="password"
+                  required={formData.createUserAccount}
+                  minLength={6}
+                  value={formData.password}
+                  onChange={handleChange}
+                  placeholder="Minimum 6 characters"
+                  className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Contact Information */}

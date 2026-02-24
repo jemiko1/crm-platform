@@ -39,23 +39,94 @@ export class InventoryService {
     });
   }
 
-  async findAllProducts(category?: string, lowStock?: boolean) {
+  async findAllProducts(
+    category?: string,
+    lowStock?: boolean,
+    page: number = 1,
+    pageSize: number = 50,
+  ) {
     const where: any = { isActive: true };
 
     if (category) {
       where.category = category;
     }
 
-    const products = await this.prisma.inventoryProduct.findMany({
-      where,
-      orderBy: { name: 'asc' },
-    });
+    const skip = (page - 1) * pageSize;
 
+    // Use raw SQL for lowStock filter since Prisma doesn't support column-to-column comparison
     if (lowStock) {
-      return products.filter((p) => p.currentStock <= p.lowStockThreshold);
+      let products: any[];
+      let countResult: { count: bigint }[];
+
+      if (category) {
+        // With category filter - use parameterized query
+        [products, countResult] = await Promise.all([
+          this.prisma.$queryRaw<any[]>`
+            SELECT * FROM "InventoryProduct"
+            WHERE "isActive" = true
+            AND category = ${category}
+            AND "currentStock" <= "lowStockThreshold"
+            ORDER BY name ASC
+            LIMIT ${pageSize} OFFSET ${skip}
+          `,
+          this.prisma.$queryRaw<{ count: bigint }[]>`
+            SELECT COUNT(*)::bigint as count FROM "InventoryProduct"
+            WHERE "isActive" = true
+            AND category = ${category}
+            AND "currentStock" <= "lowStockThreshold"
+          `,
+        ]);
+      } else {
+        // Without category filter
+        [products, countResult] = await Promise.all([
+          this.prisma.$queryRaw<any[]>`
+            SELECT * FROM "InventoryProduct"
+            WHERE "isActive" = true
+            AND "currentStock" <= "lowStockThreshold"
+            ORDER BY name ASC
+            LIMIT ${pageSize} OFFSET ${skip}
+          `,
+          this.prisma.$queryRaw<{ count: bigint }[]>`
+            SELECT COUNT(*)::bigint as count FROM "InventoryProduct"
+            WHERE "isActive" = true
+            AND "currentStock" <= "lowStockThreshold"
+          `,
+        ]);
+      }
+
+      const total = Number(countResult[0]?.count ?? 0);
+
+      return {
+        data: products,
+        meta: {
+          page,
+          pageSize,
+          total,
+          totalPages: Math.ceil(total / pageSize),
+        },
+      };
     }
 
-    return products;
+    // Standard Prisma query for non-lowStock requests
+    const [products, total] = await Promise.all([
+      this.prisma.inventoryProduct.findMany({
+        where,
+        orderBy: { name: 'asc' },
+        skip,
+        take: pageSize,
+      }),
+      this.prisma.inventoryProduct.count({ where }),
+    ]);
+
+    return {
+      data: products,
+      meta: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
+    };
   }
 
   async findOneProduct(id: string) {

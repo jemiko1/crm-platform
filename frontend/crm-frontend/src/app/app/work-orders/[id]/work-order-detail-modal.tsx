@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet, apiDelete } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
+import { useListItems } from "@/hooks/useListItems";
 import { usePermissions } from "@/lib/use-permissions";
 import ActivityTimeline from "./activity-timeline";
 import StagesMonitoring from "./stages-monitoring";
@@ -28,6 +29,8 @@ type WorkOrderDetail = {
     | "CREATED"
     | "LINKED_TO_GROUP"
     | "IN_PROGRESS"
+    | "PENDING_APPROVAL"
+    | "APPROVED"
     | "COMPLETED"
     | "CANCELED"
     | "NEW"
@@ -145,19 +148,7 @@ type Props = {
   zIndex?: number; // Optional z-index for stacking with other modals
 };
 
-function getTypeLabel(type: string, t: (key: string, fallback?: string) => string): string {
-  const labels: Record<string, string> = {
-    INSTALLATION: t("workOrders.types.INSTALLATION", "Installation"),
-    DIAGNOSTIC: t("workOrders.types.DIAGNOSTIC", "Diagnostic"),
-    RESEARCH: t("workOrders.types.RESEARCH", "Research"),
-    DEACTIVATE: t("workOrders.types.DEACTIVATE", "Deactivate"),
-    REPAIR_CHANGE: t("workOrders.types.REPAIR_CHANGE", "Repair/Change"),
-    ACTIVATE: t("workOrders.types.ACTIVATE", "Activate"),
-    INSTALL: "Install",
-    REPAIR: "Repair",
-  };
-  return labels[type] || type;
-}
+// getTypeLabel is now handled by useListItems hook inside the component
 
 function getStatusLabel(status: string, t: (key: string, fallback?: string) => string): string {
   const labels: Record<string, string> = {
@@ -751,10 +742,11 @@ function getCurrentStage(wo: WorkOrderDetail | null): number {
 }
 
 export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpdate, zIndex = 10001 }: Props) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { hasPermission } = usePermissions();
+  const { getLabel: getTypeLabel } = useListItems("WORK_ORDER_TYPE");
   const [mounted, setMounted] = useState(false);
   const [workOrder, setWorkOrder] = useState<WorkOrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -878,17 +870,6 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
     setTimeout(() => {
       setIsClosing(false);
       onClose();
-      // Navigate back to referrer URL if available, otherwise remove query param
-      if (referrerUrl) {
-        router.push(referrerUrl);
-      } else {
-        const params = new URLSearchParams(searchParams?.toString() || "");
-        params.delete("workOrder");
-        const newUrl = params.toString() 
-          ? `${window.location.pathname}?${params.toString()}` 
-          : window.location.pathname;
-        router.push(newUrl);
-      }
     }, 300);
   }
 
@@ -897,7 +878,7 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
     
     try {
       // Check inventory impact first
-      const impact = await apiGet(`/v1/work-orders/${workOrder.id}/inventory-impact`);
+      const impact = await apiGet<any>(`/v1/work-orders/${workOrder.id}/inventory-impact`);
       setInventoryImpact(impact);
       
       if (impact.hasImpact) {
@@ -930,14 +911,7 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
       setLoading(false);
       setShowDeleteConfirm(false);
       setShowSimpleDeleteConfirm(false);
-      // Close immediately and navigate away
       setIsClosing(true);
-      const params = new URLSearchParams(searchParams?.toString() || "");
-      params.delete("workOrder");
-      const newUrl = params.toString() 
-        ? `${window.location.pathname}?${params.toString()}` 
-        : window.location.pathname;
-      router.push(newUrl);
       setTimeout(() => {
         setIsClosing(false);
         setIsDeleting(false);
@@ -1261,7 +1235,7 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
                   <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200">
                     <h2 className="text-lg font-semibold text-zinc-900 mb-4">📋 Work Order Information</h2>
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <InfoCard label={t("workOrders.fields.type", "Type")} value={getTypeLabel(workOrder.type, t)} icon="📝" />
+                      <InfoCard label={t("workOrders.fields.type", "Type")} value={getTypeLabel(workOrder.type, language)} icon="📝" />
                       <InfoCard label={t("workOrders.fields.title", "Title")} value={workOrder.title} icon="📄" />
                       {workOrder.contactNumber && (
                         <InfoCard label={t("workOrders.fields.contactNumber", "Contact Number")} value={workOrder.contactNumber} icon="📞" />

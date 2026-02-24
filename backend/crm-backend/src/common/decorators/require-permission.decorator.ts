@@ -6,7 +6,7 @@ export const PERMISSION_KEY = 'required_permission';
  * Decorator to require a specific permission for an endpoint.
  * 
  * @param permission The permission string in format "resource.action"
- *                   Examples: "incidents.create", "buildings.read", "employees.manage"
+ *                   Examples: "incidents.create", "buildings.details_read", "employees.manage"
  * 
  * @example
  * @RequirePermission('incidents.create')

@@ -29,6 +29,10 @@ import { PermissionsController } from "../permissions/permissions.controller";
 import { WorkflowModule } from "../workflow/workflow.module";
 import { WorkflowController } from "./workflow.controller";
 
+// Notifications (Email / SMS)
+import { NotificationsModule } from "../notifications/notifications.module";
+import { NotificationsController } from "./notifications.controller";
+
 @Module({
   imports: [
     AuditModule,
@@ -44,6 +48,7 @@ import { WorkflowController } from "./workflow.controller";
     DepartmentsModule,
     PermissionsModule,
     WorkflowModule,
+    NotificationsModule,
   ],
   controllers: [
     AdminManualController,
@@ -51,6 +56,7 @@ import { WorkflowController } from "./workflow.controller";
     IncidentsController,
     WorkOrdersController,
     WorkflowController,
+    NotificationsController,
     // PositionsController and RoleGroupsController are registered via PositionsModule and RoleGroupsModule imports
     // EmployeesController, DepartmentsController, PermissionsController are registered via their module imports
   ],

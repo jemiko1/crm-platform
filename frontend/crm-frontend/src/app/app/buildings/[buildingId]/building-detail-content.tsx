@@ -2,14 +2,14 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { apiGet } from "@/lib/api";
+import { usePermissions } from "@/lib/use-permissions";
+import { useModalContext } from "../../modal-manager";
 import AddDeviceModal from "./add-device-modal";
 import AddClientModal from "./add-client-modal";
 import EditBuildingModal from "./edit-building-modal";
 import ReportIncidentModal from "../../incidents/report-incident-modal";
-import ModalDialog from "../../../modal-dialog";
-import IncidentDetailContent from "../../incidents/incident-detail-content";
 import CreateWorkOrderModal from "../../work-orders/create-work-order-modal";
 
 const BRAND = "rgb(8, 117, 56)";
@@ -114,6 +114,9 @@ type Props = {
 
 export default function BuildingDetailContent({ building, buildingId, onUpdate }: Props) {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const { openModal } = useModalContext();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [assets, setAssets] = useState<Asset[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -123,7 +126,6 @@ export default function BuildingDetailContent({ building, buildingId, onUpdate }
   const [showAddClientModal, setShowAddClientModal] = useState(false);
   const [showEditBuildingModal, setShowEditBuildingModal] = useState(false);
   const [showReportIncidentModal, setShowReportIncidentModal] = useState(false);
-  const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
 
   // Handle URL query param for tab
   useEffect(() => {
@@ -210,9 +212,6 @@ export default function BuildingDetailContent({ building, buildingId, onUpdate }
     }
   }, [buildingId]);
 
-  function handleStatusChange() {
-    fetchIncidents();
-  }
 
   return (
     <div className="p-6 bg-emerald-50/30 rounded-t-3xl lg:rounded-l-3xl lg:rounded-tr-none lg:rounded-br-none">
@@ -324,7 +323,7 @@ export default function BuildingDetailContent({ building, buildingId, onUpdate }
           <IncidentsTab
             incidents={incidents}
             loading={incidentsLoading}
-            onIncidentClick={(incidentId) => setSelectedIncidentId(incidentId)}
+            onIncidentClick={(incidentId) => openModal("incident", String(incidentId))}
             onAddClick={() => setShowReportIncidentModal(true)}
             buildingId={buildingId}
           />
@@ -369,19 +368,6 @@ export default function BuildingDetailContent({ building, buildingId, onUpdate }
         lockBuilding={true}
       />
 
-      <ModalDialog
-        open={selectedIncidentId !== null}
-        onClose={() => setSelectedIncidentId(null)}
-        title="Incident Details"
-        maxWidth="4xl"
-      >
-        {selectedIncidentId && (
-          <IncidentDetailContent
-            incidentId={selectedIncidentId}
-            onStatusChange={handleStatusChange}
-          />
-        )}
-      </ModalDialog>
     </div>
   );
 }
@@ -518,6 +504,7 @@ function DevicesTab({
   deviceCounts: Record<string, number>;
   onAddClick: () => void;
 }) {
+  const { hasPermission } = usePermissions();
   const allTypes = useMemo(() => {
     const keys = Object.keys(deviceCounts);
     return keys.sort((a, b) => typeRank(a) - typeRank(b) || a.localeCompare(b));
@@ -584,14 +571,16 @@ function DevicesTab({
           </div>
         </div>
 
-        <button
-          type="button"
-          className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-          style={{ backgroundColor: BRAND }}
-          onClick={onAddClick}
-        >
-          + Add Device
-        </button>
+        {hasPermission('assets.create') && (
+          <button
+            type="button"
+            className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+            style={{ backgroundColor: BRAND }}
+            onClick={onAddClick}
+          >
+            + Add Device
+          </button>
+        )}
       </div>
 
       <div className="rounded-3xl bg-zinc-50 p-4 ring-1 ring-zinc-200">
@@ -783,18 +772,22 @@ const FilterPill = React.memo(function FilterPill({
 
 /* ========== CLIENTS TAB ========== */
 function ClientsTab({ clients, onAddClick, buildingId }: { clients: Client[]; onAddClick: () => void; buildingId: string }) {
+  const { hasPermission } = usePermissions();
+  const { openModal } = useModalContext();
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-zinc-900">Clients ({clients.length})</h2>
-        <button
-          type="button"
-          className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-          style={{ backgroundColor: BRAND }}
-          onClick={onAddClick}
-        >
-          + Add Client
-        </button>
+        {hasPermission('clients.create') && (
+          <button
+            type="button"
+            className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+            style={{ backgroundColor: BRAND }}
+            onClick={onAddClick}
+          >
+            + Add Client
+          </button>
+        )}
       </div>
 
       {clients.length === 0 ? (
@@ -810,17 +803,19 @@ function ClientsTab({ clients, onAddClick, buildingId }: { clients: Client[]; on
                 <th className="px-4 py-3 font-medium">ID Number</th>
                 <th className="px-4 py-3 font-medium">Payment ID</th>
                 <th className="px-4 py-3 font-medium">Primary Phone</th>
-                <th className="px-4 py-3 font-medium">Actions</th>
+                <th className="px-4 py-3 font-medium"></th>
               </tr>
             </thead>
             <tbody className="bg-white">
-              {clients.map((client) => {
-                // Simple URL - browser history handles "back" navigation
-                const clientUrl = `/app/clients?client=${client.coreId}`;
-                return (
-                  <tr key={client.coreId} className="group transition-colors hover:bg-emerald-50/60">
+              {clients.map((client) => (
+                  <tr
+                    key={client.coreId}
+                    onClick={() => openModal("client", String(client.coreId))}
+                    style={{ cursor: "pointer" }}
+                    className="group transition-colors hover:bg-emerald-50/60"
+                  >
                     <td className="px-4 py-3 align-middle">
-                      <div className="text-sm font-semibold text-zinc-900">
+                      <div className="text-sm font-semibold text-zinc-900 group-hover:underline underline-offset-2">
                         {client.firstName} {client.lastName}
                       </div>
                       <div className="text-xs text-zinc-500">ID: {client.coreId}</div>
@@ -828,18 +823,11 @@ function ClientsTab({ clients, onAddClick, buildingId }: { clients: Client[]; on
                     <td className="px-4 py-3 align-middle text-sm text-zinc-700">{client.idNumber}</td>
                     <td className="px-4 py-3 align-middle text-sm text-zinc-700">{client.paymentId}</td>
                     <td className="px-4 py-3 align-middle text-sm text-zinc-700">{client.primaryPhone}</td>
-                    <td className="px-4 py-3 align-middle">
-                      <Link
-                        href={clientUrl}
-                        className="inline-flex items-center gap-1 rounded-2xl bg-white px-3 py-1.5 text-xs font-medium text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50"
-                      >
-                        View
-                        <span className="transition-transform group-hover:translate-x-0.5">→</span>
-                      </Link>
+                    <td className="px-4 py-3 align-middle text-right">
+                      <span className="text-zinc-400 transition-transform group-hover:translate-x-0.5 inline-block">→</span>
                     </td>
                   </tr>
-                );
-              })}
+              ))}
             </tbody>
           </table>
         </div>
@@ -858,6 +846,7 @@ function WorkOrdersTab({
   building: Building;
   buildingId: string;
 }) {
+  const { hasPermission } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [workOrders, setWorkOrders] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -900,18 +889,34 @@ function WorkOrdersTab({
     };
   }, [buildingCoreId]);
 
+  if (!hasPermission('work_orders.read')) {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold text-zinc-900">Work Orders</h2>
+        <div className="rounded-2xl bg-rose-50 p-6 ring-1 ring-rose-200 text-center">
+          <div className="text-sm font-semibold text-rose-900">Insufficient Permissions</div>
+          <div className="mt-1 text-sm text-rose-700">
+            You do not have permission to view work orders.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-zinc-900">Work Orders</h2>
-        <button
-          type="button"
-          className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-          style={{ backgroundColor: BRAND }}
-          onClick={() => setShowCreateModal(true)}
-        >
-          + Create Work Order
-        </button>
+        {hasPermission('work_orders.create') && (
+          <button
+            type="button"
+            className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+            style={{ backgroundColor: BRAND }}
+            onClick={() => setShowCreateModal(true)}
+          >
+            + Create Work Order
+          </button>
+        )}
       </div>
 
       {loading && (
@@ -967,7 +972,7 @@ function WorkOrdersTab({
         onClose={() => setShowCreateModal(false)}
         onSuccess={() => {
           setShowCreateModal(false);
-          window.location.reload();
+          if (onUpdate) onUpdate();
         }}
         presetBuilding={{
           coreId: building.coreId,
@@ -995,6 +1000,7 @@ function IncidentsTab({
   onAddClick: () => void;
   buildingId: string;
 }) {
+  const { hasPermission } = usePermissions();
   function getStatusBadge(status: Incident["status"]) {
     const styles = {
       CREATED: "bg-blue-50 text-blue-700 ring-blue-200",
@@ -1046,16 +1052,32 @@ function IncidentsTab({
     return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
   }
 
+  if (!hasPermission('incidents.menu')) {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold text-zinc-900">Incidents</h2>
+        <div className="rounded-2xl bg-rose-50 p-6 ring-1 ring-rose-200 text-center">
+          <div className="text-sm font-semibold text-rose-900">Insufficient Permissions</div>
+          <div className="mt-1 text-sm text-rose-700">
+            You do not have permission to view incidents.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-zinc-900">Incidents ({incidents.length})</h2>
-        <button
-          onClick={onAddClick}
-          className="rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition"
-        >
-          Report Incident
-        </button>
+        {hasPermission('incidents.create') && (
+          <button
+            onClick={onAddClick}
+            className="rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition"
+          >
+            Report Incident
+          </button>
+        )}
       </div>
 
       {loading ? (

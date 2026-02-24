@@ -1,8 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { apiGet } from "@/lib/api";
 import EditEmployeeModal from "./edit-employee-modal";
+import ResetPasswordModal from "./reset-password-modal";
+import DismissEmployeeModal from "./dismiss-employee-modal";
+import CreateUserAccountModal from "./create-user-account-modal";
+import ActivateEmployeeModal from "./activate-employee-modal";
+import DeleteEmployeeDialog from "./delete-employee-dialog";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -76,6 +81,9 @@ type Employee = {
       };
     };
   }>;
+  departmentId: string | null;
+  roleId: string | null;
+  managerId: string | null;
   hireDate?: string;
   exitDate?: string | null;
 };
@@ -106,6 +114,51 @@ type Props = {
 export default function EmployeeDetailContent({ employee, employeeId, onUpdate }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("personal");
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
+  const [showDismissModal, setShowDismissModal] = useState(false);
+  const [showCreateAccountModal, setShowCreateAccountModal] = useState(false);
+  const [showActivateModal, setShowActivateModal] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [canResetPassword, setCanResetPassword] = useState(false);
+  const [canDismiss, setCanDismiss] = useState(false);
+  const [canCreateAccount, setCanCreateAccount] = useState(false);
+  const [canActivate, setCanActivate] = useState(false);
+  const [canHardDelete, setCanHardDelete] = useState(false);
+
+  // Check user permissions
+  useEffect(() => {
+    async function checkPermissions() {
+      try {
+        const res = await apiGet<{ user: { permissions?: string[]; isSuperAdmin?: boolean } }>("/auth/me");
+        const permissions = res.user.permissions || [];
+        const isSuperAdmin = res.user.isSuperAdmin || false;
+
+        // SuperAdmin can do anything
+        if (isSuperAdmin) {
+          setCanResetPassword(true);
+          setCanDismiss(true);
+          setCanCreateAccount(true);
+          setCanActivate(true);
+          setCanHardDelete(true);
+          return;
+        }
+
+        // Check specific permissions (format: resource.action)
+        setCanResetPassword(permissions.includes("employee.reset_password"));
+        setCanDismiss(permissions.includes("employee.dismiss"));
+        setCanCreateAccount(permissions.includes("employee.create_account"));
+        setCanActivate(permissions.includes("employee.activate"));
+        setCanHardDelete(permissions.includes("employee.hard_delete"));
+      } catch {
+        // If we can't check, assume no permissions
+        setCanResetPassword(false);
+        setCanDismiss(false);
+        setCanActivate(false);
+        setCanHardDelete(false);
+      }
+    }
+    checkPermissions();
+  }, []);
 
   const tabs: Array<{ id: Tab; label: string }> = [
     { id: "personal", label: "Personal" },
@@ -141,7 +194,7 @@ export default function EmployeeDetailContent({ employee, employeeId, onUpdate }
             <p className="mt-1 text-sm text-zinc-600">{employee.employeeId}</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
           <span
             className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ${getStatusBadge(employee.status)}`}
           >
@@ -153,6 +206,66 @@ export default function EmployeeDetailContent({ employee, employeeId, onUpdate }
           >
             Edit
           </button>
+          {/* User account actions - only when employee has user account */}
+          {employee.user ? (
+            canResetPassword && employee.status !== "TERMINATED" && (
+              <button
+                onClick={() => setShowResetPasswordModal(true)}
+                className="rounded-2xl bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 ring-1 ring-amber-200 hover:bg-amber-100"
+              >
+                Reset Password
+              </button>
+            )
+          ) : (
+            canCreateAccount && employee.status !== "TERMINATED" && (
+              <button
+                onClick={() => setShowCreateAccountModal(true)}
+                className="rounded-2xl bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 ring-1 ring-blue-200 hover:bg-blue-100"
+              >
+                Create Login
+              </button>
+            )
+          )}
+
+          {/* Dismiss - only for active employees WITH user accounts */}
+          {canDismiss && employee.status !== "TERMINATED" && employee.user && (
+            <button
+              onClick={() => setShowDismissModal(true)}
+              className="rounded-2xl bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 ring-1 ring-rose-200 hover:bg-rose-100"
+            >
+              Dismiss
+            </button>
+          )}
+
+          {/* Delete - for active employees WITHOUT user accounts */}
+          {canHardDelete && employee.status !== "TERMINATED" && !employee.user && (
+            <button
+              onClick={() => setShowDeleteDialog(true)}
+              className="rounded-2xl bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 ring-1 ring-rose-200 hover:bg-rose-100"
+            >
+              Delete
+            </button>
+          )}
+
+          {/* Activate - for TERMINATED employees */}
+          {canActivate && employee.status === "TERMINATED" && (
+            <button
+              onClick={() => setShowActivateModal(true)}
+              className="rounded-2xl bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100"
+            >
+              Activate
+            </button>
+          )}
+
+          {/* Delete Permanently - for TERMINATED employees */}
+          {canHardDelete && employee.status === "TERMINATED" && (
+            <button
+              onClick={() => setShowDeleteDialog(true)}
+              className="rounded-2xl bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 ring-1 ring-rose-200 hover:bg-rose-100"
+            >
+              Delete Permanently
+            </button>
+          )}
         </div>
       </div>
 
@@ -396,6 +509,73 @@ export default function EmployeeDetailContent({ employee, employeeId, onUpdate }
           } else {
             window.location.reload();
           }
+        }}
+      />
+
+      {/* Reset Password Modal */}
+      <ResetPasswordModal
+        employee={employee}
+        open={showResetPasswordModal}
+        onClose={() => setShowResetPasswordModal(false)}
+        onSuccess={() => {
+          setShowResetPasswordModal(false);
+        }}
+      />
+
+      {/* Dismiss Employee Modal */}
+      <DismissEmployeeModal
+        employee={employee}
+        open={showDismissModal}
+        onClose={() => setShowDismissModal(false)}
+        onSuccess={() => {
+          setShowDismissModal(false);
+          if (onUpdate) {
+            onUpdate();
+          } else {
+            window.location.reload();
+          }
+        }}
+      />
+
+      {/* Create User Account Modal */}
+      <CreateUserAccountModal
+        employee={employee}
+        open={showCreateAccountModal}
+        onClose={() => setShowCreateAccountModal(false)}
+        onSuccess={() => {
+          setShowCreateAccountModal(false);
+          if (onUpdate) {
+            onUpdate();
+          } else {
+            window.location.reload();
+          }
+        }}
+      />
+
+      {/* Activate Employee Modal */}
+      <ActivateEmployeeModal
+        employee={employee}
+        open={showActivateModal}
+        onClose={() => setShowActivateModal(false)}
+        onSuccess={() => {
+          setShowActivateModal(false);
+          if (onUpdate) {
+            onUpdate();
+          } else {
+            window.location.reload();
+          }
+        }}
+      />
+
+      {/* Delete Employee Dialog */}
+      <DeleteEmployeeDialog
+        employee={employee}
+        open={showDeleteDialog}
+        onClose={() => setShowDeleteDialog(false)}
+        onSuccess={() => {
+          setShowDeleteDialog(false);
+          // Navigate away since employee is deleted
+          window.location.href = "/app/employees";
         }}
       />
     </div>

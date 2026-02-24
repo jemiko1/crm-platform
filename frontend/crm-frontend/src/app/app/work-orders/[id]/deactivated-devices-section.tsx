@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { apiGet, apiPost, ApiError } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
+import { usePermissions } from "@/lib/use-permissions";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -49,6 +50,7 @@ export default function DeactivatedDevicesSection({
   onUpdate,
 }: DeactivatedDevicesSectionProps) {
   const { t } = useI18n();
+  const { hasPermission } = usePermissions();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -117,14 +119,16 @@ export default function DeactivatedDevicesSection({
       <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-zinc-900">Deactivated Devices</h2>
-          <button
-            type="button"
-            onClick={() => setShowAddModal(true)}
-            className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-            style={{ backgroundColor: BRAND }}
-          >
-            + Add Device
-          </button>
+          {hasPermission('work_orders.manage_devices') && (
+            <button
+              type="button"
+              onClick={() => setShowAddModal(true)}
+              className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+              style={{ backgroundColor: BRAND }}
+            >
+              + Add Device
+            </button>
+          )}
         </div>
 
         {error && (
@@ -148,20 +152,22 @@ export default function DeactivatedDevicesSection({
                     </div>
                     <div className="mt-1 text-xs text-zinc-500">Quantity: {device.quantity}</div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => removeDevice(index)}
-                    className="rounded-2xl px-3 py-1 text-xs font-medium text-red-600 ring-1 ring-red-200 hover:bg-red-50"
-                  >
-                    Remove
-                  </button>
+                  {hasPermission('work_orders.manage_devices') && (
+                    <button
+                      type="button"
+                      onClick={() => removeDevice(index)}
+                      className="rounded-2xl px-3 py-1 text-xs font-medium text-red-600 ring-1 ring-red-200 hover:bg-red-50"
+                    >
+                      Remove
+                    </button>
+                  )}
                 </div>
               );
             })}
           </div>
         )}
 
-        {devices.length > 0 && (
+        {devices.length > 0 && hasPermission('work_orders.manage_devices') && (
           <button
             type="button"
             onClick={handleSubmit}

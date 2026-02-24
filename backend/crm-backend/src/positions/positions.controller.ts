@@ -61,4 +61,21 @@ export class PositionsController {
   getPermissions(@Param('id', ParseUUIDPipe) id: string) {
     return this.positionsService.getPositionPermissions(id);
   }
+
+  /**
+   * Get available positions for a department, including inherited positions from parent departments.
+   * Root-level department positions are NOT inherited.
+   */
+  @Get('department/:departmentId/available')
+  getAvailableForDepartment(@Param('departmentId', ParseUUIDPipe) departmentId: string) {
+    return this.positionsService.getAvailablePositionsForDepartment(departmentId);
+  }
+
+  /**
+   * Get global positions (positions not assigned to any department)
+   */
+  @Get('global')
+  getGlobalPositions() {
+    return this.positionsService.getGlobalPositions();
+  }
 }

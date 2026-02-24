@@ -6,7 +6,9 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { apiGet, apiPost, ApiError, API_BASE } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
+import { useListItems } from "@/hooks/useListItems";
 import AssignEmployeesModal from "../../work-orders/[id]/assign-employees-modal";
+import { PermissionGuard } from "@/lib/permission-guard";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -124,17 +126,7 @@ function getStatusLabel(status: string) {
   return labels[status] || status;
 }
 
-function getTypeLabel(type: string) {
-  const labels: Record<string, string> = {
-    INSTALLATION: "Installation",
-    DIAGNOSTIC: "Diagnostic",
-    RESEARCH: "Research",
-    DEACTIVATE: "Deactivate",
-    REPAIR_CHANGE: "Repair/Change",
-    ACTIVATE: "Activate",
-  };
-  return labels[type] || type;
-}
+// getTypeLabel is now handled by useListItems hook inside the component
 
 function InfoCard({ label, value, icon }: { label: string; value: string | null | undefined; icon?: string }) {
   return (
@@ -151,7 +143,8 @@ function InfoCard({ label, value, icon }: { label: string; value: string | null 
 export default function TaskDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const { getLabel: getTypeLabel } = useListItems("WORK_ORDER_TYPE");
   const taskId = params?.taskId as string | undefined;
 
   const [loading, setLoading] = useState(true);
@@ -480,7 +473,7 @@ export default function TaskDetailPage() {
       const validProducts = modifiedProducts.filter(p => p.quantity > 0);
       
       // If there were products submitted by tech employee but all were removed
-      if (task.productUsages && task.productUsages.length > 0 && validProducts.length === 0) {
+      if (task?.productUsages && task.productUsages.length > 0 && validProducts.length === 0) {
         if (!window.confirm("Are you sure you want to remove all products? This will approve the work order without any products.")) {
           setActionLoading(false);
           return;
@@ -671,7 +664,8 @@ export default function TaskDetailPage() {
   const techEmployeeSubmitted = task.status === "IN_PROGRESS" && !!task.techEmployeeComment;
 
   return (
-    <div className="w-full">
+    <PermissionGuard permission="tasks.read">
+      <div className="w-full">
       <div className="mx-auto w-full px-4 py-6 md:px-6 md:py-8">
         {/* Breadcrumb */}
         <div className="mb-6">
@@ -700,7 +694,7 @@ export default function TaskDetailPage() {
               {getStatusLabel(task.status)}
             </span>
             <span className="text-sm text-zinc-500">
-              {getTypeLabel(task.type)}
+              {getTypeLabel(task.type, language)}
             </span>
           </div>
         </div>
@@ -1609,7 +1603,7 @@ export default function TaskDetailPage() {
                     >
                       <div className="text-sm font-semibold text-zinc-900">{child.title}</div>
                       <div className="mt-1 text-xs text-zinc-500">
-                        {getTypeLabel(child.type)} • {getStatusLabel(child.status)}
+                        {getTypeLabel(child.type, language)} • {getStatusLabel(child.status)}
                       </div>
                     </Link>
                   ))}
@@ -1846,5 +1840,6 @@ export default function TaskDetailPage() {
       )}
       
     </div>
+    </PermissionGuard>
   );
 }

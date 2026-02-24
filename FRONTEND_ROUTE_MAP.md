@@ -202,23 +202,64 @@ Complete frontend route documentation for CRM Platform.
 
 ---
 
-## `/app/employees?employee=[id]` (Employee Detail Modal)
+## `/app/employees/[employeeId]` (Employee Detail Page)
 
 **Files**: 
+- `employees/[employeeId]/page.tsx` - Main page wrapper
 - `employees/[employeeId]/employee-detail-content.tsx` - Content component
-- `employees/[employeeId]/employee-detail-modal.tsx` - Legacy modal (unused)
 - `employees/[employeeId]/edit-employee-modal.tsx` - Edit modal
-- `employees/[employeeId]/page.tsx` - Legacy page (redirects to modal)
-
-**Modal System**: Rendered via centralized `ModalManager` using URL query params  
-**Navigation**: `router.back()` closes modal and returns to previous page
+- `employees/[employeeId]/dismiss-employee-modal.tsx` - Dismiss confirmation
+- `employees/[employeeId]/activate-employee-modal.tsx` - Reactivation confirmation
+- `employees/[employeeId]/delete-employee-dialog.tsx` - Permanent deletion with delegation
+- `employees/[employeeId]/reset-password-modal.tsx` - Password reset
+- `employees/[employeeId]/create-user-account-modal.tsx` - Create login account
 
 **API Calls**:
 - `GET /v1/employees/:id` - Get employee details
 - `PATCH /v1/employees/:id` - Update employee
+- `POST /v1/employees/:id/dismiss` - Dismiss employee
+- `POST /v1/employees/:id/activate` - Reactivate employee
+- `POST /v1/employees/:id/reset-password` - Reset password
+- `POST /v1/employees/:id/create-user` - Create user account
+- `GET /v1/employees/:id/deletion-constraints` - Check deletion blockers
+- `DELETE /v1/employees/:id/hard-delete` - Permanent deletion
 
 **Status**: ✅ **Working**  
-**Notes**: Full-size modal with tabbed detail view (Personal, Employment, Permissions, Work Orders). Shareable URLs.
+**Notes**: 
+- Full employee lifecycle management
+- Context-aware action buttons based on employee status and permissions
+- Employees WITHOUT user accounts: can delete directly
+- Employees WITH user accounts: must dismiss first, then can activate or permanently delete
+- Permanent deletion shows delegation UI for active items (leads, work orders)
+
+---
+
+## `/app/sales/leads`
+
+**Files**: `sales/leads/page.tsx`  
+**API Calls**:
+- `GET /v1/sales/leads` - List leads (with pagination/filters)
+- `GET /v1/sales/leads/statistics` - Get pipeline statistics
+- `GET /v1/sales/config/stages` - Get lead stages
+
+**Status**: ✅ **Working**  
+**Notes**: Sales pipeline view with statistics, stage-based filtering, search, and pagination.
+
+---
+
+## `/app/sales/leads/[id]`
+
+**Files**: `sales/leads/[id]/page.tsx`  
+**API Calls**:
+- `GET /v1/sales/leads/:id` - Get lead details
+- `PATCH /v1/sales/leads/:id` - Update lead
+- `POST /v1/sales/leads/:id/change-stage` - Change stage
+- `POST /v1/sales/leads/:id/submit-for-approval` - Submit for approval
+- `POST /v1/sales/leads/:id/approve` - Approve (mark WON)
+- `POST /v1/sales/leads/:id/mark-lost` - Mark as lost
+
+**Status**: ✅ **Working**  
+**Notes**: Full lead detail with services, pricing, stage history, notes, appointments. Workflow actions based on user role.
 
 ---
 
@@ -227,7 +268,7 @@ Complete frontend route documentation for CRM Platform.
 **Files**: `admin/page.tsx`  
 **API Calls**: None  
 **Status**: ✅ **Working**  
-**Notes**: Dashboard with cards linking to admin sub-sections (Positions, Role Groups, Departments, Roles, Users, System Lists, Workflow Configuration).
+**Notes**: Dashboard with cards linking to admin sub-sections (Positions, Role Groups, Departments, Roles, Users, System Lists, Workflow Configuration, Sales Pipeline Config).
 
 ---
 
@@ -284,13 +325,49 @@ Complete frontend route documentation for CRM Platform.
 
 ## `/app/admin/departments`
 
-**Files**: `admin/departments/page.tsx`  
+**Files**: 
+- `admin/departments/page.tsx` - Main page with tree/split views
+- `admin/departments/add-department-modal.tsx` - Add department
+- `admin/departments/edit-department-modal.tsx` - Edit department
+- `admin/departments/employee-popup.tsx` - Employee management popup
+
 **API Calls**:
 - `GET /v1/departments` - List departments
 - `GET /v1/departments/hierarchy` - Get department hierarchy
+- `GET /v1/employees` - List employees
+- `GET /v1/positions` - List positions
+- `POST /v1/departments` - Create department
+- `PATCH /v1/departments/:id` - Update department (including drag-drop to change parent)
+- `POST /v1/positions` - Create position (via Add Position button)
+- `PATCH /v1/employees/:id` - Update employee position/department
 
-**Status**: ⚠️ **Partial**  
-**Notes**: Read-only list and tree views. "Add Department" button shows alert (not implemented).
+**Status**: ✅ **Working**  
+**Notes**: 
+- Tree view and org chart view with drag-and-drop reorganization
+- Drag to root level supported (sets parentId to null)
+- Department details panel with Add Sub-department and Add Position buttons
+- Clickable employee count opens popup for position assignment and department transfer
+- Transfer requires selecting a position from the new department
+
+---
+
+## `/app/admin/sales-config`
+
+**Files**: `admin/sales-config/page.tsx`  
+**API Calls**:
+- `GET /v1/sales/config/stages` - List lead stages
+- `GET /v1/sales/config/sources` - List lead sources
+- `GET /v1/sales/config/pipeline-positions` - Get position assignments
+- `GET /v1/sales/config/pipeline-permissions` - Get permission assignments
+- `GET /v1/positions` - List all positions
+- `PATCH /v1/sales/config/pipeline-positions/:key` - Update position assignment
+- `PATCH /v1/sales/config/pipeline-permissions/:key` - Update permission assignment
+
+**Status**: ✅ **Working**  
+**Notes**: 
+- Configure sales pipeline stages and sources
+- Assign multiple positions to pipeline roles (e.g., who can approve leads)
+- Configure pipeline permissions per step
 
 ---
 
@@ -350,12 +427,62 @@ Complete frontend route documentation for CRM Platform.
 
 ---
 
+## Messenger (Global Component - not a route)
+
+**Files**:
+- `messenger/messenger-context.tsx` - Global React Context with Socket.IO client, state management, MessageBus
+- `messenger/types.ts` - TypeScript interfaces (Conversation, Message, Participant, MessageReaction, etc.)
+- `messenger/chat-bubble.tsx` - Bottom-anchored chat window (Facebook-style)
+- `messenger/chat-bubble-container.tsx` - Container managing multiple open chat bubbles
+- `messenger/full-messenger-content.tsx` - Three-column full messenger view (conversations | chat | employee info)
+- `messenger/messenger-modal-bridge.tsx` - Bridge between messenger events and modal stack system
+- `messenger/messenger-dropdown.tsx` - Header dropdown showing recent conversations
+- `messenger/conversation-list.tsx` - Conversation list with filters (All, Groups, Unread)
+- `messenger/conversation-item.tsx` - Individual conversation row component
+- `messenger/message-list.tsx` - Message list with polling, status tracking, auto-scroll
+- `messenger/message-item.tsx` - Message bubble with reactions, status icons, seen avatars
+- `messenger/message-input.tsx` - Message input with emoji picker and typing indicator
+- `messenger/employee-info-panel.tsx` - Right-side employee card in full messenger
+- `messenger/create-group-dialog.tsx` - Group creation dialog (permission-gated)
+- `messenger/typing-indicator.tsx` - Animated typing indicator
+
+**Header Components**:
+- `app-header.tsx` - Sticky header with CRM28 branding, search, workspace, icons, profile
+- `header-messenger-icon.tsx` - Messenger icon with unread badge and dropdown
+- `header-notifications.tsx` - Notification bell with unread badge and dropdown
+- `header-search.tsx` - Pill-shaped search bar with Ctrl+K shortcut
+- `profile-menu.tsx` - Circular avatar button with dropdown menu
+
+**API Calls**:
+- `GET /v1/messenger/me` - Get current employee ID
+- `GET /v1/messenger/conversations` - List conversations
+- `POST /v1/messenger/conversations` - Create conversation
+- `GET /v1/messenger/conversations/:id/messages` - List messages (cursor-based)
+- `POST /v1/messenger/conversations/:id/messages` - Send message
+- `POST /v1/messenger/conversations/:id/read` - Mark as read
+- `POST /v1/messenger/messages/:id/reactions` - Toggle reaction
+- `GET /v1/messenger/unread-count` - Unread count
+- `GET /v1/messenger/search/employees` - Employee search
+- `GET /v1/messenger/permissions` - Messenger permissions
+- WebSocket: `/messenger` namespace (Socket.IO)
+
+**Status**: ✅ **Working**  
+**Notes**:
+- Not a page route; rendered globally in `layout.tsx` via `MessengerProvider`, `ChatBubbleContainer`, `MessengerModalBridge`
+- Full messenger opens as slider modal via `ModalManager` (type: `"messenger"`)
+- Chat bubbles are fixed-position windows at bottom-right
+- Real-time via WebSocket with REST polling fallback (3s)
+- Sound notifications via `notification.wav`
+
+---
+
 ## Summary
 
-**Total Routes**: 24  
-**Working**: 16 routes (Buildings, Clients, Incidents, Work Orders, Work Order Detail, Tasks, Task Detail, Inventory, Employees, Admin Panel, Positions, Role Groups, Workflow Configuration)  
-**Partial**: 4 routes (Dashboard - static UI, Departments - read-only, Roles - read-only, Admin Employees - duplicate)  
-**Placeholder**: 4 routes (Users, Assets, empty directories)
+**Total Routes**: 28  
+**Working**: 21 routes (Buildings, Clients, Incidents, Work Orders, Work Order Detail, Tasks, Task Detail, Inventory, Employees, Employee Detail, Admin Panel, Positions, Role Groups, Departments, Workflow Configuration, Sales Leads, Lead Detail, Sales Config)  
+**Partial**: 3 routes (Dashboard - static UI, Roles - read-only, Admin Employees - duplicate)  
+**Placeholder**: 4 routes (Users, Assets, empty directories)  
+**Global Components**: Messenger (chat bubbles + full messenger modal + header integration)
 
 **Key Patterns**:
 - Most routes use `apiGet`, `apiPost`, `apiPatch`, `apiDelete` from `@/lib/api`
@@ -364,11 +491,13 @@ Complete frontend route documentation for CRM Platform.
 - Work Orders separated into back-office monitoring and employee workspace
 - Task detail page handles all workflow actions for technical employees
 - Activity timeline shows workflow events on work order detail page
+- Messenger uses `MessengerContext` for global state and `MessageBusContext` for decoupled message delivery
 
-**Modal System (v1.2.0)**:
+**Modal System (v1.2.0+)**:
 - Centralized `ModalManager` in app layout renders all detail modals
 - URL query params control modal state: `?building=1`, `?client=5`, `?employee=abc`, `?workOrder=123`
+- Messenger modal type: `"messenger"` (opened via event bridge, not URL params)
 - History-based navigation: `router.back()` closes modals
 - Z-index architecture: detail modals at 10000, action modals at 50000+
 - All detail views open as full-size, shareable popups
-- Files: `modal-manager.tsx`, `modal-provider.tsx`, `modal-z-index-context.tsx`
+- Files: `modal-manager.tsx`, `modal-provider.tsx`, `modal-z-index-context.tsx`, `modal-stack-context.tsx`

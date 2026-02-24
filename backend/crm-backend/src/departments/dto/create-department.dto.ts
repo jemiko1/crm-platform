@@ -5,6 +5,10 @@ export class CreateDepartmentDto {
   @IsNotEmpty()
   name: string;
 
+  @IsOptional()
+  @IsString()
+  nameKa?: string;
+
   @IsString()
   @IsOptional()
   description?: string;

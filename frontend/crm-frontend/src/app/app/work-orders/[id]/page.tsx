@@ -8,6 +8,7 @@ import EditWorkOrderModal from "./edit-work-order-modal";
 import ActivityTimeline from "./activity-timeline";
 import { useI18n } from "@/hooks/useI18n";
 import { usePermissions } from "@/lib/use-permissions";
+import { PermissionGuard } from "@/lib/permission-guard";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -297,7 +298,7 @@ export default function WorkOrderDetailPage() {
 
     try {
       // Check inventory impact first
-      const impact = await apiGet(`/v1/work-orders/${id}/inventory-impact`);
+      const impact = await apiGet<any>(`/v1/work-orders/${id}/inventory-impact`);
       setInventoryImpact(impact);
       
       if (impact.hasImpact) {
@@ -416,38 +417,43 @@ export default function WorkOrderDetailPage() {
 
   if (loading) {
     return (
-      <div className="w-full">
-        <div className="mx-auto w-full px-4 py-6 md:px-6 md:py-8">
-          <div className="rounded-lg bg-white p-12 text-center border border-zinc-200">
-            <div className="text-sm text-zinc-600">Loading work order...</div>
+      <PermissionGuard permission="work_orders.read">
+        <div className="w-full">
+          <div className="mx-auto w-full px-4 py-6 md:px-6 md:py-8">
+            <div className="rounded-lg bg-white p-12 text-center border border-zinc-200">
+              <div className="text-sm text-zinc-600">Loading work order...</div>
+            </div>
           </div>
         </div>
-      </div>
+      </PermissionGuard>
     );
   }
 
   if (error || !workOrder) {
     return (
-      <div className="w-full">
-        <div className="mx-auto w-full px-4 py-6 md:px-6 md:py-8">
-          <div className="rounded-lg bg-white p-6 border border-zinc-300">
-            <div className="text-sm font-semibold text-zinc-900">Error loading work order</div>
-            <div className="mt-1 text-sm text-zinc-600">{error || "Work order not found"}</div>
-            <Link
-              href="/app/work-orders"
-              className="mt-3 inline-block rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
-            >
-              Back to Work Orders
-            </Link>
+      <PermissionGuard permission="work_orders.read">
+        <div className="w-full">
+          <div className="mx-auto w-full px-4 py-6 md:px-6 md:py-8">
+            <div className="rounded-lg bg-white p-6 border border-zinc-300">
+              <div className="text-sm font-semibold text-zinc-900">Error loading work order</div>
+              <div className="mt-1 text-sm text-zinc-600">{error || "Work order not found"}</div>
+              <Link
+                href="/app/work-orders"
+                className="mt-3 inline-block rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+              >
+                Back to Work Orders
+              </Link>
+            </div>
           </div>
         </div>
-      </div>
+      </PermissionGuard>
     );
   }
 
   return (
+    <PermissionGuard permission="work_orders.read">
     <div className="w-full">
-      <div className="mx-auto w-full px-4 py-6 md:px-6 md:py-8">
+        <div className="mx-auto w-full px-4 py-6 md:px-6 md:py-8">
         {/* Breadcrumb */}
         <div className="mb-4">
           <Link
@@ -487,17 +493,19 @@ export default function WorkOrderDetailPage() {
             <div className="flex flex-wrap items-center gap-2">
               {!isTechnicalEmployee && (
                 <>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 ring-1 ring-zinc-200 hover:bg-zinc-50 hover:ring-zinc-300 transition-all shadow-sm"
-                    onClick={() => setShowEditModal(true)}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                      <path d="m15 5 4 4" />
-                    </svg>
-                    Edit
-                  </button>
+                  {hasPermission('work_orders.update') && (
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 ring-1 ring-zinc-200 hover:bg-zinc-50 hover:ring-zinc-300 transition-all shadow-sm"
+                      onClick={() => setShowEditModal(true)}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                        <path d="m15 5 4 4" />
+                      </svg>
+                      Edit
+                    </button>
+                  )}
                   {canDeleteAny && (
                     <button
                       type="button"
@@ -1120,7 +1128,8 @@ export default function WorkOrderDetailPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </PermissionGuard>
   );
 }
 

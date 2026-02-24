@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { PermissionGuard } from "@/lib/permission-guard";
+import { useI18n } from "@/hooks/useI18n";
 
 const DeleteItemModal = dynamic(() => import("./delete-item-modal"), {
   loading: () => <div>Loading...</div>,
@@ -31,17 +33,20 @@ type ListItem = {
   categoryId: string;
   value: string;
   displayName: string;
+  displayNameKa: string | null;
   description: string | null;
   colorHex: string | null;
   icon: string | null;
   sortOrder: number;
   isDefault: boolean;
   isActive: boolean;
+  isSystemManaged: boolean;
 };
 
 export default function CategoryDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { language } = useI18n();
   const categoryId = params?.categoryId as string;
 
   const [category, setCategory] = useState<ListCategory | null>(null);
@@ -55,6 +60,7 @@ export default function CategoryDetailPage() {
   const [formData, setFormData] = useState({
     value: "",
     displayName: "",
+    displayNameKa: "",
     description: "",
     colorHex: "",
     icon: "",
@@ -85,6 +91,7 @@ export default function CategoryDetailPage() {
     setFormData({
       value: "",
       displayName: "",
+      displayNameKa: "",
       description: "",
       colorHex: "",
       icon: "",
@@ -99,6 +106,7 @@ export default function CategoryDetailPage() {
     setFormData({
       value: item.value,
       displayName: item.displayName,
+      displayNameKa: item.displayNameKa || "",
       description: item.description || "",
       colorHex: item.colorHex || "",
       icon: item.icon || "",
@@ -118,6 +126,7 @@ export default function CategoryDetailPage() {
         categoryId: category.id,
         value: formData.value,
         displayName: formData.displayName,
+        displayNameKa: formData.displayNameKa || undefined,
         description: formData.description || undefined,
         colorHex: formData.colorHex || undefined,
         icon: formData.icon || undefined,
@@ -183,7 +192,8 @@ export default function CategoryDetailPage() {
   const inactiveItems = category.items.filter((i) => !i.isActive);
 
   return (
-    <div className="space-y-6">
+    <PermissionGuard permission="admin.access">
+      <div className="space-y-6">
       {/* Header */}
       <div>
         <Link
@@ -277,7 +287,9 @@ export default function CategoryDetailPage() {
                 {/* Content */}
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <div className="font-semibold text-zinc-900">{item.displayName}</div>
+                    <div className="font-semibold text-zinc-900">
+                      {language === "ka" && item.displayNameKa ? item.displayNameKa : item.displayName}
+                    </div>
                     {item.isDefault && (
                       <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
                         Default
@@ -286,6 +298,12 @@ export default function CategoryDetailPage() {
                   </div>
                   <div className="mt-0.5 flex items-center gap-2 text-xs text-zinc-500">
                     <span className="font-mono">{item.value}</span>
+                    {language === "ka" && item.displayNameKa && (
+                      <>
+                        <span>•</span>
+                        <span>{item.displayName}</span>
+                      </>
+                    )}
                     {item.description && (
                       <>
                         <span>•</span>
@@ -304,18 +322,27 @@ export default function CategoryDetailPage() {
                     >
                       Edit
                     </button>
-                    <button
-                      onClick={() => setDeletingItem(item)}
-                      className="rounded-xl bg-rose-100 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-200"
-                    >
-                      Delete
-                    </button>
-                    <button
-                      onClick={() => handleDeactivate(item)}
-                      className="rounded-xl bg-amber-100 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-200"
-                    >
-                      Deactivate
-                    </button>
+                    {!item.isSystemManaged && (
+                      <>
+                        <button
+                          onClick={() => setDeletingItem(item)}
+                          className="rounded-xl bg-rose-100 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-200"
+                        >
+                          Delete
+                        </button>
+                        <button
+                          onClick={() => handleDeactivate(item)}
+                          className="rounded-xl bg-amber-100 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-200"
+                        >
+                          Deactivate
+                        </button>
+                      </>
+                    )}
+                    {item.isSystemManaged && (
+                      <span className="rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-600 ring-1 ring-blue-200">
+                        System
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
@@ -398,16 +425,23 @@ export default function CategoryDetailPage() {
                       type="text"
                       value={formData.value}
                       onChange={(e) => setFormData((p) => ({ ...p, value: e.target.value }))}
-                      className="mt-2 w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm"
+                      className={`mt-2 w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm ${
+                        editingItem ? "bg-zinc-100 text-zinc-500 cursor-not-allowed" : ""
+                      }`}
                       placeholder="ELEVATOR"
                       required
                       disabled={!!editingItem}
                     />
+                    {editingItem?.isSystemManaged && (
+                      <p className="mt-1 text-xs text-amber-600">
+                        System value — cannot be changed. This value is required for core application logic.
+                      </p>
+                    )}
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-zinc-900">
-                      Display Name <span className="text-rose-500">*</span>
+                      Display Name (English) <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -418,6 +452,19 @@ export default function CategoryDetailPage() {
                       required
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-zinc-900">
+                    Display Name (Georgian)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.displayNameKa}
+                    onChange={(e) => setFormData((p) => ({ ...p, displayNameKa: e.target.value }))}
+                    className="mt-2 w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm"
+                    placeholder="ლიფტი"
+                  />
                 </div>
 
                 <div>
@@ -527,5 +574,6 @@ export default function CategoryDetailPage() {
         />
       )}
     </div>
+    </PermissionGuard>
   );
 }

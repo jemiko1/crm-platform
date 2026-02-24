@@ -5,9 +5,11 @@ type ListItem = {
   id: string;
   value: string;
   displayName: string;
+  displayNameKa?: string | null;
   isActive: boolean;
   isDefault: boolean;
   sortOrder: number;
+  colorHex?: string | null;
 };
 
 type ListCategory = {
@@ -55,10 +57,18 @@ export function useListItems(categoryCode: string, fetchOnMount: boolean = true)
     }
   }, [categoryCode, fetchOnMount]);
 
+  function getLabel(value: string, language?: string): string {
+    const item = items.find((i) => i.value === value);
+    if (!item) return value;
+    if (language === "ka" && item.displayNameKa) return item.displayNameKa;
+    return item.displayName;
+  }
+
   return {
     items,
     loading,
     error,
     refresh: fetchItems,
+    getLabel,
   };
 }

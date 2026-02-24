@@ -8,6 +8,96 @@ export class BuildingsService {
     private readonly prisma: PrismaService,
     private readonly ids: IdGeneratorService,
   ) {}
+
+  async getStatistics() {
+    // Get all buildings with their creation dates
+    const buildings = await this.prisma.building.findMany({
+      select: {
+        createdAt: true,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
+
+    if (buildings.length === 0) {
+      return {
+        totalBuildingsCount: 0,
+        currentMonthCount: 0,
+        currentMonthPercentageChange: 0,
+        averagePercentageChange: 0,
+        monthlyBreakdown: {},
+      };
+    }
+
+    // Group buildings by year and month
+    const monthlyBreakdown: Record<number, Record<number, number>> = {};
+
+    buildings.forEach((building) => {
+      const date = new Date(building.createdAt);
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1; // 1-12
+
+      if (!monthlyBreakdown[year]) {
+        monthlyBreakdown[year] = {};
+      }
+      if (!monthlyBreakdown[year][month]) {
+        monthlyBreakdown[year][month] = 0;
+      }
+      monthlyBreakdown[year][month]++;
+    });
+
+    // Get current month data
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+    const currentMonthCount = monthlyBreakdown[currentYear]?.[currentMonth] ?? 0;
+
+    // Get last month data
+    let lastMonth = currentMonth - 1;
+    let lastMonthYear = currentYear;
+    if (lastMonth === 0) {
+      lastMonth = 12;
+      lastMonthYear = currentYear - 1;
+    }
+    const lastMonthCount = monthlyBreakdown[lastMonthYear]?.[lastMonth] ?? 0;
+
+    // Calculate percentage change compared to last month
+    let currentMonthPercentageChange = 0;
+    if (lastMonthCount > 0) {
+      currentMonthPercentageChange = ((currentMonthCount - lastMonthCount) / lastMonthCount) * 100;
+    } else if (currentMonthCount > 0) {
+      currentMonthPercentageChange = 100; // If there were no buildings last month, it's 100% increase
+    }
+
+    // Calculate average buildings per month
+    const allMonthCounts: number[] = [];
+    Object.values(monthlyBreakdown).forEach((yearData) => {
+      Object.values(yearData).forEach((count) => {
+        allMonthCounts.push(count);
+      });
+    });
+
+    const average = allMonthCounts.length > 0
+      ? allMonthCounts.reduce((sum, count) => sum + count, 0) / allMonthCounts.length
+      : 0;
+
+    // Calculate percentage change compared to average
+    let averagePercentageChange = 0;
+    if (average > 0) {
+      averagePercentageChange = ((currentMonthCount - average) / average) * 100;
+    } else if (currentMonthCount > 0) {
+      averagePercentageChange = 100;
+    }
+
+    return {
+      totalBuildingsCount: buildings.length,
+      currentMonthCount,
+      currentMonthPercentageChange: Math.round(currentMonthPercentageChange * 10) / 10, // Round to 1 decimal
+      averagePercentageChange: Math.round(averagePercentageChange * 10) / 10,
+      monthlyBreakdown,
+    };
+  }
   async update(coreId: number, data: { name?: string; city?: string; address?: string }) {
     // Find building by coreId
     const building = await this.prisma.building.findFirst({

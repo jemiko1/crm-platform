@@ -2,10 +2,11 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
 import ReportIncidentModal from "../../incidents/report-incident-modal";
-import ModalDialog from "../../../modal-dialog";
-import IncidentDetailContent from "../../incidents/incident-detail-content";
 import { apiGet, API_BASE } from "@/lib/api";
+import { usePermissions } from "@/lib/use-permissions";
+import { useModalContext } from "../../modal-manager";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -184,11 +185,14 @@ type Props = {
 
 export default function ClientDetailContent({ client, clientId, onUpdate }: Props) {
   const clientCoreId = Number(clientId);
+  const { hasPermission } = usePermissions();
+  const router = useRouter();
+  const pathname = usePathname();
+  const { openModal } = useModalContext();
   const [incLoading, setIncLoading] = useState(true);
   const [incError, setIncError] = useState<string | null>(null);
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [showReportModal, setShowReportModal] = useState(false);
-  const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
 
   // Load incidents for this client
   useEffect(() => {
@@ -249,11 +253,11 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
 
   function handleReportSuccess() {
     setShowReportModal(false);
-    window.location.reload();
+    if (onUpdate) onUpdate();
   }
 
-  function handleStatusChange() {
-    window.location.reload();
+  function openIncidentModal(incidentId: string) {
+    openModal("incident", incidentId);
   }
 
   return (
@@ -277,22 +281,26 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
 
         {/* Right actions */}
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            className="rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50"
-            onClick={() => alert("Edit client — later phase")}
-          >
-            Edit
-          </button>
+          {hasPermission('clients.update') && (
+            <button
+              type="button"
+              className="rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50"
+              onClick={() => alert("Edit client — later phase")}
+            >
+              Edit
+            </button>
+          )}
 
-          <button
-            type="button"
-            className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-            style={{ backgroundColor: BRAND }}
-            onClick={() => setShowReportModal(true)}
-          >
-            + Report Incident
-          </button>
+          {hasPermission('incidents.create') && (
+            <button
+              type="button"
+              className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+              style={{ backgroundColor: BRAND }}
+              onClick={() => setShowReportModal(true)}
+            >
+              + Report Incident
+            </button>
+          )}
         </div>
       </div>
 
@@ -375,14 +383,16 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
             <p className="mt-1 text-sm text-zinc-600">All incidents created for this client.</p>
           </div>
 
-          <button
-            type="button"
-            className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-            style={{ backgroundColor: BRAND }}
-            onClick={() => setShowReportModal(true)}
-          >
-            + Report Incident
-          </button>
+          {hasPermission('incidents.create') && (
+            <button
+              type="button"
+              className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+              style={{ backgroundColor: BRAND }}
+              onClick={() => setShowReportModal(true)}
+            >
+              + Report Incident
+            </button>
+          )}
         </div>
 
         {incLoading ? (
@@ -395,7 +405,7 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
             <div className="mt-1 text-sm text-red-700">{incError}</div>
             <button
               type="button"
-              onClick={() => window.location.reload()}
+              onClick={() => { if (onUpdate) onUpdate(); }}
               className="mt-3 rounded-2xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
             >
               Retry
@@ -411,15 +421,17 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
               <div className="mt-1 text-xs text-zinc-600">
                 When issues are reported for this client, they'll appear here.
               </div>
-              <button
-                type="button"
-                className="mt-5 inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-                style={{ backgroundColor: BRAND }}
-                onClick={() => setShowReportModal(true)}
-              >
-                <IconPlus />
-                Report First Incident
-              </button>
+              {hasPermission('incidents.create') && (
+                <button
+                  type="button"
+                  className="mt-5 inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+                  style={{ backgroundColor: BRAND }}
+                  onClick={() => setShowReportModal(true)}
+                >
+                  <IconPlus />
+                  Report First Incident
+                </button>
+              )}
             </div>
           </div>
         ) : (
@@ -428,7 +440,7 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
               <button
                 key={inc.id}
                 type="button"
-                onClick={() => setSelectedIncidentId(inc.id)}
+                onClick={() => openIncidentModal(inc.id)}
                 className="group block w-full text-left rounded-3xl bg-white p-5 ring-1 ring-zinc-200 transition hover:bg-emerald-50/50 hover:ring-emerald-300 cursor-pointer"
               >
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -508,20 +520,6 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
         allowedBuildingCoreIds={(client.buildings ?? []).map((b) => b.coreId)}
       />
 
-      {/* Incident Detail Modal */}
-      <ModalDialog
-        open={selectedIncidentId !== null}
-        onClose={() => setSelectedIncidentId(null)}
-        title="Incident Details"
-        maxWidth="4xl"
-      >
-        {selectedIncidentId && (
-          <IncidentDetailContent
-            incidentId={selectedIncidentId}
-            onStatusChange={handleStatusChange}
-          />
-        )}
-      </ModalDialog>
     </div>
   );
 }

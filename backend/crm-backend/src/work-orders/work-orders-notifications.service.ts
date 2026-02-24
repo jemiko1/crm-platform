@@ -1,22 +1,28 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException, Logger, Inject, Optional } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { NotificationService } from "../notifications/notification.service";
+import { NotificationType } from "@prisma/client";
 
 @Injectable()
 export class WorkOrdersNotificationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(WorkOrdersNotificationsService.name);
 
-  // Create notification records for employees
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() @Inject(NotificationService) private readonly notificationService?: NotificationService,
+  ) {}
+
+  // Create notification records for employees and send email/SMS when active
   async createNotifications(workOrderId: string, employeeIds: string[]) {
-    // Verify work order exists
     const workOrder = await this.prisma.workOrder.findUnique({
       where: { id: workOrderId },
+      select: { id: true, title: true, workOrderNumber: true, type: true },
     });
 
     if (!workOrder) {
       throw new NotFoundException(`Work order with ID ${workOrderId} not found`);
     }
 
-    // Verify all employees exist
     const employees = await this.prisma.employee.findMany({
       where: {
         id: { in: employeeIds },
@@ -28,7 +34,6 @@ export class WorkOrdersNotificationsService {
       throw new NotFoundException("One or more employees not found or not active");
     }
 
-    // Create notification records (skip duplicates)
     await this.prisma.workOrderNotification.createMany({
       data: employeeIds.map((employeeId) => ({
         workOrderId,
@@ -37,7 +42,43 @@ export class WorkOrdersNotificationsService {
       skipDuplicates: true,
     });
 
+    // Fire-and-forget email/SMS if the notification service is available
+    if (this.notificationService) {
+      this.dispatchExternalNotifications(workOrder, employeeIds).catch((err) =>
+        this.logger.warn(`External notification dispatch failed: ${err.message}`),
+      );
+    }
+
     return this.getNotificationsForWorkOrder(workOrderId);
+  }
+
+  private async dispatchExternalNotifications(
+    workOrder: { id: string; title: string; workOrderNumber: number; type: string },
+    employeeIds: string[],
+  ) {
+    const subject = `Work Order #${workOrder.workOrderNumber} - ${workOrder.title}`;
+    const body = `You have a new notification for Work Order #${workOrder.workOrderNumber} (${workOrder.type}): ${workOrder.title}`;
+
+    try {
+      await this.notificationService!.send({
+        employeeIds,
+        type: NotificationType.EMAIL,
+        subject,
+        body,
+      });
+    } catch { /* config not active -- ignore */ }
+
+    try {
+      await this.notificationService!.send({
+        employeeIds,
+        type: NotificationType.SMS,
+        body,
+      });
+    } catch { /* config not active -- ignore */ }
+
+    for (const employeeId of employeeIds) {
+      await this.markAsNotified(workOrder.id, employeeId).catch(() => {});
+    }
   }
 
   // Mark notification as notified (when email/SMS is sent)
