@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { IdGeneratorService } from "../common/id-generator/id-generator.service";
+import { paginate, buildPaginatedResponse } from "../common/dto/pagination.dto";
 
 @Injectable()
 export class ClientsService {
@@ -41,59 +42,55 @@ export class ClientsService {
     });
   }
 
-  async listByBuilding(buildingId: string) {
-    return this.prisma.client.findMany({
-      where: {
-        clientBuildings: {
-          some: {
-            buildingId,
-          },
-        },
-      },
-      orderBy: { coreId: "asc" },
-      select: {
-        coreId: true,
-        firstName: true,
-        lastName: true,
-        idNumber: true,
-        paymentId: true,
-        primaryPhone: true,
-        secondaryPhone: true,
-        updatedAt: true,
-      },
-    });
+  async listByBuilding(buildingId: string, page = 1, pageSize = 20) {
+    const { skip, take } = paginate(page, pageSize);
+    const where = { clientBuildings: { some: { buildingId } } };
+    const select = {
+      coreId: true, firstName: true, lastName: true, idNumber: true,
+      paymentId: true, primaryPhone: true, secondaryPhone: true, updatedAt: true,
+    } as const;
+
+    const [data, total] = await Promise.all([
+      this.prisma.client.findMany({ where, orderBy: { coreId: "asc" }, select, skip, take }),
+      this.prisma.client.count({ where }),
+    ]);
+
+    return buildPaginatedResponse(data, total, page, pageSize);
   }
 
   /**
    * Global clients directory for /v1/clients
    * Returns clients with their associated buildings (many-to-many).
    */
-  async listDirectory() {
-    const rows = await this.prisma.client.findMany({
-      orderBy: [{ updatedAt: "desc" }, { coreId: "asc" }],
-      select: {
-        coreId: true,
-        firstName: true,
-        lastName: true,
-        idNumber: true,
-        paymentId: true,
-        primaryPhone: true,
-        secondaryPhone: true,
-        updatedAt: true,
-        clientBuildings: {
-          select: {
-            building: {
-              select: {
-                coreId: true,
-                name: true,
-              },
-            },
-          },
+  async listDirectory(page = 1, pageSize = 20) {
+    const { skip, take } = paginate(page, pageSize);
+    const select = {
+      coreId: true,
+      firstName: true,
+      lastName: true,
+      idNumber: true,
+      paymentId: true,
+      primaryPhone: true,
+      secondaryPhone: true,
+      updatedAt: true,
+      clientBuildings: {
+        select: {
+          building: { select: { coreId: true, name: true } },
         },
       },
-    });
+    } as const;
 
-    return rows.map((c) => ({
+    const [rows, total] = await Promise.all([
+      this.prisma.client.findMany({
+        orderBy: [{ updatedAt: "desc" }, { coreId: "asc" }],
+        select,
+        skip,
+        take,
+      }),
+      this.prisma.client.count(),
+    ]);
+
+    const data = rows.map((c) => ({
       coreId: c.coreId,
       firstName: c.firstName,
       lastName: c.lastName,
@@ -107,5 +104,7 @@ export class ClientsService {
         name: cb.building.name,
       })),
     }));
+
+    return buildPaginatedResponse(data, total, page, pageSize);
   }
 }

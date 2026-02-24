@@ -1,20 +1,16 @@
-import { Controller, Get, Param, ParseIntPipe, UseGuards } from "@nestjs/common";
+import { Controller, Get, Param, ParseIntPipe, Query, UseGuards } from "@nestjs/common";
 import { BuildingsService } from "./buildings.service";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
+import { PaginationDto } from "../common/dto/pagination.dto";
 
 @Controller("buildings")
 @UseGuards(JwtAuthGuard)
 export class BuildingsController {
   constructor(private readonly buildingsService: BuildingsService) {}
 
-  /**
-   * Read-only endpoints (for compatibility / internal usage).
-   * Manual creation is handled under /v1/admin/* (ADMIN only).
-   */
-
   @Get()
-  list() {
-    return this.buildingsService.list();
+  list(@Query() pagination: PaginationDto) {
+    return this.buildingsService.list(pagination.page, pagination.pageSize);
   }
 
   @Get("statistics/summary")

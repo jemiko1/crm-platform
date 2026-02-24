@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { paginate, buildPaginatedResponse } from '../common/dto/pagination.dto';
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -227,23 +228,26 @@ export class InventoryService {
     });
   }
 
-  async findAllPurchaseOrders(status?: string) {
+  async findAllPurchaseOrders(status?: string, page = 1, pageSize = 20) {
     const where: any = {};
     if (status) {
       where.status = status;
     }
 
-    return this.prisma.purchaseOrder.findMany({
-      where,
-      include: {
-        items: {
-          include: {
-            product: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const { skip, take } = paginate(page, pageSize);
+
+    const [data, total] = await Promise.all([
+      this.prisma.purchaseOrder.findMany({
+        where,
+        include: { items: { include: { product: true } } },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take,
+      }),
+      this.prisma.purchaseOrder.count({ where }),
+    ]);
+
+    return buildPaginatedResponse(data, total, page, pageSize);
   }
 
   async findOnePurchaseOrder(id: string) {
@@ -515,42 +519,48 @@ export class InventoryService {
   }
 
   // ===== TRANSACTIONS LOG =====
-  async getTransactions(productId?: string, limit = 100) {
+  async getTransactions(productId?: string, page = 1, pageSize = 50) {
     const where: any = {};
     if (productId) {
       where.productId = productId;
     }
 
-    return this.prisma.stockTransaction.findMany({
-      where,
-      include: {
-        product: true,
-        batch: {
-          include: {
-            purchaseOrderItem: {
-              include: {
-                purchaseOrder: true,
-              },
-            },
-          },
+    const { skip, take } = paginate(page, pageSize);
+
+    const [data, total] = await Promise.all([
+      this.prisma.stockTransaction.findMany({
+        where,
+        include: {
+          product: true,
+          batch: { include: { purchaseOrderItem: { include: { purchaseOrder: true } } } },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-    });
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take,
+      }),
+      this.prisma.stockTransaction.count({ where }),
+    ]);
+
+    return buildPaginatedResponse(data, total, page, pageSize);
   }
 
   // ===== REPORTING =====
-  async getLowStockProducts() {
-    return this.prisma.inventoryProduct.findMany({
-      where: {
-        isActive: true,
-        currentStock: {
-          lte: this.prisma.inventoryProduct.fields.lowStockThreshold,
-        },
+  async getLowStockProducts(page = 1, pageSize = 20) {
+    const where = {
+      isActive: true,
+      currentStock: {
+        lte: this.prisma.inventoryProduct.fields.lowStockThreshold,
       },
-      orderBy: { currentStock: 'asc' },
-    });
+    };
+
+    const { skip, take } = paginate(page, pageSize);
+
+    const [data, total] = await Promise.all([
+      this.prisma.inventoryProduct.findMany({ where, orderBy: { currentStock: 'asc' }, skip, take }),
+      this.prisma.inventoryProduct.count({ where }),
+    ]);
+
+    return buildPaginatedResponse(data, total, page, pageSize);
   }
 
   async getInventoryValue() {

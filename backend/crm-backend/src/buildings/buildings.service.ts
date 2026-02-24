@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { IdGeneratorService } from "../common/id-generator/id-generator.service";
+import { paginate, buildPaginatedResponse } from "../common/dto/pagination.dto";
 
 @Injectable()
 export class BuildingsService {
@@ -141,22 +142,30 @@ export class BuildingsService {
     });
   }
 
-  async list() {
-    // Fetch buildings with counts (optimized - no asset loading)
-    const buildings = await this.prisma.building.findMany({
-      orderBy: { coreId: "asc" },
-      include: {
-        _count: { select: { clientBuildings: true, assets: true, workOrders: true } },
-      },
-    });
+  async list(page = 1, pageSize = 20) {
+    const { skip, take } = paginate(page, pageSize);
 
-    // Fetch asset counts by type per building in single query
-    const assetCounts = await this.prisma.asset.groupBy({
-      by: ['buildingId', 'type'],
-      _count: { type: true },
-    });
+    const [buildings, total] = await Promise.all([
+      this.prisma.building.findMany({
+        orderBy: { coreId: "asc" },
+        include: {
+          _count: { select: { clientBuildings: true, assets: true, workOrders: true } },
+        },
+        skip,
+        take,
+      }),
+      this.prisma.building.count(),
+    ]);
 
-    // Map counts to buildings for O(1) lookup
+    const buildingIds = buildings.map((b) => b.id);
+    const assetCounts = buildingIds.length > 0
+      ? await this.prisma.asset.groupBy({
+          by: ['buildingId', 'type'],
+          where: { buildingId: { in: buildingIds } },
+          _count: { type: true },
+        })
+      : [];
+
     const countsByBuilding = new Map<string, Record<string, number>>();
     for (const ac of assetCounts) {
       if (!countsByBuilding.has(ac.buildingId)) {
@@ -165,8 +174,7 @@ export class BuildingsService {
       countsByBuilding.get(ac.buildingId)![ac.type] = ac._count.type;
     }
 
-    // Combine data
-    return buildings.map((b) => ({
+    const data = buildings.map((b) => ({
       coreId: b.coreId,
       name: b.name,
       city: b.city,
@@ -176,6 +184,8 @@ export class BuildingsService {
       products: countsByBuilding.get(b.id) ?? {},
       updatedAt: b.updatedAt,
     }));
+
+    return buildPaginatedResponse(data, total, page, pageSize);
   }
 
   async getByCoreId(coreId: number) {
