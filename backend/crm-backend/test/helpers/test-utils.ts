@@ -102,3 +102,20 @@ export async function createTestUser(
 
   return { user, email, password };
 }
+
+/**
+ * Creates a test user, logs in, and returns the auth cookies
+ * for use in subsequent authenticated requests.
+ */
+export async function getAuthCookies(
+  ctx: TestContext,
+  overrides: Parameters<typeof createTestUser>[1] = {},
+): Promise<string[]> {
+  const { email, password } = await createTestUser(ctx.prisma, overrides);
+
+  const res = await (await import("supertest")).default(ctx.app.getHttpServer())
+    .post("/auth/login")
+    .send({ email, password });
+
+  return res.headers["set-cookie"] ?? [];
+}
