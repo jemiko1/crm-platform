@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiGetList } from "@/lib/api";
 import { usePermissions } from "@/lib/use-permissions";
 import { useModalContext } from "../../modal-manager";
 import AddDeviceModal from "./add-device-modal";
@@ -141,14 +141,14 @@ export default function BuildingDetailContent({ building, buildingId, onUpdate }
 
     try {
       const [assetsData, clientsData, incidentsData] = await Promise.all([
-        apiGet<Asset[]>(`/v1/buildings/${buildingId}/assets`, { cache: "no-store" }).catch(() => []),
-        apiGet<Client[]>(`/v1/buildings/${buildingId}/clients`, { cache: "no-store" }).catch(() => []),
-        apiGet<Incident[]>(`/v1/buildings/${buildingId}/incidents`, { cache: "no-store" }).catch(() => []),
+        apiGetList<Asset>(`/v1/buildings/${buildingId}/assets`, { cache: "no-store" }).catch(() => []),
+        apiGetList<Client>(`/v1/buildings/${buildingId}/clients`, { cache: "no-store" }).catch(() => []),
+        apiGetList<Incident>(`/v1/buildings/${buildingId}/incidents`, { cache: "no-store" }).catch(() => []),
       ]);
 
       setAssets(assetsData);
       setClients(clientsData);
-      setIncidents(Array.isArray(incidentsData) ? incidentsData : Array.isArray((incidentsData as any)?.items) ? (incidentsData as any).items : []);
+      setIncidents(incidentsData);
     } catch (err) {
       console.error("Failed to load data:", err);
     }
@@ -199,11 +199,10 @@ export default function BuildingDetailContent({ building, buildingId, onUpdate }
     try {
       setIncidentsLoading(true);
 
-      const data = await apiGet<any>(`/v1/buildings/${buildingId}/incidents`, {
+      const data = await apiGetList<Incident>(`/v1/buildings/${buildingId}/incidents`, {
         cache: "no-store",
       });
-      const arr = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
-      setIncidents(arr);
+      setIncidents(data);
     } catch (err) {
       console.error("Failed to load incidents:", err);
       setIncidents([]);

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { apiGet, apiPost, ApiError } from "@/lib/api";
+import { apiGet, apiGetList, apiPost, ApiError } from "@/lib/api";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -82,7 +82,7 @@ export default function CreateLeadModal({ open, onClose, onSuccess }: CreateLead
       const [sourcesRes, servicesRes, employeesRes] = await Promise.all([
         apiGet<LeadSource[]>("/v1/sales/config/sources"),
         apiGet<SalesService[]>("/v1/sales/services"),
-        apiGet<Employee[]>("/v1/employees?status=ACTIVE"),
+        apiGetList<Employee>("/v1/employees?status=ACTIVE"),
       ]);
       setSources(sourcesRes);
       setServices(servicesRes);

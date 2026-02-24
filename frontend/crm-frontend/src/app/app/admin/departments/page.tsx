@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useEffect, useState, useRef, useCallback } from "react";
-import { apiGet, apiPatch } from "@/lib/api";
+import { apiGet, apiGetList, apiPatch } from "@/lib/api";
 import AddDepartmentModal from "./add-department-modal";
 import EditDepartmentModal from "./edit-department-modal";
 import AddPositionModal from "../positions/add-position-modal";
@@ -105,7 +105,7 @@ export default function DepartmentsPage() {
         await Promise.all([
           apiGet<Department[]>("/v1/departments"),
           apiGet<Department[]>("/v1/departments/hierarchy"),
-          apiGet<Employee[]>("/v1/employees"),
+          apiGetList<Employee>("/v1/employees"),
           apiGet<Position[]>("/v1/positions"),
         ]);
       setDepartments(deptList);

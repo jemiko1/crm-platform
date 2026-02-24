@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
-import { apiGet, apiDelete } from "@/lib/api";
+import { apiGet, apiGetList, apiDelete } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
 import { useListItems } from "@/hooks/useListItems";
 import { usePermissions } from "@/lib/use-permissions";
@@ -759,8 +759,8 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
           // Try to get employee info
           if (userData?.email) {
             try {
-              const empData = await apiGet<any[]>(`/v1/employees?search=${userData.email}`);
-              if (Array.isArray(empData) && empData.length > 0) {
+              const empData = await apiGetList<any>(`/v1/employees?search=${userData.email}`);
+              if (empData.length > 0) {
                 setCurrentEmployee(empData[0]);
               }
             } catch {

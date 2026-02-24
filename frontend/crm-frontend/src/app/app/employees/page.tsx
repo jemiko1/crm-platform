@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { apiGet } from "@/lib/api";
+import { apiGetList } from "@/lib/api";
 import { PermissionGuard } from "@/lib/permission-guard";
 import { usePermissions } from "@/lib/use-permissions";
 import AddEmployeeModal from "./add-employee-modal";
@@ -56,7 +56,7 @@ function EmployeesPageContent() {
   async function fetchEmployees() {
     try {
       setLoading(true);
-      const data = await apiGet<Employee[]>(
+      const data = await apiGetList<Employee>(
         "/v1/employees?includeTerminated=true"
       );
       setEmployees(data);

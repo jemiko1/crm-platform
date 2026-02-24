@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { apiPatch, apiPost, apiGet } from "@/lib/api";
+import { apiPatch, apiPost, apiGet, apiGetList } from "@/lib/api";
 import type { ConversationDetail, ConversationStatus, AgentOption } from "../types";
 import ChannelBadge from "./channel-badge";
 
@@ -38,8 +38,8 @@ export default function ConversationHeader({ conversation, onUpdate }: Conversat
   async function openAssignDropdown() {
     if (!showAssign) {
       try {
-        const res = await apiGet<{ data: { userId: string; user: { id: string; email: string } }[] }>("/v1/employees?limit=100");
-        setAgents(res.data.map((e) => ({ id: e.user?.id ?? e.userId, email: e.user?.email ?? "—" })));
+        const res = await apiGetList<{ userId: string; user: { id: string; email: string } }>("/v1/employees?limit=100");
+        setAgents(res.map((e) => ({ id: e.user?.id ?? e.userId, email: e.user?.email ?? "—" })));
       } catch {
         setAgents([]);
       }
@@ -56,8 +56,8 @@ export default function ConversationHeader({ conversation, onUpdate }: Conversat
   async function searchClients() {
     if (!linkSearch.trim()) return;
     try {
-      const res = await apiGet<ClientSearchResult[]>(`/v1/clients?search=${encodeURIComponent(linkSearch)}`);
-      setLinkResults(Array.isArray(res) ? res.slice(0, 10) : []);
+      const res = await apiGetList<ClientSearchResult>(`/v1/clients?search=${encodeURIComponent(linkSearch)}`);
+      setLinkResults(res.slice(0, 10));
     } catch {
       setLinkResults([]);
     }

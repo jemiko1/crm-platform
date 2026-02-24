@@ -2,7 +2,7 @@
 
 import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { apiGet } from "@/lib/api";
+import { apiGetList } from "@/lib/api";
 import { PermissionGuard } from "@/lib/permission-guard";
 import { usePermissions } from "@/lib/use-permissions";
 import { useModalContext } from "../modal-manager";
@@ -71,12 +71,10 @@ function ClientsPageContent() {
         setLoading(true);
         setError(null);
 
-        const data = await apiGet<ClientRow[]>("/v1/clients", {
-          cache: "no-store",
-        });
+        const data = await apiGetList<ClientRow>("/v1/clients");
         if (!alive) return;
 
-        setRows(Array.isArray(data) ? data : []);
+        setRows(data);
       } catch (e) {
         if (!alive) return;
         setError(e instanceof Error ? e.message : t("clients.errorLoading", "Error loading clients"));

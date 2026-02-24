@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { apiGet, apiPost, ApiError, API_BASE } from "@/lib/api";
+import { apiGet, apiGetList, apiPost, ApiError, API_BASE } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
 import { useListItems } from "@/hooks/useListItems";
 import AssignEmployeesModal from "../../work-orders/[id]/assign-employees-modal";
@@ -205,8 +205,8 @@ export default function TaskDetailPage() {
         const userData = data?.user || data;
 
         if (userData.email) {
-          const employees = await apiGet<any[]>(`/v1/employees?search=${userData.email}`);
-          if (employees && employees.length > 0) {
+          const employees = await apiGetList<any>(`/v1/employees?search=${userData.email}`);
+          if (employees.length > 0) {
             const emp = employees[0];
             setCurrentEmployee(emp);
           }
@@ -289,8 +289,7 @@ export default function TaskDetailPage() {
     ) {
       async function loadProducts() {
         try {
-          const res = await apiGet<any>("/v1/inventory/products");
-          const list = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
+          const list = await apiGetList<Product>("/v1/inventory/products");
           setProducts(list);
         } catch (err) {
           console.error("Failed to load products:", err);
@@ -570,8 +569,7 @@ export default function TaskDetailPage() {
   // Fetch available products for adding
   async function loadAvailableProducts() {
     try {
-      const res = await apiGet<any>("/v1/inventory/products");
-      const list = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
+      const list = await apiGetList<Product>("/v1/inventory/products");
       setAvailableProducts(list);
     } catch (err) {
       console.error("Failed to load products:", err);
