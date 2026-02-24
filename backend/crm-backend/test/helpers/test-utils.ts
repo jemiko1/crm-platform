@@ -117,5 +117,7 @@ export async function getAuthCookies(
     .post("/auth/login")
     .send({ email, password });
 
-  return res.headers["set-cookie"] ?? [];
+  const raw = res.headers["set-cookie"];
+  if (!raw) return [];
+  return Array.isArray(raw) ? raw : [raw];
 }
