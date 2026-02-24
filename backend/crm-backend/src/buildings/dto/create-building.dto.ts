@@ -7,5 +7,9 @@ export class CreateBuildingDto {
 
   @IsString()
   @IsOptional()
+  city?: string;
+
+  @IsString()
+  @IsOptional()
   address?: string;
 }
