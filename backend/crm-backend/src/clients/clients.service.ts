@@ -42,6 +42,44 @@ export class ClientsService {
     });
   }
 
+  async findByCoreId(coreId: number) {
+    const client = await this.prisma.client.findFirst({
+      where: { coreId },
+      select: {
+        coreId: true,
+        firstName: true,
+        lastName: true,
+        idNumber: true,
+        paymentId: true,
+        primaryPhone: true,
+        secondaryPhone: true,
+        updatedAt: true,
+        clientBuildings: {
+          select: {
+            building: { select: { coreId: true, name: true } },
+          },
+        },
+      },
+    });
+
+    if (!client) return null;
+
+    return {
+      coreId: client.coreId,
+      firstName: client.firstName,
+      lastName: client.lastName,
+      idNumber: client.idNumber,
+      paymentId: client.paymentId,
+      primaryPhone: client.primaryPhone,
+      secondaryPhone: client.secondaryPhone,
+      updatedAt: client.updatedAt,
+      buildings: client.clientBuildings.map((cb) => ({
+        coreId: cb.building.coreId,
+        name: cb.building.name,
+      })),
+    };
+  }
+
   async listByBuilding(buildingId: string, page = 1, pageSize = 20) {
     const { skip, take } = paginate(page, pageSize);
     const where = { clientBuildings: { some: { buildingId } } };

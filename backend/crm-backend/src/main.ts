@@ -24,11 +24,11 @@ async function bootstrap() {
   // Global exception filter (consistent error responses)
   app.useGlobalFilters(new HttpExceptionFilter());
 
-  // Global validation (keep this)
+  // Global validation — whitelist strips unknown DTO properties silently;
+  // forbidNonWhitelisted is OFF so @Query('param') coexists with @Query() DTO.
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: true,
       transform: true,
     }),
   );

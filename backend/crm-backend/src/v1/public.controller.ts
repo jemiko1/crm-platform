@@ -1,4 +1,4 @@
-import { Controller, Get, Param, ParseIntPipe, Query, UseGuards } from "@nestjs/common";
+import { Controller, Get, NotFoundException, Param, ParseIntPipe, Query, UseGuards } from "@nestjs/common";
 import { BuildingsService } from "../buildings/buildings.service";
 import { ClientsService } from "../clients/clients.service";
 import { AssetsService } from "../assets/assets.service";
@@ -50,5 +50,12 @@ export class PublicController {
   @Get("clients")
   listClients(@Query() pagination: PaginationDto) {
     return this.clients.listDirectory(pagination.page, pagination.pageSize);
+  }
+
+  @Get("clients/:coreId")
+  async getClient(@Param("coreId", ParseIntPipe) coreId: number) {
+    const client = await this.clients.findByCoreId(coreId);
+    if (!client) throw new NotFoundException(`Client #${coreId} not found`);
+    return client;
   }
 }

@@ -3,7 +3,7 @@
 import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams, useRouter, usePathname } from "next/navigation";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiGetList } from "@/lib/api";
 import AddDeviceModal from "./add-device-modal";
 import AddClientModal from "./add-client-modal";
 import EditBuildingModal from "./edit-building-modal";
@@ -149,9 +149,9 @@ function BuildingDetailPageContent() {
       // Fetch building and related data in parallel
       const [buildingData, assetsData, clientsData, incidentsData] = await Promise.all([
         apiGet<Building>(`/v1/buildings/${buildingId}`, { cache: "no-store" }),
-        apiGet<Asset[]>(`/v1/buildings/${buildingId}/assets`, { cache: "no-store" }).catch(() => []),
-        apiGet<Client[]>(`/v1/buildings/${buildingId}/clients`, { cache: "no-store" }).catch(() => []),
-        apiGet<Incident[]>(`/v1/buildings/${buildingId}/incidents`, { cache: "no-store" }).catch(() => []),
+        apiGetList<Asset>(`/v1/buildings/${buildingId}/assets`, { cache: "no-store" }).catch(() => [] as Asset[]),
+        apiGetList<Client>(`/v1/buildings/${buildingId}/clients`, { cache: "no-store" }).catch(() => [] as Client[]),
+        apiGetList<Incident>(`/v1/buildings/${buildingId}/incidents`, { cache: "no-store" }).catch(() => [] as Incident[]),
       ]);
 
       if (!buildingData) {
@@ -161,7 +161,7 @@ function BuildingDetailPageContent() {
       setBuilding(buildingData);
       setAssets(assetsData);
       setClients(clientsData);
-      setIncidents(Array.isArray(incidentsData) ? incidentsData : Array.isArray((incidentsData as any)?.items) ? (incidentsData as any).items : []);
+      setIncidents(incidentsData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load data");
     } finally {
@@ -214,10 +214,9 @@ function BuildingDetailPageContent() {
     try {
       setIncidentsLoading(true);
 
-      const data = await apiGet<any>(`/v1/buildings/${buildingId}/incidents`, {
+      const arr = await apiGetList<any>(`/v1/buildings/${buildingId}/incidents`, {
         cache: "no-store",
       });
-      const arr = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
       setIncidents(arr);
     } catch (err) {
       console.error("Failed to load incidents:", err);
