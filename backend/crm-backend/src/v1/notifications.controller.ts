@@ -13,6 +13,8 @@ import {
 import { ApiTags, ApiOperation } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { AdminOnlyGuard } from "../common/guards/admin-only.guard";
+import { PositionPermissionGuard } from "../common/guards/position-permission.guard";
+import { RequirePermission } from "../common/decorators/require-permission.decorator";
 import { EmailConfigService } from "../notifications/email-config.service";
 import { SmsConfigService } from "../notifications/sms-config.service";
 import { NotificationTemplatesService } from "../notifications/notification-templates.service";
@@ -66,21 +68,75 @@ export class NotificationsController {
   // ─── SMS Config ────────────────────────────────────────────
 
   @Get("sms-config")
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission("sms_config.access")
   @ApiOperation({ summary: "Get SMS provider configuration" })
   getSmsConfig() {
     return this.smsConfig.getConfigMasked();
   }
 
   @Put("sms-config")
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission("sms_config.access")
   @ApiOperation({ summary: "Create or update SMS configuration" })
   updateSmsConfig(@Body() dto: UpdateSmsConfigDto) {
     return this.smsConfig.upsertConfig(dto);
   }
 
   @Post("sms-config/test")
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission("sms_config.access")
   @ApiOperation({ summary: "Send a test SMS" })
   testSmsConfig(@Body() body: { testNumber: string }) {
     return this.smsConfig.testConnection(body.testNumber);
+  }
+
+  @Get("sms-config/balance")
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission("sms_config.access")
+  @ApiOperation({ summary: "Get Sender.ge account balance" })
+  getSmsBalance() {
+    return this.smsConfig.getBalance();
+  }
+
+  @Get("sms-logs")
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission("sms_config.access")
+  @ApiOperation({ summary: "Get SMS-only notification logs" })
+  getSmsLogs(
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+    @Query("status") status?: string,
+  ) {
+    return this.logService.findSmsLogs({
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+      status,
+    });
+  }
+
+  @Get("sms-logs/stats")
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission("sms_config.access")
+  @ApiOperation({ summary: "Get SMS delivery statistics" })
+  getSmsStats() {
+    return this.logService.getSmsStats();
+  }
+
+  @Post("sms-logs/:id/check-delivery")
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission("sms_config.access")
+  @ApiOperation({ summary: "Check delivery status for a specific SMS" })
+  checkSmsDelivery(@Param("id") id: string) {
+    return this.smsConfig.checkDeliveryStatus(id);
+  }
+
+  @Post("sms-logs/refresh-deliveries")
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission("sms_config.access")
+  @ApiOperation({ summary: "Refresh delivery status for all pending SMS" })
+  refreshDeliveries() {
+    return this.smsConfig.refreshAllPendingDeliveries();
   }
 
   // ─── Notification Templates ────────────────────────────────

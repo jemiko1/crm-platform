@@ -1243,14 +1243,20 @@ model EmailConfig {
 }
 
 model SmsConfig {
-  id         String   @id @default(uuid())
-  provider   String   @default("twilio")
-  accountSid String   @default("")
-  authToken  String   @default("")
-  fromNumber String   @default("")
-  isActive   Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id                   String   @id @default(uuid())
+  provider             String   @default("sender_ge")
+  apiKey               String   @default("")
+  fromNumber           String   @default("")
+  smsNo                Int      @default(2)
+  isActive             Boolean  @default(false)
+  maxPerMinute         Int      @default(10)
+  maxPerHour           Int      @default(100)
+  maxPerDay            Int      @default(500)
+  recipientCooldownMin Int      @default(5)
+  maxBatchRecipients   Int      @default(50)
+  autoDisableOnLimit   Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 }
 
 model NotificationTemplate {
@@ -1269,22 +1275,28 @@ model NotificationTemplate {
 }
 
 model NotificationLog {
-  id           String           @id @default(uuid())
-  type         NotificationType
-  recipientId  String
-  templateId   String?
-  subject      String?
-  body         String
-  status       String           @default("PENDING")
-  errorMessage String?
-  sentAt       DateTime?
-  createdAt    DateTime         @default(now())
-  recipient    Employee         @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  id               String           @id @default(uuid())
+  type             NotificationType
+  recipientId      String?
+  templateId       String?
+  subject          String?
+  body             String
+  status           String           @default("PENDING")
+  errorMessage     String?
+  sentAt           DateTime?
+  createdAt        DateTime         @default(now())
+  senderMessageId  String?
+  deliveryStatus   String?
+  deliveredAt      DateTime?
+  smsCount         Int?
+  destination      String?
+  recipient        Employee?        @relation(fields: [recipientId], references: [id], onDelete: Cascade)
 
   @@index([recipientId])
   @@index([type])
   @@index([status])
   @@index([createdAt])
+  @@index([senderMessageId])
 }
 
 model Conversation {

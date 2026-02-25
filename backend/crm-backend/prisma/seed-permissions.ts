@@ -162,6 +162,9 @@ const DEFAULT_PERMISSIONS = [
   // Messenger
   { resource: "messenger", action: "create_group", category: PermissionCategory.MESSENGER, description: "Create group conversations in messenger" },
   { resource: "messenger", action: "manage_groups", category: PermissionCategory.MESSENGER, description: "Manage group settings and participants" },
+
+  // SMS Configuration
+  { resource: "sms_config", action: "access", category: PermissionCategory.ADMIN, description: "Access SMS configuration, logs, and spam protection settings" },
 ];
 
 async function main() {
