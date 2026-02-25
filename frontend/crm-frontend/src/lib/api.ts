@@ -1,5 +1,17 @@
-export const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:3000";
+function resolveApiBase(): string {
+  if (process.env.NEXT_PUBLIC_API_BASE) {
+    return process.env.NEXT_PUBLIC_API_BASE;
+  }
+  if (process.env.NODE_ENV === "production") {
+    console.error(
+      "[api] NEXT_PUBLIC_API_BASE is not set in production — API calls will fail!",
+    );
+    return "";
+  }
+  return "http://localhost:3000";
+}
+
+export const API_BASE = resolveApiBase();
 
 export class ApiError extends Error {
   constructor(
@@ -78,6 +90,19 @@ export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
     method: "GET",
     ...init,
   });
+}
+
+/**
+ * Fetch a list endpoint that may return either a plain array or
+ * a paginated wrapper `{ data: T[], meta: {...} }`.
+ * Always returns a flat T[].
+ */
+export async function apiGetList<T>(path: string, init?: RequestInit): Promise<T[]> {
+  const raw = await apiGet<any>(path, init);
+  if (Array.isArray(raw)) return raw;
+  if (raw?.data && Array.isArray(raw.data)) return raw.data;
+  if (raw?.items && Array.isArray(raw.items)) return raw.items;
+  return [];
 }
 
 export async function apiPost<T>(

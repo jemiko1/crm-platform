@@ -35,10 +35,10 @@ export class AuthController {
 
     res.cookie(cookieName, accessToken, {
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: secure ? "none" : "lax",
       secure,
       path: "/",
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours - matches JWT_EXPIRES_IN
+      maxAge: 24 * 60 * 60 * 1000,
     });
 
     return { user };
@@ -49,42 +49,31 @@ export class AuthController {
   async me(@Req() req: any) {
     const userId = req.user.id;
 
-    // Fetch user with employee information
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: {
-        employee: {
-          include: {
-            position: {
-              include: {
-                roleGroup: {
-                  include: {
-                    permissions: {
-                      include: {
-                        permission: true,
-                      },
-                    },
-                  },
-                },
-              },
-            },
-            department: true,
-          },
-        },
-      },
+      include: { employee: true },
     });
 
     if (!user) {
       return { user: req.user };
     }
 
-    // Get permissions
-    const permissions = await this.permissionsService.getCurrentUserPermissions(userId);
+    // Fetch position/department in a separate query to avoid
+    // PrismaPg nested-include limitation.
+    let employee = user.employee as (typeof user.employee) & {
+      position?: { id: string; name: string; code: string } | null;
+      department?: { id: string; name: string; code: string } | null;
+    };
+    if (employee) {
+      const full = await this.prisma.employee.findUnique({
+        where: { id: employee.id },
+        include: { position: true, department: true },
+      });
+      if (full) employee = full;
+    }
 
-    // Build response with employee info
-    const employee = user.employee;
+    const permissions = await this.permissionsService.getCurrentUserPermissions(userId);
     const position = employee?.position;
-    const roleGroup = position?.roleGroup;
 
     return {
       user: {
@@ -121,7 +110,7 @@ export class AuthController {
     const cookieName = process.env.COOKIE_NAME ?? "access_token";
     const secure = (process.env.COOKIE_SECURE ?? "false") === "true";
 
-    res.clearCookie(cookieName, { path: "/", sameSite: "lax", secure });
+    res.clearCookie(cookieName, { path: "/", sameSite: secure ? "none" : "lax", secure });
     return { ok: true };
   }
 }

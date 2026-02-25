@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { apiGet, apiPost, ApiError } from "@/lib/api";
+import { apiGet, apiGetList, apiPost, ApiError } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
 import { useListItems } from "@/hooks/useListItems";
 
@@ -107,7 +107,7 @@ export default function CreateWorkOrderModal({
     let cancelled = false;
     async function fetchBuildings() {
       try {
-        const data = await apiGet<Building[]>("/v1/buildings");
+        const data = await apiGetList<Building>("/v1/buildings");
         if (!cancelled) setBuildings(data);
       } catch (err) {
         if (!cancelled) console.error("Failed to fetch buildings:", err);
@@ -123,7 +123,7 @@ export default function CreateWorkOrderModal({
     let cancelled = false;
     async function fetchEmployees() {
       try {
-        const data = await apiGet<Employee[]>("/v1/employees?status=ACTIVE");
+        const data = await apiGetList<Employee>("/v1/employees?status=ACTIVE");
         if (!cancelled) setEmployees(data);
       } catch (err) {
         if (!cancelled) console.error("Failed to fetch employees:", err);
@@ -143,7 +143,7 @@ export default function CreateWorkOrderModal({
     let cancelled = false;
     async function fetchAssets() {
       try {
-        const data = await apiGet<Asset[]>(`/v1/buildings/${selectedBuilding!.coreId}/assets`);
+        const data = await apiGetList<Asset>(`/v1/buildings/${selectedBuilding!.coreId}/assets`);
         if (!cancelled) setBuildingAssets(data);
       } catch (err) {
         if (!cancelled) console.error("Failed to fetch assets:", err);

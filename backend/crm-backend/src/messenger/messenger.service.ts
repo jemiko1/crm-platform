@@ -477,56 +477,58 @@ export class MessengerService {
     const employee = await this.getEmployeeByUserId(userId);
     await this.assertParticipant(conversationId, employee.id);
 
-    const message = await this.prisma.message.create({
-      data: {
-        conversationId,
-        senderId: employee.id,
-        content: dto.content,
-        type: dto.type ?? 'TEXT',
-        replyToId: dto.replyToId,
-      },
-      include: {
-        sender: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            avatar: true,
-          },
+    const message = await this.prisma.$transaction(async (tx) => {
+      const msg = await tx.message.create({
+        data: {
+          conversationId,
+          senderId: employee.id,
+          content: dto.content,
+          type: dto.type ?? 'TEXT',
+          replyToId: dto.replyToId,
         },
-        replyTo: {
-          select: {
-            id: true,
-            content: true,
-            sender: {
-              select: { id: true, firstName: true, lastName: true },
+        include: {
+          sender: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              avatar: true,
+            },
+          },
+          replyTo: {
+            select: {
+              id: true,
+              content: true,
+              sender: {
+                select: { id: true, firstName: true, lastName: true },
+              },
+            },
+          },
+          attachments: true,
+          reactions: {
+            select: {
+              emoji: true,
+              employeeId: true,
+              employee: { select: { firstName: true } },
             },
           },
         },
-        attachments: true,
-        reactions: {
-          select: {
-            emoji: true,
-            employeeId: true,
-            employee: { select: { firstName: true } },
-          },
+      });
+
+      await tx.conversation.update({
+        where: { id: conversationId },
+        data: {
+          lastMessageAt: msg.createdAt,
+          lastMessageText: dto.content.substring(0, 200),
         },
-      },
-    });
+      });
 
-    // Update conversation lastMessageAt for sorting
-    await this.prisma.conversation.update({
-      where: { id: conversationId },
-      data: {
-        lastMessageAt: message.createdAt,
-        lastMessageText: dto.content.substring(0, 200),
-      },
-    });
+      await tx.conversationParticipant.updateMany({
+        where: { conversationId, employeeId: employee.id },
+        data: { lastReadAt: msg.createdAt },
+      });
 
-    // Auto-mark as read for sender
-    await this.prisma.conversationParticipant.updateMany({
-      where: { conversationId, employeeId: employee.id },
-      data: { lastReadAt: message.createdAt },
+      return msg;
     });
 
     return message;

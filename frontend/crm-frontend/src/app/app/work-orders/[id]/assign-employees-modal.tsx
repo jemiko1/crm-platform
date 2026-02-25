@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { apiGet, apiPost, ApiError } from "@/lib/api";
+import { apiGet, apiGetList, apiPost, ApiError } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
 
 const BRAND = "rgb(8, 117, 56)";
@@ -59,7 +59,7 @@ export default function AssignEmployeesModal({
       try {
         setLoading(true);
         setError(null);
-        const data = await apiGet<Employee[]>("/v1/employees?status=ACTIVE");
+        const data = await apiGetList<Employee>("/v1/employees?status=ACTIVE");
         if (!cancelled) {
           setEmployees(data);
         }

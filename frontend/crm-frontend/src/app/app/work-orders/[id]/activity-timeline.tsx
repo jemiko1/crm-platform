@@ -2,8 +2,15 @@
 
 import React, { useEffect, useState } from "react";
 import { apiGet } from "@/lib/api";
+import { STATUS_LABELS } from "@/lib/work-order-status";
 
 const BRAND = "rgb(8, 117, 56)";
+
+const RAW_STATUS_RE = /\b(CREATED|LINKED_TO_GROUP|IN_PROGRESS|COMPLETED|CANCELED)\b/g;
+
+function humanizeStatusText(text: string): string {
+  return text.replace(RAW_STATUS_RE, (match) => STATUS_LABELS[match] || match);
+}
 
 type ActivityLog = {
   id: string;
@@ -241,14 +248,14 @@ export default function ActivityTimeline({ workOrderId }: Props) {
                                   isMain ? "text-zinc-900" : "text-zinc-600"
                                 }`}
                               >
-                                {activity.title}
+                                {humanizeStatusText(activity.title)}
                               </div>
                               <div
                                 className={`mt-1 text-sm ${
                                   isMain ? "text-zinc-600" : "text-zinc-500"
                                 }`}
                               >
-                                {activity.description}
+                                {humanizeStatusText(activity.description)}
                               </div>
                             </div>
                             <div className="flex-shrink-0 text-xs text-zinc-400">

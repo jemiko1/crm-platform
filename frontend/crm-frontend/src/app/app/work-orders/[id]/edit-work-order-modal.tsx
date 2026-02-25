@@ -9,7 +9,7 @@ const BRAND = "rgb(8, 117, 56)";
 type WorkOrderDetail = {
   id: string;
   type: "INSTALLATION" | "DIAGNOSTIC" | "RESEARCH" | "DEACTIVATE" | "REPAIR_CHANGE" | "ACTIVATE" | "INSTALL" | "REPAIR";
-  status: "CREATED" | "LINKED_TO_GROUP" | "IN_PROGRESS" | "PENDING_APPROVAL" | "APPROVED" | "CANCELED" | "COMPLETED" | "DONE" | "NEW" | "DISPATCHED" | "ACCEPTED";
+  status: "CREATED" | "LINKED_TO_GROUP" | "IN_PROGRESS" | "COMPLETED" | "CANCELED";
   title: string;
   notes: string | null;
 };
@@ -134,10 +134,9 @@ export default function EditWorkOrderModal({
                   className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
                 >
                   <option value="CREATED">Created</option>
-                  <option value="LINKED_TO_GROUP">Linked to Group</option>
-                  <option value="IN_PROGRESS">In Progress</option>
-                  <option value="PENDING_APPROVAL">Pending Approval</option>
-                  <option value="APPROVED">Approved</option>
+                  <option value="LINKED_TO_GROUP">Technicians Assigned</option>
+                  <option value="IN_PROGRESS">Working</option>
+                  <option value="COMPLETED">Completed</option>
                   <option value="CANCELED">Canceled</option>
                 </select>
               </div>

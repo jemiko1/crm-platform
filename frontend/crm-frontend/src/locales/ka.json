@@ -49,6 +49,7 @@
     "sales": "გაყიდვები",
     "inventory": "ინვენტარი",
     "employees": "თანამშრომლები",
+    "clientChats": "კლიენტ ჩატები",
     "admin": "ადმინი"
   },
   "dashboard": {
@@ -210,13 +211,12 @@
       "ACTIVATE": "ჩართვა"
     },
     "statuses": {
-      "CREATED": "შექმნილი",
-      "LINKED_TO_GROUP": "ჯგუფთან დაკავშირებული",
-      "IN_PROGRESS": "მიმდინარე",
-      "PENDING_APPROVAL": "ელოდება დადასტურებას",
-      "APPROVED": "დამტკიცებული",
-      "COMPLETED": "დასრულებული",
-      "CANCELED": "გაუქმებული"
+      "CREATED": "დაფიქსირებულია",
+      "LINKED_TO_GROUP": "ტექნიკოსები მიბმულია",
+      "IN_PROGRESS": "ტექნიკოსები მუშაობენ",
+      "WAITING_APPROVAL": "ელოდება დადასტურებას",
+      "COMPLETED": "დასრულებულია",
+      "CANCELED": "გაუქმებულია"
     },
     "stages": {
       "created": "დაფიქსირებულია",

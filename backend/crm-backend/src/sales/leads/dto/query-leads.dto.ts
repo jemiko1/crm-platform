@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsInt, Min, IsEnum, IsUUID } from 'class-validator';
+import { IsOptional, IsString, IsInt, Min, Max, IsEnum, IsUUID } from 'class-validator';
 import { Type } from 'class-transformer';
 import { LeadStatus } from '@prisma/client';
 
@@ -37,6 +37,7 @@ export class QueryLeadsDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(100)
   pageSize?: number = 20;
 
   @IsOptional()

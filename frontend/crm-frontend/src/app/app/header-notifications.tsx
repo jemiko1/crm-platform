@@ -26,7 +26,7 @@ export default function HeaderNotifications() {
         const res = await fetch(`${API_BASE}/v1/work-orders/notifications`, { credentials: "include" });
         if (!res.ok) return;
         const data = await res.json();
-        const arr = Array.isArray(data) ? data : data?.items ?? [];
+        const arr = Array.isArray(data) ? data : (data?.data ?? data?.items ?? []);
         setNotifications(arr.slice(0, 10));
         setUnreadCount(arr.filter((n: Notification) => !n.readAt).length);
       } catch { /* ignore */ }

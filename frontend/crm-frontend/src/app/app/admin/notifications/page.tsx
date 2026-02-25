@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
+import { apiGet, apiGetList, apiPost, apiPatch, apiDelete } from "@/lib/api";
 import { PermissionGuard } from "@/lib/permission-guard";
 
 // ─── Types ───────────────────────────────────────────────
@@ -300,7 +300,7 @@ function SendTab() {
     (async () => {
       try {
         const [empData, tplData] = await Promise.all([
-          apiGet<Employee[]>("/v1/employees"),
+          apiGetList<Employee>("/v1/employees"),
           apiGet<NotificationTemplate[]>("/v1/admin/notifications/templates"),
         ]);
         setEmployees(empData);

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet, ApiError } from "@/lib/api";
@@ -93,7 +93,7 @@ function getStatusLabel(status: Lead["status"]) {
   return labels[status] || status;
 }
 
-export default function LeadsPage() {
+function LeadsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { hasPermission } = usePermissions();
@@ -505,5 +505,13 @@ export default function LeadsPage() {
       )}
     </div>
     </PermissionGuard>
+  );
+}
+
+export default function LeadsPage() {
+  return (
+    <Suspense fallback={null}>
+      <LeadsPageContent />
+    </Suspense>
   );
 }

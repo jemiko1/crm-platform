@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { Suspense, useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { apiGet } from "@/lib/api";
+import { apiGetList } from "@/lib/api";
 import { PermissionGuard } from "@/lib/permission-guard";
 import { usePermissions } from "@/lib/use-permissions";
 import AddEmployeeModal from "./add-employee-modal";
@@ -35,7 +35,7 @@ type Employee = {
   createdAt: string;
 };
 
-export default function EmployeesPage() {
+function EmployeesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { hasPermission } = usePermissions();
@@ -56,7 +56,7 @@ export default function EmployeesPage() {
   async function fetchEmployees() {
     try {
       setLoading(true);
-      const data = await apiGet<Employee[]>(
+      const data = await apiGetList<Employee>(
         "/v1/employees?includeTerminated=true"
       );
       setEmployees(data);
@@ -317,5 +317,13 @@ function IconUserOff() {
       <line x1="18" y1="8" x2="23" y2="13" />
       <line x1="23" y1="8" x2="18" y2="13" />
     </svg>
+  );
+}
+
+export default function EmployeesPage() {
+  return (
+    <Suspense fallback={null}>
+      <EmployeesPageContent />
+    </Suspense>
   );
 }

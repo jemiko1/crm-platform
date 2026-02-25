@@ -17,6 +17,7 @@ import { AssetsService } from "../assets/assets.service";
 import { InventoryService } from "../inventory/inventory.service";
 import { WorkOrderActivityService } from "./work-order-activity.service";
 import { WorkflowService } from "../workflow/workflow.service";
+import { WorkflowTriggerEngine } from "../workflow/workflow-trigger-engine.service";
 import { WorkOrderStatus, WorkOrderType } from "@prisma/client";
 
 @Injectable()
@@ -28,6 +29,7 @@ export class WorkOrdersService {
     private readonly inventory: InventoryService,
     private readonly activityService: WorkOrderActivityService,
     private readonly workflowService: WorkflowService,
+    private readonly triggerEngine: WorkflowTriggerEngine,
   ) {}
 
   // ===== CREATE WORK ORDER =====
@@ -257,6 +259,13 @@ export class WorkOrdersService {
       building.name,
       dto.type,
     );
+
+    // Fire workflow triggers for CREATED status
+    this.triggerEngine.evaluateStatusChange(
+      { id: workOrder.id, type: dto.type, title: (workOrder as any).title, workOrderNumber: workOrder.workOrderNumber },
+      null,
+      "CREATED",
+    ).catch(() => {});
 
     return workOrder;
   }
@@ -902,29 +911,45 @@ export class WorkOrdersService {
       throw new NotFoundException("One or more employees not found or not active");
     }
 
-    // Create assignments
-    await this.prisma.workOrderAssignment.createMany({
-      data: dto.employeeIds.map((employeeId) => ({
-        workOrderId: workOrder.id,
-        employeeId,
-        assignedBy,
-      })),
-      skipDuplicates: true,
-    });
-
-    // Get the assigner's employee ID
     const assigner = await this.prisma.employee.findFirst({
       where: { userId: assignedBy },
     });
 
-    // Log activity - Employees Assigned
+    const result = await this.prisma.$transaction(async (tx) => {
+      await tx.workOrderAssignment.createMany({
+        data: dto.employeeIds.map((employeeId) => ({
+          workOrderId: workOrder.id,
+          employeeId,
+          assignedBy,
+        })),
+        skipDuplicates: true,
+      });
+
+      return tx.workOrder.update({
+        where: { id: workOrder.id },
+        data: { status: "LINKED_TO_GROUP" },
+        include: {
+          assignments: {
+            include: {
+              employee: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  email: true,
+                },
+              },
+            },
+          },
+        },
+      });
+    });
+
     await this.activityService.logAssignment(
       workOrder.id,
       assigner?.id || assignedBy,
       dto.employeeIds,
     );
-
-    // Log status change
     await this.activityService.logStatusChange(
       workOrder.id,
       assigner?.id,
@@ -932,27 +957,13 @@ export class WorkOrdersService {
       "LINKED_TO_GROUP",
     );
 
-    // Update status to LINKED_TO_GROUP
-    return this.prisma.workOrder.update({
-      where: { id: workOrder.id },
-      data: {
-        status: "LINKED_TO_GROUP",
-      },
-      include: {
-        assignments: {
-          include: {
-            employee: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-              },
-            },
-          },
-        },
-      },
-    });
+    this.triggerEngine.evaluateStatusChange(
+      { id: workOrder.id, type: workOrder.type, title: workOrder.title, workOrderNumber: workOrder.workOrderNumber },
+      "CREATED",
+      "LINKED_TO_GROUP",
+    ).catch(() => {});
+
+    return result;
   }
 
   // Employee starts work
@@ -987,6 +998,13 @@ export class WorkOrdersService {
       "LINKED_TO_GROUP",
       "IN_PROGRESS",
     );
+
+    // Fire workflow triggers
+    this.triggerEngine.evaluateStatusChange(
+      { id: workOrder.id, type: workOrder.type, title: workOrder.title, workOrderNumber: workOrder.workOrderNumber },
+      "LINKED_TO_GROUP",
+      "IN_PROGRESS",
+    ).catch(() => {});
 
     return this.prisma.workOrder.update({
       where: { id: workOrder.id },
@@ -1261,6 +1279,12 @@ export class WorkOrdersService {
       console.warn("[WorkOrder Submit] Failed to create notifications for FINAL_APPROVAL step:", error);
     }
 
+    // Fire workflow triggers for field change (techEmployeeComment = "Waiting For Approval")
+    this.triggerEngine.evaluateFieldChange(
+      { id: workOrder.id, type: workOrder.type, title: workOrder.title, workOrderNumber: workOrder.workOrderNumber },
+      ["techEmployeeComment"],
+    ).catch(() => {});
+
     // Update with comment - status remains IN_PROGRESS until head approves
     return this.prisma.workOrder.update({
       where: { id: workOrder.id },
@@ -1304,6 +1328,13 @@ export class WorkOrdersService {
         "CANCELED",
       );
 
+      // Fire workflow triggers
+      this.triggerEngine.evaluateStatusChange(
+        { id: workOrder.id, type: workOrder.type, title: workOrder.title, workOrderNumber: workOrder.workOrderNumber },
+        "IN_PROGRESS",
+        "CANCELED",
+      ).catch(() => {});
+
       // Cancel work order
       return this.prisma.workOrder.update({
         where: { id: workOrder.id },
@@ -1328,78 +1359,55 @@ export class WorkOrdersService {
     });
     const productMap = new Map(productDetails.map(p => [p.id, { name: p.name, sku: p.sku }]));
 
-    // If product usages provided, update them (head can modify)
+    // Collect items to deduct after the product-usage transaction commits
+    let itemsToDeduct: { productId: string; quantity: number }[] = [];
+
     if (productUsages && productUsages.length > 0) {
-      // Calculate modifications for activity log
       const modifications: { name: string; sku?: string; originalQuantity?: number; newQuantity: number; action: 'added' | 'modified' | 'removed' }[] = [];
-      
-      // Check for added/modified products
+
       for (const usage of productUsages) {
         const existing = existingUsages.find(eu => eu.productId === usage.productId);
         const productInfo = productMap.get(usage.productId);
         if (existing) {
           if (existing.quantity !== usage.quantity) {
-            modifications.push({
-              name: productInfo?.name || 'Unknown',
-              sku: productInfo?.sku,
-              originalQuantity: existing.quantity,
-              newQuantity: usage.quantity,
-              action: 'modified',
-            });
+            modifications.push({ name: productInfo?.name || 'Unknown', sku: productInfo?.sku, originalQuantity: existing.quantity, newQuantity: usage.quantity, action: 'modified' });
           }
         } else {
-          modifications.push({
-            name: productInfo?.name || 'Unknown',
-            sku: productInfo?.sku,
-            newQuantity: usage.quantity,
-            action: 'added',
-          });
-        }
-      }
-      
-      // Check for removed products
-      for (const existing of existingUsages) {
-        if (!productUsages.find(pu => pu.productId === existing.productId)) {
-          const productInfo = productMap.get(existing.productId);
-          modifications.push({
-            name: productInfo?.name || 'Unknown',
-            sku: productInfo?.sku,
-            originalQuantity: existing.quantity,
-            newQuantity: 0,
-            action: 'removed',
-          });
+          modifications.push({ name: productInfo?.name || 'Unknown', sku: productInfo?.sku, newQuantity: usage.quantity, action: 'added' });
         }
       }
 
-      // Log modifications if any
+      for (const existing of existingUsages) {
+        if (!productUsages.find(pu => pu.productId === existing.productId)) {
+          const productInfo = productMap.get(existing.productId);
+          modifications.push({ name: productInfo?.name || 'Unknown', sku: productInfo?.sku, originalQuantity: existing.quantity, newQuantity: 0, action: 'removed' });
+        }
+      }
+
       if (modifications.length > 0) {
         await this.activityService.logProductsModified(workOrder.id, headEmployeeId, modifications);
       }
 
-      // Delete existing unapproved usages
-      await this.prisma.workOrderProductUsage.deleteMany({
-        where: {
-          workOrderId: workOrder.id,
-          isApproved: false,
-        },
+      await this.prisma.$transaction(async (tx) => {
+        await tx.workOrderProductUsage.deleteMany({
+          where: { workOrderId: workOrder.id, isApproved: false },
+        });
+
+        await tx.workOrderProductUsage.createMany({
+          data: productUsages.map((usage) => ({
+            workOrderId: workOrder.id,
+            productId: usage.productId,
+            quantity: usage.quantity,
+            batchId: usage.batchId ?? null,
+            filledBy: workOrder.productUsages[0]?.filledBy ?? null,
+            modifiedBy: headUserId,
+            isApproved: true,
+            approvedBy: headUserId,
+            approvedAt: new Date(),
+          })),
+        });
       });
 
-      // Create new usages with head's modifications
-      await this.prisma.workOrderProductUsage.createMany({
-        data: productUsages.map((usage) => ({
-          workOrderId: workOrder.id,
-          productId: usage.productId,
-          quantity: usage.quantity,
-          batchId: usage.batchId ?? null,
-          filledBy: workOrder.productUsages[0]?.filledBy ?? null,
-          modifiedBy: headUserId,
-          isApproved: true,
-          approvedBy: headUserId,
-          approvedAt: new Date(),
-        })),
-      });
-
-      // Log final approved products
       const approvedProducts = productUsages.map(usage => ({
         name: productMap.get(usage.productId)?.name || 'Unknown',
         sku: productMap.get(usage.productId)?.sku,
@@ -1407,30 +1415,13 @@ export class WorkOrdersService {
       }));
       await this.activityService.logProductsApproved(workOrder.id, headEmployeeId, approvedProducts);
 
-      // Deduct stock using inventory service
-      await this.inventory.deductStockForWorkOrder({
-        workOrderId: workOrder.id,
-        items: productUsages.map((usage) => ({
-          productId: usage.productId,
-          quantity: usage.quantity,
-        })),
-        performedBy: headUserId,
-      });
+      itemsToDeduct = productUsages.map((usage) => ({ productId: usage.productId, quantity: usage.quantity }));
     } else if (workOrder.productUsages.length > 0) {
-      // Approve existing usages without modification
       await this.prisma.workOrderProductUsage.updateMany({
-        where: {
-          workOrderId: workOrder.id,
-          isApproved: false,
-        },
-        data: {
-          isApproved: true,
-          approvedBy: headUserId,
-          approvedAt: new Date(),
-        },
+        where: { workOrderId: workOrder.id, isApproved: false },
+        data: { isApproved: true, approvedBy: headUserId, approvedAt: new Date() },
       });
 
-      // Log final approved products (no modifications)
       const approvedProducts = existingUsages.map(usage => ({
         name: productMap.get(usage.productId)?.name || 'Unknown',
         sku: productMap.get(usage.productId)?.sku,
@@ -1440,37 +1431,28 @@ export class WorkOrdersService {
         await this.activityService.logProductsApproved(workOrder.id, headEmployeeId, approvedProducts);
       }
 
-      // Deduct stock
-      const usagesToDeduct = workOrder.productUsages
+      itemsToDeduct = workOrder.productUsages
         .filter((pu) => !pu.isApproved)
-        .map((pu) => ({
-          productId: pu.productId,
-          quantity: pu.quantity,
-          batchId: pu.batchId ?? undefined,
-        }));
-
-      if (usagesToDeduct.length > 0) {
-        await this.inventory.deductStockForWorkOrder({
-          workOrderId: workOrder.id,
-          items: usagesToDeduct.map((u) => ({
-            productId: u.productId,
-            quantity: u.quantity,
-          })),
-          performedBy: headUserId,
-        });
-      }
+        .map((pu) => ({ productId: pu.productId, quantity: pu.quantity }));
     }
 
-    // Log activity - Approved
-    await this.activityService.logApproval(workOrder.id, headEmployeeId, comment);
+    // Stock deduction runs in its own internal transaction
+    if (itemsToDeduct.length > 0) {
+      await this.inventory.deductStockForWorkOrder({
+        workOrderId: workOrder.id,
+        items: itemsToDeduct,
+        performedBy: headUserId,
+      });
+    }
 
-    // Log status change
-    await this.activityService.logStatusChange(
-      workOrder.id,
-      headEmployeeId,
+    await this.activityService.logApproval(workOrder.id, headEmployeeId, comment);
+    await this.activityService.logStatusChange(workOrder.id, headEmployeeId, "IN_PROGRESS", "COMPLETED");
+
+    this.triggerEngine.evaluateStatusChange(
+      { id: workOrder.id, type: workOrder.type, title: workOrder.title, workOrderNumber: workOrder.workOrderNumber },
       "IN_PROGRESS",
       "COMPLETED",
-    );
+    ).catch(() => {});
 
     return this.prisma.workOrder.update({
       where: { id: workOrder.id },

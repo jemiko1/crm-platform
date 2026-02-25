@@ -63,9 +63,10 @@ export default function DeactivatedDevicesSection({
 
     async function fetchProducts() {
       try {
-        const data = await apiGet<Product[]>("/v1/inventory/products");
+        const res = await apiGet<any>("/v1/inventory/products");
+        const list = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
         if (!cancelled) {
-          setProducts(data);
+          setProducts(list);
         }
       } catch (err) {
         if (!cancelled) {

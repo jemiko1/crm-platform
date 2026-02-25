@@ -118,7 +118,21 @@
 
 ---
 
-## 📝 DOCUMENTATION MAINTENANCE
+## Process & Workflow Documentation (`docs/`)
+
+> These are the **canonical, single-source-of-truth** documents for development process, testing, CI/CD, and release management. They supersede any conflicting instructions found in the root-level .md files.
+
+| Document | Purpose |
+|----------|---------|
+| [`docs/DEVELOPMENT_WORKFLOW.md`](docs/DEVELOPMENT_WORKFLOW.md) | Branch strategy (master/staging/dev/feature), commit conventions, PR process |
+| [`docs/TESTING.md`](docs/TESTING.md) | Test setup, running tests locally, writing new tests |
+| [`docs/CI_CD.md`](docs/CI_CD.md) | CI pipeline explanation, GitHub branch protection setup guide |
+| [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) | Release flow (dev -> staging -> master), rollback procedures, migration safety |
+| [`docs/AI_WORKING_RULES.md`](docs/AI_WORKING_RULES.md) | Rules for AI assistants: branch restrictions, commit style, code standards |
+
+---
+
+## DOCUMENTATION MAINTENANCE
 
 **When to Update**:
 - `SESSION_SUMMARY.md` - After major features or significant changes
@@ -126,20 +140,23 @@
 - `API_ROUTE_MAP.md` - When adding/modifying API endpoints
 - `FRONTEND_ROUTE_MAP.md` - When adding/modifying frontend routes
 - `PROJECT_SNAPSHOT.md` - When project structure changes significantly
+- `docs/*` - When process, CI, testing, or release procedures change
 
-**Last Updated**: 2026-02-17
+**Last Updated**: 2026-02-20
 
 ---
 
-## 🚀 FOR NEW CONVERSATIONS
+## FOR NEW CONVERSATIONS
 
 **Recommended Reading Order**:
 1. `SESSION_SUMMARY.md` (complete context)
-2. `DEVELOPMENT_GUIDELINES.md` (patterns & issues)
-3. `PROJECT_SNAPSHOT.md` (architecture)
-4. Topic-specific docs as needed
+2. `docs/DEVELOPMENT_WORKFLOW.md` (branch strategy & workflow)
+3. `docs/AI_WORKING_RULES.md` (AI assistant rules)
+4. `DEVELOPMENT_GUIDELINES.md` (code patterns & issues)
+5. `PROJECT_SNAPSHOT.md` (architecture)
+6. Topic-specific docs as needed
 
-**Quick Start**: Read `SESSION_SUMMARY.md` first - it contains compressed but complete information about everything implemented.
+**Quick Start**: Read `SESSION_SUMMARY.md` first - it contains compressed but complete information about everything implemented. Then read `docs/DEVELOPMENT_WORKFLOW.md` for the branching and release process.
 
 ---
 
