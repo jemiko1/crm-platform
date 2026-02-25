@@ -37,6 +37,16 @@ export class NotificationService {
       throw new BadRequestException("Notification body is required (provide body or templateCode)");
     }
 
+    if (dto.type === NotificationType.SMS) {
+      const config = await this.prisma.smsConfig.findFirst();
+      const maxBatch = config?.maxBatchRecipients ?? 50;
+      if (dto.employeeIds.length > maxBatch) {
+        throw new BadRequestException(
+          `Cannot send SMS to more than ${maxBatch} recipients at once (got ${dto.employeeIds.length})`,
+        );
+      }
+    }
+
     const employees = await this.prisma.employee.findMany({
       where: { id: { in: dto.employeeIds }, status: "ACTIVE" },
       select: { id: true, firstName: true, lastName: true, email: true, phone: true },
@@ -83,14 +93,18 @@ export class NotificationService {
           continue;
         }
 
+        const destination = emp.phone.replace(/^\+995/, "").replace(/\D/g, "");
         const res = await this.smsSender.sendSms(emp.phone, body);
         await this.logs.create({
           type: NotificationType.SMS,
           recipientId: emp.id,
           body,
+          destination,
           status: res.success ? "SENT" : "FAILED",
           errorMessage: res.error,
           sentAt: res.success ? new Date() : undefined,
+          senderMessageId: res.messageId,
+          smsCount: res.smsCount,
         });
         results.push({ employeeId: emp.id, success: res.success, error: res.error });
       }
