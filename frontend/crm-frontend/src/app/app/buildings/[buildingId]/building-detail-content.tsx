@@ -1210,14 +1210,21 @@ function ProductFlowTab({ buildingCoreId }: { buildingCoreId: number }) {
         setLoading(true);
         setError(null);
 
-        const params = new URLSearchParams({
-          buildingId: String(buildingCoreId),
-          page: "1",
-          pageSize: "1000",
-        });
-
-        const workOrdersData = await apiGet<{ data: any[]; meta: any }>(`/v1/work-orders?${params}`);
-        const workOrders = workOrdersData.data || [];
+        const workOrders: any[] = [];
+        let page = 1;
+        let hasMore = true;
+        while (hasMore) {
+          const params = new URLSearchParams({
+            buildingId: String(buildingCoreId),
+            page: String(page),
+            pageSize: "100",
+          });
+          const resp = await apiGet<{ data: any[]; meta: any }>(`/v1/work-orders?${params}`);
+          const batch = resp?.data || [];
+          workOrders.push(...batch);
+          hasMore = batch.length === 100;
+          page++;
+        }
 
         const usagesPromises = workOrders.map(async (wo) => {
           try {
