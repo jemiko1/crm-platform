@@ -1,17 +1,4 @@
-function resolveApiBase(): string {
-  if (process.env.NEXT_PUBLIC_API_BASE) {
-    return process.env.NEXT_PUBLIC_API_BASE;
-  }
-  if (process.env.NODE_ENV === "production") {
-    console.error(
-      "[api] NEXT_PUBLIC_API_BASE is not set in production — API calls will fail!",
-    );
-    return "";
-  }
-  return "http://localhost:3000";
-}
-
-export const API_BASE = resolveApiBase();
+export const API_BASE = "";
 
 export class ApiError extends Error {
   constructor(
