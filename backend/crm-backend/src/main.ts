@@ -7,6 +7,7 @@ import compression from "compression";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
+import { getCorsOrigins } from "./cors";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -15,10 +16,11 @@ async function bootstrap() {
   app.use(compression());
   app.use(cookieParser());
 
-  // CORS (required so frontend can send/receive cookies)
   app.enableCors({
-    origin: ["http://localhost:3002", "http://localhost:4002"],
+    origin: getCorsOrigins(),
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
   });
 
   // Global exception filter (consistent error responses)
