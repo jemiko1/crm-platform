@@ -35,10 +35,10 @@ export class AuthController {
 
     res.cookie(cookieName, accessToken, {
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: secure ? "none" : "lax",
       secure,
       path: "/",
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours - matches JWT_EXPIRES_IN
+      maxAge: 24 * 60 * 60 * 1000,
     });
 
     return { user };
@@ -110,7 +110,7 @@ export class AuthController {
     const cookieName = process.env.COOKIE_NAME ?? "access_token";
     const secure = (process.env.COOKIE_SECURE ?? "false") === "true";
 
-    res.clearCookie(cookieName, { path: "/", sameSite: "lax", secure });
+    res.clearCookie(cookieName, { path: "/", sameSite: secure ? "none" : "lax", secure });
     return { ok: true };
   }
 }
