@@ -22,5 +22,6 @@
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false
   },
-  "exclude": ["node_modules", "dist", "test", "**/*spec.ts", "prisma/seed-inventory.ts"]
+  "include": ["src", "test"],
+  "exclude": ["node_modules", "dist"]
 }

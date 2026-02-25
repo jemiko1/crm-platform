@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { apiGet, apiPost, apiDelete, ApiError } from "@/lib/api";
+import { apiGet, apiGetList, apiPost, apiDelete, ApiError } from "@/lib/api";
 import { PermissionGuard } from "@/lib/permission-guard";
 import { usePermissions } from "@/lib/use-permissions";
 
@@ -102,7 +102,7 @@ export default function SalesPlansPage() {
       const [plansRes, servicesRes, employeesRes] = await Promise.all([
         apiGet<SalesPlan[]>(`/v1/sales/plans?${params}`),
         apiGet<SalesService[]>("/v1/sales/services"),
-        apiGet<Employee[]>("/v1/employees?status=ACTIVE"),
+        apiGetList<Employee>("/v1/employees?status=ACTIVE"),
       ]);
       setPlans(plansRes);
       setServices(servicesRes);

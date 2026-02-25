@@ -74,15 +74,10 @@ export default function BuildingDetailModal({ open, onClose, buildingId, onUpdat
       try {
         setLoading(true);
         setError(null);
-        const data = await apiGet<Building[]>("/v1/buildings", { cache: "no-store" });
-        const foundBuilding = data.find((b) => String(b.coreId) === buildingId);
-        
+        const foundBuilding = await apiGet<Building>(`/v1/buildings/${buildingId}`, { cache: "no-store" });
+
         if (!cancelled) {
-          if (foundBuilding) {
-            setBuilding(foundBuilding);
-          } else {
-            setError(`Building ${buildingId} not found`);
-          }
+          setBuilding(foundBuilding);
         }
       } catch (err: any) {
         if (!cancelled) {

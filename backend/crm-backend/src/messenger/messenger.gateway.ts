@@ -11,6 +11,7 @@ import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { MessengerService } from './messenger.service';
 import * as cookie from 'cookie';
+import { getCorsOrigins } from '../cors';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -20,7 +21,7 @@ interface AuthenticatedSocket extends Socket {
 @WebSocketGateway({
   namespace: '/messenger',
   cors: {
-    origin: ['http://localhost:3002', 'http://localhost:4002'],
+    origin: getCorsOrigins(),
     credentials: true,
   },
 })

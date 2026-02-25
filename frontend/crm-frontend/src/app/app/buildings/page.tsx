@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiGetList } from "@/lib/api";
 import AddBuildingModal from "./add-building-modal";
 import BuildingStatistics from "./building-statistics";
 import { PermissionGuard } from "@/lib/permission-guard";
@@ -115,7 +115,7 @@ const ProductIcons = React.memo(function ProductIcons({ p }: { p: BuildingProduc
   );
 });
 
-export default function BuildingsPage() {
+function BuildingsPageContent() {
   const { t } = useI18n();
   const hasMounted = useHasMounted();
   const router = useRouter();
@@ -148,12 +148,10 @@ export default function BuildingsPage() {
         setLoading(true);
         setError(null);
 
-        const data = await apiGet<Building[]>("/v1/buildings", {
-          cache: "no-store",
-        });
+        const list = await apiGetList<Building>("/v1/buildings");
 
         if (!cancelled) {
-          const rows: BuildingRow[] = data.map((b) => ({
+          const rows: BuildingRow[] = list.map((b) => ({
             coreId: b.coreId,
             name: b.name,
             address: b.address,
@@ -624,5 +622,13 @@ function IconClipboardSmall() {
         strokeLinejoin="round"
       />
     </svg>
+  );
+}
+
+export default function BuildingsPage() {
+  return (
+    <Suspense fallback={null}>
+      <BuildingsPageContent />
+    </Suspense>
   );
 }

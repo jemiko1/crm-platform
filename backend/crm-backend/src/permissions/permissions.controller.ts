@@ -32,11 +32,8 @@ export class PermissionsController {
   @Get('my-effective-permissions')
   async getMyEffectivePermissions(@Request() req: any) {
     const userId = req.user.id;
-    const userEmail = req.user.email;
-    console.log(`[Permissions] Fetching permissions for user: ${userEmail} (${userId})`);
     const permissions = await this.permissionsService.getCurrentUserPermissions(userId);
-    console.log(`[Permissions] Returning ${permissions.length} permissions for ${userEmail}`);
-    return permissions; // Return array directly
+    return permissions;
   }
 
   // IMPORTANT: :id route must be LAST to avoid catching specific routes like

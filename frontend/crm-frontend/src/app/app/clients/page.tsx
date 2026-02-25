@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { apiGet } from "@/lib/api";
+import { apiGetList } from "@/lib/api";
 import { PermissionGuard } from "@/lib/permission-guard";
 import { usePermissions } from "@/lib/use-permissions";
 import { useModalContext } from "../modal-manager";
@@ -44,7 +44,7 @@ function fullNameOf(c: Pick<ClientRow, "firstName" | "lastName" | "coreId">) {
   return full || `Client #${c.coreId}`;
 }
 
-export default function ClientsPage() {
+function ClientsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { hasPermission } = usePermissions();
@@ -71,12 +71,10 @@ export default function ClientsPage() {
         setLoading(true);
         setError(null);
 
-        const data = await apiGet<ClientRow[]>("/v1/clients", {
-          cache: "no-store",
-        });
+        const data = await apiGetList<ClientRow>("/v1/clients");
         if (!alive) return;
 
-        setRows(Array.isArray(data) ? data : []);
+        setRows(data);
       } catch (e) {
         if (!alive) return;
         setError(e instanceof Error ? e.message : t("clients.errorLoading", "Error loading clients"));
@@ -340,6 +338,14 @@ export default function ClientsPage() {
       </div>
       </div>
     </PermissionGuard>
+  );
+}
+
+export default function ClientsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ClientsPageContent />
+    </Suspense>
   );
 }
 
