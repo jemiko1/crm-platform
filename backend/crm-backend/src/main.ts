@@ -3,13 +3,16 @@ import { NestFactory } from "@nestjs/core";
 import { ValidationPipe } from "@nestjs/common";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import cookieParser from "cookie-parser";
+import compression from "compression";
+import helmet from "helmet";
 import { AppModule } from "./app.module";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Cookies (required for httpOnly auth)
+  app.use(helmet());
+  app.use(compression());
   app.use(cookieParser());
 
   // CORS (required so frontend can send/receive cookies)
@@ -21,11 +24,11 @@ async function bootstrap() {
   // Global exception filter (consistent error responses)
   app.useGlobalFilters(new HttpExceptionFilter());
 
-  // Global validation (keep this)
+  // Global validation — whitelist strips unknown DTO properties silently;
+  // forbidNonWhitelisted is OFF so @Query('param') coexists with @Query() DTO.
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: true,
       transform: true,
     }),
   );

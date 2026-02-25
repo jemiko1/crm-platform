@@ -348,13 +348,8 @@ function BuildingModal({ buildingId, onClose, zIndex, isTopmost, stackDepth, sta
     try {
       setLoading(true);
       setError(null);
-      const data = await apiGet<Building[]>("/v1/buildings", { cache: "no-store" });
-      const foundBuilding = Array.isArray(data) ? data.find((b) => String(b.coreId) === buildingId) : null;
-      if (foundBuilding) {
-        setBuilding(foundBuilding);
-      } else {
-        setError(`Building ${buildingId} not found`);
-      }
+      const foundBuilding = await apiGet<Building>(`/v1/buildings/${buildingId}`, { cache: "no-store" });
+      setBuilding(foundBuilding);
     } catch (err: any) {
       setError(err.message || "Failed to load building");
     } finally {
@@ -395,14 +390,8 @@ function ClientModal({ clientId, onClose, zIndex, isTopmost, stackDepth, stackSi
     try {
       setLoading(true);
       setError(null);
-      const data = await apiGet<Client[]>("/v1/clients", { cache: "no-store" });
-      const clientCoreId = Number(clientId);
-      const foundClient = Array.isArray(data) ? data.find((c) => Number(c.coreId) === clientCoreId) : null;
-      if (foundClient) {
-        setClient(foundClient);
-      } else {
-        setError(`Client ${clientId} not found`);
-      }
+      const foundClient = await apiGet<Client>(`/v1/clients/${clientId}`, { cache: "no-store" });
+      setClient(foundClient);
     } catch (err: any) {
       setError(err.message || "Failed to load client");
     } finally {

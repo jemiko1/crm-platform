@@ -33,6 +33,9 @@ import { WorkflowController } from "./workflow.controller";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { NotificationsController } from "./notifications.controller";
 
+// Telephony / Call Center
+import { TelephonyModule } from "../telephony/telephony.module";
+
 @Module({
   imports: [
     AuditModule,
@@ -49,6 +52,7 @@ import { NotificationsController } from "./notifications.controller";
     PermissionsModule,
     WorkflowModule,
     NotificationsModule,
+    TelephonyModule,
   ],
   controllers: [
     AdminManualController,

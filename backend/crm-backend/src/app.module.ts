@@ -1,5 +1,7 @@
 import { Module } from "@nestjs/common";
+import { APP_GUARD } from "@nestjs/core";
 import { ScheduleModule } from "@nestjs/schedule";
+import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 
@@ -45,12 +47,22 @@ import { NotificationsModule } from "./notifications/notifications.module";
 // Core Integration (webhook sync from external core system)
 import { CoreIntegrationModule } from "./core-integration/core-integration.module";
 
+// Telephony / Call Center
+import { TelephonyModule } from "./telephony/telephony.module";
+
+// Client Chats (Unified Inbox)
+import { ClientChatsModule } from "./clientchats/clientchats.module";
+
+// Client Intelligence
+import { ClientIntelligenceModule } from "./client-intelligence/client-intelligence.module";
+
 import { V1Module } from "./v1/v1.module";
 
 @Module({
   imports: [
     // Infra
     ScheduleModule.forRoot(),
+    ThrottlerModule.forRoot({ throttlers: [{ ttl: 60_000, limit: 60 }] }),
     PrismaModule,
     AuthModule,
 
@@ -95,10 +107,22 @@ import { V1Module } from "./v1/v1.module";
     // Core Integration (webhook sync)
     CoreIntegrationModule,
 
+    // Telephony / Call Center
+    TelephonyModule,
+
+    // Client Chats (Unified Inbox)
+    ClientChatsModule,
+
+    // Client Intelligence
+    ClientIntelligenceModule,
+
     // API controllers (v1)
     V1Module,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+  ],
 })
 export class AppModule {}

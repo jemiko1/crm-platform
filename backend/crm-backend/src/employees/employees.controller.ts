@@ -16,6 +16,7 @@ import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PositionPermissionGuard } from '../common/guards/position-permission.guard';
 import { RequirePermission } from '../common/decorators/require-permission.decorator';
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 class ResetPasswordDto {
   @IsString()
@@ -57,11 +58,14 @@ export class EmployeesController {
     @Query('status') status?: string,
     @Query('search') search?: string,
     @Query('includeTerminated') includeTerminated?: string,
+    @Query() pagination?: PaginationDto,
   ) {
     return this.employeesService.findAll(
       status,
       search,
       includeTerminated === 'true',
+      pagination?.page,
+      pagination?.pageSize,
     );
   }
 

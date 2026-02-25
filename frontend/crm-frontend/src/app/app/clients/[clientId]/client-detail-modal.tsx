@@ -94,16 +94,11 @@ export default function ClientDetailModal({ open, onClose, clientId, onUpdate }:
       try {
         setLoading(true);
         setError(null);
-        const data = await apiGet<Client[]>("/v1/clients", { cache: "no-store" });
         const clientCoreId = Number(clientId);
-        const foundClient = Array.isArray(data) ? data.find((c) => Number(c.coreId) === clientCoreId) : null;
-        
+        const foundClient = await apiGet<Client>(`/v1/clients/${clientCoreId}`, { cache: "no-store" });
+
         if (!cancelled) {
-          if (foundClient) {
-            setClient(foundClient);
-          } else {
-            setError(`Client ${clientId} not found`);
-          }
+          setClient(foundClient);
         }
       } catch (err: any) {
         if (!cancelled) {

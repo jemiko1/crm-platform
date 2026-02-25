@@ -28,6 +28,7 @@ const ALL_ITEMS: NavItemDef[] = [
   { href: "/app/sales/dashboard", label: "Sales", labelKey: "sidebar.sales", iconKey: "sales", requiredPermission: "sales.menu" },
   { href: "/app/inventory", label: "Inventory", labelKey: "sidebar.inventory", iconKey: "box", requiredPermission: "inventory.menu" },
   { href: "/app/employees", label: "Employees", labelKey: "sidebar.employees", iconKey: "employees", requiredPermission: "employees.menu" },
+  { href: "/app/client-chats", label: "Client Chats", labelKey: "sidebar.clientChats", iconKey: "clientChats", requiredPermission: "client_chats.menu" },
   { href: "/app/admin", label: "Admin", labelKey: "sidebar.admin", iconKey: "admin", requiredPermission: "admin.menu" },
 ];
 
@@ -41,6 +42,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   sales: <IconSales />,
   box: <IconBox />,
   employees: <IconEmployees />,
+  clientChats: <IconClientChats />,
   admin: <IconAdmin />,
 };
 
@@ -608,6 +610,25 @@ function IconAdmin() {
       />
       <path
         d="M12 2v5M12 12v5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function IconClientChats() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M8 10h8M8 13h5"
         stroke="currentColor"
         strokeWidth="1.8"
         strokeLinecap="round"

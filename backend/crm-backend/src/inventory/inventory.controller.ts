@@ -21,6 +21,7 @@ import {
   CreateStockAdjustmentDto,
   DeductStockForWorkOrderDto,
 } from './inventory.dto';
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @Controller('v1/inventory')
 @UseGuards(JwtAuthGuard)
@@ -37,14 +38,13 @@ export class InventoryController {
   findAllProducts(
     @Query('category') category?: string,
     @Query('lowStock') lowStock?: string,
-    @Query('page') page?: string,
-    @Query('pageSize') pageSize?: string,
+    @Query() pagination?: PaginationDto,
   ) {
     return this.inventoryService.findAllProducts(
       category,
       lowStock === 'true',
-      page ? parseInt(page, 10) : 1,
-      pageSize ? parseInt(pageSize, 10) : 50,
+      pagination?.page ?? 1,
+      pagination?.pageSize ?? 50,
     );
   }
 
@@ -70,8 +70,8 @@ export class InventoryController {
   }
 
   @Get('purchase-orders')
-  findAllPurchaseOrders(@Query('status') status?: string) {
-    return this.inventoryService.findAllPurchaseOrders(status);
+  findAllPurchaseOrders(@Query('status') status?: string, @Query() pagination?: PaginationDto) {
+    return this.inventoryService.findAllPurchaseOrders(status, pagination?.page, pagination?.pageSize);
   }
 
   @Get('purchase-orders/:id')
@@ -107,13 +107,13 @@ export class InventoryController {
 
   // ===== TRANSACTIONS & REPORTING =====
   @Get('transactions')
-  getTransactions(@Query('productId') productId?: string, @Query('limit') limit?: string) {
-    return this.inventoryService.getTransactions(productId, limit ? parseInt(limit) : 100);
+  getTransactions(@Query('productId') productId?: string, @Query() pagination?: PaginationDto) {
+    return this.inventoryService.getTransactions(productId, pagination?.page, pagination?.pageSize);
   }
 
   @Get('reports/low-stock')
-  getLowStockProducts() {
-    return this.inventoryService.getLowStockProducts();
+  getLowStockProducts(@Query() pagination?: PaginationDto) {
+    return this.inventoryService.getLowStockProducts(pagination?.page, pagination?.pageSize);
   }
 
   @Get('reports/inventory-value')

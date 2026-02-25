@@ -222,34 +222,32 @@ export class WorkflowService {
       notificationType?: "TASK" | "NOTIFICATION" | "BOTH";
     },
   ) {
-    // Verify step exists
     await this.findStepById(stepId);
 
-    // Remove all existing assignments
-    await this.prisma.workflowStepPosition.deleteMany({
-      where: { workflowStepId: stepId },
-    });
-
-    // Create new assignments
-    if (positionIds.length > 0) {
-      // Verify all positions exist
-      const positions = await this.prisma.position.findMany({
-        where: { id: { in: positionIds } },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.workflowStepPosition.deleteMany({
+        where: { workflowStepId: stepId },
       });
 
-      if (positions.length !== positionIds.length) {
-        throw new BadRequestException("One or more positions not found");
+      if (positionIds.length > 0) {
+        const positions = await tx.position.findMany({
+          where: { id: { in: positionIds } },
+        });
+
+        if (positions.length !== positionIds.length) {
+          throw new BadRequestException("One or more positions not found");
+        }
+
+        await tx.workflowStepPosition.createMany({
+          data: positionIds.map((positionId) => ({
+            workflowStepId: stepId,
+            positionId,
+            isPrimaryAssignee: options?.isPrimaryAssignee ?? true,
+            notificationType: options?.notificationType ?? "TASK",
+          })),
+        });
       }
-
-      await this.prisma.workflowStepPosition.createMany({
-        data: positionIds.map((positionId) => ({
-          workflowStepId: stepId,
-          positionId,
-          isPrimaryAssignee: options?.isPrimaryAssignee ?? true,
-          notificationType: options?.notificationType ?? "TASK",
-        })),
-      });
-    }
+    });
 
     return this.findStepById(stepId);
   }

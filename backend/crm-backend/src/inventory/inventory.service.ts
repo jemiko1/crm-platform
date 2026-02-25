@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { paginate, buildPaginatedResponse } from '../common/dto/pagination.dto';
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -181,10 +182,13 @@ export class InventoryService {
 
   // ===== PURCHASE ORDERS =====
   async createPurchaseOrder(dto: CreatePurchaseOrderDto) {
-    // Generate PO number
     const year = new Date().getFullYear();
-    const count = await this.prisma.purchaseOrder.count();
-    const poNumber = `PO-${year}-${String(count + 1).padStart(3, '0')}`;
+    const counter = await this.prisma.externalIdCounter.upsert({
+      where: { entity: 'purchase_order' },
+      update: { nextId: { increment: 1 } },
+      create: { entity: 'purchase_order', nextId: 1 },
+    });
+    const poNumber = `PO-${year}-${String(counter.nextId).padStart(3, '0')}`;
 
     let totalAmount = new Prisma.Decimal(0);
 
@@ -224,23 +228,26 @@ export class InventoryService {
     });
   }
 
-  async findAllPurchaseOrders(status?: string) {
+  async findAllPurchaseOrders(status?: string, page = 1, pageSize = 20) {
     const where: any = {};
     if (status) {
       where.status = status;
     }
 
-    return this.prisma.purchaseOrder.findMany({
-      where,
-      include: {
-        items: {
-          include: {
-            product: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const { skip, take } = paginate(page, pageSize);
+
+    const [data, total] = await Promise.all([
+      this.prisma.purchaseOrder.findMany({
+        where,
+        include: { items: { include: { product: true } } },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take,
+      }),
+      this.prisma.purchaseOrder.count({ where }),
+    ]);
+
+    return buildPaginatedResponse(data, total, page, pageSize);
   }
 
   async findOnePurchaseOrder(id: string) {
@@ -341,52 +348,49 @@ export class InventoryService {
     });
   }
 
-  // Receive purchase order and create stock batches
   private async receivePurchaseOrder(poId: string, receivedDateStr?: string) {
     const po = await this.findOnePurchaseOrder(poId);
     const receivedDate = receivedDateStr ? new Date(receivedDateStr) : new Date();
 
-    // Create stock batches for each item
-    for (const item of po.items) {
-      // Create batch
-      await this.prisma.stockBatch.create({
-        data: {
-          productId: item.productId,
-          purchaseOrderItemId: item.id,
-          initialQuantity: item.quantity,
-          remainingQuantity: item.quantity,
-          purchasePrice: item.purchasePrice,
-          sellPrice: item.sellPrice,
-          receivedDate,
-        },
-      });
+    await this.prisma.$transaction(async (tx) => {
+      for (const item of po.items) {
+        await tx.stockBatch.create({
+          data: {
+            productId: item.productId,
+            purchaseOrderItemId: item.id,
+            initialQuantity: item.quantity,
+            remainingQuantity: item.quantity,
+            purchasePrice: item.purchasePrice,
+            sellPrice: item.sellPrice,
+            receivedDate,
+          },
+        });
 
-      // Update product stock
-      const product = await this.prisma.inventoryProduct.findUnique({
-        where: { id: item.productId },
-      });
+        const product = await tx.inventoryProduct.findUnique({
+          where: { id: item.productId },
+        });
 
-      const balanceBefore = product!.currentStock;
-      const balanceAfter = balanceBefore + item.quantity;
+        const balanceBefore = product!.currentStock;
+        const balanceAfter = balanceBefore + item.quantity;
 
-      await this.prisma.inventoryProduct.update({
-        where: { id: item.productId },
-        data: { currentStock: balanceAfter },
-      });
+        await tx.inventoryProduct.update({
+          where: { id: item.productId },
+          data: { currentStock: balanceAfter },
+        });
 
-      // Create transaction record
-      await this.prisma.stockTransaction.create({
-        data: {
-          productId: item.productId,
-          type: 'PURCHASE_IN',
-          quantity: item.quantity,
-          referenceId: poId,
-          balanceBefore,
-          balanceAfter,
-          notes: `Received from PO ${po.poNumber}`,
-        },
-      });
-    }
+        await tx.stockTransaction.create({
+          data: {
+            productId: item.productId,
+            type: 'PURCHASE_IN',
+            quantity: item.quantity,
+            referenceId: poId,
+            balanceBefore,
+            balanceAfter,
+            notes: `Received from PO ${po.poNumber}`,
+          },
+        });
+      }
+    });
   }
 
   // ===== STOCK ADJUSTMENTS =====
@@ -401,140 +405,162 @@ export class InventoryService {
       throw new BadRequestException('Insufficient stock for this adjustment');
     }
 
-    // Create transaction
-    const transaction = await this.prisma.stockTransaction.create({
-      data: {
-        productId: dto.productId,
-        type: dto.type,
-        quantity: isIncrease ? dto.quantity : -dto.quantity,
-        balanceBefore,
-        balanceAfter,
-        performedBy,
-        notes: dto.notes,
-      },
-    });
+    return this.prisma.$transaction(async (tx) => {
+      const transaction = await tx.stockTransaction.create({
+        data: {
+          productId: dto.productId,
+          type: dto.type,
+          quantity: isIncrease ? dto.quantity : -dto.quantity,
+          balanceBefore,
+          balanceAfter,
+          performedBy,
+          notes: dto.notes,
+        },
+      });
 
-    // Update product stock
-    await this.prisma.inventoryProduct.update({
-      where: { id: dto.productId },
-      data: { currentStock: balanceAfter },
-    });
+      await tx.inventoryProduct.update({
+        where: { id: dto.productId },
+        data: { currentStock: balanceAfter },
+      });
 
-    return transaction;
+      return transaction;
+    });
   }
 
   // ===== WORK ORDER INTEGRATION =====
   async deductStockForWorkOrder(dto: DeductStockForWorkOrderDto) {
-    const results: Array<{ productId: string; productName: string; deducted: number }> = [];
+    return this.prisma.$transaction(async (tx) => {
+      const results: Array<{ productId: string; productName: string; deducted: number }> = [];
 
-    for (const item of dto.items) {
-      const product = await this.findOneProduct(item.productId);
-
-      if (product.currentStock < item.quantity) {
-        throw new BadRequestException(
-          `Insufficient stock for ${product.name}. Available: ${product.currentStock}, Requested: ${item.quantity}`,
-        );
-      }
-
-      // Deduct using FIFO
-      let remainingToDeduct = item.quantity;
-      const batches = await this.prisma.stockBatch.findMany({
-        where: {
-          productId: item.productId,
-          remainingQuantity: { gt: 0 },
-        },
-        orderBy: { receivedDate: 'asc' }, // FIFO
-      });
-
-      for (const batch of batches) {
-        if (remainingToDeduct <= 0) break;
-
-        const deductFromBatch = Math.min(batch.remainingQuantity, remainingToDeduct);
-
-        // Update batch
-        await this.prisma.stockBatch.update({
-          where: { id: batch.id },
-          data: {
-            remainingQuantity: batch.remainingQuantity - deductFromBatch,
-          },
-        });
-
-        remainingToDeduct -= deductFromBatch;
-
-        // Create transaction for this batch
-        const balanceBefore = product.currentStock;
-        const balanceAfter = balanceBefore - deductFromBatch;
-
-        await this.prisma.stockTransaction.create({
-          data: {
-            productId: item.productId,
-            batchId: batch.id,
-            type: 'WORK_ORDER_OUT',
-            quantity: -deductFromBatch,
-            workOrderId: dto.workOrderId,
-            balanceBefore,
-            balanceAfter,
-            performedBy: dto.performedBy,
-            notes: dto.notes || `Used for work order ${dto.workOrderId}`,
-          },
-        });
-
-        // Update product stock
-        await this.prisma.inventoryProduct.update({
+      for (const item of dto.items) {
+        const product = await tx.inventoryProduct.findUnique({
           where: { id: item.productId },
-          data: { currentStock: balanceAfter },
+          include: {
+            stockBatches: {
+              where: { remainingQuantity: { gt: 0 } },
+              orderBy: { receivedDate: 'asc' },
+            },
+            stockTransactions: {
+              take: 20,
+              orderBy: { createdAt: 'desc' },
+            },
+          },
         });
 
-        product.currentStock = balanceAfter;
+        if (!product) {
+          throw new NotFoundException(`Product with ID ${item.productId} not found`);
+        }
+
+        if (product.currentStock < item.quantity) {
+          throw new BadRequestException(
+            `Insufficient stock for ${product.name}. Available: ${product.currentStock}, Requested: ${item.quantity}`,
+          );
+        }
+
+        let remainingToDeduct = item.quantity;
+        const batches = await tx.stockBatch.findMany({
+          where: {
+            productId: item.productId,
+            remainingQuantity: { gt: 0 },
+          },
+          orderBy: { receivedDate: 'asc' },
+        });
+
+        let currentStock = product.currentStock;
+
+        for (const batch of batches) {
+          if (remainingToDeduct <= 0) break;
+
+          const deductFromBatch = Math.min(batch.remainingQuantity, remainingToDeduct);
+
+          await tx.stockBatch.update({
+            where: { id: batch.id },
+            data: {
+              remainingQuantity: batch.remainingQuantity - deductFromBatch,
+            },
+          });
+
+          remainingToDeduct -= deductFromBatch;
+
+          const balanceBefore = currentStock;
+          const balanceAfter = balanceBefore - deductFromBatch;
+
+          await tx.stockTransaction.create({
+            data: {
+              productId: item.productId,
+              batchId: batch.id,
+              type: 'WORK_ORDER_OUT',
+              quantity: -deductFromBatch,
+              workOrderId: dto.workOrderId,
+              balanceBefore,
+              balanceAfter,
+              performedBy: dto.performedBy,
+              notes: dto.notes || `Used for work order ${dto.workOrderId}`,
+            },
+          });
+
+          await tx.inventoryProduct.update({
+            where: { id: item.productId },
+            data: { currentStock: balanceAfter },
+          });
+
+          currentStock = balanceAfter;
+        }
+
+        results.push({
+          productId: item.productId,
+          productName: product.name,
+          deducted: item.quantity,
+        });
       }
 
-      results.push({
-        productId: item.productId,
-        productName: product.name,
-        deducted: item.quantity,
-      });
-    }
-
-    return results;
+      return results;
+    });
   }
 
   // ===== TRANSACTIONS LOG =====
-  async getTransactions(productId?: string, limit = 100) {
+  async getTransactions(productId?: string, page = 1, pageSize = 50) {
     const where: any = {};
     if (productId) {
       where.productId = productId;
     }
 
-    return this.prisma.stockTransaction.findMany({
-      where,
-      include: {
-        product: true,
-        batch: {
-          include: {
-            purchaseOrderItem: {
-              include: {
-                purchaseOrder: true,
-              },
-            },
-          },
+    const { skip, take } = paginate(page, pageSize);
+
+    const [data, total] = await Promise.all([
+      this.prisma.stockTransaction.findMany({
+        where,
+        include: {
+          product: true,
+          batch: { include: { purchaseOrderItem: { include: { purchaseOrder: true } } } },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-    });
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take,
+      }),
+      this.prisma.stockTransaction.count({ where }),
+    ]);
+
+    return buildPaginatedResponse(data, total, page, pageSize);
   }
 
   // ===== REPORTING =====
-  async getLowStockProducts() {
-    return this.prisma.inventoryProduct.findMany({
-      where: {
-        isActive: true,
-        currentStock: {
-          lte: this.prisma.inventoryProduct.fields.lowStockThreshold,
-        },
+  async getLowStockProducts(page = 1, pageSize = 20) {
+    const where = {
+      isActive: true,
+      currentStock: {
+        lte: this.prisma.inventoryProduct.fields.lowStockThreshold,
       },
-      orderBy: { currentStock: 'asc' },
-    });
+    };
+
+    const { skip, take } = paginate(page, pageSize);
+
+    const [data, total] = await Promise.all([
+      this.prisma.inventoryProduct.findMany({ where, orderBy: { currentStock: 'asc' }, skip, take }),
+      this.prisma.inventoryProduct.count({ where }),
+    ]);
+
+    return buildPaginatedResponse(data, total, page, pageSize);
   }
 
   async getInventoryValue() {

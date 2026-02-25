@@ -334,33 +334,38 @@ export class LeadsService {
 
     const previousStage = lead.stage;
 
-    const updated = await this.prisma.lead.update({
-      where: { id },
-      data: { stageId: dto.stageId },
-      include: { stage: true },
-    });
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.lead.update({
+        where: { id },
+        data: { stageId: dto.stageId },
+        include: { stage: true },
+      });
 
-    // Record stage history
-    await this.prisma.leadStageHistory.create({
-      data: {
-        leadId: id,
-        fromStageId: previousStage.id,
-        toStageId: newStage.id,
-        reason: dto.reason,
-        changedById: employeeId,
-      },
-    });
+      await tx.leadStageHistory.create({
+        data: {
+          leadId: id,
+          fromStageId: previousStage.id,
+          toStageId: newStage.id,
+          reason: dto.reason,
+          changedById: employeeId,
+        },
+      });
 
-    await this.activityService.logActivity({
-      leadId: id,
-      activityType: LeadActivityType.STAGE_CHANGED,
-      category: 'MAIN',
-      action: 'Stage Changed',
-      description: `Stage changed from "${previousStage.name}" to "${newStage.name}"${dto.reason ? ` - Reason: ${dto.reason}` : ''}`,
-      performedById: employeeId,
-      previousValues: { stageId: previousStage.id, stageName: previousStage.name },
-      newValues: { stageId: newStage.id, stageName: newStage.name },
-      metadata: { reason: dto.reason },
+      await tx.leadActivity.create({
+        data: {
+          leadId: id,
+          activityType: LeadActivityType.STAGE_CHANGED,
+          category: 'MAIN',
+          action: 'Stage Changed',
+          description: `Stage changed from "${previousStage.name}" to "${newStage.name}"${dto.reason ? ` - Reason: ${dto.reason}` : ''}`,
+          performedById: employeeId,
+          previousValues: { stageId: previousStage.id, stageName: previousStage.name },
+          newValues: { stageId: newStage.id, stageName: newStage.name },
+          metadata: { reason: dto.reason },
+        },
+      });
+
+      return result;
     });
 
     return updated;
@@ -409,69 +414,76 @@ export class LeadsService {
     );
 
     if (isHeadOfSales) {
-      // Skip approval stage - directly mark as won
       const wonStage = await this.prisma.leadStage.findFirst({
         where: { code: 'WON', isActive: true },
       });
 
       if (wonStage) {
-        await this.prisma.lead.update({
-          where: { id },
-          data: {
-            stageId: wonStage.id,
-            status: LeadStatus.WON,
-            wonAt: new Date(),
-            approvedAt: new Date(),
-            approvedBy: employeeId,
-          },
-        });
+        await this.prisma.$transaction(async (tx) => {
+          await tx.lead.update({
+            where: { id },
+            data: {
+              stageId: wonStage.id,
+              status: LeadStatus.WON,
+              wonAt: new Date(),
+              approvedAt: new Date(),
+              approvedBy: employeeId,
+            },
+          });
 
-        await this.activityService.logActivity({
-          leadId: id,
-          activityType: LeadActivityType.LEAD_APPROVED,
-          category: 'MAIN',
-          action: 'Lead Auto-Approved',
-          description: 'Lead automatically approved (Head of Sales is responsible)',
-          performedById: employeeId,
+          await tx.leadActivity.create({
+            data: {
+              leadId: id,
+              activityType: LeadActivityType.LEAD_APPROVED,
+              category: 'MAIN',
+              action: 'Lead Auto-Approved',
+              description: 'Lead automatically approved (Head of Sales is responsible)',
+              performedById: employeeId,
+            },
+          });
         });
 
         return this.findOne(id);
       }
     }
 
-    // Lock the lead and move to approval stage
-    const updated = await this.prisma.lead.update({
-      where: { id },
-      data: {
-        isLocked: true,
-        lockedAt: new Date(),
-        lockedBy: employeeId,
-        stageId: approvalStage.id,
-        submittedForApprovalAt: new Date(),
-        submittedForApprovalBy: employeeId,
-      },
-      include: { stage: true },
-    });
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.lead.update({
+        where: { id },
+        data: {
+          isLocked: true,
+          lockedAt: new Date(),
+          lockedBy: employeeId,
+          stageId: approvalStage.id,
+          submittedForApprovalAt: new Date(),
+          submittedForApprovalBy: employeeId,
+        },
+        include: { stage: true },
+      });
 
-    // Record stage history
-    await this.prisma.leadStageHistory.create({
-      data: {
-        leadId: id,
-        fromStageId: lead.stageId,
-        toStageId: approvalStage.id,
-        reason: dto.notes || 'Submitted for approval',
-        changedById: employeeId,
-      },
-    });
+      await tx.leadStageHistory.create({
+        data: {
+          leadId: id,
+          fromStageId: lead.stageId,
+          toStageId: approvalStage.id,
+          reason: dto.notes || 'Submitted for approval',
+          changedById: employeeId,
+        },
+      });
 
-    await this.activityService.logActivity({
-      leadId: id,
-      activityType: LeadActivityType.LEAD_LOCKED,
-      category: 'MAIN',
-      action: 'Submitted for Approval',
-      description: `Lead locked and submitted for approval${dto.notes ? ` - Notes: ${dto.notes}` : ''}`,
-      performedById: employeeId,
-      metadata: { notes: dto.notes },
+      await tx.leadActivity.create({
+        data: {
+          leadId: id,
+          activityType: LeadActivityType.LEAD_LOCKED,
+          category: 'MAIN',
+          action: 'Submitted for Approval',
+          description: `Lead locked and submitted for approval${dto.notes ? ` - Notes: ${dto.notes}` : ''}`,
+          performedById: employeeId,
+          metadata: { notes: dto.notes } as any,
+        },
+      });
+
+      return result;
     });
 
     return updated;
@@ -508,80 +520,91 @@ export class LeadsService {
       throw new BadRequestException('Won stage not configured');
     }
 
-    const updated = await this.prisma.lead.update({
-      where: { id: lead.id },
-      data: {
-        stageId: wonStage.id,
-        status: LeadStatus.WON,
-        wonAt: new Date(),
-        approvedAt: new Date(),
-        approvedBy: employeeId,
-        approvalNotes: notes,
-      },
-      include: { stage: true },
-    });
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.lead.update({
+        where: { id: lead.id },
+        data: {
+          stageId: wonStage.id,
+          status: LeadStatus.WON,
+          wonAt: new Date(),
+          approvedAt: new Date(),
+          approvedBy: employeeId,
+          approvalNotes: notes,
+        },
+        include: { stage: true },
+      });
 
-    await this.prisma.leadStageHistory.create({
-      data: {
-        leadId: lead.id,
-        fromStageId: lead.stageId,
-        toStageId: wonStage.id,
-        reason: notes || 'Approved',
-        changedById: employeeId,
-      },
-    });
+      await tx.leadStageHistory.create({
+        data: {
+          leadId: lead.id,
+          fromStageId: lead.stageId,
+          toStageId: wonStage.id,
+          reason: notes || 'Approved',
+          changedById: employeeId,
+        },
+      });
 
-    await this.activityService.logActivity({
-      leadId: lead.id,
-      activityType: LeadActivityType.LEAD_APPROVED,
-      category: 'MAIN',
-      action: 'Lead Approved',
-      description: `Lead approved and marked as Won${notes ? ` - Notes: ${notes}` : ''}`,
-      performedById: employeeId,
-      metadata: { notes },
+      await tx.leadActivity.create({
+        data: {
+          leadId: lead.id,
+          activityType: LeadActivityType.LEAD_APPROVED,
+          category: 'MAIN',
+          action: 'Lead Approved',
+          description: `Lead approved and marked as Won${notes ? ` - Notes: ${notes}` : ''}`,
+          performedById: employeeId,
+          metadata: { notes } as any,
+        },
+      });
+
+      return result;
     });
 
     return updated;
   }
 
   private async unlockLead(lead: any, employeeId: string, notes?: string) {
-    // Get the negotiation stage (or previous stage)
     const previousStage = await this.prisma.leadStage.findFirst({
       where: { code: 'NEGOTIATION', isActive: true },
     });
 
-    const updated = await this.prisma.lead.update({
-      where: { id: lead.id },
-      data: {
-        isLocked: false,
-        lockedAt: null,
-        lockedBy: null,
-        stageId: previousStage?.id || lead.stageId,
-        approvalNotes: notes,
-      },
-      include: { stage: true },
-    });
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.lead.update({
+        where: { id: lead.id },
+        data: {
+          isLocked: false,
+          lockedAt: null,
+          lockedBy: null,
+          stageId: previousStage?.id || lead.stageId,
+          approvalNotes: notes,
+        },
+        include: { stage: true },
+      });
 
-    if (previousStage) {
-      await this.prisma.leadStageHistory.create({
+      if (previousStage) {
+        await tx.leadStageHistory.create({
+          data: {
+            leadId: lead.id,
+            fromStageId: lead.stageId,
+            toStageId: previousStage.id,
+            reason: notes || 'Returned for corrections',
+            changedById: employeeId,
+          },
+        });
+      }
+
+      await tx.leadActivity.create({
         data: {
           leadId: lead.id,
-          fromStageId: lead.stageId,
-          toStageId: previousStage.id,
-          reason: notes || 'Returned for corrections',
-          changedById: employeeId,
+          activityType: LeadActivityType.LEAD_UNLOCKED,
+          category: 'MAIN',
+          action: 'Lead Unlocked',
+          description: `Lead unlocked and returned for corrections${notes ? ` - Notes: ${notes}` : ''}`,
+          performedById: employeeId,
+          metadata: { notes } as any,
         },
       });
-    }
 
-    await this.activityService.logActivity({
-      leadId: lead.id,
-      activityType: LeadActivityType.LEAD_UNLOCKED,
-      category: 'MAIN',
-      action: 'Lead Unlocked',
-      description: `Lead unlocked and returned for corrections${notes ? ` - Notes: ${notes}` : ''}`,
-      performedById: employeeId,
-      metadata: { notes },
+      return result;
     });
 
     return updated;
@@ -596,37 +619,43 @@ export class LeadsService {
       throw new BadRequestException('Lost stage not configured');
     }
 
-    const updated = await this.prisma.lead.update({
-      where: { id: lead.id },
-      data: {
-        stageId: lostStage.id,
-        status: LeadStatus.LOST,
-        isLocked: false,
-        lostAt: new Date(),
-        lostReason: lostReason || notes,
-        approvalNotes: notes,
-      },
-      include: { stage: true },
-    });
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.lead.update({
+        where: { id: lead.id },
+        data: {
+          stageId: lostStage.id,
+          status: LeadStatus.LOST,
+          isLocked: false,
+          lostAt: new Date(),
+          lostReason: lostReason || notes,
+          approvalNotes: notes,
+        },
+        include: { stage: true },
+      });
 
-    await this.prisma.leadStageHistory.create({
-      data: {
-        leadId: lead.id,
-        fromStageId: lead.stageId,
-        toStageId: lostStage.id,
-        reason: lostReason || notes || 'Cancelled',
-        changedById: employeeId,
-      },
-    });
+      await tx.leadStageHistory.create({
+        data: {
+          leadId: lead.id,
+          fromStageId: lead.stageId,
+          toStageId: lostStage.id,
+          reason: lostReason || notes || 'Cancelled',
+          changedById: employeeId,
+        },
+      });
 
-    await this.activityService.logActivity({
-      leadId: lead.id,
-      activityType: LeadActivityType.LEAD_CANCELLED,
-      category: 'MAIN',
-      action: 'Lead Cancelled',
-      description: `Lead cancelled and marked as Lost${lostReason ? ` - Reason: ${lostReason}` : ''}`,
-      performedById: employeeId,
-      metadata: { notes, lostReason },
+      await tx.leadActivity.create({
+        data: {
+          leadId: lead.id,
+          activityType: LeadActivityType.LEAD_CANCELLED,
+          category: 'MAIN',
+          action: 'Lead Cancelled',
+          description: `Lead cancelled and marked as Lost${lostReason ? ` - Reason: ${lostReason}` : ''}`,
+          performedById: employeeId,
+          metadata: { notes, lostReason } as any,
+        },
+      });
+
+      return result;
     });
 
     return updated;

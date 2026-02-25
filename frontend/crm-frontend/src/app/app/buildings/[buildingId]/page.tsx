@@ -3,7 +3,7 @@
 import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams, useRouter, usePathname } from "next/navigation";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiGetList } from "@/lib/api";
 import AddDeviceModal from "./add-device-modal";
 import AddClientModal from "./add-client-modal";
 import EditBuildingModal from "./edit-building-modal";
@@ -149,9 +149,9 @@ function BuildingDetailPageContent() {
       // Fetch building and related data in parallel
       const [buildingData, assetsData, clientsData, incidentsData] = await Promise.all([
         apiGet<Building>(`/v1/buildings/${buildingId}`, { cache: "no-store" }),
-        apiGet<Asset[]>(`/v1/buildings/${buildingId}/assets`, { cache: "no-store" }).catch(() => []),
-        apiGet<Client[]>(`/v1/buildings/${buildingId}/clients`, { cache: "no-store" }).catch(() => []),
-        apiGet<Incident[]>(`/v1/buildings/${buildingId}/incidents`, { cache: "no-store" }).catch(() => []),
+        apiGetList<Asset>(`/v1/buildings/${buildingId}/assets`, { cache: "no-store" }).catch(() => [] as Asset[]),
+        apiGetList<Client>(`/v1/buildings/${buildingId}/clients`, { cache: "no-store" }).catch(() => [] as Client[]),
+        apiGetList<Incident>(`/v1/buildings/${buildingId}/incidents`, { cache: "no-store" }).catch(() => [] as Incident[]),
       ]);
 
       if (!buildingData) {
@@ -161,7 +161,7 @@ function BuildingDetailPageContent() {
       setBuilding(buildingData);
       setAssets(assetsData);
       setClients(clientsData);
-      setIncidents(Array.isArray(incidentsData) ? incidentsData : Array.isArray((incidentsData as any)?.items) ? (incidentsData as any).items : []);
+      setIncidents(incidentsData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load data");
     } finally {
@@ -214,10 +214,9 @@ function BuildingDetailPageContent() {
     try {
       setIncidentsLoading(true);
 
-      const data = await apiGet<any>(`/v1/buildings/${buildingId}/incidents`, {
+      const arr = await apiGetList<any>(`/v1/buildings/${buildingId}/incidents`, {
         cache: "no-store",
       });
-      const arr = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
       setIncidents(arr);
     } catch (err) {
       console.error("Failed to load incidents:", err);
@@ -1348,15 +1347,22 @@ function ProductFlowTab({ buildingCoreId }: { buildingCoreId: number }) {
         setLoading(true);
         setError(null);
 
-        // Fetch all work orders for this building
-        const params = new URLSearchParams({
-          buildingId: String(buildingCoreId),
-          page: "1",
-          pageSize: "1000", // Get all work orders
-        });
-
-        const workOrdersData = await apiGet<{ data: any[]; meta: any }>(`/v1/work-orders?${params}`);
-        const workOrders = workOrdersData.data || [];
+        // Fetch all work orders for this building (paginated, max 100 per page)
+        const workOrders: any[] = [];
+        let page = 1;
+        let hasMore = true;
+        while (hasMore) {
+          const params = new URLSearchParams({
+            buildingId: String(buildingCoreId),
+            page: String(page),
+            pageSize: "100",
+          });
+          const resp = await apiGet<{ data: any[]; meta: any }>(`/v1/work-orders?${params}`);
+          const batch = resp?.data || [];
+          workOrders.push(...batch);
+          hasMore = batch.length === 100;
+          page++;
+        }
 
         // Fetch detailed info for each work order to get approved product usages
         const usagesPromises = workOrders.map(async (wo) => {

@@ -1,0 +1,22 @@
+---
+description: Git branch safety rules - enforced in every session
+globs:
+alwaysApply: true
+---
+
+# Git Branch Safety Rules
+
+## NEVER touch master or staging
+- NEVER commit to, push to, or merge into `master` or `staging`
+- NEVER create PRs targeting `master` or `staging`
+- NEVER run `git checkout master` to make changes
+
+## Branch workflow
+- All work happens on `dev` or `feature/*` branches
+- Feature branches are created FROM `dev`
+- All PRs target `dev`
+- Only the developer manually promotes: dev → staging → master
+
+## PR creation
+- Always use `--base dev` when creating PRs with `gh pr create`
+- Default base branch for all PRs is `dev`

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
+import { paginate, buildPaginatedResponse } from '../common/dto/pagination.dto';
 import * as bcrypt from 'bcrypt';
 import { UserRole } from '@prisma/client';
 
@@ -177,13 +178,12 @@ export class EmployeesService {
     });
   }
 
-  async findAll(status?: string, search?: string, includeTerminated = false) {
+  async findAll(status?: string, search?: string, includeTerminated = false, page = 1, pageSize = 20) {
     const where: any = {};
 
     if (status && status !== 'ALL') {
       where.status = status;
     } else if (!includeTerminated) {
-      // Exclude terminated (dismissed) from default list and company structure
       where.status = { not: 'TERMINATED' };
     }
 
@@ -196,25 +196,29 @@ export class EmployeesService {
       ];
     }
 
-    return this.prisma.employee.findMany({
-      where,
-      include: {
-        user: { select: { id: true, isActive: true } }, // For showing login account status
-        department: { select: { id: true, name: true, code: true } },
-        position: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-            departmentId: true,
-            department: { select: { id: true, name: true, code: true } },
-          },
+    const { skip, take } = paginate(page, pageSize);
+    const include = {
+      user: { select: { id: true, isActive: true } },
+      department: { select: { id: true, name: true, code: true } },
+      position: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          departmentId: true,
+          department: { select: { id: true, name: true, code: true } },
         },
-        role: { select: { id: true, name: true, code: true } },
-        manager: { select: { id: true, firstName: true, lastName: true } },
       },
-      orderBy: { createdAt: 'desc' },
-    });
+      role: { select: { id: true, name: true, code: true } },
+      manager: { select: { id: true, firstName: true, lastName: true } },
+    };
+
+    const [data, total] = await Promise.all([
+      this.prisma.employee.findMany({ where, include, orderBy: { createdAt: 'desc' }, skip, take }),
+      this.prisma.employee.count({ where }),
+    ]);
+
+    return buildPaginatedResponse(data, total, page, pageSize);
   }
 
   async findOne(id: string) {
@@ -300,7 +304,6 @@ export class EmployeesService {
     // Check if employee exists
     const employee = await this.findOne(id);
 
-    // Check if email is being changed and if it's unique
     if (updateEmployeeDto.email && updateEmployeeDto.email !== employee.email) {
       const existingEmployee = await this.prisma.employee.findUnique({
         where: { email: updateEmployeeDto.email },
@@ -308,14 +311,6 @@ export class EmployeesService {
 
       if (existingEmployee && existingEmployee.id !== id) {
         throw new BadRequestException('Employee with this email already exists');
-      }
-
-      // Also update User email if it exists
-      if (employee.userId) {
-        await this.prisma.user.update({
-          where: { id: employee.userId },
-          data: { email: updateEmployeeDto.email },
-        });
       }
     }
 
@@ -398,16 +393,11 @@ export class EmployeesService {
       }
     }
 
-    // Update password if provided
+    let passwordHash: string | undefined;
     if (updateEmployeeDto.password && employee.userId) {
-      const passwordHash = await bcrypt.hash(updateEmployeeDto.password, 10);
-      await this.prisma.user.update({
-        where: { id: employee.userId },
-        data: { passwordHash },
-      });
+      passwordHash = await bcrypt.hash(updateEmployeeDto.password, 10);
     }
 
-    // Determine UserRole from Role if roleId is being updated
     let userRole: UserRole | undefined;
     if (updateEmployeeDto.roleId) {
       const role = await this.prisma.role.findUnique({
@@ -419,23 +409,6 @@ export class EmployeesService {
       }
     }
 
-    // Update User role if needed
-    if (userRole && employee.userId) {
-      await this.prisma.user.update({
-        where: { id: employee.userId },
-        data: { role: userRole },
-      });
-    }
-
-    // Update User isActive based on status
-    if (updateEmployeeDto.status && employee.userId) {
-      await this.prisma.user.update({
-        where: { id: employee.userId },
-        data: { isActive: updateEmployeeDto.status !== 'TERMINATED' },
-      });
-    }
-
-    // Update Employee
     const updateData: any = {
       firstName: updateEmployeeDto.firstName,
       lastName: updateEmployeeDto.lastName,
@@ -455,20 +428,49 @@ export class EmployeesService {
       managerId: updateEmployeeDto.managerId,
     };
 
-    // Update jobTitle if position changed or if explicitly set
     if (jobTitle !== undefined) {
       updateData.jobTitle = jobTitle;
     }
 
-    return this.prisma.employee.update({
-      where: { id },
-      data: updateData,
-      include: {
-        user: { select: { id: true, email: true, role: true, isActive: true } },
-        department: { select: { id: true, name: true, code: true } },
-        role: { select: { id: true, name: true, code: true } },
-        manager: { select: { id: true, firstName: true, lastName: true } },
-      },
+    return this.prisma.$transaction(async (tx) => {
+      if (updateEmployeeDto.email && updateEmployeeDto.email !== employee.email && employee.userId) {
+        await tx.user.update({
+          where: { id: employee.userId },
+          data: { email: updateEmployeeDto.email },
+        });
+      }
+
+      if (passwordHash && employee.userId) {
+        await tx.user.update({
+          where: { id: employee.userId },
+          data: { passwordHash },
+        });
+      }
+
+      if (userRole && employee.userId) {
+        await tx.user.update({
+          where: { id: employee.userId },
+          data: { role: userRole },
+        });
+      }
+
+      if (updateEmployeeDto.status && employee.userId) {
+        await tx.user.update({
+          where: { id: employee.userId },
+          data: { isActive: updateEmployeeDto.status !== 'TERMINATED' },
+        });
+      }
+
+      return tx.employee.update({
+        where: { id },
+        data: updateData,
+        include: {
+          user: { select: { id: true, email: true, role: true, isActive: true } },
+          department: { select: { id: true, name: true, code: true } },
+          role: { select: { id: true, name: true, code: true } },
+          manager: { select: { id: true, firstName: true, lastName: true } },
+        },
+      });
     });
   }
 
@@ -503,25 +505,23 @@ export class EmployeesService {
   async dismiss(id: string) {
     const employee = await this.findOne(id);
 
-    // Deactivate user account if exists
-    if (employee.userId) {
-      await this.prisma.user.update({
-        where: { id: employee.userId },
-        data: { isActive: false },
-      });
-    }
+    return this.prisma.$transaction(async (tx) => {
+      if (employee.userId) {
+        await tx.user.update({
+          where: { id: employee.userId },
+          data: { isActive: false },
+        });
+      }
 
-    // Set status to TERMINATED
-    return this.prisma.employee.update({
-      where: { id },
-      data: {
-        status: 'TERMINATED',
-      },
-      include: {
-        user: { select: { id: true, email: true, role: true, isActive: true } },
-        department: { select: { id: true, name: true, code: true } },
-        position: { select: { id: true, name: true, code: true } },
-      },
+      return tx.employee.update({
+        where: { id },
+        data: { status: 'TERMINATED' },
+        include: {
+          user: { select: { id: true, email: true, role: true, isActive: true } },
+          department: { select: { id: true, name: true, code: true } },
+          position: { select: { id: true, name: true, code: true } },
+        },
+      });
     });
   }
 
@@ -532,25 +532,23 @@ export class EmployeesService {
       throw new BadRequestException('Only terminated employees can be activated');
     }
 
-    // Reactivate user account if exists
-    if (employee.userId) {
-      await this.prisma.user.update({
-        where: { id: employee.userId },
-        data: { isActive: true },
-      });
-    }
+    return this.prisma.$transaction(async (tx) => {
+      if (employee.userId) {
+        await tx.user.update({
+          where: { id: employee.userId },
+          data: { isActive: true },
+        });
+      }
 
-    // Set status to ACTIVE
-    return this.prisma.employee.update({
-      where: { id },
-      data: {
-        status: 'ACTIVE',
-      },
-      include: {
-        user: { select: { id: true, email: true, role: true, isActive: true } },
-        department: { select: { id: true, name: true, code: true } },
-        position: { select: { id: true, name: true, code: true } },
-      },
+      return tx.employee.update({
+        where: { id },
+        data: { status: 'ACTIVE' },
+        include: {
+          user: { select: { id: true, email: true, role: true, isActive: true } },
+          department: { select: { id: true, name: true, code: true } },
+          position: { select: { id: true, name: true, code: true } },
+        },
+      });
     });
   }
 
@@ -714,125 +712,86 @@ export class EmployeesService {
       }
     }
 
-    // Cache employee name for all records before deletion
     const employeeName = `${employee.firstName} ${employee.lastName} (${employee.employeeId})`;
 
-    // Delegate ACTIVE items only (if there are any and delegate is provided)
-    if (!constraints.canDelete && delegateToEmployeeId) {
-      // Delegate ACTIVE leads (responsibleEmployeeId) - only ACTIVE status
-      await this.prisma.lead.updateMany({
-        where: { 
-          responsibleEmployeeId: id,
-          status: 'ACTIVE',
-        },
-        data: { responsibleEmployeeId: delegateToEmployeeId },
-      });
+    await this.prisma.$transaction(async (tx) => {
+      if (!constraints.canDelete && delegateToEmployeeId) {
+        await tx.lead.updateMany({
+          where: { responsibleEmployeeId: id, status: 'ACTIVE' },
+          data: { responsibleEmployeeId: delegateToEmployeeId },
+        });
 
-      // Delegate OPEN work order assignments (not COMPLETED/CANCELED)
-      await this.prisma.workOrderAssignment.updateMany({
-        where: { 
-          employeeId: id,
-          workOrder: {
-            status: { notIn: ['COMPLETED', 'CANCELED'] },
+        await tx.workOrderAssignment.updateMany({
+          where: {
+            employeeId: id,
+            workOrder: { status: { notIn: ['COMPLETED', 'CANCELED'] } },
           },
-        },
-        data: { employeeId: delegateToEmployeeId },
+          data: { employeeId: delegateToEmployeeId },
+        });
+      }
+
+      await tx.lead.updateMany({
+        where: { responsibleEmployeeId: id },
+        data: { responsibleEmployeeName: employeeName },
       });
-    }
-
-    // Cache employee name on all records that will have FK set to null
-    // This preserves the historical reference even after employee deletion
-    
-    // Cache on leads (all statuses)
-    await this.prisma.lead.updateMany({
-      where: { responsibleEmployeeId: id },
-      data: { responsibleEmployeeName: employeeName },
-    });
-    await this.prisma.lead.updateMany({
-      where: { createdById: id },
-      data: { createdByName: employeeName },
-    });
-
-    // Cache on lead notes
-    await this.prisma.leadNote.updateMany({
-      where: { createdById: id },
-      data: { createdByName: employeeName },
-    });
-
-    // Cache on lead reminders
-    await this.prisma.leadReminder.updateMany({
-      where: { createdById: id },
-      data: { createdByName: employeeName },
-    });
-
-    // Cache on lead appointments
-    await this.prisma.leadAppointment.updateMany({
-      where: { createdById: id },
-      data: { createdByName: employeeName },
-    });
-
-    // Cache on lead proposals
-    await this.prisma.leadProposal.updateMany({
-      where: { createdById: id },
-      data: { createdByName: employeeName },
-    });
-
-    // Cache on lead stage history
-    await this.prisma.leadStageHistory.updateMany({
-      where: { changedById: id },
-      data: { changedByName: employeeName },
-    });
-
-    // Cache on sales plans
-    await this.prisma.salesPlan.updateMany({
-      where: { createdById: id },
-      data: { createdByName: employeeName },
-    });
-
-    // Cache on activity logs (already has performedByName field)
-    await this.prisma.workOrderActivityLog.updateMany({
-      where: { performedById: id },
-      data: { performedByName: employeeName },
-    });
-    await this.prisma.leadActivity.updateMany({
-      where: { performedById: id },
-      data: { performedByName: employeeName },
-    });
-
-    // Update department head references
-    await this.prisma.department.updateMany({
-      where: { headId: id },
-      data: { headId: null },
-    });
-
-    // Update subordinates to have no manager
-    await this.prisma.employee.updateMany({
-      where: { managerId: id },
-      data: { managerId: null },
-    });
-
-    // Update sales plans (assigned employee and approved by)
-    await this.prisma.salesPlan.updateMany({
-      where: { employeeId: id },
-      data: { employeeId: null },
-    });
-
-    await this.prisma.salesPlan.updateMany({
-      where: { approvedById: id },
-      data: { approvedById: null },
-    });
-
-    // Delete user account if exists
-    if (employee.userId) {
-      await this.prisma.user.delete({
-        where: { id: employee.userId },
+      await tx.lead.updateMany({
+        where: { createdById: id },
+        data: { createdByName: employeeName },
       });
-    }
+      await tx.leadNote.updateMany({
+        where: { createdById: id },
+        data: { createdByName: employeeName },
+      });
+      await tx.leadReminder.updateMany({
+        where: { createdById: id },
+        data: { createdByName: employeeName },
+      });
+      await tx.leadAppointment.updateMany({
+        where: { createdById: id },
+        data: { createdByName: employeeName },
+      });
+      await tx.leadProposal.updateMany({
+        where: { createdById: id },
+        data: { createdByName: employeeName },
+      });
+      await tx.leadStageHistory.updateMany({
+        where: { changedById: id },
+        data: { changedByName: employeeName },
+      });
+      await tx.salesPlan.updateMany({
+        where: { createdById: id },
+        data: { createdByName: employeeName },
+      });
+      await tx.workOrderActivityLog.updateMany({
+        where: { performedById: id },
+        data: { performedByName: employeeName },
+      });
+      await tx.leadActivity.updateMany({
+        where: { performedById: id },
+        data: { performedByName: employeeName },
+      });
+      await tx.department.updateMany({
+        where: { headId: id },
+        data: { headId: null },
+      });
+      await tx.employee.updateMany({
+        where: { managerId: id },
+        data: { managerId: null },
+      });
+      await tx.salesPlan.updateMany({
+        where: { employeeId: id },
+        data: { employeeId: null },
+      });
+      await tx.salesPlan.updateMany({
+        where: { approvedById: id },
+        data: { approvedById: null },
+      });
 
-    // Finally, delete the employee
-    // The schema's onDelete: SetNull will automatically set FKs to null
-    await this.prisma.employee.delete({
-      where: { id },
+      if (employee.userId) {
+        await tx.user.delete({ where: { id: employee.userId } });
+      }
+
+      await tx.employee.delete({ where: { id } });
     });
 
     return {

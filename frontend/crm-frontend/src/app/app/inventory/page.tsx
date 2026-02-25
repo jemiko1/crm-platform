@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import { apiGet, apiPost, API_BASE } from "@/lib/api";
+import { apiGet, apiGetList, apiPost, API_BASE } from "@/lib/api";
 import AddProductModal from "./add-product-modal";
 import EditProductModal from "./edit-product-modal";
 import CreatePurchaseOrderModal from "./create-purchase-order-modal";
@@ -105,8 +105,8 @@ export default function InventoryPage() {
 
   const fetchPurchaseOrders = useCallback(async () => {
     try {
-      const data = await apiGet<PurchaseOrder[]>("/v1/inventory/purchase-orders");
-      setPurchaseOrders(Array.isArray(data) ? data : []);
+      const data = await apiGetList<PurchaseOrder>("/v1/inventory/purchase-orders");
+      setPurchaseOrders(data);
     } catch (err) {
       console.error("Failed to load purchase orders:", err);
       setPurchaseOrders([]);
@@ -115,8 +115,8 @@ export default function InventoryPage() {
 
   const fetchTransactions = useCallback(async () => {
     try {
-      const data = await apiGet<StockTransaction[]>("/v1/inventory/transactions?limit=200");
-      setTransactions(Array.isArray(data) ? data : []);
+      const data = await apiGetList<StockTransaction>("/v1/inventory/transactions?limit=200");
+      setTransactions(data);
     } catch (err) {
       console.error("Failed to load transactions:", err);
       setTransactions([]);
@@ -752,7 +752,7 @@ function DeactivatedDevicesTab() {
       try {
         setLoading(true);
         setError(null);
-        const data = await apiGet<any[]>("/v1/inventory/deactivated-devices?transferred=false");
+        const data = await apiGetList<any>("/v1/inventory/deactivated-devices?transferred=false");
         if (!cancelled) setDevices(data);
       } catch (err: any) {
         if (!cancelled) {

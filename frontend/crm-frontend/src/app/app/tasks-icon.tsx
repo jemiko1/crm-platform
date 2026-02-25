@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { apiGet, API_BASE } from "@/lib/api";
+import { apiGet, apiGetList, API_BASE } from "@/lib/api";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -46,8 +46,8 @@ export default function TasksIcon() {
         if (!cancelled && userData.email) {
           // Fetch employee by email
           try {
-            const employees = await apiGet<any[]>(`/v1/employees?search=${userData.email}`);
-            if (employees && employees.length > 0) {
+            const employees = await apiGetList<any>(`/v1/employees?search=${userData.email}`);
+            if (employees.length > 0) {
               setCurrentEmployee(employees[0]);
             }
           } catch {

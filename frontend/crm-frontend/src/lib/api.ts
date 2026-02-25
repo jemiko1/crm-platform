@@ -80,6 +80,19 @@ export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
   });
 }
 
+/**
+ * Fetch a list endpoint that may return either a plain array or
+ * a paginated wrapper `{ data: T[], meta: {...} }`.
+ * Always returns a flat T[].
+ */
+export async function apiGetList<T>(path: string, init?: RequestInit): Promise<T[]> {
+  const raw = await apiGet<any>(path, init);
+  if (Array.isArray(raw)) return raw;
+  if (raw?.data && Array.isArray(raw.data)) return raw.data;
+  if (raw?.items && Array.isArray(raw.items)) return raw.items;
+  return [];
+}
+
 export async function apiPost<T>(
   path: string,
   body: unknown,

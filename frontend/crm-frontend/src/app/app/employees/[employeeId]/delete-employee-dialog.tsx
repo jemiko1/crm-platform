@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { apiGet, apiDelete } from "@/lib/api";
+import { apiGet, apiGetList, apiDelete } from "@/lib/api";
 import { createPortal } from "react-dom";
 
 type Employee = {
@@ -89,7 +89,7 @@ export default function DeleteEmployeeDialog({
       setLoadingDetails(true);
       Promise.all([
         apiGet<DeletionConstraints>(`/v1/employees/${employee.id}/deletion-constraints`),
-        apiGet<Employee[]>("/v1/employees?status=ACTIVE"),
+        apiGetList<Employee>("/v1/employees?status=ACTIVE"),
       ])
         .then(([constraintsData, employees]) => {
           setConstraints(constraintsData);

@@ -7,6 +7,7 @@ import { PositionPermissionGuard } from "../common/guards/position-permission.gu
 import { RequirePermission } from "../common/decorators/require-permission.decorator";
 
 @Controller("v1")
+@UseGuards(JwtAuthGuard)
 export class IncidentsController {
   constructor(private readonly incidents: IncidentsService) {}
 
@@ -32,7 +33,7 @@ export class IncidentsController {
   }
 
   @Post("incidents")
-  @UseGuards(JwtAuthGuard, PositionPermissionGuard)
+  @UseGuards(PositionPermissionGuard)
   @RequirePermission('incidents.create')
   async create(@Body() dto: CreateIncidentDto, @Req() req: any) {
     const userId = req.user?.id;

@@ -94,13 +94,22 @@ export class WorkflowTriggerEngine {
             ...(trigger.workOrderType ? { type: trigger.workOrderType as WorkOrderType } : {}),
           },
           select: { id: true, type: true, title: true, workOrderNumber: true },
+          take: 200,
         });
 
+        if (stuckOrders.length === 0) continue;
+
+        const firedLogs = await this.prisma.workflowTriggerLog.findMany({
+          where: {
+            triggerId: trigger.id,
+            workOrderId: { in: stuckOrders.map((wo) => wo.id) },
+          },
+          select: { workOrderId: true },
+        });
+        const firedSet = new Set(firedLogs.map((l) => l.workOrderId));
+
         for (const wo of stuckOrders) {
-          const alreadyFired = await this.prisma.workflowTriggerLog.findUnique({
-            where: { triggerId_workOrderId: { triggerId: trigger.id, workOrderId: wo.id } },
-          });
-          if (alreadyFired) continue;
+          if (firedSet.has(wo.id)) continue;
 
           await this.prisma.workflowTriggerLog.create({
             data: { triggerId: trigger.id, workOrderId: wo.id },
@@ -130,13 +139,22 @@ export class WorkflowTriggerEngine {
             ...(trigger.workOrderType ? { type: trigger.workOrderType as WorkOrderType } : {}),
           },
           select: { id: true, type: true, title: true, workOrderNumber: true },
+          take: 200,
         });
 
+        if (approachingOrders.length === 0) continue;
+
+        const firedLogs = await this.prisma.workflowTriggerLog.findMany({
+          where: {
+            triggerId: trigger.id,
+            workOrderId: { in: approachingOrders.map((wo) => wo.id) },
+          },
+          select: { workOrderId: true },
+        });
+        const firedSet = new Set(firedLogs.map((l) => l.workOrderId));
+
         for (const wo of approachingOrders) {
-          const alreadyFired = await this.prisma.workflowTriggerLog.findUnique({
-            where: { triggerId_workOrderId: { triggerId: trigger.id, workOrderId: wo.id } },
-          });
-          if (alreadyFired) continue;
+          if (firedSet.has(wo.id)) continue;
 
           await this.prisma.workflowTriggerLog.create({
             data: { triggerId: trigger.id, workOrderId: wo.id },

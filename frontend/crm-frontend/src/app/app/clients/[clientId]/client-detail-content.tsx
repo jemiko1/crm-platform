@@ -7,6 +7,8 @@ import ReportIncidentModal from "../../incidents/report-incident-modal";
 import { apiGet, API_BASE } from "@/lib/api";
 import { usePermissions } from "@/lib/use-permissions";
 import { useModalContext } from "../../modal-manager";
+import IntelligenceProfileCard from "./intelligence/intelligence-profile-card";
+import ActivityTimeline from "./intelligence/activity-timeline";
 
 const BRAND = "rgb(8, 117, 56)";
 
@@ -504,6 +506,16 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
             ))}
           </div>
         )}
+      </div>
+
+      {/* Client Intelligence */}
+      <div className="mt-6">
+        <IntelligenceProfileCard clientCoreId={clientCoreId} />
+      </div>
+
+      {/* Activity Timeline */}
+      <div className="mt-6">
+        <ActivityTimeline clientCoreId={clientCoreId} />
       </div>
 
       {/* Report Incident Modal */}

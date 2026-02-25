@@ -3,11 +3,13 @@ import {
   createTestApp,
   closeTestApp,
   resetDatabase,
+  getAuthCookies,
   TestContext,
 } from "./helpers/test-utils";
 
 describe("Buildings (e2e)", () => {
   let ctx: TestContext;
+  let cookies: string[];
 
   beforeAll(async () => {
     ctx = await createTestApp();
@@ -19,6 +21,10 @@ describe("Buildings (e2e)", () => {
 
   beforeEach(async () => {
     await resetDatabase(ctx.prisma);
+    cookies = await getAuthCookies(ctx, {
+      email: "admin@crm.local",
+      password: "Admin123!",
+    });
   });
 
   async function seedBuilding(
@@ -37,12 +43,20 @@ describe("Buildings (e2e)", () => {
   }
 
   describe("GET /buildings", () => {
+    it("returns 401 without authentication", async () => {
+      await request(ctx.app.getHttpServer())
+        .get("/buildings")
+        .expect(401);
+    });
+
     it("returns an empty array when no buildings exist", async () => {
       const res = await request(ctx.app.getHttpServer())
         .get("/buildings")
+        .set("Cookie", cookies)
         .expect(200);
 
-      expect(res.body).toEqual([]);
+      expect(res.body.data).toEqual([]);
+      expect(res.body.meta).toEqual({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
     });
 
     it("returns buildings with counts", async () => {
@@ -51,14 +65,16 @@ describe("Buildings (e2e)", () => {
 
       const res = await request(ctx.app.getHttpServer())
         .get("/buildings")
+        .set("Cookie", cookies)
         .expect(200);
 
-      expect(res.body).toHaveLength(2);
-      expect(res.body[0]).toHaveProperty("coreId", 1);
-      expect(res.body[0]).toHaveProperty("name", "HQ Tower");
-      expect(res.body[0]).toHaveProperty("clientCount");
-      expect(res.body[0]).toHaveProperty("workOrderCount");
-      expect(res.body[0]).toHaveProperty("products");
+      expect(res.body.data).toHaveLength(2);
+      expect(res.body.meta.total).toBe(2);
+      expect(res.body.data[0]).toHaveProperty("coreId", 1);
+      expect(res.body.data[0]).toHaveProperty("name", "HQ Tower");
+      expect(res.body.data[0]).toHaveProperty("clientCount");
+      expect(res.body.data[0]).toHaveProperty("workOrderCount");
+      expect(res.body.data[0]).toHaveProperty("products");
     });
   });
 
@@ -68,6 +84,7 @@ describe("Buildings (e2e)", () => {
 
       const res = await request(ctx.app.getHttpServer())
         .get("/buildings/10")
+        .set("Cookie", cookies)
         .expect(200);
 
       expect(res.body.coreId).toBe(10);
@@ -77,6 +94,7 @@ describe("Buildings (e2e)", () => {
     it("returns 404 for non-existent coreId", async () => {
       const res = await request(ctx.app.getHttpServer())
         .get("/buildings/99999")
+        .set("Cookie", cookies)
         .expect(404);
 
       expect(res.body.statusCode).toBe(404);
@@ -85,6 +103,7 @@ describe("Buildings (e2e)", () => {
     it("returns 400 for non-numeric coreId", async () => {
       await request(ctx.app.getHttpServer())
         .get("/buildings/abc")
+        .set("Cookie", cookies)
         .expect(400);
     });
   });
@@ -93,6 +112,7 @@ describe("Buildings (e2e)", () => {
     it("returns zero-value stats with no buildings", async () => {
       const res = await request(ctx.app.getHttpServer())
         .get("/buildings/statistics/summary")
+        .set("Cookie", cookies)
         .expect(200);
 
       expect(res.body.totalBuildingsCount).toBe(0);
@@ -107,6 +127,7 @@ describe("Buildings (e2e)", () => {
 
       const res = await request(ctx.app.getHttpServer())
         .get("/buildings/statistics/summary")
+        .set("Cookie", cookies)
         .expect(200);
 
       expect(res.body.totalBuildingsCount).toBe(3);

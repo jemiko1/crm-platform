@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { apiGet, apiPost, apiPatch, ApiError } from "@/lib/api";
+import { apiGet, apiGetList, apiPost, apiPatch, ApiError } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
 import AssignEmployeesModal from "../work-orders/[id]/assign-employees-modal";
 import { PermissionGuard } from "@/lib/permission-guard";
@@ -106,8 +106,8 @@ export default function TasksPage() {
         const userData = authData?.user || authData;
         if (userData?.email) {
           try {
-            const employees = await apiGet<any[]>(`/v1/employees?search=${userData.email}`);
-            if (employees && employees.length > 0 && !cancelled) {
+            const employees = await apiGetList<any>(`/v1/employees?search=${userData.email}`);
+            if (employees.length > 0 && !cancelled) {
               setCurrentEmployee(employees[0]);
             }
           } catch {
