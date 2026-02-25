@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiGet, apiGetList, apiPost, apiPatch, ApiError } from "@/lib/api";
@@ -139,46 +139,46 @@ export default function TasksPage() {
     setIsWorkflowManager(isInStep1 || isInStep5);
   }, [currentEmployee, workflowPositions]);
 
-  // Fetch tasks
+  const initialLoadDone = useRef(false);
+  const cancelledRef = useRef(false);
+
+  const fetchTasks = useCallback(async () => {
+    if (!initialLoadDone.current) {
+      setLoading(true);
+    }
+    try {
+      setError(null);
+      const data = await apiGet<{ data: WorkOrderTask[] }>("/v1/work-orders/my-tasks");
+      if (!cancelledRef.current) {
+        setTasks(data.data || []);
+        initialLoadDone.current = true;
+      }
+    } catch (err) {
+      if (!cancelledRef.current) {
+        setError(err instanceof Error ? err.message : "Failed to load tasks");
+      }
+    } finally {
+      if (!cancelledRef.current) {
+        setLoading(false);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (!currentEmployee) {
       setLoading(false);
       return;
     }
 
-    let cancelled = false;
-
-    async function fetchTasks() {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await apiGet<{ data: WorkOrderTask[] }>("/v1/work-orders/my-tasks");
-        if (!cancelled) {
-          console.log("📋 Tasks fetched:", data);
-          console.log("📋 Tasks count:", data.data?.length || 0);
-          setTasks(data.data || []);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          console.error("❌ Error fetching tasks:", err);
-          setError(err instanceof Error ? err.message : "Failed to load tasks");
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    }
-
+    cancelledRef.current = false;
     fetchTasks();
-
-    const interval = setInterval(fetchTasks, 30000); // Refresh every 30 seconds
+    const interval = setInterval(fetchTasks, 30000);
 
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
       clearInterval(interval);
     };
-  }, [currentEmployee]);
+  }, [currentEmployee, fetchTasks]);
 
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedTaskForAssign, setSelectedTaskForAssign] = useState<string | null>(null);
@@ -200,7 +200,7 @@ export default function TasksPage() {
     setActionLoading(workOrderId);
     try {
       await apiPost(`/v1/work-orders/${idToUse}/start`, {});
-      window.location.reload();
+      await fetchTasks();
     } catch (err) {
       if (err instanceof ApiError) {
         alert(err.message);
@@ -455,10 +455,10 @@ export default function TasksPage() {
             setShowAssignModal(false);
             setSelectedTaskForAssign(null);
           }}
-          onSuccess={() => {
+          onSuccess={async () => {
             setShowAssignModal(false);
             setSelectedTaskForAssign(null);
-            window.location.reload();
+            await fetchTasks();
           }}
           workOrderId={selectedTaskForAssign}
           existingAssignments={
