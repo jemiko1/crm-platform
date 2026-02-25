@@ -197,7 +197,14 @@ export class BuildingsService {
     });
 
     if (!b) throw new NotFoundException(`Building ${coreId} not found`);
-    return b;
+
+    const { _count, ...rest } = b;
+    return {
+      ...rest,
+      clientCount: _count.clientBuildings,
+      workOrderCount: _count.workOrders,
+      assetCount: _count.assets,
+    };
   }
 
   async internalId(coreId: number): Promise<string> {

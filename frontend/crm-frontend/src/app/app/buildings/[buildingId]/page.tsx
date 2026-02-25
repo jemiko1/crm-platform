@@ -1347,15 +1347,22 @@ function ProductFlowTab({ buildingCoreId }: { buildingCoreId: number }) {
         setLoading(true);
         setError(null);
 
-        // Fetch all work orders for this building
-        const params = new URLSearchParams({
-          buildingId: String(buildingCoreId),
-          page: "1",
-          pageSize: "1000", // Get all work orders
-        });
-
-        const workOrdersData = await apiGet<{ data: any[]; meta: any }>(`/v1/work-orders?${params}`);
-        const workOrders = workOrdersData.data || [];
+        // Fetch all work orders for this building (paginated, max 100 per page)
+        const workOrders: any[] = [];
+        let page = 1;
+        let hasMore = true;
+        while (hasMore) {
+          const params = new URLSearchParams({
+            buildingId: String(buildingCoreId),
+            page: String(page),
+            pageSize: "100",
+          });
+          const resp = await apiGet<{ data: any[]; meta: any }>(`/v1/work-orders?${params}`);
+          const batch = resp?.data || [];
+          workOrders.push(...batch);
+          hasMore = batch.length === 100;
+          page++;
+        }
 
         // Fetch detailed info for each work order to get approved product usages
         const usagesPromises = workOrders.map(async (wo) => {

@@ -86,8 +86,11 @@ export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
  * Always returns a flat T[].
  */
 export async function apiGetList<T>(path: string, init?: RequestInit): Promise<T[]> {
-  const raw = await apiGet<{ data: T[]; meta: unknown } | T[]>(path, init);
-  return Array.isArray(raw) ? raw : (raw?.data ?? []);
+  const raw = await apiGet<any>(path, init);
+  if (Array.isArray(raw)) return raw;
+  if (raw?.data && Array.isArray(raw.data)) return raw.data;
+  if (raw?.items && Array.isArray(raw.items)) return raw.items;
+  return [];
 }
 
 export async function apiPost<T>(
