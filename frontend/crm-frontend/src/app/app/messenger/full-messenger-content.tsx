@@ -19,6 +19,7 @@ export default function FullMessengerContent({ initialConversationId }: FullMess
   const [activeId, setActiveId] = useState<string | null>(initialConversationId ?? null);
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [showInfoPanel, setShowInfoPanel] = useState(true);
+  const [showInfoOverlay, setShowInfoOverlay] = useState(false);
 
   useEffect(() => {
     if (!activeId) {
@@ -56,19 +57,39 @@ export default function FullMessengerContent({ initialConversationId }: FullMess
 
   return (
     <div className="flex h-full">
-      {/* Left - Conversations */}
-      <ConversationList
-        activeConversationId={activeId}
-        onSelectConversation={handleSelectConversation}
-      />
+      {/* Left - Conversations (hidden on mobile when chat is open) */}
+      <div
+        className={`w-full lg:w-[300px] shrink-0 flex flex-col ${
+          activeId ? "hidden lg:flex" : "flex"
+        }`}
+      >
+        <ConversationList
+          activeConversationId={activeId}
+          onSelectConversation={handleSelectConversation}
+        />
+      </div>
 
-      {/* Center - Chat */}
-      <div className="flex-1 flex flex-col min-w-0 bg-zinc-50/50">
+      {/* Center - Chat (hidden on mobile when list is shown) */}
+      <div
+        className={`flex-1 flex flex-col min-w-0 bg-zinc-50/50 ${
+          activeId ? "flex" : "hidden lg:flex"
+        }`}
+      >
         {activeId && conversation ? (
           <>
             {/* Chat header */}
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-100 bg-white shrink-0">
               <div className="flex items-center gap-3">
+                {/* Back button - mobile only */}
+                <button
+                  onClick={() => setActiveId(null)}
+                  className="lg:hidden p-1.5 -ml-1.5 hover:bg-zinc-100 rounded-lg text-zinc-600 transition-colors"
+                  aria-label="Back to conversations"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
                 <div className="relative">
                   {conversation.type === "GROUP" ? (
                     <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-sm font-semibold">
@@ -107,9 +128,15 @@ export default function FullMessengerContent({ initialConversationId }: FullMess
 
               <div className="flex items-center gap-1">
                 <button
-                  onClick={() => setShowInfoPanel(!showInfoPanel)}
+                  onClick={() => {
+                    if (window.innerWidth >= 1024) {
+                      setShowInfoPanel(!showInfoPanel);
+                    } else {
+                      setShowInfoOverlay(!showInfoOverlay);
+                    }
+                  }}
                   className={`p-2 rounded-lg transition-colors ${
-                    showInfoPanel
+                    showInfoPanel || showInfoOverlay
                       ? "bg-emerald-50 text-emerald-600"
                       : "hover:bg-zinc-100 text-zinc-400"
                   }`}
@@ -165,12 +192,25 @@ export default function FullMessengerContent({ initialConversationId }: FullMess
         )}
       </div>
 
-      {/* Right - Info Panel (foldable) */}
+      {/* Right - Info Panel (desktop sidebar) */}
       {showInfoPanel && activeId && conversation && (
-        <EmployeeInfoPanel
-          conversation={conversation}
-          onClose={() => setShowInfoPanel(false)}
-        />
+        <div className="hidden lg:block">
+          <EmployeeInfoPanel
+            conversation={conversation}
+            onClose={() => setShowInfoPanel(false)}
+          />
+        </div>
+      )}
+
+      {/* Mobile - Info Panel overlay */}
+      {showInfoOverlay && activeId && conversation && (
+        <div className="lg:hidden fixed inset-0 z-[55001] bg-white flex flex-col overflow-hidden">
+          <EmployeeInfoPanel
+            conversation={conversation}
+            onClose={() => setShowInfoOverlay(false)}
+            fullWidth
+          />
+        </div>
       )}
     </div>
   );

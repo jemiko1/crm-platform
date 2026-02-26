@@ -117,7 +117,7 @@ function EmployeesPageContent() {
 
   return (
     <PermissionGuard permission="employees.menu">
-      <div className="p-8">
+      <div className="p-4 sm:p-6 lg:p-8">
         {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
@@ -182,29 +182,29 @@ function EmployeesPageContent() {
           )}
         </div>
       ) : (
-        <div className="rounded-2xl bg-white shadow ring-1 ring-zinc-200">
-          <table className="min-w-full divide-y divide-zinc-200">
+        <div className="rounded-2xl bg-white shadow ring-1 ring-zinc-200 overflow-x-auto -mx-4 sm:mx-0">
+          <table className="min-w-[900px] w-full divide-y divide-zinc-200">
             <thead className="bg-zinc-50 sticky top-[52px] z-20 shadow-[0_1px_0_rgba(0,0,0,0.08)]">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-zinc-900 bg-zinc-50">
+                <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-zinc-900 bg-zinc-50">
                   {t("employees.columns.employee", "Employee")}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-zinc-900 bg-zinc-50">
+                <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-zinc-900 bg-zinc-50">
                   Employee ID
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-zinc-900 bg-zinc-50">
+                <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-zinc-900 bg-zinc-50">
                   {t("employees.columns.position", "Position")}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-zinc-900 bg-zinc-50">
+                <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-zinc-900 bg-zinc-50">
                   Login
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-zinc-900 bg-zinc-50">
+                <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-zinc-900 bg-zinc-50">
                   {t("employees.columns.status", "Status")}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-zinc-900 bg-zinc-50">
+                <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-zinc-900 bg-zinc-50">
                   {t("employees.columns.extension", "Extension")}
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-zinc-900 bg-zinc-50">
+                <th className="px-4 sm:px-6 py-3 text-right text-xs font-semibold text-zinc-900 bg-zinc-50">
                   {t("employees.columns.actions", "Actions")}
                 </th>
               </tr>
@@ -212,7 +212,7 @@ function EmployeesPageContent() {
             <tbody className="divide-y divide-zinc-200 bg-white">
               {filtered.map((emp) => (
                 <tr key={emp.id} className="hover:bg-zinc-50">
-                  <td className="whitespace-nowrap px-6 py-4">
+                  <td className="whitespace-nowrap px-4 sm:px-6 py-4">
                     <div>
                       <div className="font-semibold text-zinc-900">
                         {emp.firstName} {emp.lastName}
@@ -220,13 +220,13 @@ function EmployeesPageContent() {
                       <div className="text-sm text-zinc-600">{emp.email}</div>
                     </div>
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-zinc-900">
+                  <td className="whitespace-nowrap px-4 sm:px-6 py-4 text-sm text-zinc-900">
                     {emp.employeeId}
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-zinc-900">
+                  <td className="whitespace-nowrap px-4 sm:px-6 py-4 text-sm text-zinc-900">
                     {emp.position?.name || emp.jobTitle || t("employees.noPosition", "No position")}
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4">
+                  <td className="whitespace-nowrap px-4 sm:px-6 py-4">
                     {emp.user ? (
                       <span
                         className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ring-1 ${
@@ -249,7 +249,7 @@ function EmployeesPageContent() {
                       </span>
                     )}
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4">
+                  <td className="whitespace-nowrap px-4 sm:px-6 py-4">
                     <span
                       className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ${getStatusBadge(
                         emp.status
@@ -258,7 +258,7 @@ function EmployeesPageContent() {
                       {emp.status.replace("_", " ")}
                     </span>
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-zinc-600">
+                  <td className="whitespace-nowrap px-4 sm:px-6 py-4 text-sm text-zinc-600">
                     {emp.extensionNumber ? (
                       <a
                         href={`tel:${emp.extensionNumber}`}
@@ -270,7 +270,7 @@ function EmployeesPageContent() {
                       <span className="text-zinc-400">—</span>
                     )}
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
+                  <td className="whitespace-nowrap px-4 sm:px-6 py-4 text-right text-sm">
                     <button
                       type="button"
                       onClick={() => openEmployeeModal(emp.id)}

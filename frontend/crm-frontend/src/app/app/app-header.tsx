@@ -125,7 +125,7 @@ export default function AppHeader() {
         {/* Slide-out panel */}
         <div
           ref={menuRef}
-          className={`absolute top-0 left-0 bottom-0 w-[280px] max-w-[85vw] bg-white/95 backdrop-blur-xl shadow-[4px_0_24px_rgba(0,0,0,0.15)] transition-transform duration-300 ease-out overflow-y-auto ${
+          className={`absolute top-0 left-0 bottom-0 w-[280px] sm:w-[320px] max-w-[85vw] bg-white/95 backdrop-blur-xl shadow-xl border-r border-zinc-200/80 transition-[transform] duration-300 ease-out overflow-y-auto pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] ${
             menuOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >

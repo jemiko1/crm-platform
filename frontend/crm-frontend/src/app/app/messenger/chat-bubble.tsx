@@ -2,6 +2,18 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useMessenger } from "./messenger-context";
+
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(false);
+  useEffect(() => {
+    const m = window.matchMedia(query);
+    setMatches(m.matches);
+    const h = () => setMatches(m.matches);
+    m.addEventListener("change", h);
+    return () => m.removeEventListener("change", h);
+  }, [query]);
+  return matches;
+}
 import MessageList from "./message-list";
 import MessageInput from "./message-input";
 import { apiGet } from "@/lib/api";
@@ -62,12 +74,18 @@ export default function ChatBubble({
     otherParticipants.length > 0 &&
     onlineUsers.has(otherParticipants[0].employeeId);
 
+  const isMobile = useMediaQuery("(max-width: 1023px)");
   const rightOffset = 24 + index * 344;
+  const bottomOffset = minimized ? 24 + index * 56 : 24 + index * 458;
+
+  const positionStyle = isMobile
+    ? { left: 8, right: 8, bottom: bottomOffset }
+    : { right: rightOffset, bottom: 0 };
 
   return (
     <div
-      className="fixed bottom-0 z-[55000] transition-all duration-200"
-      style={{ right: rightOffset }}
+      className="fixed z-[55000] transition-all duration-200"
+      style={positionStyle}
     >
       {minimized ? (
         /* Minimized bar */
@@ -76,7 +94,7 @@ export default function ChatBubble({
           tabIndex={0}
           onClick={() => restoreChat(conversationId)}
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") restoreChat(conversationId); }}
-          className="flex items-center gap-2 px-4 py-2.5 bg-white rounded-t-xl shadow-lg border border-b-0 border-zinc-200 hover:bg-zinc-50 transition-colors min-w-[200px] cursor-pointer"
+          className="flex items-center gap-2 px-4 py-2.5 bg-white rounded-t-xl shadow-lg border border-b-0 border-zinc-200 hover:bg-zinc-50 transition-colors min-w-[200px] w-full max-w-[calc(100vw-16px)] lg:max-w-none cursor-pointer"
         >
           <div className="relative">
             {avatarUrl ? (
@@ -121,7 +139,7 @@ export default function ChatBubble({
         </div>
       ) : (
         /* Full chat bubble */
-        <div className="w-[328px] h-[450px] bg-white rounded-t-2xl shadow-2xl border border-b-0 border-zinc-200 flex flex-col overflow-hidden">
+        <div className="w-full max-w-[calc(100vw-16px)] lg:w-[328px] h-[450px] max-h-[70vh] lg:max-h-[450px] bg-white rounded-t-2xl shadow-2xl border border-b-0 border-zinc-200 flex flex-col overflow-hidden">
           {/* Header */}
           <div className="flex items-center gap-2.5 px-3 py-2.5 border-b border-zinc-100 bg-white shrink-0">
             <div className="relative">
