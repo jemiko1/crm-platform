@@ -300,7 +300,7 @@ function BuildingsPageContent() {
                 )}
               </div>
 
-              <div className="rounded-2xl ring-1 ring-zinc-200 overflow-x-clip">
+              <div className="rounded-2xl ring-1 ring-zinc-200 overflow-clip">
                 <div>
                   <table className="min-w-[980px] w-full border-separate border-spacing-0">
                     <thead className="bg-zinc-50 sticky top-[52px] z-20 shadow-[0_1px_0_rgba(0,0,0,0.08)]">

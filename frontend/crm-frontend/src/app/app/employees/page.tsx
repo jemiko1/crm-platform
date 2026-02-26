@@ -182,7 +182,7 @@ function EmployeesPageContent() {
           )}
         </div>
       ) : (
-        <div className="rounded-2xl bg-white shadow ring-1 ring-zinc-200 overflow-x-auto -mx-4 sm:mx-0">
+        <div className="rounded-2xl bg-white shadow ring-1 ring-zinc-200 overflow-x-auto lg:overflow-clip -mx-4 sm:mx-0">
           <table className="min-w-[900px] w-full divide-y divide-zinc-200">
             <thead className="bg-zinc-50 sticky top-[52px] z-20 shadow-[0_1px_0_rgba(0,0,0,0.08)]">
               <tr>
