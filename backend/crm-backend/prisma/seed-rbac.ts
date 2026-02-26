@@ -93,6 +93,7 @@ const PERMISSIONS: PermissionDef[] = [
   { resource: 'departments', action: 'manage', description: 'Manage departments', category: 'ADMIN' },
   { resource: 'users', action: 'read', description: 'View users', category: 'ADMIN' },
   { resource: 'users', action: 'manage', description: 'Manage users', category: 'ADMIN' },
+  { resource: 'sms_config', action: 'access', description: 'Access SMS configuration, logs, and spam protection settings', category: 'ADMIN' },
 ];
 
 // ============================================================================
