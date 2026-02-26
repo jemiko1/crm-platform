@@ -110,7 +110,7 @@ export default function EmailConfigPage() {
 
   return (
     <PermissionGuard permission="admin.access">
-      <div className="p-8">
+      <div className="p-4 sm:p-6 lg:p-8">
         {/* Header */}
         <div className="mb-8 flex items-center gap-3">
           <Link

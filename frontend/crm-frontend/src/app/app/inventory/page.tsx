@@ -186,8 +186,8 @@ export default function InventoryPage() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-zinc-200">
-        <div className="flex gap-1">
+      <div className="border-b border-zinc-200 overflow-x-auto">
+        <div className="flex gap-1 flex-nowrap min-w-0">
           <TabButton
             label={`${t("inventory.tabs.products", "Products")} (${products.length})`}
             active={activeTab === "products"}
@@ -212,7 +212,7 @@ export default function InventoryPage() {
       </div>
 
       {/* Tab Content */}
-      <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200">
+      <div className="rounded-2xl sm:rounded-3xl bg-white p-4 sm:p-6 shadow-sm ring-1 ring-zinc-200">
         {activeTab === "products" && (
           <ProductsTab
             products={products}
@@ -369,7 +369,7 @@ function ProductsTab({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-lg font-semibold text-zinc-900">Product Catalog ({products.length})</h2>
         {hasPermission("inventory.create") && (
           <button
@@ -383,8 +383,8 @@ function ProductsTab({
           )}
         </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full">
+      <div className="overflow-x-auto -mx-4 sm:mx-0">
+        <table className="min-w-[700px] w-full">
           <thead>
             <tr className="border-b border-zinc-200 text-left">
               <th className="pb-3 text-xs font-semibold uppercase tracking-wide text-zinc-600">

@@ -12,14 +12,18 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     <I18nProvider>
     <MessengerProvider>
     <ModalStackWrapper>
-      <div className="min-h-screen relative">
-        {/* App background */}
-        <div className="fixed inset-0 bg-gradient-to-br from-emerald-200 via-emerald-100 to-slate-200 -z-10" />
-        <div className="fixed inset-0 bg-slate-900/12 -z-10" />
-        <div className="fixed -top-24 -left-24 h-80 w-80 rounded-full bg-emerald-500/30 blur-3xl -z-10" />
-        <div className="fixed top-24 -right-24 h-96 w-96 rounded-full bg-emerald-600/25 blur-3xl -z-10" />
-        <div className="fixed -bottom-24 left-1/3 h-96 w-96 rounded-full bg-slate-600/20 blur-3xl -z-10" />
-        <div className="fixed inset-0 opacity-[0.22] bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.22)_1px,transparent_0)] bg-[length:22px_22px] -z-10" />
+      <div className="min-h-dvh min-h-screen relative">
+        {/* App background - hidden on mobile to maximize content space */}
+        <div className="hidden lg:block fixed inset-0 -z-10">
+          <div className="fixed inset-0 bg-gradient-to-br from-emerald-200 via-emerald-100 to-slate-200" />
+          <div className="fixed inset-0 bg-slate-900/12" />
+          <div className="fixed -top-24 -left-24 h-80 w-80 rounded-full bg-emerald-500/30 blur-3xl" />
+          <div className="fixed top-24 -right-24 h-96 w-96 rounded-full bg-emerald-600/25 blur-3xl" />
+          <div className="fixed -bottom-24 left-1/3 h-96 w-96 rounded-full bg-slate-600/20 blur-3xl" />
+          <div className="fixed inset-0 opacity-[0.22] bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.22)_1px,transparent_0)] bg-[length:22px_22px]" />
+        </div>
+        {/* Mobile background - solid when decorative is hidden */}
+        <div className="lg:hidden fixed inset-0 bg-zinc-50 -z-10" />
 
         {/* Full-width sticky header */}
         <AppHeader />
@@ -52,9 +56,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
             {/* Main content */}
             <main className="flex-1 min-w-0 lg:pl-[148px]">
-              <div className="px-4 pt-4 pb-6 space-y-4">
-                <div className="rounded-3xl bg-white/85 backdrop-blur-xl border border-white/60 shadow-[0_30px_70px_-22px_rgba(0,0,0,0.25)] overflow-visible">
-                  <div className="p-6 overflow-visible">{children}</div>
+              <div className="px-2 sm:px-4 pt-4 pb-6 space-y-4">
+                <div className="rounded-2xl sm:rounded-3xl bg-white/85 backdrop-blur-xl border border-white/60 shadow-[0_30px_70px_-22px_rgba(0,0,0,0.25)] overflow-visible">
+                  <div className="p-4 sm:p-6 overflow-visible">{children}</div>
                 </div>
               </div>
             </main>
