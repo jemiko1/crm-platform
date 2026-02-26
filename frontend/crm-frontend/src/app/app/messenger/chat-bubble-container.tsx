@@ -8,12 +8,20 @@ import { useEffect, useState } from "react";
 export default function ChatBubbleContainer() {
   const { activeChats } = useMessenger();
   const [mounted, setMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  if (!mounted || activeChats.length === 0) return null;
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  if (!mounted || isMobile || activeChats.length === 0) return null;
 
   return createPortal(
     <>

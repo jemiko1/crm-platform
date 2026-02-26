@@ -12,7 +12,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     <I18nProvider>
     <MessengerProvider>
     <ModalStackWrapper>
-      <div className="min-h-dvh min-h-screen relative">
+      <div className="min-h-dvh min-h-screen relative bg-zinc-50 lg:bg-transparent">
         {/* App background - hidden on mobile to maximize content space */}
         <div className="hidden lg:block fixed inset-0 -z-10">
           <div className="fixed inset-0 bg-gradient-to-br from-emerald-200 via-emerald-100 to-slate-200" />
@@ -29,7 +29,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <AppHeader />
 
         {/* Below header: sidebar + content */}
-        <div className="relative w-full">
+        <div className="relative w-full min-h-[calc(100dvh-52px)] min-h-[calc(100vh-52px)]">
           <div className="flex">
             {/* Left Rail Sidebar - starts below the header */}
             <aside className="hidden lg:block fixed left-4 top-[68px] bottom-6 w-[108px] shrink-0 z-40">
