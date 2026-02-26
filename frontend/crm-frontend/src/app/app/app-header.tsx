@@ -48,7 +48,7 @@ export default function AppHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 bg-white shadow-[0_4px_16px_-2px_rgba(0,0,0,0.15)]">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-[0_4px_16px_-2px_rgba(0,0,0,0.15)]">
         <div className="flex items-center h-[52px] px-4">
           {/* Hamburger - visible below lg */}
           <button

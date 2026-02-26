@@ -18,7 +18,7 @@ export default function HeaderNotifications() {
   const [unreadCount, setUnreadCount] = useState(0);
   const btnRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState({ top: 0, right: 0 });
+  const [pos, setPos] = useState<{ top: number; right: number; left?: number }>({ top: 0, right: 0 });
 
   useEffect(() => {
     async function fetchCount() {
@@ -39,7 +39,12 @@ export default function HeaderNotifications() {
   useEffect(() => {
     if (open && btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect();
-      setPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+      const isMobile = window.innerWidth < 1024;
+      if (isMobile) {
+        setPos({ top: rect.bottom + 8, right: 8, left: 8 });
+      } else {
+        setPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+      }
     }
   }, [open]);
 
@@ -81,8 +86,12 @@ export default function HeaderNotifications() {
         createPortal(
           <div
             ref={dropdownRef}
-            className="fixed z-[60000] w-[360px] max-h-[480px] bg-white rounded-2xl shadow-2xl border border-zinc-200/80 overflow-hidden"
-            style={{ top: pos.top, right: pos.right }}
+            className="fixed z-[60000] w-[calc(100vw-16px)] max-w-[360px] max-h-[480px] bg-white rounded-2xl shadow-2xl border border-zinc-200/80 overflow-hidden"
+            style={{
+              top: pos.top,
+              right: pos.right,
+              left: pos.left,
+            }}
           >
             <div className="px-4 py-3 border-b border-zinc-100 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-zinc-900">Notifications</h3>

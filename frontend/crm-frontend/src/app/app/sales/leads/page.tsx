@@ -368,7 +368,7 @@ function LeadsPageContent() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-clip">
+            <div className="overflow-clip">
               <table className="w-full">
                 <thead className="sticky top-[52px] z-20 shadow-[0_1px_0_rgba(0,0,0,0.08)]">
                   <tr className="border-b border-zinc-200 bg-zinc-50">

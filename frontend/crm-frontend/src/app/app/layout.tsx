@@ -25,14 +25,14 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         {/* Mobile background - solid when decorative is hidden */}
         <div className="lg:hidden fixed inset-0 bg-zinc-50 -z-10" />
 
-        {/* Full-width sticky header */}
+        {/* Full-width fixed header */}
         <AppHeader />
 
-        {/* Below header: sidebar + content */}
-        <div className="relative w-full min-h-[calc(100dvh-52px)] min-h-[calc(100vh-52px)]">
+        {/* Below header: sidebar + content - pt for fixed header */}
+        <div className="relative w-full pt-[52px] min-h-[calc(100dvh-52px)] min-h-[calc(100vh-52px)]">
           <div className="flex">
             {/* Left Rail Sidebar - starts below the header */}
-            <aside className="hidden lg:block fixed left-4 top-[68px] bottom-6 w-[108px] shrink-0 z-40">
+            <aside className="hidden lg:block fixed left-4 top-[calc(52px+16px)] bottom-6 w-[108px] shrink-0 z-40">
               <div className="h-full">
                 <div className="h-full rounded-[32px] bg-white/85 backdrop-blur-xl border border-white/60 shadow-[0_10px_40px_rgba(0,0,0,0.3),0_0_80px_-5px_rgba(0,0,0,0.2)] overflow-hidden flex flex-col">
                   {/* Top padding where CRM28 logo used to be */}
