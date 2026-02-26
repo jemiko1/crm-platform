@@ -56,7 +56,7 @@ export default function SmsConfigPage() {
 
   return (
     <PermissionGuard permission="sms_config.access">
-      <div className="p-8">
+      <div className="p-4 sm:p-6 lg:p-8">
         <div className="mb-6 flex items-center gap-3">
           <Link
             href="/app/admin"

@@ -7,11 +7,13 @@ import type { Conversation } from "./types";
 interface EmployeeInfoPanelProps {
   conversation: Conversation | null;
   onClose: () => void;
+  fullWidth?: boolean;
 }
 
 export default function EmployeeInfoPanel({
   conversation,
   onClose,
+  fullWidth = false,
 }: EmployeeInfoPanelProps) {
   const { myEmployeeId, onlineUsers } = useMessenger();
   const [showMembers, setShowMembers] = useState(true);
@@ -33,7 +35,7 @@ export default function EmployeeInfoPanel({
   if (!conversation) return null;
 
   return (
-    <div className="w-[280px] border-l border-zinc-200 bg-white flex flex-col overflow-y-auto shrink-0">
+    <div className={`${fullWidth ? "w-full" : "w-[280px]"} border-l border-zinc-200 bg-white flex flex-col overflow-y-auto shrink-0`}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100">
         <h4 className="text-sm font-semibold text-zinc-900">

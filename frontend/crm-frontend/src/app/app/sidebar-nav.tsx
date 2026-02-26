@@ -357,7 +357,7 @@ function RailItem({
     <Link
       href={href}
       className={[
-        "group relative w-full rounded-3xl px-2 py-3 transition",
+        "group relative w-full rounded-3xl px-2 py-3 min-h-[44px] transition",
         "flex flex-col items-center justify-center gap-2",
         isActive
           ? "bg-white shadow-sm ring-1 ring-zinc-200"

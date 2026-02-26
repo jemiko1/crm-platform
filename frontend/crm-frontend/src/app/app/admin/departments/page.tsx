@@ -348,7 +348,7 @@ export default function DepartmentsPage() {
 
   if (departments.length === 0) {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-6 lg:p-8">
         <div className="rounded-3xl bg-white/85 backdrop-blur-xl border border-white/60 shadow-[0_30px_70px_-22px_rgba(0,0,0,0.25)] p-8 text-center">
           <h1 className="text-2xl font-bold text-zinc-900">Departments</h1>
           <p className="mt-2 text-sm text-zinc-600">

@@ -103,7 +103,7 @@ export default function ConversationList({
   }, [onSelectConversation, loadConversations]);
 
   return (
-    <div className="w-[300px] border-r border-zinc-200 bg-white flex flex-col shrink-0">
+    <div className="w-full lg:w-[300px] border-r border-zinc-200 bg-white flex flex-col shrink-0">
       {/* Header */}
       <div className="px-4 py-3 border-b border-zinc-100">
         <div className="flex items-center justify-between mb-3">

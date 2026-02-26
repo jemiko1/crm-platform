@@ -10,7 +10,7 @@ import React, {
   useMemo,
 } from "react";
 import { io, Socket } from "socket.io-client";
-import { API_BASE, apiGet, apiPost } from "@/lib/api";
+import { API_BASE, WS_BASE, apiGet, apiPost } from "@/lib/api";
 import type { Conversation, Message, ActiveChat } from "./types";
 
 // ── Notification Sound ───────────────────────────────────
@@ -163,7 +163,7 @@ export function MessengerProvider({
   // ── Socket Connection ──────────────────────────────────
 
   useEffect(() => {
-    const socket = io(`${API_BASE}/messenger`, {
+    const socket = io(`${WS_BASE}/messenger`, {
       withCredentials: true,
       transports: ["websocket", "polling"],
       reconnection: true,

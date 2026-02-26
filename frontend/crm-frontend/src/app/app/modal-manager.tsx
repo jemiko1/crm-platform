@@ -236,7 +236,7 @@ function ModalShell({
                 : "translate-y-0 lg:translate-x-0"
             }`}
             onClick={(e) => e.stopPropagation()}
-            style={{ maxHeight: "100vh" }}
+            style={{ maxHeight: "min(100vh, 100dvh)" }}
           >
             {isTopmost && (
               <button
