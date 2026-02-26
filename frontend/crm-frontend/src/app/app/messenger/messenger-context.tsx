@@ -321,6 +321,14 @@ export function MessengerProvider({
   // ── Chat Bubble Actions ────────────────────────────────
 
   const openChat = useCallback((conversationId: string) => {
+    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+      window.dispatchEvent(
+        new CustomEvent("messenger:open", {
+          detail: { conversationId },
+        }),
+      );
+      return;
+    }
     setActiveChats((prev) => {
       const existing = prev.find((c) => c.conversationId === conversationId);
       if (existing) {
