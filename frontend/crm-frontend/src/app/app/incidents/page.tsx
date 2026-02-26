@@ -528,7 +528,7 @@ export default function IncidentsPage() {
                   </button>
                 </div>
               ) : (
-                <div className="rounded-2xl ring-1 ring-zinc-200 overflow-x-clip">
+                <div className="rounded-2xl ring-1 ring-zinc-200 overflow-clip">
                   <div>
                     <table className="min-w-[1600px] w-full border-separate border-spacing-0">
                       <colgroup>

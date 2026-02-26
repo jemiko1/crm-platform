@@ -1,5 +1,8 @@
 export const API_BASE = "";
 
+export const WS_BASE =
+  process.env.NEXT_PUBLIC_WS_URL || "http://localhost:3000";
+
 export class ApiError extends Error {
   constructor(
     message: string,

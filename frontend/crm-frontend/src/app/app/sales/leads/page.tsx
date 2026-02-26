@@ -177,7 +177,7 @@ function LeadsPageContent() {
 
   return (
     <PermissionGuard permission="sales.read">
-      <div className="min-h-screen p-8">
+      <div className="min-h-screen p-4 sm:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between">
@@ -368,7 +368,7 @@ function LeadsPageContent() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-clip">
+            <div className="overflow-clip">
               <table className="w-full">
                 <thead className="sticky top-[52px] z-20 shadow-[0_1px_0_rgba(0,0,0,0.08)]">
                   <tr className="border-b border-zinc-200 bg-zinc-50">

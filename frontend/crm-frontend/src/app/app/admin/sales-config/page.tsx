@@ -257,7 +257,7 @@ export default function SalesConfigPage() {
 
   return (
     <PermissionGuard permission="admin.access">
-      <div className="w-full p-8">
+      <div className="w-full p-4 sm:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-6">
         <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs text-zinc-700 shadow-sm ring-1 ring-zinc-200">

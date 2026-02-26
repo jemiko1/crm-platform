@@ -1,19 +1,35 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useMessenger } from "./messenger/messenger-context";
 import MessengerDropdown from "./messenger/messenger-dropdown";
 
 export default function HeaderMessengerIcon() {
-  const { unreadCount } = useMessenger();
+  const { unreadCount, openFullMessenger } = useMessenger();
   const [open, setOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  const handleClick = () => {
+    if (isMobile) {
+      openFullMessenger();
+    } else {
+      setOpen(!open);
+    }
+  };
 
   return (
     <div className="relative">
       <button
         ref={btnRef}
-        onClick={() => setOpen(!open)}
+        onClick={handleClick}
         className={`relative w-10 h-10 flex items-center justify-center rounded-full transition-colors ${
           open
             ? "bg-emerald-100 text-emerald-600"
@@ -31,7 +47,7 @@ export default function HeaderMessengerIcon() {
         )}
       </button>
 
-      {open && (
+      {open && !isMobile && (
         <MessengerDropdown
           anchorRef={btnRef}
           onClose={() => setOpen(false)}
