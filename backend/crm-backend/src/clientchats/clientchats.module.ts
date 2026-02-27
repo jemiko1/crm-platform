@@ -28,6 +28,7 @@ import {
   ViberWebhookGuard,
   FacebookWebhookGuard,
   TelegramWebhookGuard,
+  WhatsAppWebhookGuard,
 } from './guards/webhook-signature.guard';
 
 @Module({
