@@ -28,24 +28,29 @@ export class FacebookAdapter implements ChannelAdapter {
   }
 
   /** Validate GET subscription verification or POST signature. */
-  verifyWebhook(req: Request): boolean {
+  verifyWebhook(
+    req: Request,
+    overrides?: { appSecret?: string; verifyToken?: string },
+  ): boolean {
     if (req.method === 'GET') {
-      return this.verifySubscription(req);
+      return this.verifySubscription(req, overrides?.verifyToken);
     }
-    return this.verifySignature(req);
+    return this.verifySignature(req, overrides?.appSecret);
   }
 
-  private verifySubscription(req: Request): boolean {
+  private verifySubscription(req: Request, tokenOverride?: string): boolean {
     const mode = req.query['hub.mode'] as string;
     const token = req.query['hub.verify_token'] as string;
+    const verifyToken = tokenOverride ?? this.verifyToken;
 
-    if (mode !== 'subscribe' || !this.verifyToken) return false;
-    return token === this.verifyToken;
+    if (mode !== 'subscribe' || !verifyToken) return false;
+    return token === verifyToken;
   }
 
-  private verifySignature(req: Request): boolean {
-    if (!this.appSecret) {
-      this.logger.error('FB_APP_SECRET is not configured');
+  private verifySignature(req: Request, secretOverride?: string): boolean {
+    const appSecret = secretOverride ?? this.appSecret;
+    if (!appSecret) {
+      this.logger.error('FB_APP_SECRET is not configured (env or channel account)');
       return false;
     }
 
@@ -56,7 +61,7 @@ export class FacebookAdapter implements ChannelAdapter {
       typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
     const expected =
       'sha256=' +
-      crypto.createHmac('sha256', this.appSecret).update(body).digest('hex');
+      crypto.createHmac('sha256', appSecret).update(body).digest('hex');
 
     const sigBuf = Buffer.from(signature);
     const expBuf = Buffer.from(expected);

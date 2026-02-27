@@ -43,6 +43,12 @@ Optional integrations (set only if used):
 | `FB_PAGE_ACCESS_TOKEN`      | Facebook Messenger |
 | `FB_APP_SECRET`             | Facebook Messenger |
 | `FB_VERIFY_TOKEN`           | Facebook Messenger |
+| `TELEGRAM_BOT_TOKEN`       | Telegram bot       |
+| `WA_ACCESS_TOKEN`          | WhatsApp Business  |
+| `WA_PHONE_NUMBER_ID`       | WhatsApp Business  |
+| `WA_VERIFY_TOKEN`          | WhatsApp webhook   |
+| `WA_APP_SECRET`            | WhatsApp signature |
+| `CLIENTCHATS_WEBHOOK_BASE_URL` | Backend public URL for webhook registration (e.g. https://api.example.com) |
 | `CORE_INTEGRATION_ENABLED`  | Core sync          |
 | `CORE_WEBHOOK_SECRET`       | Core sync          |
 | `TELEPHONY_INGEST_SECRET`   | Telephony          |

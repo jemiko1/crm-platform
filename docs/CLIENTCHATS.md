@@ -11,7 +11,7 @@ Client Chats is an adapter-based unified inbox for handling inbound/outbound con
 | Web      | `WebChatAdapter`     | Full   |
 | Viber    | `ViberAdapter`       | Full   |
 | Facebook | `FacebookAdapter`    | Full   |
-| Telegram | —                    | Planned |
+| Telegram | `TelegramAdapter`    | Full   |
 | WhatsApp | —                    | Planned |
 
 ### Module Structure
@@ -25,6 +25,7 @@ backend/crm-backend/src/clientchats/
     web-chat.adapter.ts
     viber.adapter.ts
     facebook.adapter.ts
+    telegram.adapter.ts
     adapter-registry.service.ts       # Maps channelType -> adapter
   services/
     clientchats-core.service.ts       # Inbound pipeline, replies, CRUD
@@ -36,7 +37,7 @@ backend/crm-backend/src/clientchats/
     clientchats-admin.controller.ts   # Observability (JWT auth)
   guards/
     conversation-token.guard.ts       # JWT token for widget sessions
-    webhook-signature.guard.ts        # Viber/Facebook signature guards
+    webhook-signature.guard.ts        # Viber/Facebook/Telegram webhook guards
   dto/
     *.dto.ts
 ```
@@ -86,6 +87,7 @@ Agent Reply
 | POST   | `/public/clientchats/webhook/viber`  | Viber inbound webhook       |
 | GET    | `/public/clientchats/webhook/facebook` | Facebook verify endpoint  |
 | POST   | `/public/clientchats/webhook/facebook` | Facebook inbound webhook  |
+| POST   | `/public/clientchats/webhook/telegram` | Telegram inbound webhook  |
 
 ### Agent (JWT Required)
 
@@ -179,18 +181,31 @@ curl -X POST https://chatapi.viber.com/pa/set_webhook \
    - Verify Token: same as `FB_VERIFY_TOKEN`
    - Subscribe to: `messages`
 
+### Telegram Bot
+
+1. Create a bot via [@BotFather](https://t.me/BotFather) in Telegram
+2. Copy the bot token (format: `123456789:ABCdefGHI...`)
+3. Set `TELEGRAM_BOT_TOKEN` in your `.env`
+4. Register the webhook URL with Telegram (after deploying):
+
+```bash
+curl "https://api.telegram.org/botYOUR_TOKEN/setWebhook?url=https://your-crm-domain.com/public/clientchats/webhook/telegram"
+```
+
+Optional: `TELEGRAM_WEBHOOK_SECRET` — If set, Telegram will send the same value in `X-Telegram-Bot-Api-Secret-Token` when you configure it via `setWebhook` with `secret_token`.
+
 ---
 
 ## Adding a New Channel
 
-To add a new channel (e.g., Telegram):
+To add a new channel (e.g., WhatsApp):
 
-1. Create `src/clientchats/adapters/telegram.adapter.ts` implementing `ChannelAdapter`
+1. Create `src/clientchats/adapters/your-channel.adapter.ts` implementing `ChannelAdapter`
 2. Add the new channel type to `ClientChatChannelType` enum in `schema.prisma`
 3. Register the adapter in `AdapterRegistryService` constructor
 4. Add the webhook endpoint in `ClientChatsPublicController`
 5. Add a webhook guard if the channel requires signature verification
-6. Run `npx prisma migrate dev --name add_telegram_channel`
+6. Run `npx prisma migrate dev --name add_your_channel`
 
 ---
 
@@ -199,7 +214,7 @@ To add a new channel (e.g., Telegram):
 The matching service auto-links conversations to CRM clients:
 
 - **Web chat**: Matches by phone or email if provided in the `/start` payload
-- **Viber/Facebook**: Matches by phone if the platform provides it
+- **Viber/Facebook/Telegram**: Matches by phone if the platform provides it
 - **Manual**: Use `POST /v1/clientchats/conversations/:id/link-client`
 
 ---
@@ -208,7 +223,7 @@ The matching service auto-links conversations to CRM clients:
 
 ### Webhook Testing with ngrok
 
-For Viber and Facebook webhooks during local development:
+For Viber, Facebook, and Telegram webhooks during local development:
 
 ```bash
 ngrok http 3000
@@ -217,6 +232,7 @@ ngrok http 3000
 Then use the ngrok URL as the webhook base:
 - Viber: `https://XXXX.ngrok.io/public/clientchats/webhook/viber`
 - Facebook: `https://XXXX.ngrok.io/public/clientchats/webhook/facebook`
+- Telegram: `https://XXXX.ngrok.io/public/clientchats/webhook/telegram`
 
 ### Running Tests
 
@@ -234,4 +250,5 @@ VIBER_BOT_TOKEN="your-viber-token"
 FB_PAGE_ACCESS_TOKEN="your-fb-token"
 FB_APP_SECRET="your-fb-secret"
 FB_VERIFY_TOKEN="your-verify-token"
+TELEGRAM_BOT_TOKEN="your-telegram-token"
 ```

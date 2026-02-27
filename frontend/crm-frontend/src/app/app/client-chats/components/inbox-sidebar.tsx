@@ -99,6 +99,8 @@ export default function InboxSidebar({ selectedId, onSelect }: InboxSidebarProps
             const clientName = conv.client
               ? `${conv.client.firstName ?? ""} ${conv.client.lastName ?? ""}`.trim() || "Client"
               : null;
+            const participantName = lastMsg?.participant?.displayName ?? null;
+            const displayName = clientName || participantName || conv.externalConversationId.slice(0, 16);
 
             return (
               <button
@@ -112,7 +114,7 @@ export default function InboxSidebar({ selectedId, onSelect }: InboxSidebarProps
                   <div className="flex items-center gap-2">
                     {statusDot(conv.status)}
                     <span className="text-sm font-medium text-gray-800 truncate max-w-[140px]">
-                      {clientName || conv.externalConversationId.slice(0, 16)}
+                      {displayName}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5">

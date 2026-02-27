@@ -1,0 +1,1 @@
+ALTER TYPE "ClientChatChannelType" ADD VALUE 'WHATSAPP';
