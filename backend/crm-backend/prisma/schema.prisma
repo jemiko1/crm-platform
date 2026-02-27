@@ -1993,6 +1993,8 @@ enum ClientChatChannelType {
   WEB
   VIBER
   FACEBOOK
+  TELEGRAM
+  WHATSAPP
 }
 
 enum ClientChatStatus {

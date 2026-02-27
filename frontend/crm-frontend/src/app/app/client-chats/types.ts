@@ -1,4 +1,4 @@
-export type ChannelType = "WEB" | "VIBER" | "FACEBOOK";
+export type ChannelType = "WEB" | "VIBER" | "FACEBOOK" | "TELEGRAM" | "WHATSAPP";
 export type ConversationStatus = "OPEN" | "PENDING" | "CLOSED" | "SPAM";
 export type MessageDirection = "IN" | "OUT";
 
@@ -22,6 +22,7 @@ export interface ConversationSummary {
     text: string;
     sentAt: string;
     direction: MessageDirection;
+    participant: { displayName: string; phone: string | null } | null;
   }[];
 }
 
@@ -43,6 +44,9 @@ export interface ConversationDetail {
     lastName: string | null;
     primaryPhone: string | null;
   } | null;
+  messages?: {
+    participant: { displayName: string; phone: string | null } | null;
+  }[];
 }
 
 export interface ChatMessage {
