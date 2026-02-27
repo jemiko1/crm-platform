@@ -234,9 +234,22 @@ export class ClientChatsPublicController {
   // ── WhatsApp Webhook ───────────────────────────────────
 
   @Get('webhook/whatsapp')
-  whatsappVerify(@Req() req: Request, @Res() res: Response) {
+  async whatsappVerify(@Req() req: Request, @Res() res: Response) {
     const challenge = this.whatsapp.getVerificationChallenge(req);
-    if (this.whatsapp.verifyWebhook(req) && challenge) {
+    if (!challenge) {
+      return res.status(400).send('Missing hub.challenge');
+    }
+    // Use verify token from DB (admin config) or env vars
+    const account = await this.core.getOrCreateDefaultAccount(
+      ClientChatChannelType.WHATSAPP,
+    );
+    const meta = account.metadata as Record<string, unknown> | null;
+    const verifyToken = meta?.waVerifyToken as string | undefined;
+    const overrides =
+      verifyToken && String(verifyToken).trim()
+        ? { verifyToken: String(verifyToken).trim() }
+        : undefined;
+    if (this.whatsapp.verifyWebhook(req, overrides)) {
       return res.status(200).send(challenge);
     }
     return res.status(403).send('Verification failed');
