@@ -101,6 +101,13 @@ const adminSections: AdminSection[] = [
     href: "/app/admin/sms-config",
   },
   {
+    id: "client-chats-config",
+    title: "Client Chats",
+    description: "Configure Viber, Telegram, and Facebook Messenger for unified inbox",
+    icon: <IconClientChats />,
+    href: "/app/admin/client-chats-config",
+  },
+  {
     id: "notifications",
     title: "Notifications",
     description: "Manage notification templates, send notifications, and view logs",
@@ -412,6 +419,20 @@ function IconNotifications() {
         strokeLinejoin="round"
       />
       <path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconClientChats() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }

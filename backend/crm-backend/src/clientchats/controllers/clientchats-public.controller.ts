@@ -17,8 +17,15 @@ import { ClientChatsObservabilityService } from '../services/clientchats-observa
 import { WebChatAdapter } from '../adapters/web-chat.adapter';
 import { ViberAdapter } from '../adapters/viber.adapter';
 import { FacebookAdapter } from '../adapters/facebook.adapter';
+import { TelegramAdapter } from '../adapters/telegram.adapter';
+import { WhatsAppAdapter } from '../adapters/whatsapp.adapter';
 import { ConversationTokenGuard } from '../guards/conversation-token.guard';
-import { ViberWebhookGuard, FacebookWebhookGuard } from '../guards/webhook-signature.guard';
+import {
+  ViberWebhookGuard,
+  FacebookWebhookGuard,
+  TelegramWebhookGuard,
+  WhatsAppWebhookGuard,
+} from '../guards/webhook-signature.guard';
 import { StartChatDto } from '../dto/start-chat.dto';
 import { SendWidgetMessageDto } from '../dto/send-widget-message.dto';
 import { ConversationTokenPayload } from '../guards/conversation-token.guard';
@@ -34,6 +41,8 @@ export class ClientChatsPublicController {
     private readonly webChat: WebChatAdapter,
     private readonly viber: ViberAdapter,
     private readonly facebook: FacebookAdapter,
+    private readonly telegram: TelegramAdapter,
+    private readonly whatsapp: WhatsAppAdapter,
     private readonly jwt: JwtService,
   ) {}
 
@@ -182,6 +191,81 @@ export class ClientChatsPublicController {
       this.logger.error(`Facebook webhook error: ${msg}`);
       await this.observability.logWebhookFailure(
         ClientChatChannelType.FACEBOOK,
+        msg,
+        { object: (body as any)?.object },
+      );
+      return 'EVENT_RECEIVED';
+    }
+  }
+
+  // ── Telegram Webhook ───────────────────────────────────
+
+  @Post('webhook/telegram')
+  @UseGuards(TelegramWebhookGuard)
+  @HttpCode(200)
+  async telegramWebhook(@Body() body: unknown) {
+    try {
+      const parsed = this.telegram.parseInbound(body);
+      if (!parsed) return { ok: true };
+
+      const account = await this.core.getOrCreateDefaultAccount(
+        ClientChatChannelType.TELEGRAM,
+      );
+
+      await this.core.processInbound(
+        ClientChatChannelType.TELEGRAM,
+        account.id,
+        parsed,
+      );
+
+      return { ok: true };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Telegram webhook error: ${msg}`);
+      await this.observability.logWebhookFailure(
+        ClientChatChannelType.TELEGRAM,
+        msg,
+        { update_id: (body as any)?.update_id },
+      );
+      return { ok: true };
+    }
+  }
+
+  // ── WhatsApp Webhook ───────────────────────────────────
+
+  @Get('webhook/whatsapp')
+  whatsappVerify(@Req() req: Request, @Res() res: Response) {
+    const challenge = this.whatsapp.getVerificationChallenge(req);
+    if (this.whatsapp.verifyWebhook(req) && challenge) {
+      return res.status(200).send(challenge);
+    }
+    return res.status(403).send('Verification failed');
+  }
+
+  @Post('webhook/whatsapp')
+  @UseGuards(WhatsAppWebhookGuard)
+  @HttpCode(200)
+  async whatsappWebhook(@Body() body: unknown) {
+    try {
+      const parsed = this.whatsapp.parseInbound(body);
+      if (!parsed) return 'EVENT_RECEIVED';
+
+      const account = await this.core.getOrCreateDefaultAccount(
+        ClientChatChannelType.WHATSAPP,
+      );
+
+      await this.core.processInbound(
+        ClientChatChannelType.WHATSAPP,
+        account.id,
+        parsed,
+      );
+
+      return 'EVENT_RECEIVED';
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(`WhatsApp webhook error: ${msg}`);
+      await this.observability.logWebhookFailure(
+        ClientChatChannelType.WHATSAPP,
         msg,
         { object: (body as any)?.object },
       );

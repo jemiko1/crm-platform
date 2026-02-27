@@ -298,7 +298,12 @@ export class ClientChatsCoreService {
           messages: {
             take: 1,
             orderBy: { sentAt: 'desc' },
-            select: { text: true, sentAt: true, direction: true },
+            select: {
+              text: true,
+              sentAt: true,
+              direction: true,
+              participant: { select: { displayName: true, phone: true } },
+            },
           },
         },
         orderBy: { lastMessageAt: 'desc' },
@@ -327,6 +332,13 @@ export class ClientChatsCoreService {
             firstName: true,
             lastName: true,
             primaryPhone: true,
+          },
+        },
+        messages: {
+          take: 1,
+          orderBy: { sentAt: 'desc' },
+          select: {
+            participant: { select: { displayName: true, phone: true } },
           },
         },
       },
@@ -377,6 +389,52 @@ export class ClientChatsCoreService {
         type: channelType,
         name: `Default ${channelType}`,
         status: 'ACTIVE',
+      },
+    });
+  }
+
+  // ── Admin config (channel accounts) ────────────────────────
+
+  async getChannelAccountsConfig() {
+    const types: ClientChatChannelType[] = [
+      ClientChatChannelType.VIBER,
+      ClientChatChannelType.FACEBOOK,
+      ClientChatChannelType.TELEGRAM,
+      ClientChatChannelType.WHATSAPP,
+    ];
+
+    const accounts = await this.prisma.clientChatChannelAccount.findMany({
+      where: { type: { in: types } },
+      orderBy: { type: 'asc' },
+    });
+
+    const byType: Record<string, typeof accounts[0]> = {};
+    for (const t of types) {
+      const found = accounts.find((a) => a.type === t);
+      byType[t] =
+        found ??
+        (await this.prisma.clientChatChannelAccount.create({
+          data: {
+            type: t,
+            name: `Default ${t}`,
+            status: 'ACTIVE',
+          },
+        }));
+    }
+
+    return byType;
+  }
+
+  async updateChannelAccountConfig(
+    channelType: ClientChatChannelType,
+    data: { name?: string; metadata?: Record<string, unknown> },
+  ) {
+    const account = await this.getOrCreateDefaultAccount(channelType);
+    return this.prisma.clientChatChannelAccount.update({
+      where: { id: account.id },
+      data: {
+        ...(data.name != null && { name: data.name }),
+        ...(data.metadata != null && { metadata: data.metadata as object }),
       },
     });
   }

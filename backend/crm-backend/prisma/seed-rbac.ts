@@ -94,6 +94,10 @@ const PERMISSIONS: PermissionDef[] = [
   { resource: 'users', action: 'read', description: 'View users', category: 'ADMIN' },
   { resource: 'users', action: 'manage', description: 'Manage users', category: 'ADMIN' },
   { resource: 'sms_config', action: 'access', description: 'Access SMS configuration, logs, and spam protection settings', category: 'ADMIN' },
+
+  // Client Chats (Unified Inbox)
+  { resource: 'client_chats', action: 'menu', description: 'Show Client Chats in left menu and access inbox', category: 'CLIENT_CHATS' },
+  { resource: 'client_chats_config', action: 'access', description: 'Configure Client Chats channels in admin panel', category: 'ADMIN' },
 ];
 
 // ============================================================================
@@ -128,6 +132,7 @@ const ROLE_GROUPS: RoleGroupDef[] = [
       'reports.read', 'reports.export',
       'admin.access',
       'departments.read',
+      'client_chats.menu',
     ],
   },
   {
@@ -139,6 +144,7 @@ const ROLE_GROUPS: RoleGroupDef[] = [
       'clients.details_read',
       'incidents.details_read', 'incidents.create', 'incidents.update',
       'work-orders.read',
+      'client_chats.menu',
     ],
   },
   {
