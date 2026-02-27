@@ -17,9 +17,10 @@ export class ViberAdapter implements ChannelAdapter {
     return process.env.VIBER_BOT_TOKEN || '';
   }
 
-  verifyWebhook(req: Request): boolean {
-    if (!this.token) {
-      this.logger.error('VIBER_BOT_TOKEN is not configured');
+  verifyWebhook(req: Request, tokenOverride?: string): boolean {
+    const token = tokenOverride ?? this.token;
+    if (!token) {
+      this.logger.error('Viber token not configured (env or channel account)');
       return false;
     }
 
@@ -29,7 +30,7 @@ export class ViberAdapter implements ChannelAdapter {
     const body =
       typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
     const expected = crypto
-      .createHmac('sha256', this.token)
+      .createHmac('sha256', token)
       .update(body)
       .digest('hex');
 

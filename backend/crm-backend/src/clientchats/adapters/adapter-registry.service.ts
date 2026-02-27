@@ -4,6 +4,8 @@ import { ChannelAdapter } from '../interfaces/channel-adapter.interface';
 import { WebChatAdapter } from './web-chat.adapter';
 import { ViberAdapter } from './viber.adapter';
 import { FacebookAdapter } from './facebook.adapter';
+import { TelegramAdapter } from './telegram.adapter';
+import { WhatsAppAdapter } from './whatsapp.adapter';
 
 @Injectable()
 export class AdapterRegistryService {
@@ -14,10 +16,14 @@ export class AdapterRegistryService {
     private readonly webChat: WebChatAdapter,
     private readonly viber: ViberAdapter,
     private readonly facebook: FacebookAdapter,
+    private readonly telegram: TelegramAdapter,
+    private readonly whatsapp: WhatsAppAdapter,
   ) {
     this.register(webChat);
     this.register(viber);
     this.register(facebook);
+    this.register(telegram);
+    this.register(whatsapp);
   }
 
   private register(adapter: ChannelAdapter) {

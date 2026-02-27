@@ -41,6 +41,8 @@ export default function FilterBar({
           <option value="WEB">Web</option>
           <option value="VIBER">Viber</option>
           <option value="FACEBOOK">Facebook</option>
+          <option value="TELEGRAM">Telegram</option>
+          <option value="WHATSAPP">WhatsApp</option>
         </select>
         <select
           value={statusFilter}

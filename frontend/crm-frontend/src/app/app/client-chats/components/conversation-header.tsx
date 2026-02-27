@@ -29,6 +29,8 @@ export default function ConversationHeader({ conversation, onUpdate }: Conversat
   const clientName = conversation.client
     ? `${conversation.client.firstName ?? ""} ${conversation.client.lastName ?? ""}`.trim() || `Client #${conversation.client.coreId}`
     : null;
+  const participantName = conversation.messages?.[0]?.participant?.displayName ?? null;
+  const displayName = clientName ?? participantName ?? conversation.externalConversationId.slice(0, 20);
 
   async function handleStatusChange(status: ConversationStatus) {
     await apiPatch(`/v1/clientchats/conversations/${conversation.id}/status`, { status });
@@ -81,7 +83,7 @@ export default function ConversationHeader({ conversation, onUpdate }: Conversat
         <div className="flex items-center gap-3">
           <ChannelBadge channel={conversation.channelType} />
           <span className="text-sm font-medium text-gray-700">
-            {clientName ?? conversation.externalConversationId.slice(0, 20)}
+            {displayName}
           </span>
         </div>
 
