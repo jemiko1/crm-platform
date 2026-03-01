@@ -109,12 +109,12 @@ export default function CallCenterDashboard() {
           {/* Volume KPIs */}
           {overview && (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-              <KpiCard label={t("callCenter.kpi.totalCalls", "Total Calls")} value={overview.volume.totalCalls} />
-              <KpiCard label={t("callCenter.kpi.answered", "Answered")} value={overview.volume.answered} color="emerald" />
-              <KpiCard label={t("callCenter.kpi.missed", "Missed")} value={overview.volume.missed} color="rose" />
-              <KpiCard label={t("callCenter.kpi.abandoned", "Abandoned")} value={overview.volume.abandoned} color="amber" />
-              <KpiCard label={t("callCenter.kpi.avgAnswer", "Avg Answer")} value={fmtSec(overview.speed.avgAnswerTimeSec)} />
-              <KpiCard label={t("callCenter.kpi.sla", "SLA Met")} value={fmtPct(overview.serviceLevel.slaMetPercent)} color="emerald" />
+              <KpiCard label={t("callCenter.kpi.totalCalls", "Total Calls")} value={overview.volume?.totalCalls ?? 0} />
+              <KpiCard label={t("callCenter.kpi.answered", "Answered")} value={overview.volume?.answered ?? 0} color="emerald" />
+              <KpiCard label={t("callCenter.kpi.missed", "Missed")} value={overview.volume?.missed ?? 0} color="rose" />
+              <KpiCard label={t("callCenter.kpi.abandoned", "Abandoned")} value={overview.volume?.abandoned ?? 0} color="amber" />
+              <KpiCard label={t("callCenter.kpi.avgAnswer", "Avg Answer")} value={fmtSec(overview.speed?.avgAnswerTimeSec ?? null)} />
+              <KpiCard label={t("callCenter.kpi.sla", "SLA Met")} value={fmtPct(overview.serviceLevel?.slaMetPercent ?? null)} color="emerald" />
             </div>
           )}
 
@@ -126,10 +126,10 @@ export default function CallCenterDashboard() {
                   {t("callCenter.section.speed", "Speed Metrics")}
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <MiniStat label={t("callCenter.kpi.medianAnswer", "Median Answer")} value={fmtSec(overview.speed.medianAnswerTimeSec)} />
-                  <MiniStat label={t("callCenter.kpi.p90Answer", "P90 Answer")} value={fmtSec(overview.speed.p90AnswerTimeSec)} />
-                  <MiniStat label={t("callCenter.kpi.avgAbandonWait", "Avg Abandon Wait")} value={fmtSec(overview.speed.avgAbandonWaitSec)} />
-                  <MiniStat label={t("callCenter.kpi.longestWait", "Longest Wait")} value={fmtSec(overview.serviceLevel.longestWaitSec)} />
+                  <MiniStat label={t("callCenter.kpi.medianAnswer", "Median Answer")} value={fmtSec(overview.speed?.medianAnswerTimeSec ?? null)} />
+                  <MiniStat label={t("callCenter.kpi.p90Answer", "P90 Answer")} value={fmtSec(overview.speed?.p90AnswerTimeSec ?? null)} />
+                  <MiniStat label={t("callCenter.kpi.avgAbandonWait", "Avg Abandon Wait")} value={fmtSec(overview.speed?.avgAbandonWaitSec ?? null)} />
+                  <MiniStat label={t("callCenter.kpi.longestWait", "Longest Wait")} value={fmtSec(overview.serviceLevel?.longestWaitSec ?? null)} />
                 </div>
               </div>
               <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-zinc-200">
@@ -137,10 +137,10 @@ export default function CallCenterDashboard() {
                   {t("callCenter.section.quality", "Quality Metrics")}
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <MiniStat label={t("callCenter.kpi.avgTalk", "Avg Talk")} value={fmtSec(overview.quality.avgTalkTimeSec)} />
-                  <MiniStat label={t("callCenter.kpi.avgHold", "Avg Hold")} value={fmtSec(overview.quality.avgHoldTimeSec)} />
-                  <MiniStat label={t("callCenter.kpi.avgWrapup", "Avg Wrapup")} value={fmtSec(overview.quality.avgWrapupTimeSec)} />
-                  <MiniStat label={t("callCenter.kpi.transferRate", "Transfer Rate")} value={fmtPct(overview.quality.transferRate)} />
+                  <MiniStat label={t("callCenter.kpi.avgTalk", "Avg Talk")} value={fmtSec(overview.quality?.avgTalkTimeSec ?? null)} />
+                  <MiniStat label={t("callCenter.kpi.avgHold", "Avg Hold")} value={fmtSec(overview.quality?.avgHoldTimeSec ?? null)} />
+                  <MiniStat label={t("callCenter.kpi.avgWrapup", "Avg Wrapup")} value={fmtSec(overview.quality?.avgWrapupTimeSec ?? null)} />
+                  <MiniStat label={t("callCenter.kpi.transferRate", "Transfer Rate")} value={fmtPct(overview.quality?.transferRate ?? null)} />
                 </div>
               </div>
             </div>
@@ -225,7 +225,7 @@ export default function CallCenterDashboard() {
           )}
 
           {/* Empty state */}
-          {!overview && agents.length === 0 && queues.length === 0 && (
+          {(!overview || !overview.volume) && agents.length === 0 && queues.length === 0 && (
             <div className="flex flex-col items-center justify-center rounded-3xl bg-white p-12 shadow-sm ring-1 ring-zinc-200">
               <div className="text-4xl mb-3 opacity-30">📊</div>
               <p className="text-sm text-zinc-500">{t("callCenter.empty.noData", "No call data for the selected period.")}</p>
