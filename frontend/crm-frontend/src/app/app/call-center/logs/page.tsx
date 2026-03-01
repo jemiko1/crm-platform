@@ -73,7 +73,7 @@ export default function CallLogsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res: CallsPaginated = await fetchCalls({
+      const res = await fetchCalls({
         from: new Date(from).toISOString(),
         to: new Date(to + "T23:59:59").toISOString(),
         page,
@@ -81,8 +81,9 @@ export default function CallLogsPage() {
         search: search || undefined,
         disposition: disposition || undefined,
       });
-      setCalls(res.data ?? []);
-      setMeta(res.meta ?? { page: 1, pageSize: 25, total: 0, totalPages: 1 });
+      const data = res?.data ?? (Array.isArray(res) ? res as unknown as CallSession[] : []);
+      setCalls(data);
+      setMeta(res?.meta ?? { page: 1, pageSize: 25, total: data.length, totalPages: 1 });
     } catch (err) {
       console.error("Failed to load calls", err);
       setCalls([]);

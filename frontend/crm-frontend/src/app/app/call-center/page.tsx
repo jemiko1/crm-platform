@@ -59,14 +59,14 @@ export default function CallCenterDashboard() {
     setLoading(true);
     try {
       const { from, to } = RANGES[range]();
-      const [ov, ag, qu] = await Promise.all([
+      const [ov, ag, qu] = await Promise.allSettled([
         fetchOverviewKpis({ from, to }),
         fetchAgentStats({ from, to }),
         fetchQueueStats({ from, to }),
       ]);
-      setOverview(ov);
-      setAgents(Array.isArray(ag) ? ag : []);
-      setQueues(Array.isArray(qu) ? qu : []);
+      setOverview(ov.status === "fulfilled" && ov.value?.volume ? ov.value : null);
+      setAgents(ag.status === "fulfilled" && Array.isArray(ag.value) ? ag.value : []);
+      setQueues(qu.status === "fulfilled" && Array.isArray(qu.value) ? qu.value : []);
     } catch (err) {
       console.error("Failed to load stats", err);
     } finally {
