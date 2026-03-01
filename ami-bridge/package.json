@@ -1,0 +1,23 @@
+{
+  "name": "ami-bridge",
+  "version": "1.0.0",
+  "description": "Asterisk AMI to CRM telephony event bridge",
+  "private": true,
+  "scripts": {
+    "start": "node dist/main.js",
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
