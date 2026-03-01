@@ -46,13 +46,14 @@ export default function CallbacksPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res: CallbacksPaginated = await fetchCallbacks({
+      const res = await fetchCallbacks({
         status: status || undefined,
         page,
         pageSize: 25,
       });
-      setCallbacks(res.data ?? []);
-      setMeta(res.meta ?? { page: 1, pageSize: 25, total: 0, totalPages: 1 });
+      const data = res?.data ?? (Array.isArray(res) ? res as unknown as CallbackRequest[] : []);
+      setCallbacks(data);
+      setMeta(res?.meta ?? { page: 1, pageSize: 25, total: data.length, totalPages: 1 });
     } catch (err) {
       console.error("Failed to load callbacks", err);
       setCallbacks([]);
