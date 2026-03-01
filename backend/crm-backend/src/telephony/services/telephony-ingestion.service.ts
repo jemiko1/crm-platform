@@ -192,7 +192,11 @@ export class TelephonyIngestionService {
     if (!existingSession) return;
 
     const endAt = new Date(event.timestamp);
-    const disposition = this.inferDisposition(payload);
+    const fullSession = await this.prisma.callSession.findUnique({
+      where: { id: existingSession.id },
+      select: { answerAt: true },
+    });
+    const disposition = this.inferDisposition(payload, !!fullSession?.answerAt);
 
     const session = await this.prisma.callSession.update({
       where: { id: existingSession.id },
@@ -506,22 +510,30 @@ export class TelephonyIngestionService {
     return CallDirection.IN;
   }
 
-  private inferDisposition(payload: AsteriskEventPayload): CallDisposition {
-    const cause = payload.causeTxt?.toUpperCase() ?? payload.cause?.toUpperCase() ?? '';
-
-    if (cause.includes('NORMAL_CLEARING') || cause.includes('ANSWERED') || cause === '16') {
+  private inferDisposition(
+    payload: AsteriskEventPayload,
+    sessionAnswered = false,
+  ): CallDisposition {
+    if (sessionAnswered) {
       return CallDisposition.ANSWERED;
     }
-    if (cause.includes('NO_ANSWER') || cause === '19') {
+
+    const causeTxt = (payload.causeTxt ?? '').toUpperCase().replace(/[\s-]+/g, '_');
+    const causeCode = (payload.cause ?? '').trim();
+
+    if (causeTxt.includes('NORMAL_CLEARING') || causeTxt.includes('ANSWERED') || causeCode === '16') {
+      return CallDisposition.ANSWERED;
+    }
+    if (causeTxt.includes('NO_ANSWER') || causeCode === '19') {
       return CallDisposition.NOANSWER;
     }
-    if (cause.includes('USER_BUSY') || cause === '17') {
+    if (causeTxt.includes('USER_BUSY') || causeCode === '17') {
       return CallDisposition.BUSY;
     }
-    if (cause.includes('ORIGINATOR_CANCEL') || cause === '487') {
+    if (causeTxt.includes('ORIGINATOR_CANCEL') || causeCode === '487') {
       return CallDisposition.ABANDONED;
     }
-    if (cause.includes('FAILURE') || cause.includes('CONGESTION')) {
+    if (causeTxt.includes('FAILURE') || causeTxt.includes('CONGESTION')) {
       return CallDisposition.FAILED;
     }
     return CallDisposition.MISSED;
