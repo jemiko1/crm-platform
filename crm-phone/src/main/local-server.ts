@@ -70,7 +70,7 @@ export function startLocalServer(sipManager: SipManager, callbacks: {
         return res.status(response.status).json({ error: body });
       }
 
-      const data: AppLoginResponse = await response.json();
+      const data = (await response.json()) as AppLoginResponse;
       setSession(data);
 
       if (data.telephonyExtension) {

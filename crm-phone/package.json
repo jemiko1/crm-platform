@@ -2,14 +2,15 @@
   "name": "crm-phone",
   "version": "1.0.0",
   "description": "CRM Desktop Softphone",
-  "main": "dist/main/index.js",
+  "main": "dist/main/main/index.js",
+  "author": "ASG",
   "scripts": {
     "dev": "concurrently \"npm run dev:main\" \"npm run dev:renderer\"",
     "dev:main": "tsc -p tsconfig.main.json --watch",
     "dev:renderer": "vite",
     "build": "tsc -p tsconfig.main.json && vite build",
-    "start": "electron dist/main/index.js",
-    "pack": "npm run build && electron-builder --win",
+    "start": "electron dist/main/main/index.js",
+    "pack": "npm run build && electron-builder --win --config.win.signAndEditExecutable=false",
     "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json --noEmit"
   },
   "dependencies": {
@@ -39,9 +40,12 @@
     "directories": {
       "output": "release"
     },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
     "win": {
-      "target": "nsis",
-      "icon": "resources/icon.ico"
+      "target": "nsis"
     },
     "nsis": {
       "oneClick": true,
