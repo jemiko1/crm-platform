@@ -28,12 +28,21 @@ export class SipManager extends EventEmitter {
   async register(ext: TelephonyExtensionInfo): Promise<void> {
     await this.unregister();
 
+    console.log("[SIP] register() called with:", JSON.stringify({
+      extension: ext.extension,
+      sipServer: ext.sipServer,
+      sipPassword: ext.sipPassword ? `SET(${ext.sipPassword.length}chars)` : "NULL",
+      displayName: ext.displayName,
+    }));
+
     if (!ext.sipServer) {
+      console.log("[SIP] ABORT: No SIP server");
       this.emit("error", "No SIP server configured for this extension");
       return;
     }
 
     if (!ext.sipPassword) {
+      console.log("[SIP] ABORT: No SIP password");
       this.emit("error", "No SIP password configured for this extension");
       return;
     }
@@ -42,8 +51,13 @@ export class SipManager extends EventEmitter {
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
     this._sipHost = ext.sipServer;
-    const uri = UserAgent.makeURI(`sip:${ext.extension}@${this._sipHost}`);
+    const wssUrl = `wss://${this._sipHost}:8089/ws`;
+    const sipUri = `sip:${ext.extension}@${this._sipHost}`;
+    console.log("[SIP] Connecting to:", wssUrl, "URI:", sipUri);
+
+    const uri = UserAgent.makeURI(sipUri);
     if (!uri) {
+      console.log("[SIP] ABORT: Invalid SIP URI");
       this.emit("error", `Invalid SIP URI for extension ${ext.extension}`);
       return;
     }
@@ -53,7 +67,7 @@ export class SipManager extends EventEmitter {
       authorizationUsername: ext.extension,
       authorizationPassword: ext.sipPassword,
       transportOptions: {
-        server: `wss://${this._sipHost}:8089/ws`,
+        server: wssUrl,
       },
       displayName: ext.displayName,
       logLevel: "warn",
@@ -63,9 +77,12 @@ export class SipManager extends EventEmitter {
       onInvite: (invitation: Invitation) => this.handleIncoming(invitation),
     };
 
+    console.log("[SIP] Starting UserAgent...");
     try {
       await this.ua.start();
+      console.log("[SIP] UserAgent started OK");
     } catch (err: any) {
+      console.log("[SIP] UserAgent start FAILED:", err.message, err.stack);
       this.emit("error", `SIP transport failed: ${err.message}`);
       return;
     }
@@ -75,13 +92,17 @@ export class SipManager extends EventEmitter {
     });
 
     this.registerer.stateChange.addListener((state) => {
+      console.log("[SIP] Registration state:", state);
       this._registered = state === "Registered";
       this.emit("registration-state", this._registered);
     });
 
+    console.log("[SIP] Sending REGISTER...");
     try {
       await this.registerer.register();
+      console.log("[SIP] REGISTER request sent successfully");
     } catch (err: any) {
+      console.log("[SIP] REGISTER FAILED:", err.message, err.stack);
       this.emit("error", `SIP registration failed: ${err.message}`);
     }
   }
