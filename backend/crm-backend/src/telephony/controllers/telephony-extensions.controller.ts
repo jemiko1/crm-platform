@@ -12,7 +12,7 @@ import { IsBoolean, IsOptional, IsString } from 'class-validator';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { PrismaService } from '../../prisma/prisma.service';
 
-class CreateExtensionDto {
+class UpsertExtensionDto {
   @IsString() crmUserId!: string;
   @IsString() extension!: string;
   @IsString() displayName!: string;
@@ -35,6 +35,33 @@ class UpdateExtensionDto {
 export class TelephonyExtensionsController {
   constructor(private readonly prisma: PrismaService) {}
 
+  @Get('users-with-config')
+  async usersWithConfig() {
+    return this.prisma.user.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        employee: {
+          select: { firstName: true, lastName: true, status: true },
+        },
+        telephonyExtension: {
+          select: {
+            id: true,
+            extension: true,
+            displayName: true,
+            sipServer: true,
+            sipPassword: true,
+            isOperator: true,
+            isActive: true,
+          },
+        },
+      },
+      orderBy: { email: 'asc' },
+    });
+  }
+
   @Get()
   async list() {
     return this.prisma.telephonyExtension.findMany({
@@ -52,23 +79,25 @@ export class TelephonyExtensionsController {
     });
   }
 
-  @Get('available-users')
-  async availableUsers() {
-    return this.prisma.user.findMany({
-      where: { isActive: true },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        employee: { select: { firstName: true, lastName: true } },
-        telephonyExtension: { select: { id: true } },
-      },
-      orderBy: { email: 'asc' },
-    });
-  }
-
   @Post()
-  async create(@Body() dto: CreateExtensionDto) {
+  async upsert(@Body() dto: UpsertExtensionDto) {
+    const existing = await this.prisma.telephonyExtension.findUnique({
+      where: { crmUserId: dto.crmUserId },
+    });
+
+    if (existing) {
+      return this.prisma.telephonyExtension.update({
+        where: { id: existing.id },
+        data: {
+          extension: dto.extension,
+          displayName: dto.displayName,
+          sipServer: dto.sipServer ?? null,
+          sipPassword: dto.sipPassword ?? null,
+          isOperator: dto.isOperator ?? true,
+        },
+      });
+    }
+
     return this.prisma.telephonyExtension.create({
       data: {
         crmUserId: dto.crmUserId,
