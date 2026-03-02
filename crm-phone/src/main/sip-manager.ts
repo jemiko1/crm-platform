@@ -38,6 +38,9 @@ export class SipManager extends EventEmitter {
       return;
     }
 
+    // Accept self-signed TLS certs from internal PBX servers
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+
     this._sipHost = ext.sipServer;
     const uri = UserAgent.makeURI(`sip:${ext.extension}@${this._sipHost}`);
     if (!uri) {
