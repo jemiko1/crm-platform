@@ -7,41 +7,32 @@ import { PermissionGuard } from "@/lib/permission-guard";
 
 const BRAND = "rgb(8, 117, 56)";
 
-type Extension = {
+type ExtConfig = {
   id: string;
-  crmUserId: string;
   extension: string;
   displayName: string;
   sipServer: string | null;
   sipPassword: string | null;
   isOperator: boolean;
   isActive: boolean;
-  user: {
-    id: string;
-    email: string;
-    role: string;
-    employee?: { firstName: string; lastName: string } | null;
-  };
 };
 
-type AvailableUser = {
+type UserRow = {
   id: string;
   email: string;
   role: string;
-  employee?: { firstName: string; lastName: string } | null;
-  telephonyExtension?: { id: string } | null;
+  employee: { firstName: string; lastName: string; status: string } | null;
+  telephonyExtension: ExtConfig | null;
 };
 
 export default function TelephonyExtensionsPage() {
-  const [extensions, setExtensions] = useState<Extension[]>([]);
-  const [allUsers, setAllUsers] = useState<AvailableUser[]>([]);
+  const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const [form, setForm] = useState({
-    crmUserId: "",
     extension: "",
     displayName: "",
     sipServer: "",
@@ -52,12 +43,10 @@ export default function TelephonyExtensionsPage() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [exts, users] = await Promise.all([
-        apiGet<Extension[]>("/v1/telephony/extensions"),
-        apiGet<AvailableUser[]>("/v1/telephony/extensions/available-users"),
-      ]);
-      setExtensions(exts);
-      setAllUsers(users);
+      const data = await apiGet<UserRow[]>(
+        "/v1/telephony/extensions/users-with-config",
+      );
+      setUsers(data);
       setError(null);
     } catch (err: any) {
       setError(err.message || "Failed to load");
@@ -70,105 +59,97 @@ export default function TelephonyExtensionsPage() {
     fetchData();
   }, [fetchData]);
 
-  const usedUserIds = new Set(extensions.map((e) => e.crmUserId));
-  const availableUsers = allUsers.filter(
-    (u) => !u.telephonyExtension || u.id === form.crmUserId,
-  );
-
-  function userName(u: { email: string; employee?: { firstName: string; lastName: string } | null }) {
+  function empName(u: UserRow) {
     if (u.employee) return `${u.employee.firstName} ${u.employee.lastName}`;
     return u.email;
   }
 
-  function openAdd() {
-    setEditingId(null);
-    setForm({
-      crmUserId: "",
-      extension: "",
-      displayName: "",
-      sipServer: "",
-      sipPassword: "",
-      isOperator: true,
-    });
-    setShowForm(true);
-  }
-
-  function openEdit(ext: Extension) {
-    setEditingId(ext.id);
-    setForm({
-      crmUserId: ext.crmUserId,
-      extension: ext.extension,
-      displayName: ext.displayName,
-      sipServer: ext.sipServer || "",
-      sipPassword: ext.sipPassword || "",
-      isOperator: ext.isOperator,
-    });
-    setShowForm(true);
-  }
-
-  function handleUserSelect(userId: string) {
-    const user = allUsers.find((u) => u.id === userId);
-    const autoName = user ? userName(user) : "";
-    setForm((f) => ({
-      ...f,
-      crmUserId: userId,
-      displayName: f.displayName || autoName,
-    }));
-  }
-
-  async function handleSave() {
-    if (!editingId && !form.crmUserId) {
-      setError("Please select a user");
+  function toggleExpand(u: UserRow) {
+    if (expandedUserId === u.id) {
+      setExpandedUserId(null);
       return;
     }
-    if (!form.extension) {
+    setExpandedUserId(u.id);
+    setError(null);
+    if (u.telephonyExtension) {
+      setForm({
+        extension: u.telephonyExtension.extension,
+        displayName: u.telephonyExtension.displayName,
+        sipServer: u.telephonyExtension.sipServer || "",
+        sipPassword: u.telephonyExtension.sipPassword || "",
+        isOperator: u.telephonyExtension.isOperator,
+      });
+    } else {
+      setForm({
+        extension: "",
+        displayName: empName(u),
+        sipServer: "",
+        sipPassword: "",
+        isOperator: true,
+      });
+    }
+  }
+
+  async function handleSave(u: UserRow) {
+    if (!form.extension.trim()) {
       setError("Extension number is required");
       return;
     }
-    if (!form.displayName) {
+    if (!form.displayName.trim()) {
       setError("Display name is required");
       return;
     }
 
     try {
+      setSaving(true);
       setError(null);
-      const payload = {
-        extension: form.extension,
-        displayName: form.displayName,
-        sipServer: form.sipServer || null,
-        sipPassword: form.sipPassword || null,
-        isOperator: form.isOperator,
-      };
 
-      if (editingId) {
-        await apiPatch(`/v1/telephony/extensions/${editingId}`, payload);
+      if (u.telephonyExtension) {
+        await apiPatch(`/v1/telephony/extensions/${u.telephonyExtension.id}`, {
+          extension: form.extension,
+          displayName: form.displayName,
+          sipServer: form.sipServer || null,
+          sipPassword: form.sipPassword || null,
+          isOperator: form.isOperator,
+        });
       } else {
         await apiPost("/v1/telephony/extensions", {
-          ...payload,
-          crmUserId: form.crmUserId,
+          crmUserId: u.id,
+          extension: form.extension,
+          displayName: form.displayName,
+          sipServer: form.sipServer || null,
+          sipPassword: form.sipPassword || null,
+          isOperator: form.isOperator,
         });
       }
-      setShowForm(false);
+
+      setExpandedUserId(null);
+      fetchData();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleRemove(u: UserRow) {
+    if (!u.telephonyExtension) return;
+    if (!confirm(`Remove SIP extension ${u.telephonyExtension.extension} from ${empName(u)}?`)) return;
+    try {
+      setError(null);
+      await apiDelete(`/v1/telephony/extensions/${u.telephonyExtension.id}`);
+      setExpandedUserId(null);
       fetchData();
     } catch (err: any) {
       setError(err.message);
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Remove this extension mapping?")) return;
+  async function handleToggleActive(u: UserRow) {
+    if (!u.telephonyExtension) return;
     try {
-      await apiDelete(`/v1/telephony/extensions/${id}`);
-      fetchData();
-    } catch (err: any) {
-      setError(err.message);
-    }
-  }
-
-  async function handleToggleActive(ext: Extension) {
-    try {
-      await apiPatch(`/v1/telephony/extensions/${ext.id}`, {
-        isActive: !ext.isActive,
+      await apiPatch(`/v1/telephony/extensions/${u.telephonyExtension.id}`, {
+        isActive: !u.telephonyExtension.isActive,
       });
       fetchData();
     } catch (err: any) {
@@ -176,15 +157,20 @@ export default function TelephonyExtensionsPage() {
     }
   }
 
-  function sipConfigStatus(ext: Extension) {
-    if (!ext.sipServer || !ext.sipPassword) return "not-configured";
-    return "configured";
+  function sipBadge(u: UserRow) {
+    const ext = u.telephonyExtension;
+    if (!ext) return { label: "Not configured", cls: "bg-zinc-50 text-zinc-500 ring-zinc-200", dot: "bg-zinc-400" };
+    if (!ext.sipServer || !ext.sipPassword)
+      return { label: `Ext ${ext.extension} — missing SIP`, cls: "bg-amber-50 text-amber-700 ring-amber-200", dot: "bg-amber-500" };
+    if (!ext.isActive)
+      return { label: `Ext ${ext.extension} — disabled`, cls: "bg-zinc-50 text-zinc-600 ring-zinc-200", dot: "bg-zinc-400" };
+    return { label: `Ext ${ext.extension} — ready`, cls: "bg-emerald-50 text-emerald-700 ring-emerald-200", dot: "bg-emerald-500" };
   }
 
   if (loading) {
     return (
       <div className="flex min-h-[300px] items-center justify-center">
-        <div className="text-zinc-600">Loading extensions...</div>
+        <div className="text-zinc-600">Loading...</div>
       </div>
     );
   }
@@ -192,29 +178,19 @@ export default function TelephonyExtensionsPage() {
   return (
     <PermissionGuard permission="admin.access">
       <div className="p-4 sm:p-6 lg:p-8">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <Link
-              href="/app/admin"
-              className="mb-2 inline-flex items-center text-sm text-zinc-600 hover:text-zinc-900"
-            >
-              &larr; Back to Admin Panel
-            </Link>
-            <h1 className="text-2xl font-bold text-zinc-900">
-              Telephony Extensions
-            </h1>
-            <p className="mt-1 text-sm text-zinc-600">
-              Assign SIP extensions to CRM users — enter the extension number,
-              SIP server address, and SIP password from FreePBX
-            </p>
-          </div>
-          <button
-            onClick={openAdd}
-            className="rounded-full px-6 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
-            style={{ backgroundColor: BRAND }}
+        <div className="mb-6">
+          <Link
+            href="/app/admin"
+            className="mb-2 inline-flex items-center text-sm text-zinc-600 hover:text-zinc-900"
           >
-            Add Extension
-          </button>
+            &larr; Back to Admin Panel
+          </Link>
+          <h1 className="text-2xl font-bold text-zinc-900">
+            Telephony Extensions
+          </h1>
+          <p className="mt-1 text-sm text-zinc-600">
+            Configure SIP extensions for employees. Click on an employee to set up their extension, SIP server, and password.
+          </p>
         </div>
 
         {error && (
@@ -223,265 +199,183 @@ export default function TelephonyExtensionsPage() {
           </div>
         )}
 
-        {extensions.length === 0 ? (
-          <div className="rounded-2xl bg-zinc-50 p-12 text-center">
-            <div className="text-sm font-medium text-zinc-600">
-              No extensions assigned yet
-            </div>
-          </div>
-        ) : (
-          <div className="rounded-3xl bg-white shadow-sm ring-1 ring-zinc-200 overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-zinc-50/50">
-                <tr>
-                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
-                    Extension
-                  </th>
-                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
-                    Employee
-                  </th>
-                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
-                    Email
-                  </th>
-                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
-                    SIP Server
-                  </th>
-                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
-                    SIP Config
-                  </th>
-                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
-                    Status
-                  </th>
-                  <th className="px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-zinc-600">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {extensions.map((ext) => {
-                  const sipStatus = sipConfigStatus(ext);
-                  return (
-                    <tr
-                      key={ext.id}
-                      className="transition hover:bg-zinc-50/50"
-                    >
-                      <td className="px-5 py-4 whitespace-nowrap">
-                        <span className="font-mono text-sm font-bold text-zinc-900">
-                          {ext.extension}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 whitespace-nowrap text-sm text-zinc-900">
-                        {ext.displayName}
-                      </td>
-                      <td className="px-5 py-4 whitespace-nowrap text-sm text-zinc-600">
-                        {ext.user.email}
-                      </td>
-                      <td className="px-5 py-4 whitespace-nowrap text-sm text-zinc-600 font-mono">
-                        {ext.sipServer || (
-                          <span className="text-zinc-400">&mdash;</span>
-                        )}
-                      </td>
-                      <td className="px-5 py-4 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${
-                            sipStatus === "configured"
-                              ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-                              : "bg-amber-50 text-amber-700 ring-amber-200"
-                          }`}
-                        >
+        <div className="rounded-3xl bg-white shadow-sm ring-1 ring-zinc-200 overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-zinc-50/50">
+              <tr>
+                <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
+                  Employee
+                </th>
+                <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
+                  Email / Login
+                </th>
+                <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
+                  SIP Extension
+                </th>
+                <th className="px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-zinc-600">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {users.map((u) => {
+                const badge = sipBadge(u);
+                const isExpanded = expandedUserId === u.id;
+
+                return (
+                  <tr key={u.id} className="group">
+                    <td colSpan={4} className="p-0">
+                      {/* Main row */}
+                      <div
+                        className={`flex items-center cursor-pointer transition hover:bg-zinc-50/80 ${isExpanded ? "bg-zinc-50" : ""}`}
+                        onClick={() => toggleExpand(u)}
+                      >
+                        <div className="px-5 py-4 flex-1 min-w-0">
+                          <div className="text-sm font-medium text-zinc-900 truncate">
+                            {empName(u)}
+                          </div>
+                          {u.employee?.status && u.employee.status !== "ACTIVE" && (
+                            <span className="text-xs text-zinc-400">{u.employee.status}</span>
+                          )}
+                        </div>
+                        <div className="px-5 py-4 flex-1 min-w-0">
+                          <div className="text-sm text-zinc-600 truncate">{u.email}</div>
+                          <div className="text-xs text-zinc-400">{u.role}</div>
+                        </div>
+                        <div className="px-5 py-4 flex-1">
                           <span
-                            className={`h-1.5 w-1.5 rounded-full ${
-                              sipStatus === "configured"
-                                ? "bg-emerald-500"
-                                : "bg-amber-500"
-                            }`}
-                          />
-                          {sipStatus === "configured"
-                            ? "Configured"
-                            : "Missing SIP config"}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 whitespace-nowrap">
-                        <button
-                          onClick={() => handleToggleActive(ext)}
-                          className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 cursor-pointer ${
-                            ext.isActive
-                              ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-                              : "bg-zinc-50 text-zinc-600 ring-zinc-200"
-                          }`}
-                        >
-                          {ext.isActive ? "Active" : "Inactive"}
-                        </button>
-                      </td>
-                      <td className="px-5 py-4 whitespace-nowrap text-right">
-                        <div className="flex items-center justify-end gap-2">
+                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${badge.cls}`}
+                          >
+                            <span className={`h-1.5 w-1.5 rounded-full ${badge.dot}`} />
+                            {badge.label}
+                          </span>
+                        </div>
+                        <div className="px-5 py-4 text-right shrink-0">
                           <button
-                            onClick={() => openEdit(ext)}
+                            onClick={(e) => { e.stopPropagation(); toggleExpand(u); }}
                             className="rounded-lg px-3 py-1.5 text-xs font-medium text-zinc-700 bg-white border border-zinc-300 hover:bg-zinc-50"
                           >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(ext.id)}
-                            className="rounded-lg px-3 py-1.5 text-xs font-medium text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100"
-                          >
-                            Delete
+                            {isExpanded ? "Close" : u.telephonyExtension ? "Edit" : "Configure"}
                           </button>
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                      </div>
 
-        {/* Add / Edit Modal */}
-        {showForm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-lg mx-4 space-y-5 max-h-[90vh] overflow-y-auto">
-              <h3 className="text-lg font-semibold text-zinc-900">
-                {editingId ? "Edit Extension" : "Add Extension"}
-              </h3>
+                      {/* Expanded SIP config panel */}
+                      {isExpanded && (
+                        <div className="border-t border-zinc-100 bg-zinc-50/50 px-5 py-5">
+                          <div className="max-w-2xl space-y-4">
+                            <h4 className="text-sm font-semibold text-zinc-800">
+                              SIP Configuration for {empName(u)}
+                            </h4>
 
-              {!editingId && (
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-zinc-600">
-                    CRM User
-                  </label>
-                  <select
-                    value={form.crmUserId}
-                    onChange={(e) => handleUserSelect(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
-                  >
-                    <option value="">Select user...</option>
-                    {availableUsers.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {userName(u)} ({u.email})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+                            {error && (
+                              <div className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700 ring-1 ring-rose-200">
+                                {error}
+                              </div>
+                            )}
 
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-zinc-600">
-                  Display Name
-                </label>
-                <input
-                  value={form.displayName}
-                  onChange={(e) =>
-                    setForm({ ...form, displayName: e.target.value })
-                  }
-                  placeholder="e.g. John Doe"
-                  className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
-                />
-              </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <div className="space-y-1">
+                                <label className="text-xs font-medium text-zinc-600">Extension Number</label>
+                                <input
+                                  value={form.extension}
+                                  onChange={(e) => setForm({ ...form, extension: e.target.value })}
+                                  placeholder="e.g. 102"
+                                  className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm bg-white"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-xs font-medium text-zinc-600">Display Name</label>
+                                <input
+                                  value={form.displayName}
+                                  onChange={(e) => setForm({ ...form, displayName: e.target.value })}
+                                  placeholder="e.g. John Doe"
+                                  className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm bg-white"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-xs font-medium text-zinc-600">SIP Server</label>
+                                <input
+                                  value={form.sipServer}
+                                  onChange={(e) => setForm({ ...form, sipServer: e.target.value })}
+                                  placeholder="e.g. 5.10.34.153"
+                                  className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm font-mono bg-white"
+                                />
+                                <p className="text-xs text-zinc-400">FreePBX/Asterisk server IP or hostname</p>
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-xs font-medium text-zinc-600">SIP Password</label>
+                                <input
+                                  type="password"
+                                  value={form.sipPassword}
+                                  onChange={(e) => setForm({ ...form, sipPassword: e.target.value })}
+                                  placeholder="Extension secret from FreePBX"
+                                  className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm bg-white"
+                                />
+                                <p className="text-xs text-zinc-400">FreePBX &rarr; Extensions &rarr; Secret</p>
+                              </div>
+                            </div>
 
-              {/* SIP Connection Section */}
-              <div className="rounded-xl border border-zinc-200 p-4 space-y-3 bg-zinc-50/50">
-                <h4 className="text-sm font-semibold text-zinc-800 flex items-center gap-2">
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    className="text-zinc-500"
-                  >
-                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.97.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.84.57 2.81.7A2 2 0 0 1 22 16.92Z" />
-                  </svg>
-                  SIP Connection
-                </h4>
+                            <label className="flex items-center gap-2 text-sm text-zinc-700 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={form.isOperator}
+                                onChange={(e) => setForm({ ...form, isOperator: e.target.checked })}
+                                className="h-4 w-4 rounded border-zinc-300 text-emerald-600"
+                              />
+                              Queue operator (receives calls from queues)
+                            </label>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-zinc-600">
-                    Extension Number
-                  </label>
-                  <input
-                    value={form.extension}
-                    onChange={(e) =>
-                      setForm({ ...form, extension: e.target.value })
-                    }
-                    placeholder="e.g. 102"
-                    className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm bg-white"
-                  />
-                </div>
+                            <div className="flex items-center gap-3 pt-1">
+                              <button
+                                onClick={() => handleSave(u)}
+                                disabled={saving}
+                                className="rounded-xl px-5 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                                style={{ backgroundColor: BRAND }}
+                              >
+                                {saving ? "Saving..." : u.telephonyExtension ? "Save Changes" : "Save Extension"}
+                              </button>
+                              <button
+                                onClick={() => { setExpandedUserId(null); setError(null); }}
+                                className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-100"
+                              >
+                                Cancel
+                              </button>
+                              {u.telephonyExtension && (
+                                <>
+                                  <button
+                                    onClick={() => handleToggleActive(u)}
+                                    className={`ml-auto rounded-xl border px-4 py-2 text-sm font-medium ${
+                                      u.telephonyExtension.isActive
+                                        ? "border-amber-200 text-amber-700 hover:bg-amber-50"
+                                        : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                                    }`}
+                                  >
+                                    {u.telephonyExtension.isActive ? "Disable" : "Enable"}
+                                  </button>
+                                  <button
+                                    onClick={() => handleRemove(u)}
+                                    className="rounded-xl border border-rose-200 px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
+                                  >
+                                    Remove
+                                  </button>
+                                </>
+                              )}
+                            </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-zinc-600">
-                    SIP Server
-                  </label>
-                  <input
-                    value={form.sipServer}
-                    onChange={(e) =>
-                      setForm({ ...form, sipServer: e.target.value })
-                    }
-                    placeholder="e.g. 5.10.34.153"
-                    className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm font-mono bg-white"
-                  />
-                  <p className="text-xs text-zinc-400">
-                    Your FreePBX/Asterisk server IP or hostname
-                  </p>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-zinc-600">
-                    SIP Password
-                  </label>
-                  <input
-                    type="password"
-                    value={form.sipPassword}
-                    onChange={(e) =>
-                      setForm({ ...form, sipPassword: e.target.value })
-                    }
-                    placeholder="From FreePBX extension secret"
-                    className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm bg-white"
-                  />
-                  <p className="text-xs text-zinc-400">
-                    Found in FreePBX &rarr; Applications &rarr; Extensions
-                    &rarr; Secret field
-                  </p>
-                </div>
-
-                <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-700">
-                  SIP registration is verified when the employee logs into the CRM Phone desktop app.
-                  The app will show &quot;Registered&quot; or &quot;Failed&quot; status in real time.
-                </div>
-              </div>
-
-              <label className="flex items-center gap-2 text-sm text-zinc-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={form.isOperator}
-                  onChange={(e) =>
-                    setForm({ ...form, isOperator: e.target.checked })
-                  }
-                  className="h-4 w-4 rounded border-zinc-300 text-emerald-600"
-                />
-                Queue operator
-              </label>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => { setShowForm(false); setError(null); }}
-                  className="flex-1 rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSave}
-                  className="flex-1 rounded-xl px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-                  style={{ backgroundColor: BRAND }}
-                >
-                  {editingId ? "Save Changes" : "Create"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+                            <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-700">
+                              SIP registration is verified when the employee logs into the CRM Phone desktop app.
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </PermissionGuard>
   );
