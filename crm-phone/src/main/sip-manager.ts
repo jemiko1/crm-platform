@@ -1,4 +1,7 @@
 import { EventEmitter } from "events";
+import WebSocketNode from "ws";
+(globalThis as any).WebSocket = WebSocketNode;
+
 import { UserAgent, Registerer, Invitation, Inviter, SessionState } from "sip.js";
 import type { Session } from "sip.js";
 import type { ActiveCall, CallState, TelephonyExtensionInfo } from "../shared/types";
