@@ -16,22 +16,29 @@ type Extension = {
   sipPassword: string | null;
   isOperator: boolean;
   isActive: boolean;
-  user: { id: string; email: string; role: string };
+  user: {
+    id: string;
+    email: string;
+    role: string;
+    employee?: { firstName: string; lastName: string } | null;
+  };
 };
 
-type SimpleUser = { id: string; email: string; userId: string };
-
-type SipTestResult = "idle" | "testing" | "registered" | "failed";
+type AvailableUser = {
+  id: string;
+  email: string;
+  role: string;
+  employee?: { firstName: string; lastName: string } | null;
+  telephonyExtension?: { id: string } | null;
+};
 
 export default function TelephonyExtensionsPage() {
   const [extensions, setExtensions] = useState<Extension[]>([]);
-  const [users, setUsers] = useState<SimpleUser[]>([]);
+  const [allUsers, setAllUsers] = useState<AvailableUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [sipTestResult, setSipTestResult] = useState<SipTestResult>("idle");
-  const [sipTestError, setSipTestError] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     crmUserId: "",
@@ -45,23 +52,12 @@ export default function TelephonyExtensionsPage() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [exts, empResponse] = await Promise.all([
+      const [exts, users] = await Promise.all([
         apiGet<Extension[]>("/v1/telephony/extensions"),
-        apiGet<any>("/v1/employees?pageSize=500"),
+        apiGet<AvailableUser[]>("/v1/telephony/extensions/available-users"),
       ]);
       setExtensions(exts);
-      const empArr = Array.isArray(empResponse)
-        ? empResponse
-        : empResponse?.data ?? [];
-      setUsers(
-        empArr
-          .filter((emp: any) => emp.user?.id)
-          .map((emp: any) => ({
-            id: emp.id,
-            email: emp.email,
-            userId: emp.user.id,
-          })),
-      );
+      setAllUsers(users);
       setError(null);
     } catch (err: any) {
       setError(err.message || "Failed to load");
@@ -74,6 +70,16 @@ export default function TelephonyExtensionsPage() {
     fetchData();
   }, [fetchData]);
 
+  const usedUserIds = new Set(extensions.map((e) => e.crmUserId));
+  const availableUsers = allUsers.filter(
+    (u) => !u.telephonyExtension || u.id === form.crmUserId,
+  );
+
+  function userName(u: { email: string; employee?: { firstName: string; lastName: string } | null }) {
+    if (u.employee) return `${u.employee.firstName} ${u.employee.lastName}`;
+    return u.email;
+  }
+
   function openAdd() {
     setEditingId(null);
     setForm({
@@ -84,8 +90,6 @@ export default function TelephonyExtensionsPage() {
       sipPassword: "",
       isOperator: true,
     });
-    setSipTestResult("idle");
-    setSipTestError(null);
     setShowForm(true);
   }
 
@@ -99,42 +103,35 @@ export default function TelephonyExtensionsPage() {
       sipPassword: ext.sipPassword || "",
       isOperator: ext.isOperator,
     });
-    setSipTestResult(
-      ext.sipServer && ext.sipPassword ? "idle" : "idle",
-    );
-    setSipTestError(null);
     setShowForm(true);
   }
 
-  async function handleTestSip() {
-    if (!form.sipServer || !form.extension || !form.sipPassword) {
-      setSipTestError("Fill in SIP Server, Extension, and SIP Password first");
-      return;
-    }
-
-    setSipTestResult("testing");
-    setSipTestError(null);
-
-    try {
-      const res = await fetch(`http://127.0.0.1:19876/status`, {
-        signal: AbortSignal.timeout(2000),
-      });
-      if (!res.ok) throw new Error("Desktop app not responding");
-
-      setSipTestResult("registered");
-      setSipTestError(null);
-    } catch {
-      setSipTestResult("idle");
-      setSipTestError(
-        "Desktop phone app is not running on this PC. " +
-        "The SIP registration test runs when the agent logs into the app with these credentials. " +
-        "Save the settings — registration will be verified on login."
-      );
-    }
+  function handleUserSelect(userId: string) {
+    const user = allUsers.find((u) => u.id === userId);
+    const autoName = user ? userName(user) : "";
+    setForm((f) => ({
+      ...f,
+      crmUserId: userId,
+      displayName: f.displayName || autoName,
+    }));
   }
 
   async function handleSave() {
+    if (!editingId && !form.crmUserId) {
+      setError("Please select a user");
+      return;
+    }
+    if (!form.extension) {
+      setError("Extension number is required");
+      return;
+    }
+    if (!form.displayName) {
+      setError("Display name is required");
+      return;
+    }
+
     try {
+      setError(null);
       const payload = {
         extension: form.extension,
         displayName: form.displayName,
@@ -178,11 +175,6 @@ export default function TelephonyExtensionsPage() {
       setError(err.message);
     }
   }
-
-  const usedUserIds = new Set(extensions.map((e) => e.crmUserId));
-  const availableUsers = users.filter(
-    (u) => !usedUserIds.has(u.userId) || u.userId === form.crmUserId,
-  );
 
   function sipConfigStatus(ext: Extension) {
     if (!ext.sipServer || !ext.sipPassword) return "not-configured";
@@ -246,10 +238,10 @@ export default function TelephonyExtensionsPage() {
                     Extension
                   </th>
                   <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
-                    Display Name
+                    Employee
                   </th>
                   <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
-                    User
+                    Email
                   </th>
                   <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
                     SIP Server
@@ -286,7 +278,7 @@ export default function TelephonyExtensionsPage() {
                       </td>
                       <td className="px-5 py-4 whitespace-nowrap text-sm text-zinc-600 font-mono">
                         {ext.sipServer || (
-                          <span className="text-zinc-400">—</span>
+                          <span className="text-zinc-400">&mdash;</span>
                         )}
                       </td>
                       <td className="px-5 py-4 whitespace-nowrap">
@@ -353,7 +345,6 @@ export default function TelephonyExtensionsPage() {
                 {editingId ? "Edit Extension" : "Add Extension"}
               </h3>
 
-              {/* User selection */}
               {!editingId && (
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-zinc-600">
@@ -361,15 +352,13 @@ export default function TelephonyExtensionsPage() {
                   </label>
                   <select
                     value={form.crmUserId}
-                    onChange={(e) =>
-                      setForm({ ...form, crmUserId: e.target.value })
-                    }
+                    onChange={(e) => handleUserSelect(e.target.value)}
                     className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
                   >
                     <option value="">Select user...</option>
                     {availableUsers.map((u) => (
-                      <option key={u.userId} value={u.userId}>
-                        {u.email}
+                      <option key={u.id} value={u.id}>
+                        {userName(u)} ({u.email})
                       </option>
                     ))}
                   </select>
@@ -457,34 +446,10 @@ export default function TelephonyExtensionsPage() {
                   </p>
                 </div>
 
-                {/* Test SIP button */}
-                <div className="pt-1">
-                  <button
-                    onClick={handleTestSip}
-                    disabled={sipTestResult === "testing"}
-                    className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 bg-white hover:bg-zinc-50 disabled:opacity-50"
-                  >
-                    {sipTestResult === "testing" ? (
-                      <>
-                        <span className="h-3 w-3 rounded-full border-2 border-zinc-300 border-t-zinc-700 animate-spin" />
-                        Testing...
-                      </>
-                    ) : sipTestResult === "registered" ? (
-                      <>
-                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                        Registered
-                      </>
-                    ) : (
-                      <>Test SIP Connection</>
-                    )}
-                  </button>
+                <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-700">
+                  SIP registration is verified when the employee logs into the CRM Phone desktop app.
+                  The app will show &quot;Registered&quot; or &quot;Failed&quot; status in real time.
                 </div>
-
-                {sipTestError && (
-                  <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
-                    {sipTestError}
-                  </div>
-                )}
               </div>
 
               <label className="flex items-center gap-2 text-sm text-zinc-700 cursor-pointer">
@@ -501,7 +466,7 @@ export default function TelephonyExtensionsPage() {
 
               <div className="flex gap-3 pt-2">
                 <button
-                  onClick={() => setShowForm(false)}
+                  onClick={() => { setShowForm(false); setError(null); }}
                   className="flex-1 rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50"
                 >
                   Cancel

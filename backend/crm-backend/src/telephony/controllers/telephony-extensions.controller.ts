@@ -39,9 +39,31 @@ export class TelephonyExtensionsController {
   async list() {
     return this.prisma.telephonyExtension.findMany({
       include: {
-        user: { select: { id: true, email: true, role: true } },
+        user: {
+          select: {
+            id: true,
+            email: true,
+            role: true,
+            employee: { select: { firstName: true, lastName: true } },
+          },
+        },
       },
       orderBy: { extension: 'asc' },
+    });
+  }
+
+  @Get('available-users')
+  async availableUsers() {
+    return this.prisma.user.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        employee: { select: { firstName: true, lastName: true } },
+        telephonyExtension: { select: { id: true } },
+      },
+      orderBy: { email: 'asc' },
     });
   }
 
