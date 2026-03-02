@@ -29,6 +29,7 @@ const ALL_ITEMS: NavItemDef[] = [
   { href: "/app/inventory", label: "Inventory", labelKey: "sidebar.inventory", iconKey: "box", requiredPermission: "inventory.menu" },
   { href: "/app/employees", label: "Employees", labelKey: "sidebar.employees", iconKey: "employees", requiredPermission: "employees.menu" },
   { href: "/app/client-chats", label: "Client Chats", labelKey: "sidebar.clientChats", iconKey: "clientChats", requiredPermission: "client_chats.menu" },
+  { href: "/app/call-center", label: "Call Center", labelKey: "sidebar.callCenter", iconKey: "callCenter" },
   { href: "/app/admin", label: "Admin", labelKey: "sidebar.admin", iconKey: "admin", requiredPermission: "admin.menu" },
 ];
 
@@ -43,6 +44,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   box: <IconBox />,
   employees: <IconEmployees />,
   clientChats: <IconClientChats />,
+  callCenter: <IconCallCenter />,
   admin: <IconAdmin />,
 };
 
@@ -646,6 +648,31 @@ function IconSales() {
         strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function IconCallCenter() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M14.5 2a7.5 7.5 0 0 1 7.5 7.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <path
+        d="M14.5 6A3.5 3.5 0 0 1 18 9.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
       />
     </svg>
   );
