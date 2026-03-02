@@ -1,8 +1,6 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { apiGet, ApiError } from "@/lib/api";
 
 type QueueLive = {
@@ -25,14 +23,6 @@ type AgentLive = {
   presence?: string;
   pausedReason?: string | null;
 };
-
-const TABS = [
-  { href: "/app/call-center", label: "Dashboard" },
-  { href: "/app/call-center/calls", label: "Calls" },
-  { href: "/app/call-center/live", label: "Live" },
-  { href: "/app/call-center/quality", label: "Quality" },
-  { href: "/app/call-center/agents", label: "Agents" },
-];
 
 const REFRESH_INTERVAL_MS = 10_000;
 
@@ -70,7 +60,6 @@ function getAgentStateStyles(state: AgentLive["currentState"]): {
 }
 
 export default function CallCenterLivePage() {
-  const pathname = usePathname();
   const [queues, setQueues] = useState<QueueLive[]>([]);
   const [agents, setAgents] = useState<AgentLive[]>([]);
   const [disclaimer, setDisclaimer] = useState<string | null>(null);
@@ -142,38 +131,10 @@ export default function CallCenterLivePage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-zinc-900">Live Monitoring</h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            Real-time queue and agent status
-          </p>
-        </div>
-        <div className="flex items-center gap-2 text-sm text-zinc-500">
-          <span>Refreshing in</span>
-          <span className="font-mono font-semibold text-zinc-700">{countdown}s</span>
-        </div>
-      </div>
-
-      {/* Sub-nav tabs */}
-      <div className="flex flex-wrap gap-1 border-b border-zinc-200">
-        {TABS.map((tab) => {
-          const isActive = pathname === tab.href;
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              className={`px-4 py-2.5 text-sm font-medium transition-colors rounded-t-lg -mb-px ${
-                isActive
-                  ? "border-b-2 border-[rgb(8,117,56)] text-[rgb(8,117,56)] bg-white"
-                  : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50"
-              }`}
-            >
-              {tab.label}
-            </Link>
-          );
-        })}
+      {/* Refresh indicator */}
+      <div className="flex items-center gap-2 text-sm text-zinc-500">
+        <span>Refreshing in</span>
+        <span className="font-mono font-semibold text-zinc-700">{countdown}s</span>
       </div>
 
       {disclaimer && (
