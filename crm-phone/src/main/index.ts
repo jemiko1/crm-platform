@@ -26,7 +26,7 @@ const sipManager = new SipManager();
 const isDev = !app.isPackaged;
 const RENDERER_URL = isDev
   ? "http://localhost:5173"
-  : `file://${path.join(__dirname, "../../renderer/index.html")}`;
+  : `file://${path.join(__dirname, "../renderer/index.html")}`;
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -60,7 +60,7 @@ function createWindow(): void {
 
 function createTray(): void {
   const iconPath = isDev
-    ? path.join(__dirname, "../../../resources/tray-icon.png")
+    ? path.join(__dirname, "../../resources/tray-icon.png")
     : path.join(process.resourcesPath, "tray-icon.png");
 
   let trayIcon: Electron.NativeImage;
