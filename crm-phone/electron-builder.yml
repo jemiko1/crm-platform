@@ -1,0 +1,18 @@
+appId: ge.asg.crm-phone
+productName: CRM Phone
+directories:
+  output: release
+  buildResources: resources
+files:
+  - dist/**/*
+  - resources/**/*
+win:
+  target: nsis
+  icon: resources/icon.ico
+nsis:
+  oneClick: true
+  perMachine: true
+  allowToChangeInstallationDirectory: false
+extraResources:
+  - from: resources/tray-icon.png
+    to: tray-icon.png
