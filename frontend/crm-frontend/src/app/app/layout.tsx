@@ -5,6 +5,7 @@ import { ModalStackWrapper } from "./modal-provider";
 import { MessengerProvider } from "./messenger/messenger-context";
 import ChatBubbleContainer from "./messenger/chat-bubble-container";
 import MessengerModalBridge from "./messenger/messenger-modal-bridge";
+import PhoneMismatchBanner from "./phone-mismatch-banner";
 import { I18nProvider } from "@/contexts/i18n-context";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
@@ -12,6 +13,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     <I18nProvider>
     <MessengerProvider>
     <ModalStackWrapper>
+      <PhoneMismatchBanner />
       <div className="min-h-dvh min-h-screen relative bg-zinc-50 lg:bg-transparent">
         {/* App background - hidden on mobile to maximize content space */}
         <div className="hidden lg:block fixed inset-0 -z-10">
