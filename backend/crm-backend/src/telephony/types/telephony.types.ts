@@ -155,7 +155,7 @@ export interface LiveQueueState {
   waitingCallers: number;
   longestCurrentWaitSec: number | null;
   availableAgents: number;
-  _disclaimer: string;
+  _disclaimer: string | null;
 }
 
 export interface LiveAgentState {
@@ -164,5 +164,7 @@ export interface LiveAgentState {
   currentState: 'ON_CALL' | 'IDLE' | 'OFFLINE';
   currentCallDurationSec: number | null;
   callsHandledToday: number;
-  _disclaimer: string;
+  _disclaimer: string | null;
+  presence?: 'ON_CALL' | 'RINGING' | 'IDLE' | 'WRAPUP' | 'PAUSED' | 'OFFLINE';
+  pausedReason?: string | null;
 }
