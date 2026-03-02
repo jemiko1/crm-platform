@@ -1,206 +1,256 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useI18n } from "@/hooks/useI18n";
-import { fetchLiveQueues, fetchLiveAgents } from "../api";
-import type { LiveQueue, LiveAgent } from "../types";
+import React, { useEffect, useState, useCallback } from "react";
+import { apiGet, ApiError } from "@/lib/api";
 
-const BRAND = "rgb(8,117,56)";
-
-function fmtSec(sec: number | null): string {
-  if (sec == null) return "—";
-  const m = Math.floor(sec / 60);
-  const s = Math.round(sec % 60);
-  return m > 0 ? `${m}m ${s}s` : `${s}s`;
-}
-
-const STATE_STYLES: Record<string, { dot: string; bg: string; text: string; label: string }> = {
-  ON_CALL: { dot: "bg-emerald-500", bg: "bg-emerald-50", text: "text-emerald-700", label: "On Call" },
-  IDLE: { dot: "bg-blue-400", bg: "bg-blue-50", text: "text-blue-700", label: "Idle" },
-  OFFLINE: { dot: "bg-zinc-300", bg: "bg-zinc-100", text: "text-zinc-500", label: "Offline" },
+type QueueLive = {
+  queueId: string;
+  queueName: string;
+  activeCalls: number;
+  waitingCallers: number;
+  longestCurrentWaitSec: number | null;
+  availableAgents: number;
+  _disclaimer?: string;
 };
 
-export default function LiveMonitorPage() {
-  const { t } = useI18n();
-  const [queues, setQueues] = useState<LiveQueue[]>([]);
-  const [agents, setAgents] = useState<LiveAgent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+type AgentLive = {
+  userId: string;
+  displayName: string;
+  currentState: "ON_CALL" | "IDLE" | "OFFLINE" | "RINGING" | "PAUSED";
+  currentCallDurationSec?: number | null;
+  callsHandledToday: number;
+  _disclaimer?: string;
+  presence?: string;
+  pausedReason?: string | null;
+};
 
-  const load = useCallback(async () => {
+const REFRESH_INTERVAL_MS = 10_000;
+
+function formatSeconds(sec: number | null | undefined): string {
+  if (sec == null || Number.isNaN(sec)) return "—";
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  if (m === 0) return `${s}s`;
+  return `${m}m ${s}s`;
+}
+
+function getQueueBorderClass(waiting: number): string {
+  if (waiting > 5) return "border-red-500 border-2";
+  if (waiting > 3) return "border-yellow-500 border-2";
+  return "border-zinc-100";
+}
+
+function getAgentStateStyles(state: AgentLive["currentState"]): {
+  dotClass: string;
+  label: string;
+} {
+  switch (state) {
+    case "ON_CALL":
+      return { dotClass: "bg-green-500 animate-pulse", label: "On Call" };
+    case "RINGING":
+      return { dotClass: "bg-yellow-500 animate-pulse", label: "Ringing" };
+    case "PAUSED":
+      return { dotClass: "bg-orange-500", label: "Paused" };
+    case "IDLE":
+      return { dotClass: "bg-blue-500", label: "Idle" };
+    case "OFFLINE":
+    default:
+      return { dotClass: "bg-zinc-400", label: "Offline" };
+  }
+}
+
+export default function CallCenterLivePage() {
+  const [queues, setQueues] = useState<QueueLive[]>([]);
+  const [agents, setAgents] = useState<AgentLive[]>([]);
+  const [disclaimer, setDisclaimer] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState(10);
+
+  const fetchData = useCallback(async () => {
+    setError(null);
     try {
-      const [q, a] = await Promise.all([fetchLiveQueues(), fetchLiveAgents()]);
-      setQueues(Array.isArray(q) ? q : []);
-      setAgents(Array.isArray(a) ? a : []);
-      setLastRefresh(new Date());
+      const [queuesRes, agentsRes] = await Promise.all([
+        apiGet<QueueLive[] | { data: QueueLive[]; _disclaimer?: string }>(
+          "/v1/telephony/queues/live"
+        ),
+        apiGet<AgentLive[] | { data: AgentLive[]; _disclaimer?: string }>(
+          "/v1/telephony/agents/live"
+        ),
+      ]);
+
+      const queuesList = Array.isArray(queuesRes) ? queuesRes : queuesRes?.data ?? [];
+      const agentsList = Array.isArray(agentsRes) ? agentsRes : agentsRes?.data ?? [];
+
+      setQueues(queuesList);
+      setAgents(agentsList);
+
+      const disc =
+        (Array.isArray(queuesRes) ? null : (queuesRes as { _disclaimer?: string })?._disclaimer) ??
+        (Array.isArray(agentsRes) ? null : (agentsRes as { _disclaimer?: string })?._disclaimer) ??
+        queuesList[0]?._disclaimer ??
+        agentsList[0]?._disclaimer ??
+        null;
+      setDisclaimer(disc ?? null);
     } catch (err) {
-      console.error("Failed to load live data", err);
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError("Failed to load live data");
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    load();
-    const interval = setInterval(load, 10000);
-    return () => clearInterval(interval);
-  }, [load]);
+    fetchData();
+  }, [fetchData]);
 
-  const onlineAgents = agents.filter((a) => a.currentState !== "OFFLINE");
-  const onCallAgents = agents.filter((a) => a.currentState === "ON_CALL");
+  useEffect(() => {
+    if (loading) return;
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          fetchData();
+          return REFRESH_INTERVAL_MS / 1000;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [loading, fetchData]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-zinc-300 border-t-[rgb(8,117,56)]" />
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Status bar */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
-            </span>
-            <span className="text-sm font-medium text-zinc-700">{t("callCenter.live.realtime", "Real-time")}</span>
-          </div>
-          {lastRefresh && (
-            <span className="text-xs text-zinc-400">
-              {t("callCenter.live.updated", "Updated")} {lastRefresh.toLocaleTimeString()}
-            </span>
-          )}
-        </div>
-        <button
-          onClick={load}
-          className="rounded-xl bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-sm ring-1 ring-zinc-200 hover:bg-zinc-50 transition"
-        >
-          {t("callCenter.live.refresh", "Refresh")}
-        </button>
+    <div className="space-y-6">
+      {/* Refresh indicator */}
+      <div className="flex items-center gap-2 text-sm text-zinc-500">
+        <span>Refreshing in</span>
+        <span className="font-mono font-semibold text-zinc-700">{countdown}s</span>
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-200 border-t-emerald-600" />
+      {disclaimer && (
+        <div className="rounded-xl bg-blue-50 p-4 text-sm text-blue-800 flex items-start gap-2">
+          <span className="text-blue-500 shrink-0">ℹ</span>
+          <span>{disclaimer}</span>
         </div>
-      ) : (
-        <>
-          {/* Summary cards */}
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <SummaryCard
-              label={t("callCenter.live.activeQueues", "Active Queues")}
-              value={queues.filter((q) => q.activeCalls > 0 || q.waitingCallers > 0).length}
-              total={queues.length}
-            />
-            <SummaryCard
-              label={t("callCenter.live.onlineAgents", "Online Agents")}
-              value={onlineAgents.length}
-              total={agents.length}
-              color="emerald"
-            />
-            <SummaryCard
-              label={t("callCenter.live.onCall", "On Call Now")}
-              value={onCallAgents.length}
-              color="blue"
-            />
-            <SummaryCard
-              label={t("callCenter.live.waitingCallers", "Waiting Callers")}
-              value={queues.reduce((s, q) => s + q.waitingCallers, 0)}
-              color={queues.reduce((s, q) => s + q.waitingCallers, 0) > 0 ? "amber" : undefined}
-            />
-          </div>
-
-          {/* Live Queues */}
-          <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-zinc-200">
-            <h3 className="mb-4 text-sm font-semibold text-zinc-900">
-              {t("callCenter.live.queuesTitle", "Queue Status")}
-            </h3>
-            {queues.length === 0 ? (
-              <p className="text-sm text-zinc-400 py-8 text-center">{t("callCenter.live.noQueues", "No queues configured.")}</p>
-            ) : (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {queues.map((q) => (
-                  <div key={q.queueId} className="rounded-2xl border border-zinc-200 p-4 transition hover:shadow-sm">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-sm font-semibold text-zinc-900">{q.queueName || q.queueId}</h4>
-                      {q.activeCalls > 0 && (
-                        <span className="flex items-center gap-1 text-xs font-medium text-emerald-700">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          {q.activeCalls} {t("callCenter.live.active", "active")}
-                        </span>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <div>
-                        <p className="text-lg font-bold text-zinc-900">{q.waitingCallers}</p>
-                        <p className="text-[10px] text-zinc-400">{t("callCenter.live.waiting", "Waiting")}</p>
-                      </div>
-                      <div>
-                        <p className="text-lg font-bold text-zinc-900">{q.availableAgents}</p>
-                        <p className="text-[10px] text-zinc-400">{t("callCenter.live.available", "Available")}</p>
-                      </div>
-                      <div>
-                        <p className="text-lg font-bold text-zinc-900">{fmtSec(q.longestCurrentWaitSec)}</p>
-                        <p className="text-[10px] text-zinc-400">{t("callCenter.live.longest", "Longest")}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Live Agents */}
-          <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-zinc-200">
-            <h3 className="mb-4 text-sm font-semibold text-zinc-900">
-              {t("callCenter.live.agentsTitle", "Agent Status")}
-            </h3>
-            {agents.length === 0 ? (
-              <p className="text-sm text-zinc-400 py-8 text-center">{t("callCenter.live.noAgents", "No agents found.")}</p>
-            ) : (
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {agents.map((a) => {
-                  const st = STATE_STYLES[a.currentState] ?? STATE_STYLES.OFFLINE;
-                  return (
-                    <div key={a.userId} className={`rounded-2xl border border-zinc-200 p-3 flex items-center gap-3 transition hover:shadow-sm ${a.currentState === "OFFLINE" ? "opacity-50" : ""}`}>
-                      <div className={`h-10 w-10 rounded-full ${st.bg} flex items-center justify-center`}>
-                        <span className={`h-2.5 w-2.5 rounded-full ${st.dot}`} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-zinc-900 truncate">{a.displayName || a.userId}</p>
-                        <div className="flex items-center gap-2">
-                          <span className={`text-xs font-medium ${st.text}`}>{st.label}</span>
-                          {a.currentState === "ON_CALL" && a.currentCallDurationSec != null && (
-                            <span className="text-xs text-zinc-400">{fmtSec(a.currentCallDurationSec)}</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-bold text-zinc-900">{a.callsHandledToday}</p>
-                        <p className="text-[10px] text-zinc-400">{t("callCenter.live.today", "today")}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </>
       )}
-    </div>
-  );
-}
 
-function SummaryCard({ label, value, total, color }: { label: string; value: number; total?: number; color?: string }) {
-  const numColor =
-    color === "emerald" ? "text-emerald-700" :
-    color === "blue" ? "text-blue-600" :
-    color === "amber" ? "text-amber-600" :
-    "text-zinc-900";
+      {error && (
+        <div className="rounded-xl bg-red-50 p-4 text-red-700">{error}</div>
+      )}
 
-  return (
-    <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-zinc-200">
-      <p className="text-xs text-zinc-500 mb-1">{label}</p>
-      <p className={`text-2xl font-bold tracking-tight ${numColor}`}>
-        {value}
-        {total != null && <span className="text-sm font-normal text-zinc-400">/{total}</span>}
-      </p>
+      {/* Queue Status */}
+      <section>
+        <h2 className="text-lg font-semibold text-zinc-800 mb-4">Queue Status</h2>
+        {queues.length === 0 ? (
+          <div className="rounded-2xl border border-zinc-200 border-dashed bg-zinc-50 p-12 text-center">
+            <p className="text-zinc-500">No queues configured</p>
+            <p className="mt-1 text-sm text-zinc-400">
+              Configure telephony queues to see live status here.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {queues.map((q) => (
+              <div
+                key={q.queueId}
+                className={`rounded-2xl border bg-white p-6 shadow-sm ${getQueueBorderClass(q.waitingCallers)}`}
+              >
+                <div className="text-sm font-medium text-zinc-500">
+                  {q.queueName}
+                </div>
+                <div className="mt-2 text-4xl font-bold text-zinc-900">
+                  {q.activeCalls}
+                </div>
+                <div className="mt-1 text-sm text-zinc-600">active calls</div>
+                <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className="text-zinc-500">Waiting:</span>{" "}
+                    <span className="font-medium">{q.waitingCallers}</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500">Longest wait:</span>{" "}
+                    <span className="font-medium">
+                      {formatSeconds(q.longestCurrentWaitSec)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500">Available:</span>{" "}
+                    <span className="font-medium">{q.availableAgents}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Agent Status */}
+      <section>
+        <h2 className="text-lg font-semibold text-zinc-800 mb-4">
+          Agent Status
+        </h2>
+        {agents.length === 0 ? (
+          <div className="rounded-2xl border border-zinc-200 border-dashed bg-zinc-50 p-12 text-center">
+            <p className="text-zinc-500">No agents configured</p>
+            <p className="mt-1 text-sm text-zinc-400">
+              Configure telephony agents to see live status here.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {agents.map((a) => {
+              const { dotClass, label } = getAgentStateStyles(a.currentState);
+              return (
+                <div
+                  key={a.userId}
+                  className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm"
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`h-2.5 w-2.5 shrink-0 rounded-full ${dotClass}`}
+                      aria-hidden
+                    />
+                    <span className="font-semibold text-zinc-900">
+                      {a.displayName}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-sm text-zinc-500">{label}</div>
+                  {a.currentState === "ON_CALL" &&
+                    a.currentCallDurationSec != null && (
+                      <div className="mt-2 text-sm">
+                        <span className="text-zinc-500">Call duration: </span>
+                        <span className="font-medium">
+                          {formatSeconds(a.currentCallDurationSec)}
+                        </span>
+                      </div>
+                    )}
+                  {a.currentState === "PAUSED" && a.pausedReason && (
+                    <div className="mt-2 text-sm text-orange-600">
+                      {a.pausedReason}
+                    </div>
+                  )}
+                  <div className="mt-3 text-sm text-zinc-500">
+                    Calls today:{" "}
+                    <span className="font-medium text-zinc-700">
+                      {a.callsHandledToday}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

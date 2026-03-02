@@ -11,6 +11,8 @@ const TABS = [
   { href: "/app/call-center/logs", label: "Call Logs", labelKey: "callCenter.tabs.logs" },
   { href: "/app/call-center/live", label: "Live Monitor", labelKey: "callCenter.tabs.live" },
   { href: "/app/call-center/callbacks", label: "Callbacks", labelKey: "callCenter.tabs.callbacks" },
+  { href: "/app/call-center/quality", label: "Quality", labelKey: "callCenter.tabs.quality" },
+  { href: "/app/call-center/agents", label: "Agents", labelKey: "callCenter.tabs.agents" },
 ];
 
 export default function CallCenterLayout({ children }: { children: React.ReactNode }) {
