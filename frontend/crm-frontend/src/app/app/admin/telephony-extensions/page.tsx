@@ -54,11 +54,13 @@ export default function TelephonyExtensionsPage() {
         ? empResponse
         : empResponse?.data ?? [];
       setUsers(
-        empArr.map((emp: any) => ({
-          id: emp.id,
-          email: emp.email,
-          userId: emp.user?.id ?? emp.id,
-        })),
+        empArr
+          .filter((emp: any) => emp.user?.id)
+          .map((emp: any) => ({
+            id: emp.id,
+            email: emp.email,
+            userId: emp.user.id,
+          })),
       );
       setError(null);
     } catch (err: any) {
