@@ -8,6 +8,7 @@ import {
   nativeImage,
 } from "electron";
 import * as path from "path";
+import * as fs from "fs";
 import { SipManager } from "./sip-manager";
 import { startLocalServer } from "./local-server";
 import {
@@ -18,6 +19,21 @@ import {
 import { IPC } from "../shared/ipc-channels";
 import { setupAutoUpdater } from "./auto-updater";
 import type { AppLoginResponse, ContactLookupResult } from "../shared/types";
+
+const logFile = path.join(app.getPath("userData"), "crm-phone-debug.log");
+const origLog = console.log;
+const origErr = console.error;
+console.log = (...args: any[]) => {
+  const line = `[${new Date().toISOString()}] ${args.map(a => typeof a === "string" ? a : JSON.stringify(a)).join(" ")}\n`;
+  fs.appendFileSync(logFile, line);
+  origLog(...args);
+};
+console.error = (...args: any[]) => {
+  const line = `[${new Date().toISOString()}] ERROR ${args.map(a => typeof a === "string" ? a : JSON.stringify(a)).join(" ")}\n`;
+  fs.appendFileSync(logFile, line);
+  origErr(...args);
+};
+console.log("[INIT] CRM Phone starting, log file:", logFile);
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -118,6 +134,7 @@ function createTray(): void {
 function setupIpc(): void {
   ipcMain.handle(IPC.AUTH_LOGIN, async (_event, email: string, password: string) => {
     const baseUrl = getCrmBaseUrl();
+    console.log("[AUTH] app-login to:", `${baseUrl}/auth/app-login`, "email:", email);
     const res = await fetch(`${baseUrl}/auth/app-login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -126,14 +143,20 @@ function setupIpc(): void {
 
     if (!res.ok) {
       const body = (await res.json().catch(() => ({ message: "Login failed" }))) as { message?: string };
+      console.log("[AUTH] Login failed:", res.status, body.message);
       throw new Error(body.message || "Login failed");
     }
 
     const data = (await res.json()) as AppLoginResponse;
+    console.log("[AUTH] Login OK, telephonyExtension:", JSON.stringify(data.telephonyExtension));
     setSession(data);
 
     if (data.telephonyExtension) {
+      console.log("[AUTH] Calling sipManager.register()...");
       await sipManager.register(data.telephonyExtension);
+      console.log("[AUTH] sipManager.register() completed, registered:", sipManager.registered);
+    } else {
+      console.log("[AUTH] No telephonyExtension in login response");
     }
 
     return data;
@@ -198,6 +221,11 @@ function setupIpc(): void {
     }
   });
 
+  ipcMain.handle("debug:get-log-path", () => logFile);
+  ipcMain.handle("debug:get-logs", () => {
+    try { return fs.readFileSync(logFile, "utf-8"); } catch { return "No log file"; }
+  });
+
   ipcMain.on(IPC.APP_QUIT, () => {
     mainWindow?.destroy();
     app.quit();
@@ -245,15 +273,19 @@ function forwardSipEvents(): void {
 
 async function restoreSession(): Promise<void> {
   const session = getSession();
+  console.log("[RESTORE] Session exists:", !!session, session?.user?.email);
   if (!session) return;
 
   try {
     const baseUrl = getCrmBaseUrl();
+    console.log("[RESTORE] Fetching /auth/me from:", baseUrl);
     const res = await fetch(`${baseUrl}/auth/me`, {
       headers: { Authorization: `Bearer ${session.accessToken}` },
     });
 
+    console.log("[RESTORE] /auth/me status:", res.status);
     if (!res.ok) {
+      console.log("[RESTORE] Token invalid, clearing session");
       setSession(null);
       return;
     }
@@ -270,23 +302,35 @@ async function restoreSession(): Promise<void> {
     };
 
     const freshExt = meData.user?.telephonyExtension ?? null;
+    console.log("[RESTORE] Fresh ext from /auth/me:", JSON.stringify(freshExt));
 
     if (freshExt && (freshExt.extension !== session.telephonyExtension?.extension
         || freshExt.sipServer !== session.telephonyExtension?.sipServer
         || freshExt.sipPassword !== session.telephonyExtension?.sipPassword)) {
+      console.log("[RESTORE] Updating session with fresh ext data");
       session.telephonyExtension = freshExt;
       setSession(session);
     }
 
     if (session.telephonyExtension) {
+      console.log("[RESTORE] Registering SIP with:", JSON.stringify({
+        ext: session.telephonyExtension.extension,
+        server: session.telephonyExtension.sipServer,
+        pwdSet: !!session.telephonyExtension.sipPassword,
+      }));
       await sipManager.register(session.telephonyExtension);
+      console.log("[RESTORE] SIP register completed, registered:", sipManager.registered);
+    } else {
+      console.log("[RESTORE] No telephonyExtension to register");
     }
-  } catch {
+  } catch (err: any) {
+    console.log("[RESTORE] Error:", err.message);
     if (session.telephonyExtension) {
+      console.log("[RESTORE] Will retry in 5s");
       setTimeout(() => {
         sipManager
           .register(session.telephonyExtension!)
-          .catch(() => {});
+          .catch((e: any) => console.log("[RESTORE] Retry failed:", e.message));
       }, 5000);
     }
   }
