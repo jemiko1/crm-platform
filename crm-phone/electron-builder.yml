@@ -5,14 +5,11 @@ directories:
   buildResources: resources
 files:
   - dist/**/*
-  - resources/**/*
+  - package.json
 win:
   target: nsis
-  icon: resources/icon.ico
+  signAndEditExecutable: false
 nsis:
   oneClick: true
   perMachine: true
   allowToChangeInstallationDirectory: false
-extraResources:
-  - from: resources/tray-icon.png
-    to: tray-icon.png
