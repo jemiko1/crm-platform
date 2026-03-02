@@ -258,11 +258,30 @@ async function restoreSession(): Promise<void> {
       return;
     }
 
+    const meData = (await res.json()) as {
+      user: {
+        telephonyExtension?: {
+          extension: string;
+          displayName: string;
+          sipServer: string | null;
+          sipPassword: string | null;
+        } | null;
+      };
+    };
+
+    const freshExt = meData.user?.telephonyExtension ?? null;
+
+    if (freshExt && (freshExt.extension !== session.telephonyExtension?.extension
+        || freshExt.sipServer !== session.telephonyExtension?.sipServer
+        || freshExt.sipPassword !== session.telephonyExtension?.sipPassword)) {
+      session.telephonyExtension = freshExt;
+      setSession(session);
+    }
+
     if (session.telephonyExtension) {
       await sipManager.register(session.telephonyExtension);
     }
   } catch {
-    // Network down -- keep session, try SIP later
     if (session.telephonyExtension) {
       setTimeout(() => {
         sipManager

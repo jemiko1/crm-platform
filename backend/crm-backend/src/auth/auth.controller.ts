@@ -126,7 +126,12 @@ export class AuthController {
           : null,
         permissions,
         telephonyExtension: ext
-          ? { extension: ext.extension, displayName: ext.displayName }
+          ? {
+              extension: ext.extension,
+              displayName: ext.displayName,
+              sipServer: ext.sipServer,
+              sipPassword: ext.sipPassword,
+            }
           : null,
       },
     };
