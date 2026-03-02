@@ -19,7 +19,7 @@ type Extension = {
   user: { id: string; email: string; role: string };
 };
 
-type SimpleUser = { id: string; email: string; role: string };
+type SimpleUser = { id: string; email: string; userId: string };
 
 type SipTestResult = "idle" | "testing" | "registered" | "failed";
 
@@ -45,15 +45,21 @@ export default function TelephonyExtensionsPage() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [exts, userList] = await Promise.all([
+      const [exts, empResponse] = await Promise.all([
         apiGet<Extension[]>("/v1/telephony/extensions"),
-        apiGet<SimpleUser[]>("/v1/users?pageSize=500"),
+        apiGet<any>("/v1/employees?pageSize=500"),
       ]);
       setExtensions(exts);
-      const usersArr = Array.isArray(userList)
-        ? userList
-        : (userList as any)?.data ?? [];
-      setUsers(usersArr);
+      const empArr = Array.isArray(empResponse)
+        ? empResponse
+        : empResponse?.data ?? [];
+      setUsers(
+        empArr.map((emp: any) => ({
+          id: emp.id,
+          email: emp.email,
+          userId: emp.user?.id ?? emp.id,
+        })),
+      );
       setError(null);
     } catch (err: any) {
       setError(err.message || "Failed to load");
@@ -173,7 +179,7 @@ export default function TelephonyExtensionsPage() {
 
   const usedUserIds = new Set(extensions.map((e) => e.crmUserId));
   const availableUsers = users.filter(
-    (u) => !usedUserIds.has(u.id) || u.id === form.crmUserId,
+    (u) => !usedUserIds.has(u.userId) || u.userId === form.crmUserId,
   );
 
   function sipConfigStatus(ext: Extension) {
@@ -360,7 +366,7 @@ export default function TelephonyExtensionsPage() {
                   >
                     <option value="">Select user...</option>
                     {availableUsers.map((u) => (
-                      <option key={u.id} value={u.id}>
+                      <option key={u.userId} value={u.userId}>
                         {u.email}
                       </option>
                     ))}
