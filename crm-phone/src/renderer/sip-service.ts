@@ -22,6 +22,7 @@ class SipService {
   private _activeCall: ActiveCall | null = null;
   private _muted = false;
   private _sipHost: string | null = null;
+  private remoteAudioEl: HTMLAudioElement | null = null;
   private listeners = new Map<string, Set<SipEventCallback>>();
 
   get registered() { return this._registered; }
@@ -109,6 +110,7 @@ class SipService {
   }
 
   async unregister(): Promise<void> {
+    this.cleanupRemoteAudio();
     this._callState = "idle";
     this._activeCall = null;
     this._muted = false;
@@ -158,6 +160,7 @@ class SipService {
 
   async hangup(): Promise<void> {
     if (!this.currentSession) return;
+    this.cleanupRemoteAudio();
     try {
       if (this.currentSession.state === SessionState.Established) {
         this.currentSession.bye();
@@ -264,6 +267,60 @@ class SipService {
     return this._muted;
   }
 
+  private attachRemoteAudio(session: Session): void {
+    const pc = (session as any).sessionDescriptionHandler?.peerConnection as RTCPeerConnection | undefined;
+    if (!pc) {
+      rerr("[SIP-R] No peerConnection on session, cannot attach remote audio");
+      return;
+    }
+
+    const remoteStream = new MediaStream();
+    pc.getReceivers().forEach((receiver) => {
+      if (receiver.track) {
+        rlog("[SIP-R] Adding remote track:", receiver.track.kind, receiver.track.id);
+        remoteStream.addTrack(receiver.track);
+      }
+    });
+
+    pc.addEventListener("track", (event) => {
+      rlog("[SIP-R] New remote track arrived:", event.track.kind, event.track.id);
+      remoteStream.addTrack(event.track);
+      if (this.remoteAudioEl) {
+        this.remoteAudioEl.srcObject = remoteStream;
+      }
+    });
+
+    this.cleanupRemoteAudio();
+    const audio = document.createElement("audio");
+    audio.srcObject = remoteStream;
+    audio.autoplay = true;
+
+    window.crmPhone?.settings?.get?.().then((settings: any) => {
+      if (settings?.audioOutputDeviceId && typeof (audio as any).setSinkId === "function") {
+        (audio as any).setSinkId(settings.audioOutputDeviceId).catch((e: any) =>
+          rerr("[SIP-R] setSinkId failed:", e.message)
+        );
+      }
+    });
+
+    audio.play().then(() => {
+      rlog("[SIP-R] Remote audio playback started, tracks:", remoteStream.getAudioTracks().length);
+    }).catch((e) => {
+      rerr("[SIP-R] Remote audio play() failed:", e.message);
+    });
+
+    this.remoteAudioEl = audio;
+  }
+
+  private cleanupRemoteAudio(): void {
+    if (this.remoteAudioEl) {
+      this.remoteAudioEl.pause();
+      this.remoteAudioEl.srcObject = null;
+      this.remoteAudioEl.remove();
+      this.remoteAudioEl = null;
+    }
+  }
+
   private handleIncoming(invitation: Invitation): void {
     const remoteNumber = invitation.remoteIdentity.uri.user || "Unknown";
     rlog("[SIP-R] Incoming call from:", remoteNumber);
@@ -297,8 +354,10 @@ class SipService {
             this._activeCall.state = "connected";
             this._activeCall.answeredAt = new Date().toISOString();
           }
+          this.attachRemoteAudio(session);
           break;
         case SessionState.Terminated:
+          this.cleanupRemoteAudio();
           this.currentSession = null;
           this._callState = "idle";
           this._activeCall = null;
