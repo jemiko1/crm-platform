@@ -2,7 +2,7 @@
 
 **Single source of truth for AI tools and developers.** Read this file first to understand the project.
 
-**Last Updated**: 2026-02-17 | **Version**: v1.4.0  
+**Last Updated**: 2026-03-03 | **Version**: v1.5.0  
 **Stack**: NestJS (Backend) + Next.js App Router (Frontend) + PostgreSQL + Prisma ORM + Socket.IO
 
 ---
@@ -106,6 +106,21 @@
 - **Real-time updates**: WebSocket + REST polling fallback for reliable message delivery
 - **Header integration**: Messenger icon, notification bell, search bar, and My Workspace in sticky header
 
+### Call Center & Telephony (v1.5.0+)
+- **Asterisk Integration**: Full PJSIP integration with FreePBX/Asterisk 16 via AMI and ARI
+- **AMI Bridge**: Node.js service on Windows VM relays real-time call events to CRM backend
+- **Live Monitoring**: Real-time queue/agent state via WebSocket (`/telephony` namespace)
+- **Call Analytics**: KPIs (SLA, answer time, abandon rate), per-agent/per-queue stats
+- **Quality Reviews**: OpenAI Whisper transcription + GPT scoring pipeline
+- **CRM28 Phone Desktop App**: Electron + SIP.js WebRTC softphone for Windows
+  - SIP registration over WSS (port 8089) with PJSIP
+  - Incoming/outgoing calls, hold, mute, DTMF, caller ID lookup
+  - Ringtone audio, always-on-top incoming call popup
+  - Audio device settings with mic/speaker test
+  - CRM login integration (JWT auth), tray icon, minimize-to-tray
+  - Auto-updates, configurable ringtone mute and always-on-top behavior
+- **Admin UI**: Telephony Extensions page for SIP parameter configuration per employee
+
 ### Sales CRM (v1.2.0+)
 - **Leads**: Pipeline management with stages, services, proposals
 - **Services Catalog**: Configurable services with pricing
@@ -180,6 +195,16 @@
 | Messenger gateway | `backend/crm-backend/src/messenger/messenger.gateway.ts` |
 | Messenger controller | `backend/crm-backend/src/messenger/messenger.controller.ts` |
 | App header | `frontend/crm-frontend/src/app/app/app-header.tsx` |
+| Telephony module | `backend/crm-backend/src/telephony/` |
+| AMI client | `backend/crm-backend/src/telephony/services/ami-client.service.ts` |
+| Telephony gateway | `backend/crm-backend/src/telephony/gateways/telephony.gateway.ts` |
+| Telephony integration doc | `docs/TELEPHONY_INTEGRATION.md` |
+| Call center doc | `docs/CALL_CENTER.md` |
+| AMI Bridge service | `ami-bridge/` |
+| CRM28 Phone app | `crm-phone/` |
+| Phone main process | `crm-phone/src/main/index.ts` |
+| Phone SIP service | `crm-phone/src/renderer/sip-service.ts` |
+| Phone preload | `crm-phone/src/main/preload.ts` |
 
 ---
 
@@ -218,7 +243,10 @@ pnpm dev --port 3002
 | `/app/tasks` | Page | My workspace |
 | `/app/sales/leads` | List | Sales leads pipeline |
 | `/app/sales/leads/[id]` | Page | Lead detail |
-| `/app/admin/*` | Pages | Positions, role groups, departments, list items, workflow, sales config |
+| `/app/call-center` | Page | Live call center dashboard, queue monitor |
+| `/app/call-center/analytics` | Page | Call analytics with KPIs |
+| `/app/call-center/quality` | Page | Quality review management |
+| `/app/admin/*` | Pages | Positions, role groups, departments, list items, telephony extensions |
 
 ---
 
@@ -251,6 +279,18 @@ pnpm dev --port 3002
 | `GET /v1/messenger/unread-count` | Unread message count |
 | `GET /v1/system-lists/*` | Dynamic dropdown values |
 | `GET /v1/positions`, `role-groups`, `departments` | Admin CRUD |
+
+| **Telephony** | |
+| `POST /v1/telephony/events` | Ingest call events (secret-protected) |
+| `GET /v1/telephony/calls` | Call history (filters, pagination) |
+| `GET /v1/telephony/lookup?phone=` | Caller ID lookup |
+| `GET /v1/telephony/stats/overview` | Aggregated call KPIs |
+| `GET /v1/telephony/queues/live` | Real-time queue state |
+| `GET /v1/telephony/agents/live` | Real-time agent presence |
+| `POST /v1/telephony/actions/originate` | Click-to-call |
+| `GET /v1/telephony/extensions` | List telephony extensions |
+| `POST /auth/app-login` | Desktop app JWT login |
+| WebSocket `/telephony` | Real-time call/queue/agent events |
 
 All `/v1/*` endpoints (except public reads) require `JwtAuthGuard`. Many use `@RequirePermission('resource.action')`.
 
@@ -298,11 +338,41 @@ frontend/crm-frontend/
 │   │   │   ├── tasks, admin, assets
 │   │   │   ├── sales/ (leads, services, plans)
 │   │   │   ├── messenger/ (chat bubbles, full messenger, context, types)
-│   │   │   ├── app-header.tsx, header-search.tsx, header-messenger-icon.tsx, header-notifications.tsx
+│   │   │   ├── call-center/ (live dashboard, analytics, quality reviews)
+│   │   │   ├── app-header.tsx, header-settings.tsx (phone app download link)
 │   │   │   └── modal-z-index-context.tsx
 │   │   ├── login/, modal-dialog.tsx
 │   ├── hooks/ (useListItems.ts)
 │   └── lib/ (api.ts, use-permissions.ts)
+
+ami-bridge/                      # AMI event relay (runs on Windows VM alongside Asterisk)
+├── src/
+│   ├── main.ts                  # Entry point, AMI connect + event loop
+│   ├── ami-client.ts            # TCP connection to Asterisk AMI
+│   ├── event-mapper.ts          # AMI → CRM event normalization
+│   └── crm-poster.ts            # Batched HTTP POST to CRM backend
+├── .env                         # AMI_HOST, CRM_BASE_URL, TELEPHONY_INGEST_SECRET
+└── package.json
+
+crm-phone/                       # CRM28 Phone desktop app (Electron + SIP.js)
+├── src/
+│   ├── main/
+│   │   ├── index.ts             # Electron main process, window, tray, IPC, permissions
+│   │   ├── preload.ts           # contextBridge API exposed to renderer
+│   │   ├── session-store.ts     # Encrypted session persistence (electron-store)
+│   │   ├── local-server.ts      # HTTP bridge on 127.0.0.1:19876 for CRM web ↔ app
+│   │   └── auto-updater.ts      # electron-updater integration
+│   ├── renderer/
+│   │   ├── sip-service.ts       # SIP.js UserAgent, registration, call control, remote audio
+│   │   ├── ringtone.ts          # Web Audio API ringtone generator
+│   │   ├── hooks/ (useAuth.ts, usePhone.ts)
+│   │   ├── pages/ (LoginPage, PhonePage, IncomingCallPopup, SettingsPage)
+│   │   └── App.tsx
+│   └── shared/
+│       ├── types.ts             # Shared TS interfaces (CallState, ActiveCall, etc.)
+│       └── ipc-channels.ts      # IPC channel constants
+├── package.json                 # v1.2.2, electron-builder config
+└── electron-builder.yml
 ```
 
 ---
@@ -321,6 +391,35 @@ frontend/crm-frontend/
 ---
 
 ## 15. Recent Updates
+
+### Call Center & CRM28 Phone (v1.5.0 - 2026-03-03)
+
+#### Asterisk/FreePBX Integration
+- Full PJSIP migration (chan_sip disabled) with WebSocket transport on port 8089
+- AMI Bridge service relays real-time call events from Asterisk to CRM backend
+- Live call monitoring, queue state, agent presence via WebSocket
+- Call analytics with KPIs (SLA, answer time, abandon rate, talk time)
+- CDR import as safety net for missed AMI events
+- OpenAI quality pipeline (Whisper transcription + GPT scoring)
+- Callback request system for missed/abandoned/after-hours calls
+
+#### CRM28 Phone Desktop App (Electron + SIP.js)
+- v1.2.2: Windows softphone with NSIS installer, GitHub releases
+- SIP.js WebRTC in Chromium renderer process (native getUserMedia)
+- WSS registration to Asterisk PJSIP on port 8089
+- Two-way audio: remote stream attached to HTML audio element
+- Incoming call popup with caller ID lookup, ringtone, always-on-top
+- Hold/unhold (local audio toggle), mute with visual indicator, DTMF
+- Settings page: mic/speaker device selection with live test
+- Configurable: Mute Ringtone, Override Other Apps checkboxes
+- X button minimizes to tray, proper quit from tray menu only
+- Auto-updater integration, encrypted session storage
+- Local HTTP bridge (127.0.0.1:19876) for CRM web app communication
+
+#### CRM Frontend
+- Header settings: "Download Phone App" with latest release link
+- Phone app status detection (running/not logged in/connected)
+- Telephony Extensions admin page for inline SIP parameter configuration
 
 ### Instant Messenger & Header Redesign (v1.4.0 - 2026-02-17)
 
