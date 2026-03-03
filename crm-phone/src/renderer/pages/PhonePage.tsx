@@ -1,6 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import type { AppSession, ActiveCall, CallState } from "../../shared/types";
 import { IncomingCallPopup } from "./IncomingCallPopup";
+import { SettingsPage } from "./SettingsPage";
+import { startRingtone, stopRingtone } from "../ringtone";
 
 interface Props {
   session: AppSession;
@@ -26,6 +28,26 @@ export function PhonePage(props: Props) {
     onDial, onAnswer, onHangup, onHold, onUnhold, onDtmf, onToggleMute, onLogout,
   } = props;
   const [dialNumber, setDialNumber] = useState("");
+  const [showSettings, setShowSettings] = useState(false);
+  const wasRinging = useRef(false);
+
+  useEffect(() => {
+    const ringing = callState === "ringing" && activeCall?.direction === "inbound";
+
+    if (ringing && !wasRinging.current) {
+      wasRinging.current = true;
+      window.crmPhone.settings.get().then((s: any) => {
+        if (!s.muteRingtone) startRingtone();
+        if (s.overrideApps) window.crmPhone.window.setAlwaysOnTop(true);
+      });
+    }
+
+    if (!ringing && wasRinging.current) {
+      wasRinging.current = false;
+      stopRingtone();
+      window.crmPhone.window.setAlwaysOnTop(false);
+    }
+  }, [callState, activeCall]);
 
   const userName =
     (session.user.firstName ? `${session.user.firstName} ${session.user.lastName || ""}` : session.user.email).trim();
@@ -46,6 +68,10 @@ export function PhonePage(props: Props) {
     }
   };
 
+  if (showSettings) {
+    return <SettingsPage onBack={() => setShowSettings(false)} />;
+  }
+
   if (callState === "ringing" && activeCall?.direction === "inbound") {
     return (
       <IncomingCallPopup
@@ -58,13 +84,15 @@ export function PhonePage(props: Props) {
 
   return (
     <div style={styles.container}>
-      {/* Title bar */}
       <div style={styles.titleBar}>
-        <span style={styles.titleText}>CRM Phone</span>
-        <button onClick={() => window.crmPhone.app.quit()} style={styles.closeBtn}>x</button>
+        <span style={styles.titleText}>CRM28 Phone</span>
+        <div style={{ display: "flex", gap: "0.5rem", WebkitAppRegion: "no-drag" as any }}>
+          <button onClick={() => setShowSettings(true)} style={styles.headerBtn} title="Settings">⚙</button>
+          <button onClick={() => window.crmPhone.app.hide()} style={styles.headerBtn} title="Minimize to tray">—</button>
+          <button onClick={() => window.crmPhone.app.hide()} style={styles.closeBtn} title="Close to tray">✕</button>
+        </div>
       </div>
 
-      {/* Status bar */}
       <div style={styles.statusBar}>
         <div style={styles.userInfo}>
           <span style={styles.userName}>{userName}</span>
@@ -81,7 +109,6 @@ export function PhonePage(props: Props) {
         </div>
       </div>
 
-      {/* Active call display */}
       {callState !== "idle" && activeCall && (
         <div style={styles.callDisplay}>
           <span style={styles.callDirection}>
@@ -115,7 +142,6 @@ export function PhonePage(props: Props) {
         </div>
       )}
 
-      {/* Dial pad */}
       {callState === "idle" && (
         <>
           <div style={styles.dialInput}>
@@ -131,11 +157,7 @@ export function PhonePage(props: Props) {
 
           <div style={styles.dialPad}>
             {DTMF_KEYS.map((key) => (
-              <button
-                key={key}
-                onClick={() => handleKeyPress(key)}
-                style={styles.dialKey}
-              >
+              <button key={key} onClick={() => handleKeyPress(key)} style={styles.dialKey}>
                 {key}
               </button>
             ))}
@@ -154,22 +176,16 @@ export function PhonePage(props: Props) {
         </>
       )}
 
-      {/* DTMF pad during call */}
       {callState === "connected" && (
         <div style={styles.dialPad}>
           {DTMF_KEYS.map((key) => (
-            <button
-              key={key}
-              onClick={() => handleKeyPress(key)}
-              style={styles.dialKey}
-            >
+            <button key={key} onClick={() => handleKeyPress(key)} style={styles.dialKey}>
               {key}
             </button>
           ))}
         </div>
       )}
 
-      {/* Footer */}
       <div style={styles.footer}>
         {!session.telephonyExtension && (
           <div style={styles.noExtWarning}>
@@ -200,13 +216,21 @@ const styles: Record<string, React.CSSProperties> = {
     WebkitAppRegion: "drag" as any,
   },
   titleText: { fontSize: "0.8rem", fontWeight: 600, color: "#94a3b8" },
+  headerBtn: {
+    background: "none",
+    border: "none",
+    color: "#64748b",
+    fontSize: "0.9rem",
+    cursor: "pointer",
+    padding: "2px 6px",
+  },
   closeBtn: {
     background: "none",
     border: "none",
     color: "#64748b",
-    fontSize: "1rem",
+    fontSize: "0.85rem",
     cursor: "pointer",
-    WebkitAppRegion: "no-drag" as any,
+    padding: "2px 6px",
   },
   statusBar: {
     display: "flex",
@@ -232,11 +256,7 @@ const styles: Record<string, React.CSSProperties> = {
   callDirection: { fontSize: "0.75rem", color: "#64748b", textTransform: "uppercase" as const },
   callNumber: { fontSize: "1.5rem", fontWeight: 700, color: "#f1f5f9" },
   callStatus: { fontSize: "0.875rem", color: "#60a5fa" },
-  callActions: {
-    display: "flex",
-    gap: "0.75rem",
-    marginTop: "1.5rem",
-  },
+  callActions: { display: "flex", gap: "0.75rem", marginTop: "1.5rem" },
   actionBtn: {
     padding: "0.6rem 1.2rem",
     borderRadius: "0.5rem",

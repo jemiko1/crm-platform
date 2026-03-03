@@ -20,6 +20,15 @@ export const IPC = {
 
   CONTACT_LOOKUP: "contact:lookup",
 
+  SIP_STATUS_REPORT: "sip:status-report",
+  RENDERER_LOG: "renderer:log",
+
+  SETTINGS_GET: "settings:get",
+  SETTINGS_SET: "settings:set",
+
+  WIN_SET_ALWAYS_ON_TOP: "win:set-always-on-top",
+
   APP_QUIT: "app:quit",
   APP_SHOW: "app:show",
+  APP_HIDE: "app:hide",
 } as const;

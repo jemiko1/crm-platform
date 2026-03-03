@@ -16,7 +16,7 @@ export function setupAutoUpdater(): void {
       .showMessageBox({
         type: "info",
         title: "Update Ready",
-        message: `CRM Phone v${info.version} has been downloaded. Restart now to apply the update?`,
+        message: `CRM28 Phone v${info.version} has been downloaded. Restart now to apply the update?`,
         buttons: ["Restart", "Later"],
         defaultId: 0,
       })

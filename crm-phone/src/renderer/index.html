@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CRM Phone</title>
+    <title>CRM28 Phone</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body {
@@ -14,7 +14,12 @@
         user-select: none;
         -webkit-app-region: drag;
       }
-      button, input, a { -webkit-app-region: no-drag; }
+      button, input, a, select { -webkit-app-region: no-drag; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); opacity: 0.6; }
+        50% { transform: scale(1.3); opacity: 0; }
+      }
     </style>
   </head>
   <body>

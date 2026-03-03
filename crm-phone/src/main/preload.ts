@@ -12,26 +12,18 @@ contextBridge.exposeInMainWorld("crmPhone", {
       return () => ipcRenderer.removeAllListeners(IPC.AUTH_SESSION_CHANGED);
     },
   },
-  phone: {
-    dial: (number: string) => ipcRenderer.invoke(IPC.PHONE_DIAL, number),
-    answer: () => ipcRenderer.invoke(IPC.PHONE_ANSWER),
-    hangup: () => ipcRenderer.invoke(IPC.PHONE_HANGUP),
-    hold: () => ipcRenderer.invoke(IPC.PHONE_HOLD),
-    unhold: () => ipcRenderer.invoke(IPC.PHONE_UNHOLD),
-    dtmf: (tone: string) => ipcRenderer.invoke(IPC.PHONE_DTMF, tone),
-    mute: () => ipcRenderer.invoke(IPC.PHONE_MUTE),
-    onStateChanged: (cb: (state: any) => void) => {
-      ipcRenderer.on(IPC.PHONE_STATE_CHANGED, (_e, state) => cb(state));
-      return () => ipcRenderer.removeAllListeners(IPC.PHONE_STATE_CHANGED);
-    },
-    onIncomingCall: (cb: (call: any) => void) => {
-      ipcRenderer.on(IPC.PHONE_INCOMING_CALL, (_e, call) => cb(call));
-      return () => ipcRenderer.removeAllListeners(IPC.PHONE_INCOMING_CALL);
-    },
-    onSipStatus: (cb: (registered: boolean) => void) => {
-      ipcRenderer.on(IPC.PHONE_SIP_STATUS, (_e, registered) => cb(registered));
-      return () => ipcRenderer.removeAllListeners(IPC.PHONE_SIP_STATUS);
-    },
+  sip: {
+    reportStatus: (registered: boolean) =>
+      ipcRenderer.send(IPC.SIP_STATUS_REPORT, registered),
+  },
+  log: (level: string, ...args: any[]) =>
+    ipcRenderer.send(IPC.RENDERER_LOG, level, ...args),
+  settings: {
+    get: () => ipcRenderer.invoke(IPC.SETTINGS_GET),
+    set: (key: string, value: any) => ipcRenderer.invoke(IPC.SETTINGS_SET, key, value),
+  },
+  window: {
+    setAlwaysOnTop: (flag: boolean) => ipcRenderer.send(IPC.WIN_SET_ALWAYS_ON_TOP, flag),
   },
   contact: {
     lookup: (number: string) =>
@@ -40,5 +32,6 @@ contextBridge.exposeInMainWorld("crmPhone", {
   app: {
     quit: () => ipcRenderer.send(IPC.APP_QUIT),
     show: () => ipcRenderer.send(IPC.APP_SHOW),
+    hide: () => ipcRenderer.send(IPC.APP_HIDE),
   },
 });

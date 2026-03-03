@@ -1,5 +1,5 @@
-appId: ge.asg.crm-phone
-productName: CRM Phone
+appId: ge.asg.crm28-phone
+productName: CRM28 Phone
 directories:
   output: release
   buildResources: resources
