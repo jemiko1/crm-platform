@@ -117,19 +117,32 @@ export function PhonePage(props: Props) {
           <span style={styles.callNumber}>
             {activeCall.remoteName || activeCall.remoteNumber}
           </span>
-          <span style={styles.callStatus}>
-            {callState === "dialing" ? "Dialing..." : callState === "connected" ? "Connected" : callState}
-          </span>
+
+          {callState === "connecting" ? (
+            <div style={styles.connectingWrap}>
+              <div style={styles.connectingSpinner} />
+              <span style={styles.connectingText}>Connecting...</span>
+            </div>
+          ) : (
+            <span style={styles.callStatus}>
+              {callState === "dialing" ? "Dialing..." :
+               callState === "connected" ? "Connected" :
+               callState === "hold" ? "On Hold" : callState}
+            </span>
+          )}
 
           <div style={styles.callActions}>
-            {callState === "connected" && (
+            {(callState === "connected" || callState === "hold") && (
               <>
-                <button onClick={onToggleMute} style={styles.actionBtn}>
+                <button
+                  onClick={onToggleMute}
+                  style={muted ? styles.activeActionBtn : styles.actionBtn}
+                >
                   {muted ? "Unmute" : "Mute"}
                 </button>
                 <button
                   onClick={callState === "hold" ? onUnhold : onHold}
-                  style={styles.actionBtn}
+                  style={callState === "hold" ? styles.activeActionBtn : styles.actionBtn}
                 >
                   {callState === "hold" ? "Resume" : "Hold"}
                 </button>
@@ -176,7 +189,7 @@ export function PhonePage(props: Props) {
         </>
       )}
 
-      {callState === "connected" && (
+      {(callState === "connected" || callState === "hold") && (
         <div style={styles.dialPad}>
           {DTMF_KEYS.map((key) => (
             <button key={key} onClick={() => handleKeyPress(key)} style={styles.dialKey}>
@@ -256,6 +269,24 @@ const styles: Record<string, React.CSSProperties> = {
   callDirection: { fontSize: "0.75rem", color: "#64748b", textTransform: "uppercase" as const },
   callNumber: { fontSize: "1.5rem", fontWeight: 700, color: "#f1f5f9" },
   callStatus: { fontSize: "0.875rem", color: "#60a5fa" },
+  connectingWrap: {
+    display: "flex",
+    alignItems: "center",
+    gap: "0.5rem",
+    marginTop: "0.25rem",
+  },
+  connectingSpinner: {
+    width: 18,
+    height: 18,
+    border: "2px solid #334155",
+    borderTopColor: "#60a5fa",
+    borderRadius: "50%",
+    animation: "spin 0.8s linear infinite",
+  },
+  connectingText: {
+    fontSize: "0.875rem",
+    color: "#60a5fa",
+  },
   callActions: { display: "flex", gap: "0.75rem", marginTop: "1.5rem" },
   actionBtn: {
     padding: "0.6rem 1.2rem",
@@ -264,6 +295,16 @@ const styles: Record<string, React.CSSProperties> = {
     background: "#1e293b",
     color: "#e2e8f0",
     fontSize: "0.8rem",
+    cursor: "pointer",
+  },
+  activeActionBtn: {
+    padding: "0.6rem 1.2rem",
+    borderRadius: "0.5rem",
+    border: "1px solid #f59e0b",
+    background: "#78350f",
+    color: "#fbbf24",
+    fontSize: "0.8rem",
+    fontWeight: 600,
     cursor: "pointer",
   },
   hangupBtn: {

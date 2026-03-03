@@ -149,6 +149,9 @@ class SipService {
       return;
     }
     rlog("[SIP-R] answer() - accepting invitation, session state:", this.currentSession.state);
+    this._callState = "connecting";
+    if (this._activeCall) this._activeCall.state = "connecting";
+    this.emitStateChange();
     try {
       await this.currentSession.accept();
       rlog("[SIP-R] answer() - accept() completed");
@@ -211,29 +214,30 @@ class SipService {
   }
 
   async hold(): Promise<void> {
-    if (this.currentSession?.state === SessionState.Established) {
-      try {
-        await this.currentSession.invite({ requestDelegate: undefined });
-        this._callState = "hold";
-        if (this._activeCall) this._activeCall.state = "hold";
-        this.emitStateChange();
-      } catch (err: any) {
-        this.emit("error", `Hold failed: ${err.message}`);
-      }
+    if (!this.currentSession || this.currentSession.state !== SessionState.Established) return;
+    rlog("[SIP-R] hold() requested");
+    const pc = (this.currentSession as any).sessionDescriptionHandler?.peerConnection as RTCPeerConnection | undefined;
+    if (pc) {
+      pc.getSenders().forEach((s) => { if (s.track) s.track.enabled = false; });
     }
+    if (this.remoteAudioEl) this.remoteAudioEl.muted = true;
+    this._callState = "hold";
+    if (this._activeCall) this._activeCall.state = "hold";
+    this.emitStateChange();
   }
 
   async unhold(): Promise<void> {
-    if (this.currentSession?.state === SessionState.Established) {
-      try {
-        await this.currentSession.invite({ requestDelegate: undefined });
-        this._callState = "connected";
-        if (this._activeCall) this._activeCall.state = "connected";
-        this.emitStateChange();
-      } catch (err: any) {
-        this.emit("error", `Unhold failed: ${err.message}`);
-      }
+    if (!this.currentSession || this.currentSession.state !== SessionState.Established) return;
+    rlog("[SIP-R] unhold() requested");
+    const pc = (this.currentSession as any).sessionDescriptionHandler?.peerConnection as RTCPeerConnection | undefined;
+    if (pc) {
+      pc.getSenders().forEach((s) => { if (s.track) s.track.enabled = true; });
     }
+    if (this.remoteAudioEl) this.remoteAudioEl.muted = false;
+    this._muted = false;
+    this._callState = "connected";
+    if (this._activeCall) this._activeCall.state = "connected";
+    this.emitStateChange();
   }
 
   sendDtmf(tone: string): void {
@@ -263,7 +267,8 @@ class SipService {
         });
       }
     }
-    this.emit("mute-state", this._muted);
+    rlog("[SIP-R] Mute toggled:", this._muted);
+    this.emitStateChange();
     return this._muted;
   }
 
