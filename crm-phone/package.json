@@ -1,7 +1,7 @@
 {
-  "name": "crm-phone",
-  "version": "1.0.0",
-  "description": "CRM Desktop Softphone",
+  "name": "crm28-phone",
+  "version": "1.2.2",
+  "description": "CRM28 Desktop Softphone",
   "main": "dist/main/index.js",
   "author": "ASG",
   "scripts": {
@@ -39,8 +39,8 @@
     "vite": "^5.0.0"
   },
   "build": {
-    "appId": "ge.asg.crm-phone",
-    "productName": "CRM Phone",
+    "appId": "ge.asg.crm28-phone",
+    "productName": "CRM28 Phone",
     "directories": {
       "output": "release"
     },

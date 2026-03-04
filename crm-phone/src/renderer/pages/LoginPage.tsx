@@ -26,7 +26,7 @@ export function LoginPage({ onLogin, loading, error }: Props) {
             strokeLinejoin="round"
           />
         </svg>
-        <h1 style={styles.title}>CRM Phone</h1>
+        <h1 style={styles.title}>CRM28 Phone</h1>
         <p style={styles.subtitle}>Sign in with your CRM account</p>
       </div>
 

@@ -4,12 +4,11 @@ import {
   Tray,
   Menu,
   ipcMain,
-  Notification,
   nativeImage,
+  session as electronSession,
 } from "electron";
 import * as path from "path";
 import * as fs from "fs";
-import { SipManager } from "./sip-manager";
 import { startLocalServer } from "./local-server";
 import {
   getSession,
@@ -19,35 +18,62 @@ import {
 import { IPC } from "../shared/ipc-channels";
 import { setupAutoUpdater } from "./auto-updater";
 import type { AppLoginResponse, ContactLookupResult } from "../shared/types";
+import Store from "electron-store";
+
+const settingsStore = new Store({
+  defaults: {
+    muteRingtone: false,
+    overrideApps: true,
+    audioInputDeviceId: "",
+    audioOutputDeviceId: "",
+  },
+});
 
 const logFile = path.join(app.getPath("userData"), "crm-phone-debug.log");
 const origLog = console.log;
 const origErr = console.error;
-console.log = (...args: any[]) => {
-  const line = `[${new Date().toISOString()}] ${args.map(a => typeof a === "string" ? a : JSON.stringify(a)).join(" ")}\n`;
+function writeLog(prefix: string, args: any[]) {
+  const line = `[${new Date().toISOString()}] ${prefix}${args.map(a => typeof a === "string" ? a : JSON.stringify(a)).join(" ")}\n`;
   fs.appendFileSync(logFile, line);
-  origLog(...args);
-};
-console.error = (...args: any[]) => {
-  const line = `[${new Date().toISOString()}] ERROR ${args.map(a => typeof a === "string" ? a : JSON.stringify(a)).join(" ")}\n`;
-  fs.appendFileSync(logFile, line);
-  origErr(...args);
-};
-console.log("[INIT] CRM Phone starting, log file:", logFile);
+}
+console.log = (...args: any[]) => { writeLog("", args); origLog(...args); };
+console.error = (...args: any[]) => { writeLog("ERROR ", args); origErr(...args); };
+console.log("[INIT] CRM28 Phone starting, log file:", logFile);
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
-const sipManager = new SipManager();
+let sipRegistered = false;
 
 const isDev = !app.isPackaged;
 const RENDERER_URL = isDev
   ? "http://localhost:5173"
   : `file://${path.join(__dirname, "../renderer/index.html")}`;
 
+function buildTrayIcon(): Electron.NativeImage {
+  const size = 16;
+  const canvas = Buffer.alloc(size * size * 4);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const idx = (y * size + x) * 4;
+      const cx = x - 8, cy = y - 8;
+      const dist = Math.sqrt(cx * cx + cy * cy);
+      if (dist < 7) {
+        canvas[idx] = 59; canvas[idx + 1] = 130; canvas[idx + 2] = 246; canvas[idx + 3] = 255;
+      } else if (dist < 8) {
+        canvas[idx] = 30; canvas[idx + 1] = 64; canvas[idx + 2] = 175; canvas[idx + 3] = 200;
+      }
+      if (dist < 4) {
+        canvas[idx] = 255; canvas[idx + 1] = 255; canvas[idx + 2] = 255; canvas[idx + 3] = 255;
+      }
+    }
+  }
+  return nativeImage.createFromBuffer(canvas, { width: size, height: size });
+}
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 380,
-    height: 640,
+    height: 680,
     minWidth: 340,
     minHeight: 500,
     resizable: true,
@@ -55,6 +81,8 @@ function createWindow(): void {
     transparent: false,
     skipTaskbar: false,
     show: false,
+    icon: buildTrayIcon(),
+    title: "CRM28 Phone",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -75,19 +103,9 @@ function createWindow(): void {
 }
 
 function createTray(): void {
-  const iconPath = isDev
-    ? path.join(__dirname, "../../resources/tray-icon.png")
-    : path.join(process.resourcesPath, "tray-icon.png");
-
-  let trayIcon: Electron.NativeImage;
-  try {
-    trayIcon = nativeImage.createFromPath(iconPath);
-  } catch {
-    trayIcon = nativeImage.createEmpty();
-  }
-
+  const trayIcon = buildTrayIcon();
   tray = new Tray(trayIcon);
-  tray.setToolTip("CRM Phone");
+  tray.setToolTip("CRM28 Phone");
 
   const updateMenu = () => {
     const session = getSession();
@@ -99,31 +117,27 @@ function createTray(): void {
         enabled: false,
       },
       {
-        label: sipManager.registered ? "SIP: Registered" : "SIP: Offline",
+        label: sipRegistered ? "SIP: Registered" : "SIP: Offline",
         enabled: false,
       },
       { type: "separator" },
       {
         label: "Show",
-        click: () => {
-          mainWindow?.show();
-          mainWindow?.focus();
-        },
+        click: () => { mainWindow?.show(); mainWindow?.focus(); },
       },
       {
         label: "Quit",
-        click: () => {
-          mainWindow?.destroy();
-          app.quit();
-        },
+        click: () => { mainWindow?.destroy(); app.quit(); },
       },
     ]);
     tray?.setContextMenu(menu);
   };
 
   updateMenu();
-  sipManager.on("registration-state", updateMenu);
-  sipManager.on("state-change", updateMenu);
+  ipcMain.on(IPC.SIP_STATUS_REPORT, (_e, registered: boolean) => {
+    sipRegistered = registered;
+    updateMenu();
+  });
 
   tray.on("double-click", () => {
     mainWindow?.show();
@@ -132,6 +146,24 @@ function createTray(): void {
 }
 
 function setupIpc(): void {
+  ipcMain.on(IPC.RENDERER_LOG, (_e, level: string, ...args: any[]) => {
+    const prefix = level === "error" ? "ERROR [R] " : "[R] ";
+    writeLog(prefix, args);
+    if (level === "error") origErr("[R]", ...args);
+    else origLog("[R]", ...args);
+  });
+
+  ipcMain.handle(IPC.SETTINGS_GET, () => settingsStore.store);
+  ipcMain.handle(IPC.SETTINGS_SET, (_e, key: string, value: any) => {
+    settingsStore.set(key, value);
+    return settingsStore.store;
+  });
+
+  ipcMain.on(IPC.WIN_SET_ALWAYS_ON_TOP, (_e, flag: boolean) => {
+    mainWindow?.setAlwaysOnTop(flag, "screen-saver");
+    if (flag) { mainWindow?.show(); mainWindow?.focus(); }
+  });
+
   ipcMain.handle(IPC.AUTH_LOGIN, async (_event, email: string, password: string) => {
     const baseUrl = getCrmBaseUrl();
     console.log("[AUTH] app-login to:", `${baseUrl}/auth/app-login`, "email:", email);
@@ -150,64 +182,23 @@ function setupIpc(): void {
     const data = (await res.json()) as AppLoginResponse;
     console.log("[AUTH] Login OK, telephonyExtension:", JSON.stringify(data.telephonyExtension));
     setSession(data);
-
-    if (data.telephonyExtension) {
-      console.log("[AUTH] Calling sipManager.register()...");
-      await sipManager.register(data.telephonyExtension);
-      console.log("[AUTH] sipManager.register() completed, registered:", sipManager.registered);
-    } else {
-      console.log("[AUTH] No telephonyExtension in login response");
-    }
-
     return data;
   });
 
   ipcMain.handle(IPC.AUTH_LOGOUT, async () => {
-    await sipManager.unregister();
     setSession(null);
+    sipRegistered = false;
     return { ok: true };
   });
 
   ipcMain.handle(IPC.AUTH_GET_SESSION, () => {
     const session = getSession();
-    return {
-      session,
-      sipRegistered: sipManager.registered,
-      callState: sipManager.callState,
-      activeCall: sipManager.activeCall,
-    };
+    return { session, sipRegistered };
   });
-
-  ipcMain.handle(IPC.PHONE_DIAL, async (_event, number: string) => {
-    await sipManager.dial(number);
-  });
-
-  ipcMain.handle(IPC.PHONE_ANSWER, async () => {
-    await sipManager.answer();
-  });
-
-  ipcMain.handle(IPC.PHONE_HANGUP, async () => {
-    await sipManager.hangup();
-  });
-
-  ipcMain.handle(IPC.PHONE_HOLD, async () => {
-    await sipManager.hold();
-  });
-
-  ipcMain.handle(IPC.PHONE_UNHOLD, async () => {
-    await sipManager.unhold();
-  });
-
-  ipcMain.handle(IPC.PHONE_DTMF, (_event, tone: string) => {
-    sipManager.sendDtmf(tone);
-  });
-
-  ipcMain.handle(IPC.PHONE_MUTE, () => sipManager.toggleMute());
 
   ipcMain.handle(IPC.CONTACT_LOOKUP, async (_event, number: string) => {
     const session = getSession();
     if (!session) return null;
-
     try {
       const baseUrl = getCrmBaseUrl();
       const res = await fetch(
@@ -216,9 +207,7 @@ function setupIpc(): void {
       );
       if (!res.ok) return null;
       return (await res.json()) as ContactLookupResult;
-    } catch {
-      return null;
-    }
+    } catch { return null; }
   });
 
   ipcMain.handle("debug:get-log-path", () => logFile);
@@ -226,49 +215,9 @@ function setupIpc(): void {
     try { return fs.readFileSync(logFile, "utf-8"); } catch { return "No log file"; }
   });
 
-  ipcMain.on(IPC.APP_QUIT, () => {
-    mainWindow?.destroy();
-    app.quit();
-  });
-
-  ipcMain.on(IPC.APP_SHOW, () => {
-    mainWindow?.show();
-    mainWindow?.focus();
-  });
-}
-
-function forwardSipEvents(): void {
-  sipManager.on("state-change", (state) => {
-    mainWindow?.webContents.send(IPC.PHONE_STATE_CHANGED, state);
-  });
-
-  sipManager.on("registration-state", (registered) => {
-    mainWindow?.webContents.send(IPC.PHONE_SIP_STATUS, registered);
-  });
-
-  sipManager.on("incoming-call", (call) => {
-    mainWindow?.webContents.send(IPC.PHONE_INCOMING_CALL, call);
-    mainWindow?.show();
-    mainWindow?.focus();
-
-    if (Notification.isSupported()) {
-      const notif = new Notification({
-        title: "Incoming Call",
-        body: call.remoteName || call.remoteNumber,
-        urgency: "critical",
-      });
-      notif.on("click", () => {
-        mainWindow?.show();
-        mainWindow?.focus();
-      });
-      notif.show();
-    }
-  });
-
-  sipManager.on("error", (msg) => {
-    console.error("[SIP Error]", msg);
-    mainWindow?.webContents.send("sip:error", msg);
-  });
+  ipcMain.on(IPC.APP_QUIT, () => { mainWindow?.destroy(); app.quit(); });
+  ipcMain.on(IPC.APP_SHOW, () => { mainWindow?.show(); mainWindow?.focus(); });
+  ipcMain.on(IPC.APP_HIDE, () => { mainWindow?.hide(); });
 }
 
 async function restoreSession(): Promise<void> {
@@ -311,49 +260,34 @@ async function restoreSession(): Promise<void> {
       session.telephonyExtension = freshExt;
       setSession(session);
     }
-
-    if (session.telephonyExtension) {
-      console.log("[RESTORE] Registering SIP with:", JSON.stringify({
-        ext: session.telephonyExtension.extension,
-        server: session.telephonyExtension.sipServer,
-        pwdSet: !!session.telephonyExtension.sipPassword,
-      }));
-      await sipManager.register(session.telephonyExtension);
-      console.log("[RESTORE] SIP register completed, registered:", sipManager.registered);
-    } else {
-      console.log("[RESTORE] No telephonyExtension to register");
-    }
   } catch (err: any) {
     console.log("[RESTORE] Error:", err.message);
-    if (session.telephonyExtension) {
-      console.log("[RESTORE] Will retry in 5s");
-      setTimeout(() => {
-        sipManager
-          .register(session.telephonyExtension!)
-          .catch((e: any) => console.log("[RESTORE] Retry failed:", e.message));
-      }, 5000);
-    }
   }
 }
 
 app.whenReady().then(async () => {
   const gotLock = app.requestSingleInstanceLock();
-  if (!gotLock) {
-    app.quit();
-    return;
-  }
+  if (!gotLock) { app.quit(); return; }
 
   app.on("second-instance", () => {
     mainWindow?.show();
     mainWindow?.focus();
   });
 
+  electronSession.defaultSession.setCertificateVerifyProc((_request, callback) => {
+    callback(0);
+  });
+
+  electronSession.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
+    callback(true);
+  });
+  electronSession.defaultSession.setPermissionCheckHandler(() => true);
+
   createTray();
   createWindow();
   setupIpc();
-  forwardSipEvents();
 
-  startLocalServer(sipManager, {
+  startLocalServer(null, {
     onSessionChanged: (data) => {
       mainWindow?.webContents.send(IPC.AUTH_SESSION_CHANGED, data);
     },

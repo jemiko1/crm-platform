@@ -25,7 +25,7 @@ export interface AppSession {
   telephonyExtension: TelephonyExtensionInfo | null;
 }
 
-export type CallState = "idle" | "ringing" | "connected" | "hold" | "dialing";
+export type CallState = "idle" | "ringing" | "connecting" | "connected" | "hold" | "dialing";
 export type CallDirection = "inbound" | "outbound";
 
 export interface ActiveCall {

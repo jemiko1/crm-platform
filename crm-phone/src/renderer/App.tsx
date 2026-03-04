@@ -12,7 +12,7 @@ export function App() {
     return (
       <div style={styles.splash}>
         <div style={styles.spinner} />
-        <p style={styles.splashText}>CRM Phone</p>
+        <p style={styles.splashText}>CRM28 Phone</p>
       </div>
     );
   }
