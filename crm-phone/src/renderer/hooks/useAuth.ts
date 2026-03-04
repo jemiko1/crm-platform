@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { sipService } from "../sip-service";
 import type { AppSession } from "../../shared/types";
 
 declare global {
@@ -23,30 +24,41 @@ export function useAuth() {
   });
 
   useEffect(() => {
-    window.crmPhone.auth.getSession().then((data: any) => {
+    const onRegState = (registered: boolean) => {
+      setState((prev) => ({ ...prev, sipRegistered: registered }));
+    };
+    sipService.on("registration-state", onRegState);
+
+    window.crmPhone.auth.getSession().then(async (data: any) => {
+      const session: AppSession | null = data.session;
       setState({
         loading: false,
-        session: data.session,
-        sipRegistered: data.sipRegistered,
+        session,
+        sipRegistered: false,
         error: null,
       });
+
+      if (session?.telephonyExtension) {
+        await sipService.register(session.telephonyExtension);
+      }
     });
 
-    const unsub = window.crmPhone.auth.onSessionChanged((data: any) => {
+    const unsub = window.crmPhone.auth.onSessionChanged(async (data: any) => {
       setState((prev) => ({
         ...prev,
         session: data,
         sipRegistered: false,
       }));
-    });
-
-    const unsubSip = window.crmPhone.phone.onSipStatus((registered: boolean) => {
-      setState((prev) => ({ ...prev, sipRegistered: registered }));
+      if (data?.telephonyExtension) {
+        await sipService.register(data.telephonyExtension);
+      } else {
+        await sipService.unregister();
+      }
     });
 
     return () => {
       unsub();
-      unsubSip();
+      sipService.off("registration-state", onRegState);
     };
   }, []);
 
@@ -60,6 +72,9 @@ export function useAuth() {
         sipRegistered: false,
         error: null,
       });
+      if (data.telephonyExtension) {
+        await sipService.register(data.telephonyExtension);
+      }
     } catch (err: any) {
       setState((prev) => ({
         ...prev,
@@ -70,6 +85,7 @@ export function useAuth() {
   }, []);
 
   const logout = useCallback(async () => {
+    await sipService.unregister();
     await window.crmPhone.auth.logout();
     setState({
       loading: false,
