@@ -16,7 +16,7 @@ import {
   getCrmBaseUrl,
 } from "./session-store";
 import { IPC } from "../shared/ipc-channels";
-import { setupAutoUpdater } from "./auto-updater";
+import { setupAutoUpdater, checkForUpdatesManually } from "./auto-updater";
 import type { AppLoginResponse, ContactLookupResult } from "../shared/types";
 import Store from "electron-store";
 
@@ -121,6 +121,10 @@ function createTray(): void {
         enabled: false,
       },
       { type: "separator" },
+      {
+        label: "Check for Updates",
+        click: () => checkForUpdatesManually(),
+      },
       {
         label: "Show",
         click: () => { mainWindow?.show(); mainWindow?.focus(); },

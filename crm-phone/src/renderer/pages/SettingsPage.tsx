@@ -12,6 +12,13 @@ interface Settings {
   audioOutputDeviceId: string;
 }
 
+interface UpdateStatus {
+  state: "idle" | "checking" | "available" | "downloading" | "downloaded" | "not-available" | "error";
+  version?: string;
+  percent?: number;
+  message?: string;
+}
+
 interface Props {
   onBack: () => void;
 }
@@ -28,10 +35,15 @@ export function SettingsPage({ onBack }: Props) {
   const [micLevel, setMicLevel] = useState(0);
   const [testingMic, setTestingMic] = useState(false);
   const [testingSpk, setTestingSpk] = useState(false);
+  const [appVersion, setAppVersion] = useState("");
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ state: "idle" });
 
   useEffect(() => {
     window.crmPhone.settings.get().then((s: Settings) => setSettings(s));
+    window.crmPhone.updater?.getVersion?.().then((v: string) => setAppVersion(v || "dev"));
+    const unsub = window.crmPhone.updater?.onStatus?.((s: UpdateStatus) => setUpdateStatus(s));
     loadDevices();
+    return () => { unsub?.(); };
   }, []);
 
   async function loadDevices() {
@@ -186,6 +198,51 @@ export function SettingsPage({ onBack }: Props) {
             {testingSpk ? "Playing..." : "Test Speaker"}
           </button>
         </div>
+
+        <div style={styles.section}>
+          <h3 style={styles.sectionTitle}>About & Updates</h3>
+          <div style={styles.versionRow}>
+            <span style={styles.versionLabel}>Version</span>
+            <span style={styles.versionValue}>{appVersion || "..."}</span>
+          </div>
+          <div style={styles.updateRow}>
+            <button
+              onClick={() => window.crmPhone.updater?.checkForUpdates?.()}
+              disabled={updateStatus.state === "checking" || updateStatus.state === "downloading"}
+              style={styles.updateBtn}
+            >
+              {updateStatus.state === "checking"
+                ? "Checking..."
+                : updateStatus.state === "downloading"
+                  ? `Downloading ${updateStatus.percent ?? 0}%`
+                  : "Check for Updates"}
+            </button>
+            {updateStatus.state === "downloading" && (
+              <div style={styles.progressBg}>
+                <div style={{ ...styles.progressFill, width: `${updateStatus.percent ?? 0}%` }} />
+              </div>
+            )}
+          </div>
+          {updateStatus.state === "downloaded" && (
+            <div style={styles.updateBanner}>
+              <span style={styles.updateBannerText}>
+                v{updateStatus.version} ready to install
+              </span>
+              <button
+                onClick={() => window.crmPhone.updater?.install?.()}
+                style={styles.restartBtn}
+              >
+                Restart Now
+              </button>
+            </div>
+          )}
+          {updateStatus.state === "not-available" && (
+            <span style={styles.upToDate}>You're up to date.</span>
+          )}
+          {updateStatus.state === "error" && (
+            <span style={styles.updateError}>Update error: {updateStatus.message}</span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -291,4 +348,61 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 4,
     transition: "width 0.1s",
   },
+  versionRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "0.4rem 0",
+  },
+  versionLabel: { fontSize: "0.85rem", color: "#94a3b8" },
+  versionValue: { fontSize: "0.85rem", color: "#e2e8f0", fontFamily: "monospace" },
+  updateRow: {
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: "0.5rem",
+  },
+  updateBtn: {
+    padding: "0.5rem 1rem",
+    borderRadius: "0.375rem",
+    border: "1px solid #3b82f6",
+    background: "transparent",
+    color: "#60a5fa",
+    fontSize: "0.8rem",
+    cursor: "pointer",
+    textAlign: "center" as const,
+  },
+  progressBg: {
+    height: 6,
+    borderRadius: 3,
+    background: "#334155",
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    background: "#3b82f6",
+    borderRadius: 3,
+    transition: "width 0.3s",
+  },
+  updateBanner: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    background: "#1e3a5f",
+    borderRadius: "0.375rem",
+    padding: "0.5rem 0.75rem",
+    border: "1px solid #3b82f6",
+  },
+  updateBannerText: { fontSize: "0.8rem", color: "#93c5fd" },
+  restartBtn: {
+    padding: "0.3rem 0.75rem",
+    borderRadius: "0.25rem",
+    border: "none",
+    background: "#3b82f6",
+    color: "#fff",
+    fontSize: "0.75rem",
+    cursor: "pointer",
+    fontWeight: 600,
+  },
+  upToDate: { fontSize: "0.8rem", color: "#4ade80" },
+  updateError: { fontSize: "0.8rem", color: "#f87171" },
 };

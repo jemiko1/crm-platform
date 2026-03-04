@@ -34,4 +34,14 @@ contextBridge.exposeInMainWorld("crmPhone", {
     show: () => ipcRenderer.send(IPC.APP_SHOW),
     hide: () => ipcRenderer.send(IPC.APP_HIDE),
   },
+  updater: {
+    checkForUpdates: () => ipcRenderer.invoke(IPC.UPDATE_CHECK),
+    install: () => ipcRenderer.invoke(IPC.UPDATE_INSTALL),
+    getVersion: () => ipcRenderer.invoke(IPC.UPDATE_GET_VERSION),
+    onStatus: (cb: (status: any) => void) => {
+      const handler = (_e: any, status: any) => cb(status);
+      ipcRenderer.on(IPC.UPDATE_STATUS, handler);
+      return () => ipcRenderer.removeListener(IPC.UPDATE_STATUS, handler);
+    },
+  },
 });
