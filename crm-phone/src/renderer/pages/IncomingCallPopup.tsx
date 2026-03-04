@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from "react";
-import type { ActiveCall, ContactLookupResult } from "../../shared/types";
+import type { ActiveCall, CallState, ContactLookupResult } from "../../shared/types";
 
 interface Props {
   call: ActiveCall;
+  callState: CallState;
   onAnswer: () => void;
   onReject: () => void;
 }
 
-export function IncomingCallPopup({ call, onAnswer, onReject }: Props) {
+export function IncomingCallPopup({ call, callState, onAnswer, onReject }: Props) {
   const [contact, setContact] = useState<ContactLookupResult | null>(null);
+  const [answerPressed, setAnswerPressed] = useState(false);
 
   useEffect(() => {
     window.crmPhone.contact
@@ -18,22 +20,44 @@ export function IncomingCallPopup({ call, onAnswer, onReject }: Props) {
       });
   }, [call.remoteNumber]);
 
+  const isConnecting = callState === "connecting" || answerPressed;
+
+  const handleAnswer = () => {
+    if (answerPressed) return;
+    setAnswerPressed(true);
+    onAnswer();
+  };
+
   const displayName = contact?.name || call.remoteName || "Unknown Caller";
   const displayNumber = call.remoteNumber;
 
   return (
     <div style={styles.overlay}>
       <div style={styles.card}>
-        <div style={styles.pulseRing} />
+        {!isConnecting && <div style={styles.pulseRing} />}
 
-        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" style={styles.icon}>
-          <path
-            d="M22 16.92v3a2 2 0 0 1-2.18 2 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.97.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.84.57 2.81.7A2 2 0 0 1 22 16.92Z"
-            stroke="#22c55e"
-            strokeWidth="1.5"
-            strokeLinejoin="round"
-          />
-        </svg>
+        {isConnecting ? (
+          <div style={styles.connectingIcon}>
+            <div style={styles.connectingRing} />
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M22 16.92v3a2 2 0 0 1-2.18 2 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.97.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.84.57 2.81.7A2 2 0 0 1 22 16.92Z"
+                stroke="#60a5fa"
+                strokeWidth="1.5"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+        ) : (
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" style={styles.icon}>
+            <path
+              d="M22 16.92v3a2 2 0 0 1-2.18 2 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.97.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.84.57 2.81.7A2 2 0 0 1 22 16.92Z"
+              stroke="#22c55e"
+              strokeWidth="1.5"
+              strokeLinejoin="round"
+            />
+          </svg>
+        )}
 
         <h2 style={styles.callerName}>{displayName}</h2>
         <p style={styles.callerNumber}>{displayNumber}</p>
@@ -45,14 +69,25 @@ export function IncomingCallPopup({ call, onAnswer, onReject }: Props) {
           <p style={styles.lastCall}>Last contact: {contact.lastInteraction}</p>
         )}
 
-        <div style={styles.actions}>
-          <button onClick={onReject} style={styles.rejectBtn}>
-            Decline
-          </button>
-          <button onClick={onAnswer} style={styles.answerBtn}>
-            Answer
-          </button>
-        </div>
+        {isConnecting ? (
+          <div style={styles.connectingArea}>
+            <div style={styles.connectingDots}>
+              <span style={{ ...styles.dot, animationDelay: "0s" }} />
+              <span style={{ ...styles.dot, animationDelay: "0.2s" }} />
+              <span style={{ ...styles.dot, animationDelay: "0.4s" }} />
+            </div>
+            <span style={styles.connectingLabel}>Connecting</span>
+          </div>
+        ) : (
+          <div style={styles.actions}>
+            <button onClick={onReject} style={styles.rejectBtn}>
+              Decline
+            </button>
+            <button onClick={handleAnswer} style={styles.answerBtn}>
+              Answer
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -89,6 +124,23 @@ const styles: Record<string, React.CSSProperties> = {
     animation: "pulse 1.5s ease-in-out infinite",
   },
   icon: { marginBottom: "1rem" },
+  connectingIcon: {
+    position: "relative",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 64,
+    height: 64,
+    marginBottom: "1rem",
+  },
+  connectingRing: {
+    position: "absolute",
+    inset: 0,
+    borderRadius: "50%",
+    border: "3px solid #1e3a5f",
+    borderTopColor: "#60a5fa",
+    animation: "spin 1s linear infinite",
+  },
   callerName: {
     fontSize: "1.25rem",
     fontWeight: 700,
@@ -110,6 +162,30 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "0.75rem",
     color: "#64748b",
     marginTop: "0.25rem",
+  },
+  connectingArea: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "0.75rem",
+    marginTop: "2rem",
+  },
+  connectingDots: {
+    display: "flex",
+    gap: "0.5rem",
+  },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: "50%",
+    background: "#60a5fa",
+    animation: "dotBounce 1s ease-in-out infinite",
+  },
+  connectingLabel: {
+    fontSize: "0.9rem",
+    color: "#60a5fa",
+    fontWeight: 600,
+    letterSpacing: "0.05em",
   },
   actions: {
     display: "flex",

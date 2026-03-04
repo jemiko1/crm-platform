@@ -1,6 +1,6 @@
 {
   "name": "crm28-phone",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "description": "CRM28 Desktop Softphone",
   "main": "dist/main/index.js",
   "author": "ASG",

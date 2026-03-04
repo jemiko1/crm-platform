@@ -72,10 +72,11 @@ export function PhonePage(props: Props) {
     return <SettingsPage onBack={() => setShowSettings(false)} />;
   }
 
-  if (callState === "ringing" && activeCall?.direction === "inbound") {
+  if ((callState === "ringing" || callState === "connecting") && activeCall?.direction === "inbound") {
     return (
       <IncomingCallPopup
         call={activeCall}
+        callState={callState}
         onAnswer={onAnswer}
         onReject={onHangup}
       />
