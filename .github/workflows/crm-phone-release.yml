@@ -1,0 +1,32 @@
+name: Release CRM28 Phone
+
+on:
+  push:
+    tags:
+      - 'crm-phone-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: crm-phone/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: crm-phone
+
+      - name: Build & publish release
+        run: npm run release
+        working-directory: crm-phone
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
