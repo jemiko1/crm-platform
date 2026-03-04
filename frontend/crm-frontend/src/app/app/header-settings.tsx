@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "@/hooks/useI18n";
 
@@ -9,12 +9,51 @@ const LANGUAGES = [
   { code: "ka" as const, label: "ქართული", flag: "🇬🇪" },
 ];
 
+const BRIDGE_URL = "http://127.0.0.1:19876";
+
+type PhoneAppState = {
+  detected: boolean;
+  loggedIn: boolean;
+  userName: string | null;
+  extension: string | null;
+  sipRegistered: boolean;
+};
+
 export default function HeaderSettings() {
   const { language, setLanguage, t } = useI18n();
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ top: 0, right: 0 });
+  const [phoneApp, setPhoneApp] = useState<PhoneAppState>({
+    detected: false, loggedIn: false, userName: null, extension: null, sipRegistered: false,
+  });
+
+  const checkPhoneApp = useCallback(async () => {
+    try {
+      const res = await fetch(`${BRIDGE_URL}/status`, { signal: AbortSignal.timeout(2000) });
+      if (res.ok) {
+        const data = await res.json();
+        setPhoneApp({
+          detected: true,
+          loggedIn: !!data.loggedIn,
+          userName: data.user?.name ?? null,
+          extension: data.user?.extension ?? null,
+          sipRegistered: !!data.sipRegistered,
+        });
+      } else {
+        setPhoneApp({ detected: false, loggedIn: false, userName: null, extension: null, sipRegistered: false });
+      }
+    } catch {
+      setPhoneApp({ detected: false, loggedIn: false, userName: null, extension: null, sipRegistered: false });
+    }
+  }, []);
+
+  useEffect(() => {
+    checkPhoneApp();
+    const interval = setInterval(checkPhoneApp, 30_000);
+    return () => clearInterval(interval);
+  }, [checkPhoneApp]);
 
   useEffect(() => {
     if (open && btnRef.current) {
@@ -100,6 +139,65 @@ export default function HeaderSettings() {
                   )}
                 </button>
               ))}
+            </div>
+
+            {/* Phone App Section */}
+            <div className="border-t border-zinc-100">
+              <div className="px-4 py-3 border-b border-zinc-100">
+                <h3 className="text-sm font-semibold text-zinc-900">
+                  {t("settings.phoneApp", "Phone App")}
+                </h3>
+              </div>
+
+              <div className="p-2">
+                {phoneApp.detected && phoneApp.loggedIn ? (
+                  <div className="px-3 py-2.5 rounded-xl bg-emerald-50">
+                    <div className="flex items-center gap-2">
+                      <span className={`h-2 w-2 rounded-full shrink-0 ${phoneApp.sipRegistered ? "bg-emerald-500" : "bg-amber-500"}`} />
+                      <span className="text-sm font-medium text-emerald-800">
+                        {t("settings.phoneConnected", "Connected")}
+                      </span>
+                    </div>
+                    <div className="mt-1.5 flex items-center gap-2 text-xs text-emerald-700">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.97.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.84.57 2.81.7A2 2 0 0 1 22 16.92Z" />
+                      </svg>
+                      <span>Ext {phoneApp.extension}</span>
+                      <span className="text-emerald-600/60">|</span>
+                      <span>{phoneApp.sipRegistered ? t("settings.sipRegistered", "SIP Registered") : t("settings.sipOffline", "SIP Offline")}</span>
+                    </div>
+                    {phoneApp.userName && (
+                      <div className="mt-1 text-xs text-emerald-600">{phoneApp.userName}</div>
+                    )}
+                  </div>
+                ) : phoneApp.detected ? (
+                  <div className="px-3 py-2.5 rounded-xl bg-amber-50">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
+                      <span className="text-sm font-medium text-amber-800">
+                        {t("settings.phoneNotLoggedIn", "App running, not logged in")}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <a
+                    href="https://github.com/jemiko1/crm-platform/releases/download/v1.2.2/CRM28.Phone.Setup.1.2.2.exe"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-zinc-700 hover:bg-zinc-50 transition-colors"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-500">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    <div>
+                      <div className="font-medium">{t("settings.downloadPhoneApp", "Download Phone App")}</div>
+                      <div className="text-xs text-zinc-400">{t("settings.downloadPhoneAppDesc", "Windows softphone for calls")}</div>
+                    </div>
+                  </a>
+                )}
+              </div>
             </div>
           </div>,
           document.body,

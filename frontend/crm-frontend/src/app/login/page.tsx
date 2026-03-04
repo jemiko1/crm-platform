@@ -5,6 +5,8 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { API_BASE } from "@/lib/api";
 
+const BRIDGE_URL = "http://127.0.0.1:19876";
+
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -15,6 +17,55 @@ function LoginPageContent() {
   const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [phoneMismatch, setPhoneMismatch] = useState<{
+    appUserName: string;
+    appExtension: string;
+  } | null>(null);
+  const [switchingPhone, setSwitchingPhone] = useState(false);
+
+  async function checkDesktopPhone(loggedInUserId: string) {
+    try {
+      const res = await fetch(`${BRIDGE_URL}/status`, {
+        signal: AbortSignal.timeout(2000),
+      });
+      if (!res.ok) return;
+      const status = await res.json();
+      if (status.loggedIn && status.user && status.user.id !== loggedInUserId) {
+        setPhoneMismatch({
+          appUserName: status.user.name,
+          appExtension: status.user.extension,
+        });
+      }
+    } catch {
+      // App not running
+    }
+  }
+
+  async function handleSwitchPhone() {
+    setSwitchingPhone(true);
+    try {
+      const tokenRes = await fetch(`${API_BASE}/auth/device-token`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!tokenRes.ok) throw new Error("Failed to get token");
+      const { handshakeToken } = await tokenRes.json();
+
+      await fetch(`${BRIDGE_URL}/switch-user`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ handshakeToken }),
+      });
+
+      setPhoneMismatch(null);
+      router.push(next);
+      router.refresh();
+    } catch {
+      setError("Failed to switch phone app user");
+    } finally {
+      setSwitchingPhone(false);
+    }
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -33,8 +84,16 @@ function LoginPageContent() {
 
       void remember; // UI-only for now
 
-      router.push(next);
-      router.refresh();
+      const data = await res.json();
+      const userId = data?.user?.id;
+      if (userId) {
+        await checkDesktopPhone(userId);
+      }
+
+      if (!phoneMismatch) {
+        router.push(next);
+        router.refresh();
+      }
     } catch {
       setError("Invalid email or password");
     } finally {
@@ -145,6 +204,38 @@ function LoginPageContent() {
           Secure sign-in • Protected workspace
         </div>
       </div>
+
+      {phoneMismatch && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm mx-4 space-y-4">
+            <h3 className="text-lg font-semibold text-zinc-900">Phone App Mismatch</h3>
+            <p className="text-sm text-zinc-600">
+              The CRM Phone app on this PC is logged in as{" "}
+              <strong>{phoneMismatch.appUserName}</strong> (ext {phoneMismatch.appExtension}).
+              Switch the phone to your account?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setPhoneMismatch(null);
+                  router.push(next);
+                  router.refresh();
+                }}
+                className="flex-1 px-4 py-2 rounded-xl border border-zinc-200 text-sm text-zinc-700 hover:bg-zinc-50"
+              >
+                Skip
+              </button>
+              <button
+                onClick={handleSwitchPhone}
+                disabled={switchingPhone}
+                className="flex-1 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {switchingPhone ? "Switching..." : "Switch Phone"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

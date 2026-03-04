@@ -1,18 +1,8 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { apiGet, ApiError } from "@/lib/api";
 import { format } from "date-fns";
-
-const TABS = [
-  { href: "/app/call-center", label: "Dashboard" },
-  { href: "/app/call-center/calls", label: "Calls" },
-  { href: "/app/call-center/live", label: "Live" },
-  { href: "/app/call-center/quality", label: "Quality" },
-  { href: "/app/call-center/agents", label: "Agents" },
-];
 
 type QualityReview = {
   id: string;
@@ -75,7 +65,6 @@ function truncate(str: string | null | undefined, maxLen: number): string {
 }
 
 export default function QualityPage() {
-  const pathname = usePathname();
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
   const pageSize = 25;
@@ -123,34 +112,6 @@ export default function QualityPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-zinc-900">Quality Reviews</h1>
-        <p className="mt-1 text-sm text-zinc-500">
-          Call quality scores and AI-generated summaries
-        </p>
-      </div>
-
-      {/* Sub-nav tabs */}
-      <div className="flex flex-wrap gap-1 border-b border-zinc-200">
-        {TABS.map((tab) => {
-          const isActive = pathname === tab.href;
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              className={`px-4 py-2.5 text-sm font-medium transition-colors rounded-t-lg -mb-px ${
-                isActive
-                  ? "border-b-2 border-[rgb(8,117,56)] text-[rgb(8,117,56)] bg-white"
-                  : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50"
-              }`}
-            >
-              {tab.label}
-            </Link>
-          );
-        })}
-      </div>
-
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-4 rounded-xl border border-zinc-200 bg-zinc-50/50 p-4">
         <div className="flex items-center gap-2">

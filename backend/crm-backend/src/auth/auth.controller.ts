@@ -15,6 +15,11 @@ class LoginDto {
   password!: string;
 }
 
+class ExchangeTokenDto {
+  @IsString()
+  handshakeToken!: string;
+}
+
 @Controller("auth")
 export class AuthController {
   constructor(
@@ -44,6 +49,23 @@ export class AuthController {
     return { user };
   }
 
+  @Post("app-login")
+  async appLogin(@Body() dto: LoginDto) {
+    return this.auth.appLogin(dto.email, dto.password);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post("device-token")
+  async createDeviceToken(@Req() req: any) {
+    const token = await this.auth.createDeviceToken(req.user.id);
+    return { handshakeToken: token };
+  }
+
+  @Post("exchange-token")
+  async exchangeToken(@Body() dto: ExchangeTokenDto) {
+    return this.auth.exchangeDeviceToken(dto.handshakeToken);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get("me")
   async me(@Req() req: any) {
@@ -58,8 +80,6 @@ export class AuthController {
       return { user: req.user };
     }
 
-    // Fetch position/department in a separate query to avoid
-    // PrismaPg nested-include limitation.
     let employee = user.employee as (typeof user.employee) & {
       position?: { id: string; name: string; code: string } | null;
       department?: { id: string; name: string; code: string } | null;
@@ -74,6 +94,10 @@ export class AuthController {
 
     const permissions = await this.permissionsService.getCurrentUserPermissions(userId);
     const position = employee?.position;
+
+    const ext = await this.prisma.telephonyExtension.findUnique({
+      where: { crmUserId: userId },
+    });
 
     return {
       user: {
@@ -101,6 +125,14 @@ export class AuthController {
             }
           : null,
         permissions,
+        telephonyExtension: ext
+          ? {
+              extension: ext.extension,
+              displayName: ext.displayName,
+              sipServer: ext.sipServer,
+              sipPassword: ext.sipPassword,
+            }
+          : null,
       },
     };
   }

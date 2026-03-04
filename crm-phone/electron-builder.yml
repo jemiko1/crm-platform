@@ -1,0 +1,15 @@
+appId: ge.asg.crm28-phone
+productName: CRM28 Phone
+directories:
+  output: release
+  buildResources: resources
+files:
+  - dist/**/*
+  - package.json
+win:
+  target: nsis
+  signAndEditExecutable: false
+nsis:
+  oneClick: true
+  perMachine: true
+  allowToChangeInstallationDirectory: false

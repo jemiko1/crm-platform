@@ -1,10 +1,37 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { UserRole } from '@prisma/client';
+import { UserRole, PermissionCategory } from '@prisma/client';
+
+const REQUIRED_PERMISSIONS = [
+  { resource: 'sms_config', action: 'access', category: PermissionCategory.ADMIN, description: 'Access SMS configuration, logs, and spam protection settings' },
+];
 
 @Injectable()
-export class PermissionsService {
+export class PermissionsService implements OnModuleInit {
+  private readonly logger = new Logger(PermissionsService.name);
+
   constructor(private prisma: PrismaService) {}
+
+  async onModuleInit() {
+    await this.ensureRequiredPermissions();
+  }
+
+  private async ensureRequiredPermissions() {
+    for (const perm of REQUIRED_PERMISSIONS) {
+      try {
+        await this.prisma.permission.upsert({
+          where: {
+            resource_action: { resource: perm.resource, action: perm.action },
+          },
+          update: {},
+          create: perm,
+        });
+        this.logger.log(`Ensured permission: ${perm.resource}.${perm.action}`);
+      } catch (err) {
+        this.logger.warn(`Failed to ensure permission ${perm.resource}.${perm.action}: ${err.message}`);
+      }
+    }
+  }
 
   async findAll() {
     return this.prisma.permission.findMany({

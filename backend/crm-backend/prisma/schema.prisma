@@ -263,6 +263,7 @@ model User {
   qualityReviews        QualityReview[]     @relation("UserQualityReviews")
   assignedClientChats   ClientChatConversation[] @relation("UserAssignedClientChats")
   clientChatMessages    ClientChatMessage[]      @relation("UserClientChatMessages")
+  deviceHandshakeTokens DeviceHandshakeToken[]
 
   @@index([email])
   @@index([isActive])
@@ -1393,6 +1394,8 @@ model TelephonyExtension {
   crmUserId   String   @unique
   extension   String   @unique
   displayName String
+  sipServer   String?
+  sipPassword String?
   isOperator  Boolean  @default(true)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
@@ -1400,6 +1403,19 @@ model TelephonyExtension {
   user        User     @relation(fields: [crmUserId], references: [id], onDelete: Cascade)
 
   @@index([isActive])
+}
+
+model DeviceHandshakeToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  consumed  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([expiresAt])
 }
 
 model TelephonyQueue {

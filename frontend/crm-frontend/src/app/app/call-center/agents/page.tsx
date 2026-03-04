@@ -1,18 +1,8 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { apiGet, ApiError } from "@/lib/api";
 import { format, subDays } from "date-fns";
-
-const TABS = [
-  { href: "/app/call-center", label: "Dashboard" },
-  { href: "/app/call-center/calls", label: "Calls" },
-  { href: "/app/call-center/live", label: "Live" },
-  { href: "/app/call-center/quality", label: "Quality" },
-  { href: "/app/call-center/agents", label: "Agents" },
-];
 
 type AgentStats = {
   userId: string;
@@ -44,7 +34,6 @@ function getAnswerRateColor(rate: number | null | undefined): string {
 }
 
 export default function AgentsPage() {
-  const pathname = usePathname();
   const today = new Date();
   const defaultTo = format(today, "yyyy-MM-dd");
   const defaultFrom = format(subDays(today, 7), "yyyy-MM-dd");
@@ -91,62 +80,28 @@ export default function AgentsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-zinc-900">Agent Stats</h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            Call volume and performance by agent
-          </p>
+      {/* Date range */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
+          <label htmlFor="from" className="text-sm text-zinc-500">From</label>
+          <input
+            id="from"
+            type="date"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-[rgb(8,117,56)] focus:outline-none focus:ring-1 focus:ring-[rgb(8,117,56)]"
+          />
         </div>
-
-        {/* Date range */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <label htmlFor="from" className="text-sm text-zinc-500">
-              From
-            </label>
-            <input
-              id="from"
-              type="date"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-[rgb(8,117,56)] focus:outline-none focus:ring-1 focus:ring-[rgb(8,117,56)]"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <label htmlFor="to" className="text-sm text-zinc-500">
-              To
-            </label>
-            <input
-              id="to"
-              type="date"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-[rgb(8,117,56)] focus:outline-none focus:ring-1 focus:ring-[rgb(8,117,56)]"
-            />
-          </div>
+        <div className="flex items-center gap-2">
+          <label htmlFor="to" className="text-sm text-zinc-500">To</label>
+          <input
+            id="to"
+            type="date"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-[rgb(8,117,56)] focus:outline-none focus:ring-1 focus:ring-[rgb(8,117,56)]"
+          />
         </div>
-      </div>
-
-      {/* Sub-nav tabs */}
-      <div className="flex flex-wrap gap-1 border-b border-zinc-200">
-        {TABS.map((tab) => {
-          const isActive = pathname === tab.href;
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              className={`px-4 py-2.5 text-sm font-medium transition-colors rounded-t-lg -mb-px ${
-                isActive
-                  ? "border-b-2 border-[rgb(8,117,56)] text-[rgb(8,117,56)] bg-white"
-                  : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50"
-              }`}
-            >
-              {tab.label}
-            </Link>
-          );
-        })}
       </div>
 
       {error && (

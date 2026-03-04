@@ -9,6 +9,7 @@ import { TelephonyQualityController } from './controllers/telephony-quality.cont
 import { TelephonyLiveController } from './controllers/telephony-live.controller';
 import { TelephonyActionsController } from './controllers/telephony-actions.controller';
 import { TelephonyRecordingController } from './controllers/telephony-recording.controller';
+import { TelephonyExtensionsController } from './controllers/telephony-extensions.controller';
 import { TelephonyIngestionService } from './services/telephony-ingestion.service';
 import { TelephonyStatsService } from './services/telephony-stats.service';
 import { TelephonyCallsService } from './services/telephony-calls.service';
@@ -42,6 +43,7 @@ import { QualityPipelineService } from './quality/quality-pipeline.service';
     TelephonyLiveController,
     TelephonyActionsController,
     TelephonyRecordingController,
+    TelephonyExtensionsController,
   ],
   providers: [
     TelephonyIngestionService,

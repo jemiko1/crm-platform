@@ -1,0 +1,309 @@
+import {
+  app,
+  BrowserWindow,
+  Tray,
+  Menu,
+  ipcMain,
+  nativeImage,
+  session as electronSession,
+} from "electron";
+import * as path from "path";
+import * as fs from "fs";
+import { startLocalServer } from "./local-server";
+import {
+  getSession,
+  setSession,
+  getCrmBaseUrl,
+} from "./session-store";
+import { IPC } from "../shared/ipc-channels";
+import { setupAutoUpdater } from "./auto-updater";
+import type { AppLoginResponse, ContactLookupResult } from "../shared/types";
+import Store from "electron-store";
+
+const settingsStore = new Store({
+  defaults: {
+    muteRingtone: false,
+    overrideApps: true,
+    audioInputDeviceId: "",
+    audioOutputDeviceId: "",
+  },
+});
+
+const logFile = path.join(app.getPath("userData"), "crm-phone-debug.log");
+const origLog = console.log;
+const origErr = console.error;
+function writeLog(prefix: string, args: any[]) {
+  const line = `[${new Date().toISOString()}] ${prefix}${args.map(a => typeof a === "string" ? a : JSON.stringify(a)).join(" ")}\n`;
+  fs.appendFileSync(logFile, line);
+}
+console.log = (...args: any[]) => { writeLog("", args); origLog(...args); };
+console.error = (...args: any[]) => { writeLog("ERROR ", args); origErr(...args); };
+console.log("[INIT] CRM28 Phone starting, log file:", logFile);
+
+let mainWindow: BrowserWindow | null = null;
+let tray: Tray | null = null;
+let sipRegistered = false;
+
+const isDev = !app.isPackaged;
+const RENDERER_URL = isDev
+  ? "http://localhost:5173"
+  : `file://${path.join(__dirname, "../renderer/index.html")}`;
+
+function buildTrayIcon(): Electron.NativeImage {
+  const size = 16;
+  const canvas = Buffer.alloc(size * size * 4);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const idx = (y * size + x) * 4;
+      const cx = x - 8, cy = y - 8;
+      const dist = Math.sqrt(cx * cx + cy * cy);
+      if (dist < 7) {
+        canvas[idx] = 59; canvas[idx + 1] = 130; canvas[idx + 2] = 246; canvas[idx + 3] = 255;
+      } else if (dist < 8) {
+        canvas[idx] = 30; canvas[idx + 1] = 64; canvas[idx + 2] = 175; canvas[idx + 3] = 200;
+      }
+      if (dist < 4) {
+        canvas[idx] = 255; canvas[idx + 1] = 255; canvas[idx + 2] = 255; canvas[idx + 3] = 255;
+      }
+    }
+  }
+  return nativeImage.createFromBuffer(canvas, { width: size, height: size });
+}
+
+function createWindow(): void {
+  mainWindow = new BrowserWindow({
+    width: 380,
+    height: 680,
+    minWidth: 340,
+    minHeight: 500,
+    resizable: true,
+    frame: false,
+    transparent: false,
+    skipTaskbar: false,
+    show: false,
+    icon: buildTrayIcon(),
+    title: "CRM28 Phone",
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  mainWindow.loadURL(RENDERER_URL);
+
+  mainWindow.on("ready-to-show", () => {
+    mainWindow?.show();
+  });
+
+  mainWindow.on("close", (e) => {
+    e.preventDefault();
+    mainWindow?.hide();
+  });
+}
+
+function createTray(): void {
+  const trayIcon = buildTrayIcon();
+  tray = new Tray(trayIcon);
+  tray.setToolTip("CRM28 Phone");
+
+  const updateMenu = () => {
+    const session = getSession();
+    const menu = Menu.buildFromTemplate([
+      {
+        label: session
+          ? `Logged in: ${session.user.email}`
+          : "Not logged in",
+        enabled: false,
+      },
+      {
+        label: sipRegistered ? "SIP: Registered" : "SIP: Offline",
+        enabled: false,
+      },
+      { type: "separator" },
+      {
+        label: "Show",
+        click: () => { mainWindow?.show(); mainWindow?.focus(); },
+      },
+      {
+        label: "Quit",
+        click: () => { mainWindow?.destroy(); app.quit(); },
+      },
+    ]);
+    tray?.setContextMenu(menu);
+  };
+
+  updateMenu();
+  ipcMain.on(IPC.SIP_STATUS_REPORT, (_e, registered: boolean) => {
+    sipRegistered = registered;
+    updateMenu();
+  });
+
+  tray.on("double-click", () => {
+    mainWindow?.show();
+    mainWindow?.focus();
+  });
+}
+
+function setupIpc(): void {
+  ipcMain.on(IPC.RENDERER_LOG, (_e, level: string, ...args: any[]) => {
+    const prefix = level === "error" ? "ERROR [R] " : "[R] ";
+    writeLog(prefix, args);
+    if (level === "error") origErr("[R]", ...args);
+    else origLog("[R]", ...args);
+  });
+
+  ipcMain.handle(IPC.SETTINGS_GET, () => settingsStore.store);
+  ipcMain.handle(IPC.SETTINGS_SET, (_e, key: string, value: any) => {
+    settingsStore.set(key, value);
+    return settingsStore.store;
+  });
+
+  ipcMain.on(IPC.WIN_SET_ALWAYS_ON_TOP, (_e, flag: boolean) => {
+    mainWindow?.setAlwaysOnTop(flag, "screen-saver");
+    if (flag) { mainWindow?.show(); mainWindow?.focus(); }
+  });
+
+  ipcMain.handle(IPC.AUTH_LOGIN, async (_event, email: string, password: string) => {
+    const baseUrl = getCrmBaseUrl();
+    console.log("[AUTH] app-login to:", `${baseUrl}/auth/app-login`, "email:", email);
+    const res = await fetch(`${baseUrl}/auth/app-login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({ message: "Login failed" }))) as { message?: string };
+      console.log("[AUTH] Login failed:", res.status, body.message);
+      throw new Error(body.message || "Login failed");
+    }
+
+    const data = (await res.json()) as AppLoginResponse;
+    console.log("[AUTH] Login OK, telephonyExtension:", JSON.stringify(data.telephonyExtension));
+    setSession(data);
+    return data;
+  });
+
+  ipcMain.handle(IPC.AUTH_LOGOUT, async () => {
+    setSession(null);
+    sipRegistered = false;
+    return { ok: true };
+  });
+
+  ipcMain.handle(IPC.AUTH_GET_SESSION, () => {
+    const session = getSession();
+    return { session, sipRegistered };
+  });
+
+  ipcMain.handle(IPC.CONTACT_LOOKUP, async (_event, number: string) => {
+    const session = getSession();
+    if (!session) return null;
+    try {
+      const baseUrl = getCrmBaseUrl();
+      const res = await fetch(
+        `${baseUrl}/v1/telephony/lookup?phone=${encodeURIComponent(number)}`,
+        { headers: { Authorization: `Bearer ${session.accessToken}` } },
+      );
+      if (!res.ok) return null;
+      return (await res.json()) as ContactLookupResult;
+    } catch { return null; }
+  });
+
+  ipcMain.handle("debug:get-log-path", () => logFile);
+  ipcMain.handle("debug:get-logs", () => {
+    try { return fs.readFileSync(logFile, "utf-8"); } catch { return "No log file"; }
+  });
+
+  ipcMain.on(IPC.APP_QUIT, () => { mainWindow?.destroy(); app.quit(); });
+  ipcMain.on(IPC.APP_SHOW, () => { mainWindow?.show(); mainWindow?.focus(); });
+  ipcMain.on(IPC.APP_HIDE, () => { mainWindow?.hide(); });
+}
+
+async function restoreSession(): Promise<void> {
+  const session = getSession();
+  console.log("[RESTORE] Session exists:", !!session, session?.user?.email);
+  if (!session) return;
+
+  try {
+    const baseUrl = getCrmBaseUrl();
+    console.log("[RESTORE] Fetching /auth/me from:", baseUrl);
+    const res = await fetch(`${baseUrl}/auth/me`, {
+      headers: { Authorization: `Bearer ${session.accessToken}` },
+    });
+
+    console.log("[RESTORE] /auth/me status:", res.status);
+    if (!res.ok) {
+      console.log("[RESTORE] Token invalid, clearing session");
+      setSession(null);
+      return;
+    }
+
+    const meData = (await res.json()) as {
+      user: {
+        telephonyExtension?: {
+          extension: string;
+          displayName: string;
+          sipServer: string | null;
+          sipPassword: string | null;
+        } | null;
+      };
+    };
+
+    const freshExt = meData.user?.telephonyExtension ?? null;
+    console.log("[RESTORE] Fresh ext from /auth/me:", JSON.stringify(freshExt));
+
+    if (freshExt && (freshExt.extension !== session.telephonyExtension?.extension
+        || freshExt.sipServer !== session.telephonyExtension?.sipServer
+        || freshExt.sipPassword !== session.telephonyExtension?.sipPassword)) {
+      console.log("[RESTORE] Updating session with fresh ext data");
+      session.telephonyExtension = freshExt;
+      setSession(session);
+    }
+  } catch (err: any) {
+    console.log("[RESTORE] Error:", err.message);
+  }
+}
+
+app.whenReady().then(async () => {
+  const gotLock = app.requestSingleInstanceLock();
+  if (!gotLock) { app.quit(); return; }
+
+  app.on("second-instance", () => {
+    mainWindow?.show();
+    mainWindow?.focus();
+  });
+
+  electronSession.defaultSession.setCertificateVerifyProc((_request, callback) => {
+    callback(0);
+  });
+
+  electronSession.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
+    callback(true);
+  });
+  electronSession.defaultSession.setPermissionCheckHandler(() => true);
+
+  createTray();
+  createWindow();
+  setupIpc();
+
+  startLocalServer(null, {
+    onSessionChanged: (data) => {
+      mainWindow?.webContents.send(IPC.AUTH_SESSION_CHANGED, data);
+    },
+  });
+
+  await restoreSession();
+  setupAutoUpdater();
+});
+
+app.on("window-all-closed", (e: Event) => {
+  e.preventDefault();
+});
+
+if (app.isPackaged) {
+  app.setLoginItemSettings({
+    openAtLogin: true,
+    path: process.execPath,
+  });
+}
