@@ -4,6 +4,14 @@
 
 ---
 
+## Branch Flow (Reference)
+
+- Feature branches → PR into `dev`
+- Test on dev; then PR dev → master to deploy (Railway deploys from master)
+- Cursor must NOT open PRs directly to master except dev→master release PRs
+
+---
+
 ## What to Check
 
 ### 1) Security
