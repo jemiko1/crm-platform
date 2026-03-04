@@ -31,4 +31,9 @@ export const IPC = {
   APP_QUIT: "app:quit",
   APP_SHOW: "app:show",
   APP_HIDE: "app:hide",
+
+  UPDATE_CHECK: "update:check",
+  UPDATE_STATUS: "update:status",
+  UPDATE_INSTALL: "update:install",
+  UPDATE_GET_VERSION: "update:get-version",
 } as const;

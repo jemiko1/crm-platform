@@ -2,6 +2,7 @@
 # - On PR open/reopen: add ready-for-claude-review
 # - When CI passes: add ci-green
 # No secrets. No deploy. No app code.
+# DISABLED: Rename to pr-labels.yml to re-enable
 
 name: PR Labels
 
