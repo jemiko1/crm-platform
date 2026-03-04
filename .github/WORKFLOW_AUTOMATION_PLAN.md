@@ -13,7 +13,7 @@
 | Default branch | `master` |
 | CI workflow | `.github/workflows/ci.yml` — backend test, typecheck, frontend build |
 | CI triggers | PR to dev/staging/master; push to dev |
-| Branch model | feature/* → dev → staging → master |
+| Branch model | feature/* → dev → master (Railway deploys from master) |
 | Labels | Standard (bug, enhancement, etc.) — no workflow labels |
 | Project board | None |
 | Issue templates | None |
@@ -55,7 +55,14 @@
 
 ---
 
-## D) Workflow (Human + Claude)
+## D) Branch Flow
+
+- **Feature branches** → PR into `dev`
+- **Test on dev** → validate before release
+- **PR dev → master** → deploy (Railway deploys from `master`)
+- **Cursor**: Must NOT open PRs directly to `master` except `dev`→`master` release PRs
+
+## E) Workflow (Human + Claude)
 
 1. **Human** creates issue or PR with requirements
 2. Label `ready-for-cursor` → Cursor/Claude implements
@@ -68,7 +75,7 @@
 
 ---
 
-## E) Stop Conditions
+## F) Stop Conditions
 
 - Do not merge to `master` or `staging` without human approval
 - Do not add secrets to workflows or templates
