@@ -1,0 +1,51 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Important**: Do not include secrets, API keys, or passwords in logs or descriptions.
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this?
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happens?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs (redact secrets)
+      description: Relevant logs. Remove any secrets, tokens, or credentials.
+      render: shell
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: e.g. local dev, staging, production
+      placeholder: local dev
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional Context
+      required: false
