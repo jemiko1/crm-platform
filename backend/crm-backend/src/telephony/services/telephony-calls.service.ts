@@ -244,16 +244,27 @@ export class TelephonyCallsService {
     const threeDaysAgo = new Date();
     threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
 
+    const telExt = await this.prisma.telephonyExtension.findUnique({
+      where: { extension },
+      select: { crmUserId: true },
+    });
+
     const sessions = await this.prisma.callSession.findMany({
       where: {
-        assignedExtension: extension,
         startAt: { gte: threeDaysAgo },
+        OR: [
+          { assignedExtension: extension },
+          ...(telExt ? [{ assignedUserId: telExt.crmUserId }] : []),
+          { callerNumber: { endsWith: extension } },
+          { calleeNumber: { endsWith: extension } },
+        ],
       },
       select: {
         id: true,
         direction: true,
         callerNumber: true,
         calleeNumber: true,
+        assignedExtension: true,
         startAt: true,
         answerAt: true,
         endAt: true,
