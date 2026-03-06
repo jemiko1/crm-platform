@@ -113,6 +113,65 @@ export class TelephonyCallsService {
       }
     }
 
+    // Incidents for matched client
+    let openIncidents: CallerLookupResult['openIncidents'] = [];
+    let recentIncidents: CallerLookupResult['recentIncidents'] = [];
+    if (client) {
+      const incidentSelect = {
+        id: true,
+        incidentNumber: true,
+        status: true,
+        priority: true,
+        incidentType: true,
+        description: true,
+        createdAt: true,
+        building: { select: { name: true } },
+      } as const;
+
+      const [openRaw, closedRaw] = await Promise.all([
+        this.prisma.incident.findMany({
+          where: {
+            clientId: client.id,
+            status: { in: ['CREATED', 'IN_PROGRESS'] },
+          },
+          select: incidentSelect,
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        }),
+        this.prisma.incident.findMany({
+          where: {
+            clientId: client.id,
+            status: { in: ['COMPLETED', 'WORK_ORDER_INITIATED'] },
+          },
+          select: incidentSelect,
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+        }),
+      ]);
+
+      openIncidents = openRaw.map((i) => ({
+        id: i.id,
+        incidentNumber: i.incidentNumber,
+        status: i.status,
+        priority: i.priority,
+        incidentType: i.incidentType,
+        description: i.description,
+        buildingName: i.building.name,
+        createdAt: i.createdAt,
+      }));
+
+      recentIncidents = closedRaw.map((i) => ({
+        id: i.id,
+        incidentNumber: i.incidentNumber,
+        status: i.status,
+        priority: i.priority,
+        incidentType: i.incidentType,
+        description: i.description,
+        buildingName: i.building.name,
+        createdAt: i.createdAt,
+      }));
+    }
+
     // Recent calls from this number
     const recentCallSessions = await this.prisma.callSession.findMany({
       where: { callerNumber: { contains: normalized } },
@@ -131,9 +190,14 @@ export class TelephonyCallsService {
       client: client
         ? {
             id: client.id,
+            coreId: client.coreId,
             name: [client.firstName, client.lastName].filter(Boolean).join(' '),
+            firstName: client.firstName,
+            lastName: client.lastName,
             idNumber: client.idNumber,
             paymentId: client.paymentId,
+            primaryPhone: client.primaryPhone,
+            secondaryPhone: client.secondaryPhone,
             buildings: client.clientBuildings.map((cb) => cb.building),
           }
         : undefined,
@@ -148,6 +212,8 @@ export class TelephonyCallsService {
           }
         : undefined,
       openWorkOrders,
+      openIncidents,
+      recentIncidents,
       recentCalls: recentCallSessions.map((s) => ({
         id: s.id,
         direction: s.direction,

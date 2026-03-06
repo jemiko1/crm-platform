@@ -1,24 +1,16 @@
-import React, { useEffect, useState } from "react";
-import type { ActiveCall, CallState, ContactLookupResult } from "../../shared/types";
+import React, { useState } from "react";
+import type { ActiveCall, CallState, CallerLookupResult } from "../../shared/types";
 
 interface Props {
   call: ActiveCall;
   callState: CallState;
+  lookup: CallerLookupResult | null;
   onAnswer: () => void;
   onReject: () => void;
 }
 
-export function IncomingCallPopup({ call, callState, onAnswer, onReject }: Props) {
-  const [contact, setContact] = useState<ContactLookupResult | null>(null);
+export function IncomingCallPopup({ call, callState, lookup, onAnswer, onReject }: Props) {
   const [answerPressed, setAnswerPressed] = useState(false);
-
-  useEffect(() => {
-    window.crmPhone.contact
-      .lookup(call.remoteNumber)
-      .then((result: ContactLookupResult | null) => {
-        if (result) setContact(result);
-      });
-  }, [call.remoteNumber]);
 
   const isConnecting = callState === "connecting" || answerPressed;
 
@@ -28,8 +20,9 @@ export function IncomingCallPopup({ call, callState, onAnswer, onReject }: Props
     onAnswer();
   };
 
-  const displayName = contact?.name || call.remoteName || "Unknown Caller";
+  const displayName = lookup?.client?.name || call.remoteName || "Unknown Caller";
   const displayNumber = call.remoteNumber;
+  const buildings = lookup?.client?.buildings ?? [];
 
   return (
     <div style={styles.overlay}>
@@ -62,11 +55,15 @@ export function IncomingCallPopup({ call, callState, onAnswer, onReject }: Props
         <h2 style={styles.callerName}>{displayName}</h2>
         <p style={styles.callerNumber}>{displayNumber}</p>
 
-        {contact?.company && (
-          <p style={styles.company}>{contact.company}</p>
+        {buildings.length > 0 && (
+          <p style={styles.company}>
+            {buildings.map((b) => b.name).join(", ")}
+          </p>
         )}
-        {contact?.lastInteraction && (
-          <p style={styles.lastCall}>Last contact: {contact.lastInteraction}</p>
+        {lookup?.openIncidents && lookup.openIncidents.length > 0 && (
+          <p style={styles.lastCall}>
+            {lookup.openIncidents.length} open incident{lookup.openIncidents.length > 1 ? "s" : ""}
+          </p>
         )}
 
         {isConnecting ? (
