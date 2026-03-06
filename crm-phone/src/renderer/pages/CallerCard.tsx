@@ -42,18 +42,11 @@ export function CallerCard({ lookup, callingNumber }: Props) {
         </div>
       )}
 
-      {intel && (
-        <div style={styles.intelSection}>
-          {intel.labels.length > 0 && (
-            <div style={styles.labelsRow}>
-              {intel.labels.map((label) => (
-                <span key={label} style={styles.labelBadge}>{formatLabel(label)}</span>
-              ))}
-            </div>
-          )}
-          {intel.summary && (
-            <div style={styles.intelSummary}>{intel.summary}</div>
-          )}
+      {intel && intel.labels.length > 0 && (
+        <div style={styles.labelsRow}>
+          {intel.labels.map((label) => (
+            <span key={label} style={styles.labelBadge}>{formatLabel(label)}</span>
+          ))}
         </div>
       )}
 
@@ -109,11 +102,6 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "4px",
     padding: "2px 6px",
   },
-  intelSection: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.25rem",
-  },
   labelsRow: {
     display: "flex",
     flexWrap: "wrap",
@@ -128,11 +116,6 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "1px 5px",
     textTransform: "uppercase" as const,
     letterSpacing: "0.04em",
-  },
-  intelSummary: {
-    fontSize: "0.7rem",
-    color: "#94a3b8",
-    lineHeight: "1.35",
   },
   openCrmBtn: {
     padding: "0.4rem",

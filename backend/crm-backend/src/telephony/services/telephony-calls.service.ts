@@ -275,17 +275,47 @@ export class TelephonyCallsService {
       take: 100,
     });
 
-    return sessions.map((s) => ({
-      id: s.id,
-      direction: s.direction,
-      callerNumber: s.callerNumber,
-      calleeNumber: s.calleeNumber,
-      startAt: s.startAt,
-      answerAt: s.answerAt,
-      endAt: s.endAt,
-      disposition: s.disposition,
-      durationSec: s.callMetrics?.talkSeconds ?? null,
-    }));
+    const remoteNumbers = new Set<string>();
+    for (const s of sessions) {
+      const remote = s.direction === 'IN' ? s.callerNumber : (s.calleeNumber ?? '');
+      if (remote) remoteNumbers.add(remote);
+    }
+
+    const nameMap = new Map<string, string>();
+    if (remoteNumbers.size > 0) {
+      const clients = await this.prisma.client.findMany({
+        where: {
+          OR: [
+            { primaryPhone: { in: [...remoteNumbers] } },
+            { secondaryPhone: { in: [...remoteNumbers] } },
+          ],
+        },
+        select: { firstName: true, lastName: true, primaryPhone: true, secondaryPhone: true },
+      });
+      for (const c of clients) {
+        const name = [c.firstName, c.lastName].filter(Boolean).join(' ');
+        if (name) {
+          if (c.primaryPhone) nameMap.set(c.primaryPhone, name);
+          if (c.secondaryPhone) nameMap.set(c.secondaryPhone, name);
+        }
+      }
+    }
+
+    return sessions.map((s) => {
+      const remote = s.direction === 'IN' ? s.callerNumber : (s.calleeNumber ?? '');
+      return {
+        id: s.id,
+        direction: s.direction,
+        callerNumber: s.callerNumber,
+        calleeNumber: s.calleeNumber,
+        remoteName: nameMap.get(remote) ?? null,
+        startAt: s.startAt,
+        answerAt: s.answerAt,
+        endAt: s.endAt,
+        disposition: s.disposition,
+        durationSec: s.callMetrics?.talkSeconds ?? null,
+      };
+    });
   }
 
 }
