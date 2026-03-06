@@ -214,6 +214,20 @@ function setupIpc(): void {
     } catch { return null; }
   });
 
+  ipcMain.handle(IPC.CALL_HISTORY, async (_event, extension: string) => {
+    const session = getSession();
+    if (!session) return [];
+    try {
+      const baseUrl = getCrmBaseUrl();
+      const res = await fetch(
+        `${baseUrl}/v1/telephony/history/${encodeURIComponent(extension)}`,
+        { headers: { Authorization: `Bearer ${session.accessToken}` } },
+      );
+      if (!res.ok) return [];
+      return await res.json();
+    } catch { return []; }
+  });
+
   ipcMain.handle("debug:get-log-path", () => logFile);
   ipcMain.handle("debug:get-logs", () => {
     try { return fs.readFileSync(logFile, "utf-8"); } catch { return "No log file"; }
@@ -222,6 +236,13 @@ function setupIpc(): void {
   ipcMain.on(IPC.APP_QUIT, () => { mainWindow?.destroy(); app.quit(); });
   ipcMain.on(IPC.APP_SHOW, () => { mainWindow?.show(); mainWindow?.focus(); });
   ipcMain.on(IPC.APP_HIDE, () => { mainWindow?.hide(); });
+
+  ipcMain.handle(IPC.APP_OPEN_EXTERNAL, async (_e, url: string) => {
+    if (typeof url === "string" && (url.startsWith("https://") || url.startsWith("http://"))) {
+      const { shell } = await import("electron");
+      await shell.openExternal(url);
+    }
+  });
 }
 
 async function restoreSession(): Promise<void> {

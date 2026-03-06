@@ -153,6 +153,10 @@ export interface CallerLookupResult {
     buildingName: string;
     createdAt: Date;
   }>;
+  intelligence?: {
+    labels: string[];
+    summary: string;
+  };
   recentCalls: Array<{
     id: string;
     direction: string;

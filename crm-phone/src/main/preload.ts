@@ -29,10 +29,15 @@ contextBridge.exposeInMainWorld("crmPhone", {
     lookup: (number: string) =>
       ipcRenderer.invoke(IPC.CONTACT_LOOKUP, number),
   },
+  calls: {
+    history: (extension: string) =>
+      ipcRenderer.invoke(IPC.CALL_HISTORY, extension),
+  },
   app: {
     quit: () => ipcRenderer.send(IPC.APP_QUIT),
     show: () => ipcRenderer.send(IPC.APP_SHOW),
     hide: () => ipcRenderer.send(IPC.APP_HIDE),
+    openExternal: (url: string) => ipcRenderer.invoke(IPC.APP_OPEN_EXTERNAL, url),
   },
   updater: {
     checkForUpdates: () => ipcRenderer.invoke(IPC.UPDATE_CHECK),
