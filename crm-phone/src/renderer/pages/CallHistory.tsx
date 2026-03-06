@@ -5,6 +5,7 @@ interface HistoryEntry {
   direction: string;
   callerNumber: string;
   calleeNumber: string | null;
+  remoteName: string | null;
   startAt: string;
   answerAt: string | null;
   endAt: string | null;
@@ -35,14 +36,14 @@ export function CallHistory({ extension, onDial }: Props) {
 
   const filtered = entries.filter((e) => {
     if (tab === "all") return true;
-    if (tab === "missed") return e.disposition === "MISSED" || e.disposition === "ABANDONED";
-    if (tab === "inbound") return e.direction === "INBOUND";
-    if (tab === "outbound") return e.direction === "OUTBOUND";
+    if (tab === "missed") return e.disposition === "MISSED" || e.disposition === "ABANDONED" || e.disposition === "NOANSWER";
+    if (tab === "inbound") return e.direction === "IN";
+    if (tab === "outbound") return e.direction === "OUT";
     return true;
   });
 
   const missedCount = entries.filter(
-    (e) => e.disposition === "MISSED" || e.disposition === "ABANDONED",
+    (e) => e.disposition === "MISSED" || e.disposition === "ABANDONED" || e.disposition === "NOANSWER",
   ).length;
 
   return (
@@ -80,9 +81,10 @@ function HistoryRow({
   entry: HistoryEntry;
   onDial: (n: string) => void;
 }) {
-  const isMissed = entry.disposition === "MISSED" || entry.disposition === "ABANDONED";
-  const isInbound = entry.direction === "INBOUND";
+  const isMissed = entry.disposition === "MISSED" || entry.disposition === "ABANDONED" || entry.disposition === "NOANSWER";
+  const isInbound = entry.direction === "IN";
   const remoteNumber = isInbound ? entry.callerNumber : (entry.calleeNumber || "");
+  const displayName = entry.remoteName || remoteNumber || "Unknown";
   const date = new Date(entry.startAt);
   const timeStr = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const dayStr = date.toLocaleDateString([], { month: "short", day: "numeric" });
@@ -94,7 +96,10 @@ function HistoryRow({
           {isMissed ? "✕" : isInbound ? "↙" : "↗"}
         </span>
         <div style={styles.rowInfo}>
-          <span style={styles.rowNumber}>{remoteNumber || "Unknown"}</span>
+          <span style={styles.rowName}>{displayName}</span>
+          {entry.remoteName && remoteNumber && (
+            <span style={styles.rowNumber}>{remoteNumber}</span>
+          )}
           <span style={styles.rowMeta}>
             {dayStr} {timeStr}
             {entry.durationSec != null && entry.durationSec > 0
@@ -193,13 +198,17 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: "column",
     minWidth: 0,
   },
-  rowNumber: {
+  rowName: {
     fontSize: "0.8rem",
     fontWeight: 600,
     color: "#e2e8f0",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap" as const,
+  },
+  rowNumber: {
+    fontSize: "0.65rem",
+    color: "#94a3b8",
   },
   rowMeta: {
     fontSize: "0.65rem",
