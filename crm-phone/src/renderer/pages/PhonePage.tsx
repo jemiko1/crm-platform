@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import type { AppSession, ActiveCall, CallState, CallerLookupResult } from "../../shared/types";
 import { IncomingCallPopup } from "./IncomingCallPopup";
 import { CallerCard } from "./CallerCard";
+import { CallHistory } from "./CallHistory";
 import { SettingsPage } from "./SettingsPage";
 import { startRingtone, stopRingtone } from "../ringtone";
 
@@ -30,6 +31,7 @@ export function PhonePage(props: Props) {
   } = props;
   const [dialNumber, setDialNumber] = useState("");
   const [showSettings, setShowSettings] = useState(false);
+  const [idleView, setIdleView] = useState<"dialpad" | "history">("dialpad");
   const [callerLookup, setCallerLookup] = useState<CallerLookupResult | null>(null);
   const wasRinging = useRef(false);
   const lookupDone = useRef<string | null>(null);
@@ -188,35 +190,63 @@ export function PhonePage(props: Props) {
 
       {callState === "idle" && (
         <>
-          <div style={styles.dialInput}>
-            <input
-              type="text"
-              value={dialNumber}
-              onChange={(e) => setDialNumber(e.target.value)}
-              placeholder="Enter number..."
-              style={styles.numberInput}
-              onKeyDown={(e) => e.key === "Enter" && handleDial()}
-            />
+          <div style={styles.viewTabs}>
+            <button
+              onClick={() => setIdleView("dialpad")}
+              style={idleView === "dialpad" ? styles.viewTabActive : styles.viewTab}
+            >
+              Dialpad
+            </button>
+            <button
+              onClick={() => setIdleView("history")}
+              style={idleView === "history" ? styles.viewTabActive : styles.viewTab}
+            >
+              History
+            </button>
           </div>
 
-          <div style={styles.dialPad}>
-            {DTMF_KEYS.map((key) => (
-              <button key={key} onClick={() => handleKeyPress(key)} style={styles.dialKey}>
-                {key}
+          {idleView === "dialpad" ? (
+            <>
+              <div style={styles.dialInput}>
+                <input
+                  type="text"
+                  value={dialNumber}
+                  onChange={(e) => setDialNumber(e.target.value)}
+                  placeholder="Enter number..."
+                  style={styles.numberInput}
+                  onKeyDown={(e) => e.key === "Enter" && handleDial()}
+                />
+              </div>
+
+              <div style={styles.dialPad}>
+                {DTMF_KEYS.map((key) => (
+                  <button key={key} onClick={() => handleKeyPress(key)} style={styles.dialKey}>
+                    {key}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={handleDial}
+                disabled={!sipRegistered || !dialNumber.trim()}
+                style={{
+                  ...styles.callBtn,
+                  opacity: !sipRegistered || !dialNumber.trim() ? 0.5 : 1,
+                }}
+              >
+                Call
               </button>
-            ))}
-          </div>
-
-          <button
-            onClick={handleDial}
-            disabled={!sipRegistered || !dialNumber.trim()}
-            style={{
-              ...styles.callBtn,
-              opacity: !sipRegistered || !dialNumber.trim() ? 0.5 : 1,
-            }}
-          >
-            Call
-          </button>
+            </>
+          ) : (
+            <CallHistory
+              extension={ext}
+              onDial={(number) => {
+                setDialNumber(number);
+                setIdleView("dialpad");
+                onDial(number);
+              }}
+            />
+          )}
         </>
       )}
 
@@ -344,6 +374,33 @@ const styles: Record<string, React.CSSProperties> = {
     border: "none",
     background: "#dc2626",
     color: "#fff",
+    fontSize: "0.8rem",
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  viewTabs: {
+    display: "flex",
+    padding: "0.5rem 1rem 0",
+    gap: "2px",
+  },
+  viewTab: {
+    flex: 1,
+    padding: "0.4rem 0",
+    background: "transparent",
+    border: "none",
+    borderBottom: "2px solid transparent",
+    color: "#64748b",
+    fontSize: "0.8rem",
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  viewTabActive: {
+    flex: 1,
+    padding: "0.4rem 0",
+    background: "transparent",
+    border: "none",
+    borderBottom: "2px solid #3b82f6",
+    color: "#60a5fa",
     fontSize: "0.8rem",
     fontWeight: 600,
     cursor: "pointer",

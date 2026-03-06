@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PhoneResolverModule } from '../common/phone-resolver/phone-resolver.module';
+import { ClientIntelligenceModule } from '../client-intelligence/client-intelligence.module';
 import { JwtModule } from '@nestjs/jwt';
 import { TelephonyIngestionController } from './controllers/telephony-ingestion.controller';
 import { TelephonyStatsController } from './controllers/telephony-stats.controller';
@@ -31,6 +32,7 @@ import { QualityPipelineService } from './quality/quality-pipeline.service';
   imports: [
     PrismaModule,
     PhoneResolverModule,
+    ClientIntelligenceModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET,
     }),

@@ -19,6 +19,7 @@ export const IPC = {
   PHONE_SIP_STATUS: "phone:sip-status",
 
   CONTACT_LOOKUP: "contact:lookup",
+  CALL_HISTORY: "call:history",
 
   SIP_STATUS_REPORT: "sip:status-report",
   RENDERER_LOG: "renderer:log",
@@ -31,6 +32,7 @@ export const IPC = {
   APP_QUIT: "app:quit",
   APP_SHOW: "app:show",
   APP_HIDE: "app:hide",
+  APP_OPEN_EXTERNAL: "app:open-external",
 
   UPDATE_CHECK: "update:check",
   UPDATE_STATUS: "update:status",
