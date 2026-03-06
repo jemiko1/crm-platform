@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import type { AppSession, ActiveCall, CallState } from "../../shared/types";
+import type { AppSession, ActiveCall, CallState, CallerLookupResult } from "../../shared/types";
 import { IncomingCallPopup } from "./IncomingCallPopup";
+import { CallerCard } from "./CallerCard";
 import { SettingsPage } from "./SettingsPage";
 import { startRingtone, stopRingtone } from "../ringtone";
 
@@ -29,7 +30,26 @@ export function PhonePage(props: Props) {
   } = props;
   const [dialNumber, setDialNumber] = useState("");
   const [showSettings, setShowSettings] = useState(false);
+  const [callerLookup, setCallerLookup] = useState<CallerLookupResult | null>(null);
   const wasRinging = useRef(false);
+  const lookupDone = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (activeCall && activeCall.remoteNumber && lookupDone.current !== activeCall.remoteNumber) {
+      lookupDone.current = activeCall.remoteNumber;
+      setCallerLookup(null);
+      window.crmPhone.contact
+        .lookup(activeCall.remoteNumber)
+        .then((result: CallerLookupResult | null) => {
+          if (result) setCallerLookup(result);
+        })
+        .catch(() => {});
+    }
+    if (!activeCall) {
+      lookupDone.current = null;
+      setCallerLookup(null);
+    }
+  }, [activeCall]);
 
   useEffect(() => {
     const ringing = callState === "ringing" && activeCall?.direction === "inbound";
@@ -77,6 +97,7 @@ export function PhonePage(props: Props) {
       <IncomingCallPopup
         call={activeCall}
         callState={callState}
+        lookup={callerLookup}
         onAnswer={onAnswer}
         onReject={onHangup}
       />
@@ -111,49 +132,58 @@ export function PhonePage(props: Props) {
       </div>
 
       {callState !== "idle" && activeCall && (
-        <div style={styles.callDisplay}>
-          <span style={styles.callDirection}>
-            {activeCall.direction === "inbound" ? "Incoming" : "Outgoing"}
-          </span>
-          <span style={styles.callNumber}>
-            {activeCall.remoteName || activeCall.remoteNumber}
-          </span>
-
-          {callState === "connecting" ? (
-            <div style={styles.connectingWrap}>
-              <div style={styles.connectingSpinner} />
-              <span style={styles.connectingText}>Connecting...</span>
-            </div>
-          ) : (
-            <span style={styles.callStatus}>
-              {callState === "dialing" ? "Dialing..." :
-               callState === "connected" ? "Connected" :
-               callState === "hold" ? "On Hold" : callState}
+        <>
+          <div style={styles.callDisplay}>
+            <span style={styles.callDirection}>
+              {activeCall.direction === "inbound" ? "Incoming" : "Outgoing"}
             </span>
-          )}
-
-          <div style={styles.callActions}>
-            {(callState === "connected" || callState === "hold") && (
-              <>
-                <button
-                  onClick={onToggleMute}
-                  style={muted ? styles.activeActionBtn : styles.actionBtn}
-                >
-                  {muted ? "Unmute" : "Mute"}
-                </button>
-                <button
-                  onClick={callState === "hold" ? onUnhold : onHold}
-                  style={callState === "hold" ? styles.activeActionBtn : styles.actionBtn}
-                >
-                  {callState === "hold" ? "Resume" : "Hold"}
-                </button>
-              </>
+            <span style={styles.callNumber}>
+              {callerLookup?.client?.name || activeCall.remoteName || activeCall.remoteNumber}
+            </span>
+            {callerLookup?.client?.name && (
+              <span style={styles.callSubNumber}>{activeCall.remoteNumber}</span>
             )}
-            <button onClick={onHangup} style={styles.hangupBtn}>
-              Hang Up
-            </button>
+
+            {callState === "connecting" ? (
+              <div style={styles.connectingWrap}>
+                <div style={styles.connectingSpinner} />
+                <span style={styles.connectingText}>Connecting...</span>
+              </div>
+            ) : (
+              <span style={styles.callStatus}>
+                {callState === "dialing" ? "Dialing..." :
+                 callState === "connected" ? "Connected" :
+                 callState === "hold" ? "On Hold" : callState}
+              </span>
+            )}
+
+            <div style={styles.callActions}>
+              {(callState === "connected" || callState === "hold") && (
+                <>
+                  <button
+                    onClick={onToggleMute}
+                    style={muted ? styles.activeActionBtn : styles.actionBtn}
+                  >
+                    {muted ? "Unmute" : "Mute"}
+                  </button>
+                  <button
+                    onClick={callState === "hold" ? onUnhold : onHold}
+                    style={callState === "hold" ? styles.activeActionBtn : styles.actionBtn}
+                  >
+                    {callState === "hold" ? "Resume" : "Hold"}
+                  </button>
+                </>
+              )}
+              <button onClick={onHangup} style={styles.hangupBtn}>
+                Hang Up
+              </button>
+            </div>
           </div>
-        </div>
+
+          {callerLookup && (callState === "connected" || callState === "hold") && (
+            <CallerCard lookup={callerLookup} callingNumber={activeCall.remoteNumber} />
+          )}
+        </>
       )}
 
       {callState === "idle" && (
@@ -262,13 +292,13 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    padding: "2rem 1rem",
+    padding: "1.25rem 1rem",
     gap: "0.5rem",
-    flex: 1,
-    justifyContent: "center",
+    flexShrink: 0,
   },
   callDirection: { fontSize: "0.75rem", color: "#64748b", textTransform: "uppercase" as const },
   callNumber: { fontSize: "1.5rem", fontWeight: 700, color: "#f1f5f9" },
+  callSubNumber: { fontSize: "0.8rem", color: "#64748b", letterSpacing: "0.05em" },
   callStatus: { fontSize: "0.875rem", color: "#60a5fa" },
   connectingWrap: {
     display: "flex",
