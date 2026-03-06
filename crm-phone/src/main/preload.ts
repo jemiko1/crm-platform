@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld("crmPhone", {
     quit: () => ipcRenderer.send(IPC.APP_QUIT),
     show: () => ipcRenderer.send(IPC.APP_SHOW),
     hide: () => ipcRenderer.send(IPC.APP_HIDE),
+    openExternal: (url: string) => ipcRenderer.invoke(IPC.APP_OPEN_EXTERNAL, url),
   },
   updater: {
     checkForUpdates: () => ipcRenderer.invoke(IPC.UPDATE_CHECK),
