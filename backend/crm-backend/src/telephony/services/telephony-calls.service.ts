@@ -4,12 +4,14 @@ import { Prisma } from '@prisma/client';
 import { QueryCallsDto } from '../dto/query-calls.dto';
 import { CallerLookupResult } from '../types/telephony.types';
 import { PhoneResolverService } from '../../common/phone-resolver/phone-resolver.service';
+import { IntelligenceService } from '../../client-intelligence/services/intelligence.service';
 
 @Injectable()
 export class TelephonyCallsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly phoneResolver: PhoneResolverService,
+    private readonly intelligenceService: IntelligenceService,
   ) {}
 
   async findAll(query: QueryCallsDto) {
@@ -186,6 +188,19 @@ export class TelephonyCallsService {
       take: 5,
     });
 
+    let intelligence: CallerLookupResult['intelligence'];
+    if (client) {
+      try {
+        const profile = await this.intelligenceService.getProfile(client.coreId, 180);
+        intelligence = {
+          labels: profile.labels,
+          summary: profile.summary,
+        };
+      } catch {
+        // non-critical, skip if intelligence fails
+      }
+    }
+
     return {
       client: client
         ? {
@@ -214,6 +229,7 @@ export class TelephonyCallsService {
       openWorkOrders,
       openIncidents,
       recentIncidents,
+      intelligence,
       recentCalls: recentCallSessions.map((s) => ({
         id: s.id,
         direction: s.direction,
@@ -222,6 +238,43 @@ export class TelephonyCallsService {
         durationSec: s.callMetrics?.talkSeconds ?? null,
       })),
     };
+  }
+
+  async getExtensionHistory(extension: string) {
+    const threeDaysAgo = new Date();
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+
+    const sessions = await this.prisma.callSession.findMany({
+      where: {
+        assignedExtension: extension,
+        startAt: { gte: threeDaysAgo },
+      },
+      select: {
+        id: true,
+        direction: true,
+        callerNumber: true,
+        calleeNumber: true,
+        startAt: true,
+        answerAt: true,
+        endAt: true,
+        disposition: true,
+        callMetrics: { select: { talkSeconds: true } },
+      },
+      orderBy: { startAt: 'desc' },
+      take: 100,
+    });
+
+    return sessions.map((s) => ({
+      id: s.id,
+      direction: s.direction,
+      callerNumber: s.callerNumber,
+      calleeNumber: s.calleeNumber,
+      startAt: s.startAt,
+      answerAt: s.answerAt,
+      endAt: s.endAt,
+      disposition: s.disposition,
+      durationSec: s.callMetrics?.talkSeconds ?? null,
+    }));
   }
 
 }

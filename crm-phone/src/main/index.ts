@@ -214,6 +214,20 @@ function setupIpc(): void {
     } catch { return null; }
   });
 
+  ipcMain.handle(IPC.CALL_HISTORY, async (_event, extension: string) => {
+    const session = getSession();
+    if (!session) return [];
+    try {
+      const baseUrl = getCrmBaseUrl();
+      const res = await fetch(
+        `${baseUrl}/v1/telephony/history/${encodeURIComponent(extension)}`,
+        { headers: { Authorization: `Bearer ${session.accessToken}` } },
+      );
+      if (!res.ok) return [];
+      return await res.json();
+    } catch { return []; }
+  });
+
   ipcMain.handle("debug:get-log-path", () => logFile);
   ipcMain.handle("debug:get-logs", () => {
     try { return fs.readFileSync(logFile, "utf-8"); } catch { return "No log file"; }

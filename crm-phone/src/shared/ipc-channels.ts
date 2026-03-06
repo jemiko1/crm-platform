@@ -19,6 +19,7 @@ export const IPC = {
   PHONE_SIP_STATUS: "phone:sip-status",
 
   CONTACT_LOOKUP: "contact:lookup",
+  CALL_HISTORY: "call:history",
 
   SIP_STATUS_REPORT: "sip:status-report",
   RENDERER_LOG: "renderer:log",

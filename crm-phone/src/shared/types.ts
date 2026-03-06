@@ -88,6 +88,10 @@ export interface CallerLookupResult {
   }>;
   openIncidents: CallerLookupIncident[];
   recentIncidents: CallerLookupIncident[];
+  intelligence?: {
+    labels: string[];
+    summary: string;
+  };
   recentCalls: Array<{
     id: string;
     direction: string;

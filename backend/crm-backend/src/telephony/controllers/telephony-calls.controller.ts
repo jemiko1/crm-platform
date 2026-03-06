@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { TelephonyCallsService } from '../services/telephony-calls.service';
@@ -22,6 +22,11 @@ export class TelephonyCallsController {
   @Get('lookup')
   async lookupPhone(@Query() query: LookupPhoneDto) {
     return this.callsService.lookupPhone(query.phone);
+  }
+
+  @Get('history/:extension')
+  async getExtensionHistory(@Param('extension') extension: string) {
+    return this.callsService.getExtensionHistory(extension);
   }
 
   @Get('callbacks')
