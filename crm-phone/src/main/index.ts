@@ -17,7 +17,7 @@ import {
 } from "./session-store";
 import { IPC } from "../shared/ipc-channels";
 import { setupAutoUpdater, checkForUpdatesManually } from "./auto-updater";
-import type { AppLoginResponse, ContactLookupResult } from "../shared/types";
+import type { AppLoginResponse, CallerLookupResult } from "../shared/types";
 import Store from "electron-store";
 
 const settingsStore = new Store({
@@ -210,7 +210,7 @@ function setupIpc(): void {
         { headers: { Authorization: `Bearer ${session.accessToken}` } },
       );
       if (!res.ok) return null;
-      return (await res.json()) as ContactLookupResult;
+      return (await res.json()) as CallerLookupResult;
     } catch { return null; }
   });
 

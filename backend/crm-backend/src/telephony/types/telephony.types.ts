@@ -110,9 +110,14 @@ export interface QueueKpis {
 export interface CallerLookupResult {
   client?: {
     id: string;
+    coreId: number;
     name: string;
+    firstName: string | null;
+    lastName: string | null;
     idNumber: string | null;
     paymentId: string | null;
+    primaryPhone: string | null;
+    secondaryPhone: string | null;
     buildings: Array<{ id: string; name: string; coreId: number }>;
   };
   lead?: {
@@ -127,6 +132,26 @@ export interface CallerLookupResult {
     title: string;
     status: string;
     type: string;
+  }>;
+  openIncidents: Array<{
+    id: string;
+    incidentNumber: string;
+    status: string;
+    priority: string;
+    incidentType: string;
+    description: string;
+    buildingName: string;
+    createdAt: Date;
+  }>;
+  recentIncidents: Array<{
+    id: string;
+    incidentNumber: string;
+    status: string;
+    priority: string;
+    incidentType: string;
+    description: string;
+    buildingName: string;
+    createdAt: Date;
   }>;
   recentCalls: Array<{
     id: string;
