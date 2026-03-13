@@ -7,8 +7,11 @@ import {
   Query,
   Body,
   Req,
+  Res,
   UseGuards,
+  NotFoundException,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { PositionPermissionGuard } from '../../common/guards/position-permission.guard';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
@@ -82,5 +85,18 @@ export class ClientChatsAgentController {
   @RequirePermission('client_chats.menu')
   unlinkClient(@Param('id') id: string) {
     return this.core.unlinkClient(id);
+  }
+
+  @Get('media/:mediaId')
+  @RequirePermission('client_chats.menu')
+  async proxyMedia(
+    @Param('mediaId') mediaId: string,
+    @Res() res: Response,
+  ) {
+    const result = await this.core.downloadWhatsAppMedia(mediaId);
+    if (!result) throw new NotFoundException('Media not found');
+    res.setHeader('Content-Type', result.contentType);
+    res.setHeader('Cache-Control', 'private, max-age=86400');
+    result.stream.pipe(res);
   }
 }
