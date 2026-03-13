@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { apiGet } from "@/lib/api";
 import type { ConversationSummary, PaginatedResponse, ChannelType, ConversationStatus } from "../types";
 import FilterBar from "./filter-bar";
@@ -42,8 +42,10 @@ export default function InboxSidebar({ selectedId, onSelect }: InboxSidebarProps
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
+  const isInitialLoad = useRef(true);
+
   const fetchConversations = useCallback(async () => {
-    setLoading(true);
+    if (isInitialLoad.current) setLoading(true);
     try {
       const params = new URLSearchParams();
       params.set("page", String(page));
@@ -61,6 +63,7 @@ export default function InboxSidebar({ selectedId, onSelect }: InboxSidebarProps
       setConversations([]);
     } finally {
       setLoading(false);
+      isInitialLoad.current = false;
     }
   }, [page, search, channelFilter, statusFilter]);
 
