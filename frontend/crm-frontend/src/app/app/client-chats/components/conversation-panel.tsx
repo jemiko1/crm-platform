@@ -34,7 +34,9 @@ export default function ConversationPanel({ conversationId }: ConversationPanelP
         `/v1/clientchats/conversations/${conversationId}/messages?limit=100`,
       );
       setMessages((prev) => {
-        if (res.data.length === prev.length && res.data[0]?.id === prev[0]?.id) {
+        const last = res.data[res.data.length - 1];
+        const prevLast = prev[prev.length - 1];
+        if (res.data.length === prev.length && last?.id === prevLast?.id) {
           return prev;
         }
         return res.data;

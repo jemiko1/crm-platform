@@ -57,8 +57,12 @@ export class FacebookAdapter implements ChannelAdapter {
     const signature = req.headers['x-hub-signature-256'] as string;
     if (!signature) return false;
 
-    const body =
-      typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+    const rawBody = (req as any).rawBody as Buffer | undefined;
+    const body = rawBody
+      ? rawBody
+      : typeof req.body === 'string'
+        ? req.body
+        : JSON.stringify(req.body);
     const expected =
       'sha256=' +
       crypto.createHmac('sha256', appSecret).update(body).digest('hex');
