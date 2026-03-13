@@ -57,7 +57,15 @@ export default function InboxSidebar({ selectedId, onSelect }: InboxSidebarProps
       const res = await apiGet<PaginatedResponse<ConversationSummary>>(
         `/v1/clientchats/conversations?${params}`,
       );
-      setConversations(res.data);
+      setConversations((prev) => {
+        if (
+          prev.length === res.data.length &&
+          prev.every((c, i) => c.id === res.data[i].id && c.lastMessageAt === res.data[i].lastMessageAt)
+        ) {
+          return prev;
+        }
+        return res.data;
+      });
       setTotalPages(res.meta.totalPages);
     } catch {
       setConversations([]);

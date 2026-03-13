@@ -49,15 +49,22 @@ export class WhatsAppAdapter implements ChannelAdapter {
       '';
 
     if (!appSecret) {
-      this.logger.warn('WhatsApp/FB app secret not configured for signature verification');
+      this.logger.warn('WhatsApp/FB app secret not configured – skipping signature check');
       return true;
     }
 
     const signature = req.headers['x-hub-signature-256'] as string;
-    if (!signature) return false;
+    if (!signature) {
+      this.logger.warn('Missing x-hub-signature-256 header');
+      return false;
+    }
 
-    const body =
-      typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+    const rawBody = (req as any).rawBody as Buffer | undefined;
+    const body = rawBody
+      ? rawBody
+      : typeof req.body === 'string'
+        ? req.body
+        : JSON.stringify(req.body);
     const expected =
       'sha256=' +
       crypto.createHmac('sha256', appSecret).update(body).digest('hex');
@@ -65,9 +72,13 @@ export class WhatsAppAdapter implements ChannelAdapter {
     try {
       const sigBuf = Buffer.from(signature);
       const expBuf = Buffer.from(expected);
-      if (sigBuf.length !== expBuf.length) return false;
+      if (sigBuf.length !== expBuf.length) {
+        this.logger.warn('WhatsApp signature length mismatch');
+        return false;
+      }
       return crypto.timingSafeEqual(sigBuf, expBuf);
     } catch {
+      this.logger.warn('WhatsApp signature verification error');
       return false;
     }
   }
