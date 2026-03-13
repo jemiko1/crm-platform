@@ -606,6 +606,8 @@ function TelegramConfig() {
 function WhatsAppConfig() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [testPhone, setTestPhone] = useState("");
   const [msg, setMsg] = useState("");
   const [name, setName] = useState("");
   const [waAccessToken, setWaAccessToken] = useState("");
@@ -676,6 +678,27 @@ function WhatsAppConfig() {
       setMsg(`Error: ${err.message}`);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleCreateTestConversation() {
+    const phone = testPhone.replace(/\D/g, "");
+    if (phone.length < 10) {
+      setMsg("Enter a valid phone number (at least 10 digits, e.g. 995555123456)");
+      return;
+    }
+    setCreating(true);
+    setMsg("");
+    try {
+      await apiPost<{ conversationId: string }>(
+        "/v1/clientchats/whatsapp/create-test-conversation",
+        { phoneNumber: phone }
+      );
+      setMsg("Test conversation created! Go to Client Chats to reply.");
+    } catch (err: any) {
+      setMsg(`Error: ${err.message}`);
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -760,6 +783,31 @@ function WhatsAppConfig() {
         </button>
         {msg && <span className="text-sm text-zinc-500">{msg}</span>}
       </div>
+
+      {webhookStatus?.ok && (
+        <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <p className="mb-2 text-sm font-medium text-amber-900">Test conversation (for App Review)</p>
+          <p className="mb-3 text-xs text-amber-800">
+            Add your phone to Meta&apos;s &quot;To&quot; list (WhatsApp → API Setup → Add phone number), then create a test conversation here. Reply from Client Chats — the message will appear in your WhatsApp.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="tel"
+              value={testPhone}
+              onChange={(e) => setTestPhone(e.target.value)}
+              placeholder="e.g. 995555123456 or +1 555 123 4567"
+              className="w-48 rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            />
+            <button
+              onClick={handleCreateTestConversation}
+              disabled={creating}
+              className="rounded-xl bg-amber-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-700 disabled:opacity-50"
+            >
+              {creating ? "Creating..." : "Create test conversation"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
