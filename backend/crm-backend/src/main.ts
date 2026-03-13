@@ -10,7 +10,9 @@ import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 import { getCorsOrigins } from "./cors";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    rawBody: true,
+  });
 
   app.use(helmet());
   app.use(compression());
