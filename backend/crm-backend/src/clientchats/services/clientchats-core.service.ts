@@ -10,6 +10,7 @@ import {
   ClientChatDirection,
   ClientChatStatus,
 } from '@prisma/client';
+import { Readable } from 'stream';
 import { AdapterRegistryService } from '../adapters/adapter-registry.service';
 import { ParsedInboundMessage } from '../interfaces/channel-adapter.interface';
 import { ClientChatsMatchingService } from './clientchats-matching.service';
@@ -498,5 +499,58 @@ export class ClientChatsCoreService {
         ...(data.metadata != null && { metadata: data.metadata as object }),
       },
     });
+  }
+
+  // ── WhatsApp media proxy ─────────────────────────────────
+
+  async downloadWhatsAppMedia(
+    mediaId: string,
+  ): Promise<{ stream: Readable; contentType: string } | null> {
+    const account = await this.getOrCreateDefaultAccount(
+      ClientChatChannelType.WHATSAPP,
+    );
+    const meta = account.metadata as Record<string, unknown> | null;
+    const token =
+      (meta?.waAccessToken as string) || process.env.WA_ACCESS_TOKEN || '';
+    if (!token) {
+      this.logger.warn('No WhatsApp access token for media download');
+      return null;
+    }
+
+    try {
+      const infoRes = await fetch(
+        `https://graph.facebook.com/v21.0/${mediaId}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (!infoRes.ok) {
+        this.logger.warn(`WhatsApp media info failed: ${infoRes.status}`);
+        return null;
+      }
+      const info = (await infoRes.json()) as Record<string, unknown>;
+      const url = info.url as string | undefined;
+      if (!url) return null;
+
+      const mediaRes = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!mediaRes.ok || !mediaRes.body) {
+        this.logger.warn(`WhatsApp media download failed: ${mediaRes.status}`);
+        return null;
+      }
+
+      const contentType =
+        (info.mime_type as string) ||
+        mediaRes.headers.get('content-type') ||
+        'application/octet-stream';
+
+      return {
+        stream: Readable.fromWeb(mediaRes.body as any),
+        contentType,
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(`WhatsApp media proxy error: ${msg}`);
+      return null;
+    }
   }
 }
