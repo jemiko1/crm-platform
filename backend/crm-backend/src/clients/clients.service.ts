@@ -80,6 +80,53 @@ export class ClientsService {
     };
   }
 
+  async update(coreId: number, dto: { firstName?: string; lastName?: string; idNumber?: string; paymentId?: string; primaryPhone?: string; secondaryPhone?: string }) {
+    const client = await this.prisma.client.findFirst({ where: { coreId } });
+    if (!client) return null;
+
+    const updated = await this.prisma.client.update({
+      where: { id: client.id },
+      data: {
+        ...(dto.firstName !== undefined && { firstName: dto.firstName || null }),
+        ...(dto.lastName !== undefined && { lastName: dto.lastName || null }),
+        ...(dto.idNumber !== undefined && { idNumber: dto.idNumber || null }),
+        ...(dto.paymentId !== undefined && { paymentId: dto.paymentId || null }),
+        ...(dto.primaryPhone !== undefined && { primaryPhone: dto.primaryPhone || null }),
+        ...(dto.secondaryPhone !== undefined && { secondaryPhone: dto.secondaryPhone || null }),
+      },
+      select: {
+        coreId: true,
+        firstName: true,
+        lastName: true,
+        idNumber: true,
+        paymentId: true,
+        primaryPhone: true,
+        secondaryPhone: true,
+        updatedAt: true,
+        clientBuildings: {
+          select: {
+            building: { select: { coreId: true, name: true } },
+          },
+        },
+      },
+    });
+
+    return {
+      coreId: updated.coreId,
+      firstName: updated.firstName,
+      lastName: updated.lastName,
+      idNumber: updated.idNumber,
+      paymentId: updated.paymentId,
+      primaryPhone: updated.primaryPhone,
+      secondaryPhone: updated.secondaryPhone,
+      updatedAt: updated.updatedAt,
+      buildings: updated.clientBuildings.map((cb) => ({
+        coreId: cb.building.coreId,
+        name: cb.building.name,
+      })),
+    };
+  }
+
   async listByBuilding(buildingId: string, page = 1, pageSize = 20) {
     const { skip, take } = paginate(page, pageSize);
     const where = { clientBuildings: { some: { buildingId } } };

@@ -4,12 +4,14 @@ import { Prisma } from '@prisma/client';
 import { QueryCallsDto } from '../dto/query-calls.dto';
 import { CallerLookupResult } from '../types/telephony.types';
 import { PhoneResolverService } from '../../common/phone-resolver/phone-resolver.service';
+import { IntelligenceService } from '../../client-intelligence/services/intelligence.service';
 
 @Injectable()
 export class TelephonyCallsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly phoneResolver: PhoneResolverService,
+    private readonly intelligenceService: IntelligenceService,
   ) {}
 
   async findAll(query: QueryCallsDto) {
@@ -113,6 +115,65 @@ export class TelephonyCallsService {
       }
     }
 
+    // Incidents for matched client
+    let openIncidents: CallerLookupResult['openIncidents'] = [];
+    let recentIncidents: CallerLookupResult['recentIncidents'] = [];
+    if (client) {
+      const incidentSelect = {
+        id: true,
+        incidentNumber: true,
+        status: true,
+        priority: true,
+        incidentType: true,
+        description: true,
+        createdAt: true,
+        building: { select: { name: true } },
+      } as const;
+
+      const [openRaw, closedRaw] = await Promise.all([
+        this.prisma.incident.findMany({
+          where: {
+            clientId: client.id,
+            status: { in: ['CREATED', 'IN_PROGRESS'] },
+          },
+          select: incidentSelect,
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        }),
+        this.prisma.incident.findMany({
+          where: {
+            clientId: client.id,
+            status: { in: ['COMPLETED', 'WORK_ORDER_INITIATED'] },
+          },
+          select: incidentSelect,
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+        }),
+      ]);
+
+      openIncidents = openRaw.map((i) => ({
+        id: i.id,
+        incidentNumber: i.incidentNumber,
+        status: i.status,
+        priority: i.priority,
+        incidentType: i.incidentType,
+        description: i.description,
+        buildingName: i.building.name,
+        createdAt: i.createdAt,
+      }));
+
+      recentIncidents = closedRaw.map((i) => ({
+        id: i.id,
+        incidentNumber: i.incidentNumber,
+        status: i.status,
+        priority: i.priority,
+        incidentType: i.incidentType,
+        description: i.description,
+        buildingName: i.building.name,
+        createdAt: i.createdAt,
+      }));
+    }
+
     // Recent calls from this number
     const recentCallSessions = await this.prisma.callSession.findMany({
       where: { callerNumber: { contains: normalized } },
@@ -127,13 +188,31 @@ export class TelephonyCallsService {
       take: 5,
     });
 
+    let intelligence: CallerLookupResult['intelligence'];
+    if (client) {
+      try {
+        const profile = await this.intelligenceService.getProfile(client.coreId, 180);
+        intelligence = {
+          labels: profile.labels,
+          summary: profile.summary,
+        };
+      } catch {
+        // non-critical, skip if intelligence fails
+      }
+    }
+
     return {
       client: client
         ? {
             id: client.id,
+            coreId: client.coreId,
             name: [client.firstName, client.lastName].filter(Boolean).join(' '),
+            firstName: client.firstName,
+            lastName: client.lastName,
             idNumber: client.idNumber,
             paymentId: client.paymentId,
+            primaryPhone: client.primaryPhone,
+            secondaryPhone: client.secondaryPhone,
             buildings: client.clientBuildings.map((cb) => cb.building),
           }
         : undefined,
@@ -148,6 +227,9 @@ export class TelephonyCallsService {
           }
         : undefined,
       openWorkOrders,
+      openIncidents,
+      recentIncidents,
+      intelligence,
       recentCalls: recentCallSessions.map((s) => ({
         id: s.id,
         direction: s.direction,
@@ -156,6 +238,84 @@ export class TelephonyCallsService {
         durationSec: s.callMetrics?.talkSeconds ?? null,
       })),
     };
+  }
+
+  async getExtensionHistory(extension: string) {
+    const threeDaysAgo = new Date();
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+
+    const telExt = await this.prisma.telephonyExtension.findUnique({
+      where: { extension },
+      select: { crmUserId: true },
+    });
+
+    const sessions = await this.prisma.callSession.findMany({
+      where: {
+        startAt: { gte: threeDaysAgo },
+        OR: [
+          { assignedExtension: extension },
+          ...(telExt ? [{ assignedUserId: telExt.crmUserId }] : []),
+          { callerNumber: { endsWith: extension } },
+          { calleeNumber: { endsWith: extension } },
+        ],
+      },
+      select: {
+        id: true,
+        direction: true,
+        callerNumber: true,
+        calleeNumber: true,
+        assignedExtension: true,
+        startAt: true,
+        answerAt: true,
+        endAt: true,
+        disposition: true,
+        callMetrics: { select: { talkSeconds: true } },
+      },
+      orderBy: { startAt: 'desc' },
+      take: 100,
+    });
+
+    const remoteNumbers = new Set<string>();
+    for (const s of sessions) {
+      const remote = s.direction === 'IN' ? s.callerNumber : (s.calleeNumber ?? '');
+      if (remote) remoteNumbers.add(remote);
+    }
+
+    const nameMap = new Map<string, string>();
+    if (remoteNumbers.size > 0) {
+      const clients = await this.prisma.client.findMany({
+        where: {
+          OR: [
+            { primaryPhone: { in: [...remoteNumbers] } },
+            { secondaryPhone: { in: [...remoteNumbers] } },
+          ],
+        },
+        select: { firstName: true, lastName: true, primaryPhone: true, secondaryPhone: true },
+      });
+      for (const c of clients) {
+        const name = [c.firstName, c.lastName].filter(Boolean).join(' ');
+        if (name) {
+          if (c.primaryPhone) nameMap.set(c.primaryPhone, name);
+          if (c.secondaryPhone) nameMap.set(c.secondaryPhone, name);
+        }
+      }
+    }
+
+    return sessions.map((s) => {
+      const remote = s.direction === 'IN' ? s.callerNumber : (s.calleeNumber ?? '');
+      return {
+        id: s.id,
+        direction: s.direction,
+        callerNumber: s.callerNumber,
+        calleeNumber: s.calleeNumber,
+        remoteName: nameMap.get(remote) ?? null,
+        startAt: s.startAt,
+        answerAt: s.answerAt,
+        endAt: s.endAt,
+        disposition: s.disposition,
+        durationSec: s.callMetrics?.talkSeconds ?? null,
+      };
+    });
   }
 
 }

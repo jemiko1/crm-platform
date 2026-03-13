@@ -1,9 +1,10 @@
-import { Controller, Get, NotFoundException, Param, ParseIntPipe, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, NotFoundException, Param, ParseIntPipe, Patch, Query, UseGuards } from "@nestjs/common";
 import { BuildingsService } from "../buildings/buildings.service";
 import { ClientsService } from "../clients/clients.service";
 import { AssetsService } from "../assets/assets.service";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { PaginationDto } from "../common/dto/pagination.dto";
+import { UpdateClientDto } from "../clients/dto/update-client.dto";
 
 @Controller("v1")
 @UseGuards(JwtAuthGuard)
@@ -57,5 +58,15 @@ export class PublicController {
     const client = await this.clients.findByCoreId(coreId);
     if (!client) throw new NotFoundException(`Client #${coreId} not found`);
     return client;
+  }
+
+  @Patch("clients/:coreId")
+  async updateClient(
+    @Param("coreId", ParseIntPipe) coreId: number,
+    @Body() dto: UpdateClientDto,
+  ) {
+    const updated = await this.clients.update(coreId, dto);
+    if (!updated) throw new NotFoundException(`Client #${coreId} not found`);
+    return updated;
   }
 }

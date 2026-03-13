@@ -81,6 +81,12 @@
 - `FRONTEND_ROUTE_MAP.md` - Messenger component files and architecture
 - `PROJECT_SNAPSHOT.md` - Messenger feature overview (Section 5: Core Modules)
 
+### **Telephony / Call Center / CRM28 Phone**
+- `docs/TELEPHONY_INTEGRATION.md` - **Complete architecture**: Asterisk, AMI Bridge, CRM backend, Desktop App, how everything connects
+- `docs/CALL_CENTER.md` - Call Center module technical docs (AMI events, KPIs, quality pipeline)
+- `ami-bridge/README.md` - AMI Bridge service setup and event mapping
+- `PROJECT_SNAPSHOT.md` - Telephony feature overview (Section 5: Core Modules)
+
 ### **Database & Migrations**
 - `SESSION_SUMMARY.md` - Migrations list, schema key points
 - `backend/crm-backend/prisma/schema.prisma` - Full schema
@@ -129,6 +135,8 @@
 | [`docs/CI_CD.md`](docs/CI_CD.md) | CI pipeline explanation, GitHub branch protection setup guide |
 | [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) | Release flow (dev -> staging -> master), rollback procedures, migration safety |
 | [`docs/AI_WORKING_RULES.md`](docs/AI_WORKING_RULES.md) | Rules for AI assistants: branch restrictions, commit style, code standards |
+| [`docs/TELEPHONY_INTEGRATION.md`](docs/TELEPHONY_INTEGRATION.md) | Complete Asterisk/AMI/CRM/Desktop App integration architecture |
+| [`docs/CALL_CENTER.md`](docs/CALL_CENTER.md) | Call Center module: AMI events, KPIs, quality pipeline, WebSocket |
 
 ---
 
@@ -142,7 +150,7 @@
 - `PROJECT_SNAPSHOT.md` - When project structure changes significantly
 - `docs/*` - When process, CI, testing, or release procedures change
 
-**Last Updated**: 2026-02-20
+**Last Updated**: 2026-03-03
 
 ---
 

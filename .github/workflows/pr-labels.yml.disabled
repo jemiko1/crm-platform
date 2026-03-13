@@ -1,0 +1,59 @@
+# PR label automation for Human + Claude workflow
+# - On PR open/reopen: add ready-for-claude-review
+# - When CI passes: add ci-green
+# No secrets. No deploy. No app code.
+# DISABLED: Rename to pr-labels.yml to re-enable
+
+name: PR Labels
+
+on:
+  pull_request:
+    types: [opened, reopened]
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [dev, staging, master]
+
+jobs:
+  add-ready-for-claude-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Add ready-for-claude-review label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ['ready-for-claude-review']
+            });
+
+  add-ci-green-on-success:
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Add ci-green label to PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const headBranch = github.event.workflow_run.head_branch;
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${context.repo.owner}:${headBranch}`
+            });
+            for (const pr of prs) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                labels: ['ci-green']
+              });
+            }

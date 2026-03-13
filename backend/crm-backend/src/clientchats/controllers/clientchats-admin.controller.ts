@@ -19,6 +19,7 @@ import { FacebookWebhookService } from '../services/facebook-webhook.service';
 import { WhatsAppWebhookService } from '../services/whatsapp-webhook.service';
 import { ClientChatChannelType } from '@prisma/client';
 import { UpdateChannelAccountDto } from '../dto/update-channel-account.dto';
+import { CreateTestWhatsAppConversationDto } from '../dto/create-test-whatsapp-conversation.dto';
 
 @Controller('v1/clientchats')
 @UseGuards(JwtAuthGuard)
@@ -134,5 +135,14 @@ export class ClientChatsAdminController {
   @RequirePermission('client_chats_config.access')
   getWhatsAppWebhookStatus() {
     return this.whatsappWebhook.getWebhookStatus();
+  }
+
+  @Post('whatsapp/create-test-conversation')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('client_chats_config.access')
+  createTestWhatsAppConversation(
+    @Body() dto: CreateTestWhatsAppConversationDto,
+  ) {
+    return this.core.createTestWhatsAppConversation(dto.phoneNumber);
   }
 }

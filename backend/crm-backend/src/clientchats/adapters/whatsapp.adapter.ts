@@ -97,9 +97,43 @@ export class WhatsAppAdapter implements ChannelAdapter {
     }
 
     let text = '';
+    const attachments: Record<string, unknown>[] = [];
+
     if (type === 'text') {
       const textObj = msg.text as Record<string, string> | undefined;
       text = textObj?.body ?? '';
+    } else if (
+      type === 'image' ||
+      type === 'video' ||
+      type === 'audio' ||
+      type === 'document' ||
+      type === 'sticker'
+    ) {
+      const media = msg[type] as Record<string, unknown> | undefined;
+      if (media) {
+        attachments.push({
+          type,
+          mediaId: media.id as string,
+          mimeType: media.mime_type as string,
+          sha256: media.sha256 as string | undefined,
+          filename: media.filename as string | undefined,
+        });
+        const caption = media.caption as string | undefined;
+        if (caption) text = caption;
+        if (!text) text = `[${type}]`;
+      }
+    } else if (type === 'location') {
+      const loc = msg.location as Record<string, unknown> | undefined;
+      if (loc) {
+        text = `[Location: ${loc.latitude}, ${loc.longitude}${loc.name ? ` - ${loc.name}` : ''}]`;
+        attachments.push({ type: 'location', ...loc });
+      }
+    } else if (type === 'contacts') {
+      text = '[Contact card]';
+    } else if (type === 'reaction') {
+      return null;
+    } else {
+      text = text || `[${type ?? 'unknown'}]`;
     }
 
     const contacts = (value.contacts as Record<string, unknown>[]) ?? [];
@@ -113,7 +147,9 @@ export class WhatsAppAdapter implements ChannelAdapter {
       externalUserId: from,
       externalMessageId: msgId,
       displayName,
+      phone: from,
       text,
+      attachments: attachments.length > 0 ? attachments : undefined,
       rawPayload: body,
     };
   }

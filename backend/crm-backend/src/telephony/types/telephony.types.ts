@@ -110,9 +110,14 @@ export interface QueueKpis {
 export interface CallerLookupResult {
   client?: {
     id: string;
+    coreId: number;
     name: string;
+    firstName: string | null;
+    lastName: string | null;
     idNumber: string | null;
     paymentId: string | null;
+    primaryPhone: string | null;
+    secondaryPhone: string | null;
     buildings: Array<{ id: string; name: string; coreId: number }>;
   };
   lead?: {
@@ -128,6 +133,30 @@ export interface CallerLookupResult {
     status: string;
     type: string;
   }>;
+  openIncidents: Array<{
+    id: string;
+    incidentNumber: string;
+    status: string;
+    priority: string;
+    incidentType: string;
+    description: string;
+    buildingName: string;
+    createdAt: Date;
+  }>;
+  recentIncidents: Array<{
+    id: string;
+    incidentNumber: string;
+    status: string;
+    priority: string;
+    incidentType: string;
+    description: string;
+    buildingName: string;
+    createdAt: Date;
+  }>;
+  intelligence?: {
+    labels: string[];
+    summary: string;
+  };
   recentCalls: Array<{
     id: string;
     direction: string;
@@ -155,7 +184,7 @@ export interface LiveQueueState {
   waitingCallers: number;
   longestCurrentWaitSec: number | null;
   availableAgents: number;
-  _disclaimer: string;
+  _disclaimer: string | null;
 }
 
 export interface LiveAgentState {
@@ -164,5 +193,7 @@ export interface LiveAgentState {
   currentState: 'ON_CALL' | 'IDLE' | 'OFFLINE';
   currentCallDurationSec: number | null;
   callsHandledToday: number;
-  _disclaimer: string;
+  _disclaimer: string | null;
+  presence?: 'ON_CALL' | 'RINGING' | 'IDLE' | 'WRAPUP' | 'PAUSED' | 'OFFLINE';
+  pausedReason?: string | null;
 }

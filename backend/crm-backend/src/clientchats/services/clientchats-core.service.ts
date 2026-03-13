@@ -136,6 +136,67 @@ export class ClientChatsCoreService {
     });
   }
 
+  /**
+   * Create a test WhatsApp conversation (for App Review or testing).
+   * Use when app is unpublished and real inbound webhooks are not delivered.
+   * Phone must be added to Meta's "To" list (5 recipients for test number).
+   */
+  async createTestWhatsAppConversation(phoneNumber: string) {
+    const phone = String(phoneNumber).replace(/\D/g, '');
+    if (!phone.length) {
+      throw new ConflictException('Phone number is required');
+    }
+    const account = await this.getOrCreateDefaultAccount(
+      ClientChatChannelType.WHATSAPP,
+    );
+    const externalConversationId = `wa_${phone}`;
+    const externalUserId = phone;
+
+    let participant = await this.prisma.clientChatParticipant.findUnique({
+      where: { externalUserId },
+    });
+    if (!participant) {
+      participant = await this.prisma.clientChatParticipant.create({
+        data: {
+          channelType: ClientChatChannelType.WHATSAPP,
+          channelAccountId: account.id,
+          externalUserId,
+          displayName: `Test (${phone})`,
+          phone: phone,
+        },
+      });
+    }
+
+    let conversation = await this.prisma.clientChatConversation.findUnique({
+      where: { externalConversationId },
+    });
+    if (!conversation) {
+      conversation = await this.prisma.clientChatConversation.create({
+        data: {
+          channelType: ClientChatChannelType.WHATSAPP,
+          channelAccountId: account.id,
+          externalConversationId,
+        },
+      });
+    }
+
+    const existingMsg = await this.prisma.clientChatMessage.findUnique({
+      where: { externalMessageId: `test_in_${conversation.id}` },
+    });
+    if (!existingMsg) {
+      await this.saveMessage({
+        conversationId: conversation.id,
+        participantId: participant.id,
+        senderUserId: null,
+        direction: ClientChatDirection.IN,
+        externalMessageId: `test_in_${conversation.id}`,
+        text: 'Test conversation – reply from CRM to verify integration.',
+      });
+    }
+
+    return { conversationId: conversation.id, externalConversationId };
+  }
+
   async saveMessage(data: {
     conversationId: string;
     participantId: string | null;

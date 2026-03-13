@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import ReportIncidentModal from "../../incidents/report-incident-modal";
-import { apiGet, API_BASE } from "@/lib/api";
+import { apiGet, apiPatch, API_BASE } from "@/lib/api";
 import { usePermissions } from "@/lib/use-permissions";
 import { useModalContext } from "../../modal-manager";
 import IntelligenceProfileCard from "./intelligence/intelligence-profile-card";
@@ -195,6 +195,7 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
   const [incError, setIncError] = useState<string | null>(null);
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   // Load incidents for this client
   useEffect(() => {
@@ -287,7 +288,7 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
             <button
               type="button"
               className="rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50"
-              onClick={() => alert("Edit client — later phase")}
+              onClick={() => setShowEditModal(true)}
             >
               Edit
             </button>
@@ -532,6 +533,118 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
         allowedBuildingCoreIds={(client.buildings ?? []).map((b) => b.coreId)}
       />
 
+      {showEditModal && (
+        <EditClientModal
+          client={client}
+          onClose={() => setShowEditModal(false)}
+          onSaved={() => {
+            setShowEditModal(false);
+            if (onUpdate) onUpdate();
+          }}
+        />
+      )}
+
+    </div>
+  );
+}
+
+function EditClientModal({
+  client,
+  onClose,
+  onSaved,
+}: {
+  client: Client;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState({
+    firstName: client.firstName ?? "",
+    lastName: client.lastName ?? "",
+    primaryPhone: client.primaryPhone ?? "",
+    secondaryPhone: client.secondaryPhone ?? "",
+    idNumber: client.idNumber ?? "",
+    paymentId: client.paymentId ?? "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function set(key: keyof typeof form, value: string) {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    setError(null);
+    try {
+      await apiPatch(`/v1/clients/${client.coreId}`, form);
+      onSaved();
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to update client");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div
+        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl ring-1 ring-zinc-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-lg font-semibold text-zinc-900 mb-4">Edit Client #{client.coreId}</h2>
+
+        <div className="grid gap-3">
+          <EditField label="First Name" value={form.firstName} onChange={(v) => set("firstName", v)} />
+          <EditField label="Last Name" value={form.lastName} onChange={(v) => set("lastName", v)} />
+          <EditField label="Primary Phone" value={form.primaryPhone} onChange={(v) => set("primaryPhone", v)} />
+          <EditField label="Secondary Phone" value={form.secondaryPhone} onChange={(v) => set("secondaryPhone", v)} />
+          <EditField label="ID Number" value={form.idNumber} onChange={(v) => set("idNumber", v)} />
+          <EditField label="Payment ID" value={form.paymentId} onChange={(v) => set("paymentId", v)} />
+        </div>
+
+        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg px-4 py-2 text-sm font-medium text-zinc-700 ring-1 ring-zinc-200 hover:bg-zinc-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-50"
+            style={{ backgroundColor: BRAND }}
+          >
+            {saving ? "Saving..." : "Save"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EditField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-zinc-600 mb-1">{label}</label>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400"
+      />
     </div>
   );
 }
