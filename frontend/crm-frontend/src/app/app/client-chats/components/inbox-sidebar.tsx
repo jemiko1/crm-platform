@@ -47,6 +47,11 @@ export default function InboxSidebar({ selectedId, onSelect, notify, soundToggle
   const [unreadMap, setUnreadMap] = useState<Record<string, number>>({});
 
   const isInitialLoad = useRef(true);
+  const lastSeenRef = useRef<Record<string, string>>({});
+  const notifyRef = useRef(notify);
+  const selectedRef = useRef(selectedId);
+  notifyRef.current = notify;
+  selectedRef.current = selectedId;
   const { on, off, isConnected } = useClientChatSocket();
 
   const fetchConversations = useCallback(async () => {
@@ -62,6 +67,33 @@ export default function InboxSidebar({ selectedId, onSelect, notify, soundToggle
       const res = await apiGet<PaginatedResponse<ConversationSummary>>(
         `/v1/clientchats/conversations?${params}`,
       );
+
+      const wasInitial = isInitialLoad.current;
+      const prevSeen = lastSeenRef.current;
+      const nextSeen: Record<string, string> = {};
+
+      for (const conv of res.data) {
+        const ts = conv.lastMessageAt ?? "";
+        nextSeen[conv.id] = ts;
+
+        if (!wasInitial && ts && prevSeen[conv.id] && ts !== prevSeen[conv.id]) {
+          const lastMsg = conv.messages?.[0];
+          if (
+            lastMsg?.direction === "IN" &&
+            conv.id !== selectedRef.current &&
+            notifyRef.current
+          ) {
+            const name = lastMsg.participant?.displayName ?? conv.channelType;
+            notifyRef.current(name, lastMsg.text ?? "");
+            setUnreadMap((prev) => ({
+              ...prev,
+              [conv.id]: (prev[conv.id] ?? 0) + 1,
+            }));
+          }
+        }
+      }
+      lastSeenRef.current = nextSeen;
+
       setConversations((prev) => {
         if (
           prev.length === res.data.length &&
@@ -82,7 +114,7 @@ export default function InboxSidebar({ selectedId, onSelect, notify, soundToggle
 
   useEffect(() => { fetchConversations(); }, [fetchConversations]);
 
-  const pollInterval = isConnected ? 30000 : 10000;
+  const pollInterval = isConnected ? 30000 : 5000;
   useEffect(() => {
     const interval = setInterval(fetchConversations, pollInterval);
     return () => clearInterval(interval);

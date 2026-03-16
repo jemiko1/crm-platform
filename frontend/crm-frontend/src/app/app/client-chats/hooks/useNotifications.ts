@@ -9,18 +9,37 @@ const BEEP_DATA_URI =
   "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdH2Mj4eBdGhrf4eLhXxwZGx4goiGfnJmbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZW15g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cWVseYOIhX1xZWx5g4iFfXFlbHmDiIV9cQ==";
 
 let audioInstance: HTMLAudioElement | null = null;
+let audioWarmedUp = false;
+
+function getAudio(): HTMLAudioElement {
+  if (!audioInstance) {
+    audioInstance = new Audio(BEEP_DATA_URI);
+    audioInstance.volume = 0.5;
+  }
+  return audioInstance;
+}
+
+function warmUpAudio() {
+  if (audioWarmedUp) return;
+  try {
+    const a = getAudio();
+    a.volume = 0;
+    a.play().then(() => {
+      a.pause();
+      a.currentTime = 0;
+      a.volume = 0.5;
+      audioWarmedUp = true;
+    }).catch(() => {});
+  } catch {}
+}
 
 function playNotificationSound() {
   try {
-    if (!audioInstance) {
-      audioInstance = new Audio(BEEP_DATA_URI);
-      audioInstance.volume = 0.5;
-    }
-    audioInstance.currentTime = 0;
-    audioInstance.play().catch(() => {});
-  } catch {
-    // Audio not supported
-  }
+    const a = getAudio();
+    a.currentTime = 0;
+    a.volume = 0.5;
+    a.play().catch(() => {});
+  } catch {}
 }
 
 export function useNotifications() {
@@ -42,6 +61,18 @@ export function useNotifications() {
 
     const dismissed = sessionStorage.getItem(BANNER_DISMISSED_KEY);
     if (dismissed === "true") setBannerDismissed(true);
+
+    const onInteraction = () => {
+      warmUpAudio();
+      document.removeEventListener("click", onInteraction);
+      document.removeEventListener("keydown", onInteraction);
+    };
+    document.addEventListener("click", onInteraction);
+    document.addEventListener("keydown", onInteraction);
+    return () => {
+      document.removeEventListener("click", onInteraction);
+      document.removeEventListener("keydown", onInteraction);
+    };
   }, []);
 
   const requestPermission = useCallback(async () => {
