@@ -5,58 +5,48 @@ import { useEffect, useRef, useState, useCallback } from "react";
 const SOUND_PREF_KEY = "clientchat_sound_enabled";
 const BANNER_DISMISSED_KEY = "clientchat_notif_dismissed";
 
-let audioCtxWarmedUp = false;
+let audioEl: HTMLAudioElement | null = null;
+let audioUnlocked = false;
 
-function warmUpAudio() {
-  console.log("NOTIFY: warmUpAudio called");
-  if (audioCtxWarmedUp) {
-    console.log("NOTIFY: warmUpAudio skipped — already warmed up");
-    return;
+function getAudioEl(): HTMLAudioElement | null {
+  if (typeof window === "undefined") return null;
+  if (!audioEl) {
+    audioEl = new Audio("/notification.wav");
+    audioEl.volume = 0.5;
+    audioEl.preload = "auto";
+    console.log("NOTIFY: audio element created, src=/notification.wav");
   }
-  try {
-    const AC = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AC) {
-      console.log("NOTIFY: warmUpAudio FAILED — no AudioContext available");
-      return;
-    }
-    const ctx = new AC();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    gain.gain.value = 0;
-    osc.start();
-    osc.stop(ctx.currentTime + 0.01);
-    ctx.close();
-    audioCtxWarmedUp = true;
-    console.log("NOTIFY: warmUpAudio SUCCESS — AudioContext unlocked");
-  } catch (e) {
-    console.log("NOTIFY: warmUpAudio FAILED", e);
-  }
+  return audioEl;
+}
+
+function unlockAudio() {
+  if (audioUnlocked) return;
+  const el = getAudioEl();
+  if (!el) return;
+  console.log("NOTIFY: unlockAudio — playing silent to unlock");
+  el.volume = 0;
+  el.play().then(() => {
+    el.pause();
+    el.currentTime = 0;
+    el.volume = 0.5;
+    audioUnlocked = true;
+    console.log("NOTIFY: unlockAudio SUCCESS");
+  }).catch((e) => {
+    console.log("NOTIFY: unlockAudio FAILED", e?.message);
+  });
 }
 
 function playNotificationSound() {
-  console.log("NOTIFY: playNotificationSound called");
-  try {
-    const AC = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AC) {
-      console.log("NOTIFY: playNotificationSound FAILED — no AudioContext");
-      return;
-    }
-    const ctx = new AC();
-    const oscillator = ctx.createOscillator();
-    const gain = ctx.createGain();
-    oscillator.connect(gain);
-    gain.connect(ctx.destination);
-    oscillator.frequency.value = 800;
-    gain.gain.value = 0.3;
-    oscillator.start();
-    oscillator.stop(ctx.currentTime + 0.15);
-    console.log("NOTIFY: oscillator sound played (800Hz, 150ms)");
-    setTimeout(() => ctx.close(), 300);
-  } catch (e) {
-    console.log("NOTIFY: playNotificationSound FAILED", e);
-  }
+  console.log("NOTIFY: playNotificationSound called, unlocked=" + audioUnlocked);
+  const el = getAudioEl();
+  if (!el) return;
+  el.currentTime = 0;
+  el.volume = 0.5;
+  el.play().then(() => {
+    console.log("NOTIFY: audio.play() SUCCESS");
+  }).catch((e) => {
+    console.log("NOTIFY: audio.play() FAILED", e?.message);
+  });
 }
 
 export function useNotifications() {
@@ -74,8 +64,6 @@ export function useNotifications() {
     if (typeof window !== "undefined" && "Notification" in window) {
       console.log("NOTIFY: Notification.permission =", Notification.permission);
       setPermission(Notification.permission);
-    } else {
-      console.log("NOTIFY: Notification API not available");
     }
 
     const stored = localStorage.getItem(SOUND_PREF_KEY);
@@ -85,9 +73,11 @@ export function useNotifications() {
     const dismissed = sessionStorage.getItem(BANNER_DISMISSED_KEY);
     if (dismissed === "true") setBannerDismissed(true);
 
+    getAudioEl();
+
     const onInteraction = () => {
-      console.log("NOTIFY: first user interaction detected — warming up audio");
-      warmUpAudio();
+      console.log("NOTIFY: user interaction — unlocking audio");
+      unlockAudio();
       document.removeEventListener("click", onInteraction);
       document.removeEventListener("keydown", onInteraction);
     };
@@ -146,8 +136,6 @@ export function useNotifications() {
         } catch (e) {
           console.log("NOTIFY: browser notification FAILED", e);
         }
-      } else {
-        console.log("NOTIFY: skipping browser notification (permission=" + permission + ", hidden=" + document.hidden + ")");
       }
 
       if (soundEnabled) {
