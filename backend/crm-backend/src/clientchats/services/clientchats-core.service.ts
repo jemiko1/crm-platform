@@ -13,6 +13,7 @@ import {
 import { Readable } from 'stream';
 import { AdapterRegistryService } from '../adapters/adapter-registry.service';
 import { ParsedInboundMessage } from '../interfaces/channel-adapter.interface';
+import { TelegramAdapter } from '../adapters/telegram.adapter';
 import { ClientChatsMatchingService } from './clientchats-matching.service';
 import { ClientChatsEventService } from './clientchats-event.service';
 import { ConversationQueryDto } from '../dto/conversation-query.dto';
@@ -45,11 +46,22 @@ export class ClientChatsCoreService {
       return existing;
     }
 
-    const participant = await this.upsertParticipant(
+    let participant = await this.upsertParticipant(
       channelType,
       channelAccountId,
       parsed,
     );
+
+    if (
+      channelType === ClientChatChannelType.TELEGRAM &&
+      !participant.phone &&
+      !participant.mappedClientId
+    ) {
+      participant = await this.tryFetchTelegramPhone(
+        participant,
+        channelAccountId,
+      );
+    }
 
     const conversation = await this.upsertConversation(
       channelType,
@@ -106,6 +118,36 @@ export class ClientChatsCoreService {
         email: parsed.email,
       },
     });
+  }
+
+  private async tryFetchTelegramPhone(
+    participant: Awaited<ReturnType<typeof this.upsertParticipant>>,
+    channelAccountId: string,
+  ) {
+    try {
+      const account = await this.prisma.clientChatChannelAccount.findUnique({
+        where: { id: channelAccountId },
+      });
+      const adapter = this.adapterRegistry.get(
+        ClientChatChannelType.TELEGRAM,
+      ) as TelegramAdapter;
+      const phone = await adapter.fetchUserPhone(
+        participant.externalUserId,
+        (account?.metadata as Record<string, unknown>) ?? {},
+      );
+      if (phone) {
+        this.logger.log(
+          `Fetched Telegram phone for participant ${participant.id}: ${phone}`,
+        );
+        return this.prisma.clientChatParticipant.update({
+          where: { id: participant.id },
+          data: { phone },
+        });
+      }
+    } catch (err) {
+      this.logger.debug(`tryFetchTelegramPhone failed: ${err}`);
+    }
+    return participant;
   }
 
   async upsertConversation(

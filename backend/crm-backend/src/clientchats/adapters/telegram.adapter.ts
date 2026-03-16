@@ -64,14 +64,53 @@ export class TelegramAdapter implements ChannelAdapter {
       username ||
       `TG User ${String(from.id).slice(-4)}`;
 
+    let phone: string | undefined;
+
+    const contact = message.contact as Record<string, unknown> | undefined;
+    if (contact?.phone_number) {
+      phone = String(contact.phone_number).replace(/[^\d+]/g, '');
+    }
+
     return {
       externalConversationId: `tg_${chat.id}`,
       externalUserId: String(from.id),
       externalMessageId: String(messageId),
       displayName,
-      text,
+      phone,
+      text: contact && !text ? `Shared contact: ${contact.phone_number}` : text,
       rawPayload: body,
     };
+  }
+
+  /**
+   * Fetch a Telegram user's profile via getChat. Returns their phone if available.
+   */
+  async fetchUserPhone(
+    userId: string,
+    channelAccountMetadata?: Record<string, unknown>,
+  ): Promise<string | null> {
+    const token =
+      (channelAccountMetadata?.telegramBotToken as string) || this.token;
+    if (!token) return null;
+
+    try {
+      const res = await fetch(`${TELEGRAM_API_BASE}${token}/getChat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: userId }),
+      });
+      const data = (await res.json()) as Record<string, unknown>;
+      if (!data.ok) return null;
+
+      const result = data.result as Record<string, unknown> | undefined;
+      if (result?.phone_number) {
+        return String(result.phone_number).replace(/[^\d+]/g, '');
+      }
+      return null;
+    } catch (err) {
+      this.logger.debug(`Failed to fetch Telegram user phone: ${err}`);
+      return null;
+    }
   }
 
   async sendMessage(
