@@ -11,10 +11,9 @@ let audioUnlocked = false;
 function getAudioEl(): HTMLAudioElement | null {
   if (typeof window === "undefined") return null;
   if (!audioEl) {
-    audioEl = new Audio("/notification.wav");
+    audioEl = new Audio("/notification-pop.wav");
     audioEl.volume = 0.5;
     audioEl.preload = "auto";
-    console.log("NOTIFY: audio element created, src=/notification.wav");
   }
   return audioEl;
 }
@@ -23,30 +22,21 @@ function unlockAudio() {
   if (audioUnlocked) return;
   const el = getAudioEl();
   if (!el) return;
-  console.log("NOTIFY: unlockAudio — playing silent to unlock");
   el.volume = 0;
   el.play().then(() => {
     el.pause();
     el.currentTime = 0;
     el.volume = 0.5;
     audioUnlocked = true;
-    console.log("NOTIFY: unlockAudio SUCCESS");
-  }).catch((e) => {
-    console.log("NOTIFY: unlockAudio FAILED", e?.message);
-  });
+  }).catch(() => {});
 }
 
 function playNotificationSound() {
-  console.log("NOTIFY: playNotificationSound called, unlocked=" + audioUnlocked);
   const el = getAudioEl();
   if (!el) return;
   el.currentTime = 0;
   el.volume = 0.5;
-  el.play().then(() => {
-    console.log("NOTIFY: audio.play() SUCCESS");
-  }).catch((e) => {
-    console.log("NOTIFY: audio.play() FAILED", e?.message);
-  });
+  el.play().catch(() => {});
 }
 
 export function useNotifications() {
@@ -59,15 +49,11 @@ export function useNotifications() {
     if (initialized.current) return;
     initialized.current = true;
 
-    console.log("NOTIFY: useNotifications init");
-
     if (typeof window !== "undefined" && "Notification" in window) {
-      console.log("NOTIFY: Notification.permission =", Notification.permission);
       setPermission(Notification.permission);
     }
 
     const stored = localStorage.getItem(SOUND_PREF_KEY);
-    console.log("NOTIFY: stored soundEnabled =", stored);
     if (stored !== null) setSoundEnabled(stored === "true");
 
     const dismissed = sessionStorage.getItem(BANNER_DISMISSED_KEY);
@@ -76,7 +62,6 @@ export function useNotifications() {
     getAudioEl();
 
     const onInteraction = () => {
-      console.log("NOTIFY: user interaction — unlocking audio");
       unlockAudio();
       document.removeEventListener("click", onInteraction);
       document.removeEventListener("keydown", onInteraction);
@@ -92,7 +77,6 @@ export function useNotifications() {
   const requestPermission = useCallback(async () => {
     if (!("Notification" in window)) return;
     const result = await Notification.requestPermission();
-    console.log("NOTIFY: requestPermission result =", result);
     setPermission(result);
   }, []);
 
@@ -104,7 +88,6 @@ export function useNotifications() {
   const toggleSound = useCallback(() => {
     setSoundEnabled((prev) => {
       const next = !prev;
-      console.log("NOTIFY: toggleSound", prev, "->", next);
       localStorage.setItem(SOUND_PREF_KEY, String(next));
       return next;
     });
@@ -112,16 +95,7 @@ export function useNotifications() {
 
   const notify = useCallback(
     (title: string, body: string) => {
-      console.log("NOTIFY: notify() called", {
-        title,
-        body: body.slice(0, 40),
-        permission,
-        soundEnabled,
-        documentHidden: document.hidden,
-      });
-
       if (permission === "granted" && document.hidden) {
-        console.log("NOTIFY: creating browser notification");
         try {
           const n = new Notification(title, {
             body: body.slice(0, 80),
@@ -132,17 +106,13 @@ export function useNotifications() {
             window.focus();
             n.close();
           };
-          console.log("NOTIFY: browser notification created OK");
-        } catch (e) {
-          console.log("NOTIFY: browser notification FAILED", e);
+        } catch {
+          // Notification API not available
         }
       }
 
       if (soundEnabled) {
-        console.log("NOTIFY: soundEnabled=true, calling playNotificationSound");
         playNotificationSound();
-      } else {
-        console.log("NOTIFY: soundEnabled=false, skipping sound");
       }
     },
     [permission, soundEnabled],
