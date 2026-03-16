@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { apiGet } from "@/lib/api";
 import type { ConversationDetail, ChatMessage, PaginatedResponse } from "../types";
+import { useClientChatSocket } from "../hooks/useClientChatSocket";
 import ConversationHeader from "./conversation-header";
 import MessageBubble from "./message-bubble";
 import ReplyBox from "./reply-box";
@@ -16,6 +17,8 @@ export default function ConversationPanel({ conversationId }: ConversationPanelP
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const prevMsgCountRef = useRef(0);
+  const { on, off, isConnected } = useClientChatSocket();
 
   const fetchConversation = useCallback(async () => {
     try {
@@ -25,8 +28,6 @@ export default function ConversationPanel({ conversationId }: ConversationPanelP
       setConversation(null);
     }
   }, [conversationId]);
-
-  const prevMsgCountRef = useRef(0);
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -56,10 +57,34 @@ export default function ConversationPanel({ conversationId }: ConversationPanelP
     loadAll();
   }, [loadAll]);
 
+  const pollInterval = isConnected ? 15000 : 5000;
   useEffect(() => {
-    const interval = setInterval(fetchMessages, 5000);
+    const interval = setInterval(fetchMessages, pollInterval);
     return () => clearInterval(interval);
-  }, [fetchMessages]);
+  }, [fetchMessages, pollInterval]);
+
+  useEffect(() => {
+    const handleNewMessage = (data: { conversationId: string; message: any }) => {
+      if (data.conversationId !== conversationId) return;
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === data.message.id)) return prev;
+        return [...prev, data.message];
+      });
+    };
+
+    const handleConversationUpdated = (conv: any) => {
+      if (conv.id !== conversationId) return;
+      fetchConversation();
+    };
+
+    on("message:new", handleNewMessage);
+    on("conversation:updated", handleConversationUpdated);
+
+    return () => {
+      off("message:new", handleNewMessage);
+      off("conversation:updated", handleConversationUpdated);
+    };
+  }, [on, off, conversationId, fetchConversation]);
 
   useEffect(() => {
     if (messages.length > prevMsgCountRef.current) {

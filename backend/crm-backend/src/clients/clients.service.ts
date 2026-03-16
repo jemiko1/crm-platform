@@ -146,10 +146,26 @@ export class ClientsService {
   /**
    * Global clients directory for /v1/clients
    * Returns clients with their associated buildings (many-to-many).
+   * Supports optional search by name, phone, or ID number.
    */
-  async listDirectory(page = 1, pageSize = 20) {
+  async listDirectory(page = 1, pageSize = 20, search?: string) {
     const { skip, take } = paginate(page, pageSize);
+
+    const where = search?.trim()
+      ? {
+          isActive: true,
+          OR: [
+            { firstName: { contains: search.trim(), mode: 'insensitive' as const } },
+            { lastName: { contains: search.trim(), mode: 'insensitive' as const } },
+            { primaryPhone: { contains: search.trim() } },
+            { secondaryPhone: { contains: search.trim() } },
+            { idNumber: { contains: search.trim(), mode: 'insensitive' as const } },
+          ],
+        }
+      : { isActive: true };
+
     const select = {
+      id: true,
       coreId: true,
       firstName: true,
       lastName: true,
@@ -167,15 +183,17 @@ export class ClientsService {
 
     const [rows, total] = await Promise.all([
       this.prisma.client.findMany({
+        where,
         orderBy: [{ updatedAt: "desc" }, { coreId: "asc" }],
         select,
         skip,
         take,
       }),
-      this.prisma.client.count(),
+      this.prisma.client.count({ where }),
     ]);
 
     const data = rows.map((c) => ({
+      id: c.id,
       coreId: c.coreId,
       firstName: c.firstName,
       lastName: c.lastName,

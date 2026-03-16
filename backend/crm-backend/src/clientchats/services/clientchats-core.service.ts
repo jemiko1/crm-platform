@@ -14,6 +14,7 @@ import { Readable } from 'stream';
 import { AdapterRegistryService } from '../adapters/adapter-registry.service';
 import { ParsedInboundMessage } from '../interfaces/channel-adapter.interface';
 import { ClientChatsMatchingService } from './clientchats-matching.service';
+import { ClientChatsEventService } from './clientchats-event.service';
 import { ConversationQueryDto } from '../dto/conversation-query.dto';
 
 @Injectable()
@@ -24,6 +25,7 @@ export class ClientChatsCoreService {
     private readonly prisma: PrismaService,
     private readonly adapterRegistry: AdapterRegistryService,
     private readonly matching: ClientChatsMatchingService,
+    private readonly events: ClientChatsEventService,
   ) {}
 
   // ── Inbound pipeline ──────────────────────────────────
@@ -68,6 +70,8 @@ export class ClientChatsCoreService {
     });
 
     await this.matching.autoMatch(participant, conversation);
+
+    this.events.emitNewMessage(conversation.id, message as any);
 
     return message;
   }
@@ -115,7 +119,7 @@ export class ClientChatsCoreService {
     });
 
     if (existing) {
-      return this.prisma.clientChatConversation.update({
+      const updated = await this.prisma.clientChatConversation.update({
         where: { id: existing.id },
         data: {
           lastMessageAt: new Date(),
@@ -125,9 +129,11 @@ export class ClientChatsCoreService {
               : existing.status,
         },
       });
+      this.events.emitConversationUpdated(updated as any);
+      return updated;
     }
 
-    return this.prisma.clientChatConversation.create({
+    const created = await this.prisma.clientChatConversation.create({
       data: {
         channelType,
         channelAccountId,
@@ -135,6 +141,8 @@ export class ClientChatsCoreService {
         lastMessageAt: new Date(),
       },
     });
+    this.events.emitConversationNew(created as any);
+    return created;
   }
 
   /**
@@ -255,10 +263,13 @@ export class ClientChatsCoreService {
       text,
     });
 
-    await this.prisma.clientChatConversation.update({
+    const updatedConv = await this.prisma.clientChatConversation.update({
       where: { id: conversationId },
       data: { lastMessageAt: new Date() },
     });
+
+    this.events.emitNewMessage(conversationId, message as any);
+    this.events.emitConversationUpdated(updatedConv as any);
 
     return { message, sendResult: result };
   }
@@ -271,10 +282,12 @@ export class ClientChatsCoreService {
     });
     if (!conversation) throw new NotFoundException('Conversation not found');
 
-    return this.prisma.clientChatConversation.update({
+    const updated = await this.prisma.clientChatConversation.update({
       where: { id: conversationId },
       data: { assignedUserId: userId },
     });
+    this.events.emitConversationUpdated(updated as any);
+    return updated;
   }
 
   async changeStatus(conversationId: string, status: ClientChatStatus) {
@@ -283,10 +296,12 @@ export class ClientChatsCoreService {
     });
     if (!conversation) throw new NotFoundException('Conversation not found');
 
-    return this.prisma.clientChatConversation.update({
+    const updated = await this.prisma.clientChatConversation.update({
       where: { id: conversationId },
       data: { status },
     });
+    this.events.emitConversationUpdated(updated as any);
+    return updated;
   }
 
   async linkClient(conversationId: string, clientId: string) {
@@ -304,10 +319,12 @@ export class ClientChatsCoreService {
       throw new ConflictException('Conversation already linked to a client');
     }
 
-    return this.prisma.clientChatConversation.update({
+    const updated = await this.prisma.clientChatConversation.update({
       where: { id: conversationId },
       data: { clientId },
     });
+    this.events.emitConversationUpdated(updated as any);
+    return updated;
   }
 
   async unlinkClient(conversationId: string) {
@@ -316,10 +333,12 @@ export class ClientChatsCoreService {
     });
     if (!conversation) throw new NotFoundException('Conversation not found');
 
-    return this.prisma.clientChatConversation.update({
+    const updated = await this.prisma.clientChatConversation.update({
       where: { id: conversationId },
       data: { clientId: null },
     });
+    this.events.emitConversationUpdated(updated as any);
+    return updated;
   }
 
   // ── Queries ────────────────────────────────────────────
