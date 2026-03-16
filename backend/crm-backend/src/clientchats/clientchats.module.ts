@@ -13,6 +13,8 @@ import { AdapterRegistryService } from './adapters/adapter-registry.service';
 import { ClientChatsCoreService } from './services/clientchats-core.service';
 import { ClientChatsMatchingService } from './services/clientchats-matching.service';
 import { ClientChatsObservabilityService } from './services/clientchats-observability.service';
+import { ClientChatsEventService } from './services/clientchats-event.service';
+import { ClientChatsGateway } from './clientchats.gateway';
 import { TelegramWebhookService } from './services/telegram-webhook.service';
 import { TelegramPollingService } from './services/telegram-polling.service';
 import { ViberWebhookService } from './services/viber-webhook.service';
@@ -54,6 +56,8 @@ import {
     ClientChatsCoreService,
     ClientChatsMatchingService,
     ClientChatsObservabilityService,
+    ClientChatsEventService,
+    ClientChatsGateway,
     TelegramWebhookService,
     TelegramPollingService,
     ViberWebhookService,

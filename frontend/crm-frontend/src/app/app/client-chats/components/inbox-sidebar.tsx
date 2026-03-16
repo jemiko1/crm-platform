@@ -3,12 +3,15 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { apiGet } from "@/lib/api";
 import type { ConversationSummary, PaginatedResponse, ChannelType, ConversationStatus } from "../types";
+import { useClientChatSocket } from "../hooks/useClientChatSocket";
 import FilterBar from "./filter-bar";
 import ChannelBadge from "./channel-badge";
 
 interface InboxSidebarProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
+  notify?: (title: string, body: string) => void;
+  soundToggle?: React.ReactNode;
 }
 
 function timeAgo(dateStr: string | null): string {
@@ -33,7 +36,7 @@ function statusDot(status: ConversationStatus) {
   return <span className={`inline-block w-2 h-2 rounded-full ${colors[status]}`} />;
 }
 
-export default function InboxSidebar({ selectedId, onSelect }: InboxSidebarProps) {
+export default function InboxSidebar({ selectedId, onSelect, notify, soundToggle }: InboxSidebarProps) {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -41,8 +44,10 @@ export default function InboxSidebar({ selectedId, onSelect }: InboxSidebarProps
   const [statusFilter, setStatusFilter] = useState<ConversationStatus | "">("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [unreadMap, setUnreadMap] = useState<Record<string, number>>({});
 
   const isInitialLoad = useRef(true);
+  const { on, off, isConnected } = useClientChatSocket();
 
   const fetchConversations = useCallback(async () => {
     if (isInitialLoad.current) setLoading(true);
@@ -77,17 +82,105 @@ export default function InboxSidebar({ selectedId, onSelect }: InboxSidebarProps
 
   useEffect(() => { fetchConversations(); }, [fetchConversations]);
 
+  const pollInterval = isConnected ? 30000 : 10000;
   useEffect(() => {
-    const interval = setInterval(fetchConversations, 10000);
+    const interval = setInterval(fetchConversations, pollInterval);
     return () => clearInterval(interval);
-  }, [fetchConversations]);
+  }, [fetchConversations, pollInterval]);
 
   useEffect(() => { setPage(1); }, [search, channelFilter, statusFilter]);
+
+  useEffect(() => {
+    const handleNewConversation = () => {
+      fetchConversations();
+    };
+
+    const handleConversationUpdated = (conv: any) => {
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === conv.id
+            ? { ...c, status: conv.status ?? c.status, assignedUserId: conv.assignedUserId ?? c.assignedUserId, lastMessageAt: conv.lastMessageAt ?? c.lastMessageAt }
+            : c,
+        ),
+      );
+    };
+
+    const handleNewMessage = (data: { conversationId: string; message: any }) => {
+      setConversations((prev) => {
+        const idx = prev.findIndex((c) => c.id === data.conversationId);
+        if (idx === -1) {
+          fetchConversations();
+          return prev;
+        }
+        const updated = [...prev];
+        updated[idx] = {
+          ...updated[idx],
+          lastMessageAt: data.message.sentAt ?? new Date().toISOString(),
+          messages: [
+            {
+              text: data.message.text,
+              sentAt: data.message.sentAt,
+              direction: data.message.direction,
+              participant: data.message.participant ?? null,
+            },
+          ],
+        };
+        updated.sort((a, b) => {
+          const ta = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+          const tb = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+          return tb - ta;
+        });
+        return updated;
+      });
+
+      if (data.conversationId !== selectedId) {
+        setUnreadMap((prev) => ({
+          ...prev,
+          [data.conversationId]: (prev[data.conversationId] ?? 0) + 1,
+        }));
+
+        if (data.message.direction === "IN" && notify) {
+          const name = data.message.participant?.displayName ?? "New message";
+          notify(name, data.message.text ?? "");
+        }
+      }
+    };
+
+    on("conversation:new", handleNewConversation);
+    on("conversation:updated", handleConversationUpdated);
+    on("message:new", handleNewMessage);
+
+    return () => {
+      off("conversation:new", handleNewConversation);
+      off("conversation:updated", handleConversationUpdated);
+      off("message:new", handleNewMessage);
+    };
+  }, [on, off, fetchConversations, selectedId, notify]);
+
+  useEffect(() => {
+    if (selectedId) {
+      setUnreadMap((prev) => {
+        if (!prev[selectedId]) return prev;
+        const next = { ...prev };
+        delete next[selectedId];
+        return next;
+      });
+    }
+  }, [selectedId]);
 
   return (
     <div className="flex flex-col h-full">
       <div className="px-4 py-3 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-800">Client Chats</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-800">Client Chats</h2>
+          <div className="flex items-center gap-2">
+            {soundToggle}
+            <span
+              className={`w-2 h-2 rounded-full ${isConnected ? "bg-emerald-500" : "bg-gray-300"}`}
+              title={isConnected ? "Live" : "Polling"}
+            />
+          </div>
+        </div>
       </div>
 
       <FilterBar
@@ -112,6 +205,7 @@ export default function InboxSidebar({ selectedId, onSelect }: InboxSidebarProps
               : null;
             const participantName = lastMsg?.participant?.displayName ?? null;
             const displayName = clientName || participantName || conv.externalConversationId.slice(0, 16);
+            const unread = unreadMap[conv.id] ?? 0;
 
             return (
               <button
@@ -127,6 +221,11 @@ export default function InboxSidebar({ selectedId, onSelect }: InboxSidebarProps
                     <span className="text-sm font-medium text-gray-800 truncate max-w-[140px]">
                       {displayName}
                     </span>
+                    {unread > 0 && (
+                      <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-emerald-500 rounded-full">
+                        {unread}
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-1.5">
                     <ChannelBadge channel={conv.channelType} />

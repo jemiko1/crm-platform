@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ClientChatsCoreService } from '../services/clientchats-core.service';
 import { ClientChatsMatchingService } from '../services/clientchats-matching.service';
+import { ClientChatsEventService } from '../services/clientchats-event.service';
 import { AdapterRegistryService } from '../adapters/adapter-registry.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ClientChatChannelType, ClientChatDirection } from '@prisma/client';
@@ -70,12 +71,19 @@ describe('ClientChatsCoreService', () => {
       autoMatch: jest.fn().mockResolvedValue(undefined),
     };
 
+    const events = {
+      emitConversationNew: jest.fn(),
+      emitConversationUpdated: jest.fn(),
+      emitNewMessage: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ClientChatsCoreService,
         { provide: PrismaService, useValue: prisma },
         { provide: AdapterRegistryService, useValue: adapterRegistry },
         { provide: ClientChatsMatchingService, useValue: matching },
+        { provide: ClientChatsEventService, useValue: events },
       ],
     }).compile();
 

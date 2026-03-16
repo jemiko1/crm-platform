@@ -49,8 +49,11 @@ export class PublicController {
   }
 
   @Get("clients")
-  listClients(@Query() pagination: PaginationDto) {
-    return this.clients.listDirectory(pagination.page, pagination.pageSize);
+  listClients(
+    @Query() pagination: PaginationDto,
+    @Query("search") search?: string,
+  ) {
+    return this.clients.listDirectory(pagination.page, pagination.pageSize, search);
   }
 
   @Get("clients/:coreId")
