@@ -52,17 +52,6 @@ export class ClientChatsCoreService {
       parsed,
     );
 
-    if (
-      channelType === ClientChatChannelType.TELEGRAM &&
-      !participant.phone &&
-      !participant.mappedClientId
-    ) {
-      participant = await this.tryFetchTelegramPhone(
-        participant,
-        channelAccountId,
-      );
-    }
-
     const conversation = await this.upsertConversation(
       channelType,
       channelAccountId,
@@ -84,6 +73,20 @@ export class ClientChatsCoreService {
     await this.matching.autoMatch(participant, conversation);
 
     this.events.emitNewMessage(conversation.id, message as any);
+
+    if (
+      channelType === ClientChatChannelType.TELEGRAM &&
+      !participant.phone &&
+      !participant.mappedClientId
+    ) {
+      this.tryFetchTelegramPhone(participant, channelAccountId)
+        .then((updated) => {
+          if (updated.phone) {
+            this.matching.autoMatch(updated, conversation).catch(() => {});
+          }
+        })
+        .catch(() => {});
+    }
 
     return message;
   }

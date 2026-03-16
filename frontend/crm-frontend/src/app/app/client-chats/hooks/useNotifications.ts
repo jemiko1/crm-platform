@@ -5,58 +5,38 @@ import { useEffect, useRef, useState, useCallback } from "react";
 const SOUND_PREF_KEY = "clientchat_sound_enabled";
 const BANNER_DISMISSED_KEY = "clientchat_notif_dismissed";
 
-let audioCtxWarmedUp = false;
+let audioEl: HTMLAudioElement | null = null;
+let audioUnlocked = false;
 
-function warmUpAudio() {
-  console.log("NOTIFY: warmUpAudio called");
-  if (audioCtxWarmedUp) {
-    console.log("NOTIFY: warmUpAudio skipped — already warmed up");
-    return;
+function getAudioEl(): HTMLAudioElement | null {
+  if (typeof window === "undefined") return null;
+  if (!audioEl) {
+    audioEl = new Audio("/notification-pop.wav");
+    audioEl.volume = 0.5;
+    audioEl.preload = "auto";
   }
-  try {
-    const AC = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AC) {
-      console.log("NOTIFY: warmUpAudio FAILED — no AudioContext available");
-      return;
-    }
-    const ctx = new AC();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    gain.gain.value = 0;
-    osc.start();
-    osc.stop(ctx.currentTime + 0.01);
-    ctx.close();
-    audioCtxWarmedUp = true;
-    console.log("NOTIFY: warmUpAudio SUCCESS — AudioContext unlocked");
-  } catch (e) {
-    console.log("NOTIFY: warmUpAudio FAILED", e);
-  }
+  return audioEl;
+}
+
+function unlockAudio() {
+  if (audioUnlocked) return;
+  const el = getAudioEl();
+  if (!el) return;
+  el.volume = 0;
+  el.play().then(() => {
+    el.pause();
+    el.currentTime = 0;
+    el.volume = 0.5;
+    audioUnlocked = true;
+  }).catch(() => {});
 }
 
 function playNotificationSound() {
-  console.log("NOTIFY: playNotificationSound called");
-  try {
-    const AC = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AC) {
-      console.log("NOTIFY: playNotificationSound FAILED — no AudioContext");
-      return;
-    }
-    const ctx = new AC();
-    const oscillator = ctx.createOscillator();
-    const gain = ctx.createGain();
-    oscillator.connect(gain);
-    gain.connect(ctx.destination);
-    oscillator.frequency.value = 800;
-    gain.gain.value = 0.3;
-    oscillator.start();
-    oscillator.stop(ctx.currentTime + 0.15);
-    console.log("NOTIFY: oscillator sound played (800Hz, 150ms)");
-    setTimeout(() => ctx.close(), 300);
-  } catch (e) {
-    console.log("NOTIFY: playNotificationSound FAILED", e);
-  }
+  const el = getAudioEl();
+  if (!el) return;
+  el.currentTime = 0;
+  el.volume = 0.5;
+  el.play().catch(() => {});
 }
 
 export function useNotifications() {
@@ -69,25 +49,20 @@ export function useNotifications() {
     if (initialized.current) return;
     initialized.current = true;
 
-    console.log("NOTIFY: useNotifications init");
-
     if (typeof window !== "undefined" && "Notification" in window) {
-      console.log("NOTIFY: Notification.permission =", Notification.permission);
       setPermission(Notification.permission);
-    } else {
-      console.log("NOTIFY: Notification API not available");
     }
 
     const stored = localStorage.getItem(SOUND_PREF_KEY);
-    console.log("NOTIFY: stored soundEnabled =", stored);
     if (stored !== null) setSoundEnabled(stored === "true");
 
     const dismissed = sessionStorage.getItem(BANNER_DISMISSED_KEY);
     if (dismissed === "true") setBannerDismissed(true);
 
+    getAudioEl();
+
     const onInteraction = () => {
-      console.log("NOTIFY: first user interaction detected — warming up audio");
-      warmUpAudio();
+      unlockAudio();
       document.removeEventListener("click", onInteraction);
       document.removeEventListener("keydown", onInteraction);
     };
@@ -102,7 +77,6 @@ export function useNotifications() {
   const requestPermission = useCallback(async () => {
     if (!("Notification" in window)) return;
     const result = await Notification.requestPermission();
-    console.log("NOTIFY: requestPermission result =", result);
     setPermission(result);
   }, []);
 
@@ -114,7 +88,6 @@ export function useNotifications() {
   const toggleSound = useCallback(() => {
     setSoundEnabled((prev) => {
       const next = !prev;
-      console.log("NOTIFY: toggleSound", prev, "->", next);
       localStorage.setItem(SOUND_PREF_KEY, String(next));
       return next;
     });
@@ -122,16 +95,7 @@ export function useNotifications() {
 
   const notify = useCallback(
     (title: string, body: string) => {
-      console.log("NOTIFY: notify() called", {
-        title,
-        body: body.slice(0, 40),
-        permission,
-        soundEnabled,
-        documentHidden: document.hidden,
-      });
-
       if (permission === "granted" && document.hidden) {
-        console.log("NOTIFY: creating browser notification");
         try {
           const n = new Notification(title, {
             body: body.slice(0, 80),
@@ -142,19 +106,13 @@ export function useNotifications() {
             window.focus();
             n.close();
           };
-          console.log("NOTIFY: browser notification created OK");
-        } catch (e) {
-          console.log("NOTIFY: browser notification FAILED", e);
+        } catch {
+          // Notification API not available
         }
-      } else {
-        console.log("NOTIFY: skipping browser notification (permission=" + permission + ", hidden=" + document.hidden + ")");
       }
 
       if (soundEnabled) {
-        console.log("NOTIFY: soundEnabled=true, calling playNotificationSound");
         playNotificationSound();
-      } else {
-        console.log("NOTIFY: soundEnabled=false, skipping sound");
       }
     },
     [permission, soundEnabled],

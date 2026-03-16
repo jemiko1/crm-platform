@@ -163,6 +163,8 @@ export function MessengerProvider({
   // ── Socket Connection ──────────────────────────────────
 
   useEffect(() => {
+    if (!WS_BASE) return;
+
     const socket = io(`${WS_BASE}/messenger`, {
       withCredentials: true,
       transports: ["websocket", "polling"],
