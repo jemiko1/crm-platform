@@ -47,6 +47,11 @@ export default function InboxSidebar({ selectedId, onSelect, notify, soundToggle
   const [unreadMap, setUnreadMap] = useState<Record<string, number>>({});
 
   const isInitialLoad = useRef(true);
+  const lastSeenRef = useRef<Record<string, string>>({});
+  const notifyRef = useRef(notify);
+  const selectedRef = useRef(selectedId);
+  notifyRef.current = notify;
+  selectedRef.current = selectedId;
   const { on, off, isConnected } = useClientChatSocket();
 
   const fetchConversations = useCallback(async () => {
@@ -62,6 +67,50 @@ export default function InboxSidebar({ selectedId, onSelect, notify, soundToggle
       const res = await apiGet<PaginatedResponse<ConversationSummary>>(
         `/v1/clientchats/conversations?${params}`,
       );
+
+      const wasInitial = isInitialLoad.current;
+      const prevSeen = lastSeenRef.current;
+      const nextSeen: Record<string, string> = {};
+      const prevKeys = Object.keys(prevSeen).length;
+
+      console.log("NOTIFY-POLL: fetchConversations", {
+        wasInitial,
+        prevSeenCount: prevKeys,
+        resCount: res.data.length,
+        selectedId: selectedRef.current,
+      });
+
+      for (const conv of res.data) {
+        const ts = conv.lastMessageAt ?? "";
+        nextSeen[conv.id] = ts;
+
+        if (!wasInitial && ts && prevSeen[conv.id] && ts !== prevSeen[conv.id]) {
+          const lastMsg = conv.messages?.[0];
+          console.log("NOTIFY-POLL: timestamp changed for", conv.id.slice(0, 8), {
+            oldTs: prevSeen[conv.id],
+            newTs: ts,
+            lastMsgDirection: lastMsg?.direction,
+            lastMsgText: lastMsg?.text?.slice(0, 30),
+            isSelected: conv.id === selectedRef.current,
+            hasNotifyRef: !!notifyRef.current,
+          });
+          if (
+            lastMsg?.direction === "IN" &&
+            conv.id !== selectedRef.current &&
+            notifyRef.current
+          ) {
+            const name = lastMsg.participant?.displayName ?? conv.channelType;
+            console.log("NOTIFY-POLL: >>> CALLING notify() for", conv.id.slice(0, 8), name);
+            notifyRef.current(name, lastMsg.text ?? "");
+            setUnreadMap((prev) => ({
+              ...prev,
+              [conv.id]: (prev[conv.id] ?? 0) + 1,
+            }));
+          }
+        }
+      }
+      lastSeenRef.current = nextSeen;
+
       setConversations((prev) => {
         if (
           prev.length === res.data.length &&
@@ -82,7 +131,7 @@ export default function InboxSidebar({ selectedId, onSelect, notify, soundToggle
 
   useEffect(() => { fetchConversations(); }, [fetchConversations]);
 
-  const pollInterval = isConnected ? 30000 : 10000;
+  const pollInterval = isConnected ? 30000 : 5000;
   useEffect(() => {
     const interval = setInterval(fetchConversations, pollInterval);
     return () => clearInterval(interval);
@@ -106,6 +155,13 @@ export default function InboxSidebar({ selectedId, onSelect, notify, soundToggle
     };
 
     const handleNewMessage = (data: { conversationId: string; message: any }) => {
+      console.log("NOTIFY-WS: message:new event received", {
+        conversationId: data.conversationId?.slice(0, 8),
+        direction: data.message?.direction,
+        text: data.message?.text?.slice(0, 30),
+        selectedId,
+      });
+
       setConversations((prev) => {
         const idx = prev.findIndex((c) => c.id === data.conversationId);
         if (idx === -1) {
@@ -140,9 +196,17 @@ export default function InboxSidebar({ selectedId, onSelect, notify, soundToggle
         }));
 
         if (data.message.direction === "IN" && notify) {
-          const name = data.message.participant?.displayName ?? "New message";
-          notify(name, data.message.text ?? "");
+          const wsName = data.message.participant?.displayName ?? "New message";
+          console.log("NOTIFY-WS: >>> CALLING notify() for inbound message, name=" + wsName);
+          notify(wsName, data.message.text ?? "");
+        } else {
+          console.log("NOTIFY-WS: skipping notify", {
+            direction: data.message.direction,
+            hasNotify: !!notify,
+          });
         }
+      } else {
+        console.log("NOTIFY-WS: skipping — conversation is selected");
       }
     };
 
