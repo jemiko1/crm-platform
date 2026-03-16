@@ -81,7 +81,7 @@ export function useNotifications() {
         }
       }
 
-      if (soundEnabled && document.hidden) {
+      if (soundEnabled) {
         playNotificationSound();
       }
     },

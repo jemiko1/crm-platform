@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { apiPatch, apiPost, apiGet, apiGetList } from "@/lib/api";
 import type { ConversationDetail, ConversationStatus, AgentOption } from "../types";
 import ChannelBadge from "./channel-badge";
@@ -55,15 +55,28 @@ export default function ConversationHeader({ conversation, onUpdate }: Conversat
     onUpdate();
   }
 
-  async function searchClients() {
-    if (!linkSearch.trim()) return;
-    try {
-      const res = await apiGetList<ClientSearchResult>(`/v1/clients?search=${encodeURIComponent(linkSearch)}`);
-      setLinkResults(res.slice(0, 10));
-    } catch {
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!showLink) return;
+    const q = linkSearch.trim();
+    if (!q) {
       setLinkResults([]);
+      return;
     }
-  }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await apiGetList<ClientSearchResult>(`/v1/clients?search=${encodeURIComponent(q)}&pageSize=10`);
+        setLinkResults(res.slice(0, 10));
+      } catch {
+        setLinkResults([]);
+      }
+    }, 300);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [linkSearch, showLink]);
 
   async function handleLink(clientId: string) {
     await apiPost(`/v1/clientchats/conversations/${conversation.id}/link-client`, { clientId });
@@ -159,18 +172,15 @@ export default function ConversationHeader({ conversation, onUpdate }: Conversat
               </button>
               {showLink && (
                 <div className="absolute right-0 top-full mt-1 w-64 bg-white rounded-xl shadow-lg border border-gray-200 z-20 p-2">
-                  <div className="flex gap-1 mb-2">
+                  <div className="mb-2">
                     <input
                       type="text"
                       placeholder="Search by name or phone..."
                       value={linkSearch}
                       onChange={(e) => setLinkSearch(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && searchClients()}
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                      autoFocus
+                      className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
                     />
-                    <button onClick={searchClients} className="px-2 py-1 bg-emerald-500 text-white rounded-lg text-xs">
-                      Go
-                    </button>
                   </div>
                   <div className="max-h-40 overflow-y-auto">
                     {linkResults.map((c) => (
