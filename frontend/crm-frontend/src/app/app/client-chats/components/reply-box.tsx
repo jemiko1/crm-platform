@@ -17,10 +17,11 @@ interface ReplyBoxProps {
   conversationId: string;
   channelType?: ChannelType;
   clientName?: string;
+  whatsappWindowOpen?: boolean;
   onSent: () => void;
 }
 
-export default function ReplyBox({ conversationId, channelType, clientName, onSent }: ReplyBoxProps) {
+export default function ReplyBox({ conversationId, channelType, clientName, whatsappWindowOpen, onSent }: ReplyBoxProps) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [showSlash, setShowSlash] = useState(false);
@@ -30,6 +31,12 @@ export default function ReplyBox({ conversationId, channelType, clientName, onSe
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [file, setFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+  const [templateVars, setTemplateVars] = useState<Record<string, string>>({});
+  const [sendingTemplate, setSendingTemplate] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -48,6 +55,42 @@ export default function ReplyBox({ conversationId, channelType, clientName, onSe
   useEffect(() => {
     fetchResponses();
   }, [fetchResponses]);
+
+  const windowClosed = channelType === 'WHATSAPP' && whatsappWindowOpen === false;
+
+  async function fetchTemplates() {
+    setLoadingTemplates(true);
+    try {
+      const data = await apiGet<any[]>('/v1/clientchats/whatsapp/templates');
+      setTemplates(data);
+    } catch {
+      setTemplates([]);
+    } finally {
+      setLoadingTemplates(false);
+    }
+  }
+
+  async function handleSendTemplate() {
+    if (!selectedTemplate || sendingTemplate) return;
+    setSendingTemplate(true);
+    try {
+      const components = buildTemplateComponents(selectedTemplate, templateVars);
+      await apiPost('/v1/clientchats/whatsapp/send-template', {
+        conversationId,
+        templateName: selectedTemplate.name,
+        language: selectedTemplate.language,
+        components,
+      });
+      setShowTemplates(false);
+      setSelectedTemplate(null);
+      setTemplateVars({});
+      onSent();
+    } catch {
+      // keep for retry
+    } finally {
+      setSendingTemplate(false);
+    }
+  }
 
   function insertResponse(resp: CannedResponse) {
     let content = resp.content;
@@ -191,6 +234,27 @@ export default function ReplyBox({ conversationId, channelType, clientName, onSe
     return acc;
   }, {});
 
+  function buildTemplateComponents(template: any, vars: Record<string, string>) {
+    if (!template.components) return undefined;
+    return template.components
+      .filter((c: any) => c.type === 'BODY')
+      .map((c: any) => {
+        const params = (c.text?.match(/\{\{\d+\}\}/g) || []).map((_: string, i: number) => ({
+          type: 'text',
+          text: vars[`${i + 1}`] || '',
+        }));
+        return params.length > 0 ? { type: 'body', parameters: params } : null;
+      })
+      .filter(Boolean);
+  }
+
+  function getTemplateVariables(template: any): string[] {
+    const body = template.components?.find((c: any) => c.type === 'BODY');
+    if (!body?.text) return [];
+    const matches = body.text.match(/\{\{\d+\}\}/g) || [];
+    return [...new Set(matches)].sort() as string[];
+  }
+
   return (
     <div className="border-t border-gray-200 p-3 bg-white/60 relative">
       {showSlash && filtered.length > 0 && (
@@ -272,15 +336,96 @@ export default function ReplyBox({ conversationId, channelType, clientName, onSe
         </div>
       )}
 
+      {windowClosed && (
+        <div className="mb-2 flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-500 shrink-0">
+            <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          <span className="text-xs text-amber-700">24-hour window closed. Use a template to re-engage.</span>
+          <button
+            onClick={() => { setShowTemplates(true); fetchTemplates(); }}
+            className="ml-auto text-xs font-medium text-emerald-600 hover:text-emerald-700"
+          >
+            Send Template
+          </button>
+        </div>
+      )}
+
+      {showTemplates && (
+        <div className="absolute bottom-full left-0 right-0 mb-1 max-h-96 overflow-y-auto rounded-xl border border-zinc-200 bg-white shadow-lg z-50 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-semibold text-zinc-800">WhatsApp Templates</span>
+            <button onClick={() => { setShowTemplates(false); setSelectedTemplate(null); }} className="text-zinc-400 hover:text-zinc-600 text-lg">&times;</button>
+          </div>
+
+          {loadingTemplates ? (
+            <p className="text-xs text-zinc-400 py-4 text-center">Loading templates...</p>
+          ) : templates.length === 0 ? (
+            <p className="text-xs text-zinc-400 py-4 text-center">No approved templates found</p>
+          ) : !selectedTemplate ? (
+            <div className="space-y-1">
+              {templates.map((t) => (
+                <button
+                  key={`${t.name}-${t.language}`}
+                  onClick={() => { setSelectedTemplate(t); setTemplateVars({}); }}
+                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-50 transition"
+                >
+                  <span className="text-sm font-medium text-zinc-800">{t.name}</span>
+                  <span className="ml-2 text-xs text-zinc-400">{t.language}</span>
+                  <p className="text-xs text-zinc-500 truncate mt-0.5">
+                    {t.components?.find((c: any) => c.type === 'BODY')?.text || ''}
+                  </p>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div>
+              <button onClick={() => setSelectedTemplate(null)} className="text-xs text-emerald-600 mb-2">&larr; Back</button>
+              <p className="text-sm font-medium text-zinc-800 mb-1">{selectedTemplate.name}</p>
+              <p className="text-xs text-zinc-500 mb-3 whitespace-pre-wrap">
+                {selectedTemplate.components?.find((c: any) => c.type === 'BODY')?.text || ''}
+              </p>
+
+              {getTemplateVariables(selectedTemplate).length > 0 && (
+                <div className="space-y-2 mb-3">
+                  <p className="text-xs font-medium text-zinc-600">Fill in variables:</p>
+                  {getTemplateVariables(selectedTemplate).map((v) => {
+                    const num = v.replace(/[{}]/g, '');
+                    return (
+                      <input
+                        key={v}
+                        placeholder={v}
+                        value={templateVars[num] || ''}
+                        onChange={(e) => setTemplateVars({ ...templateVars, [num]: e.target.value })}
+                        className="w-full border border-zinc-200 rounded-lg px-2 py-1 text-sm"
+                      />
+                    );
+                  })}
+                </div>
+              )}
+
+              <button
+                onClick={handleSendTemplate}
+                disabled={sendingTemplate}
+                className="w-full px-3 py-2 rounded-lg bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 disabled:opacity-40"
+              >
+                {sendingTemplate ? 'Sending...' : 'Send Template'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex items-end gap-2">
         <textarea
           ref={textareaRef}
           value={text}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          placeholder='Type a reply... (start with "/" for quick replies)'
+          disabled={windowClosed}
+          placeholder={windowClosed ? 'Window closed — send a template to re-open' : 'Type a reply... (start with "/" for quick replies)'}
           rows={2}
-          className="flex-1 resize-none border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white/80"
+          className="flex-1 resize-none border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white/80 disabled:opacity-50 disabled:cursor-not-allowed"
         />
         <button
           onClick={() => fileInputRef.current?.click()}
@@ -302,7 +447,7 @@ export default function ReplyBox({ conversationId, channelType, clientName, onSe
         </button>
         <button
           onClick={handleSend}
-          disabled={(!text.trim() && !file) || sending}
+          disabled={(!text.trim() && !file) || sending || windowClosed}
           className="px-4 py-2 rounded-xl bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 disabled:opacity-40 transition-colors"
         >
           {sending ? "..." : "Send"}

@@ -140,6 +140,33 @@ export class ClientChatsAgentController {
     return this.core.unlinkClient(id);
   }
 
+  @Get('whatsapp/templates')
+  @RequirePermission('client_chats.menu')
+  getWhatsAppTemplates() {
+    return this.core.getWhatsAppTemplates();
+  }
+
+  @Post('whatsapp/send-template')
+  @RequirePermission('client_chats.menu')
+  sendWhatsAppTemplate(
+    @Body()
+    dto: {
+      conversationId: string;
+      templateName: string;
+      language: string;
+      components?: any[];
+    },
+    @Req() req: any,
+  ) {
+    return this.core.sendWhatsAppTemplate(
+      dto.conversationId,
+      req.user.id,
+      dto.templateName,
+      dto.language,
+      dto.components,
+    );
+  }
+
   @Get('media/:mediaId')
   @RequirePermission('client_chats.menu')
   async proxyMedia(

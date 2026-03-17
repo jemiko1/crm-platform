@@ -735,6 +735,7 @@ function WhatsAppConfig() {
   const [waPhoneNumberId, setWaPhoneNumberId] = useState("");
   const [waVerifyToken, setWaVerifyToken] = useState("");
   const [waAppSecret, setWaAppSecret] = useState("");
+  const [waBusinessAccountId, setWaBusinessAccountId] = useState("");
   const [webhookStatus, setWebhookStatus] = useState<{
     ok: boolean;
     phoneNumber?: string;
@@ -753,6 +754,7 @@ function WhatsAppConfig() {
         setWaPhoneNumberId((acc.metadata?.waPhoneNumberId as string) || "");
         setWaVerifyToken((acc.metadata?.waVerifyToken as string) || "");
         setWaAppSecret((acc.metadata?.waAppSecret as string) || "");
+        setWaBusinessAccountId((acc.metadata?.waBusinessAccountId as string) || "");
       }
     } catch {
       setMsg("Failed to load configuration");
@@ -791,6 +793,7 @@ function WhatsAppConfig() {
           waPhoneNumberId: waPhoneNumberId || undefined,
           waVerifyToken: waVerifyToken || undefined,
           waAppSecret: waAppSecret || undefined,
+          waBusinessAccountId: waBusinessAccountId || undefined,
         },
       });
       setMsg("WhatsApp configuration saved");
@@ -892,6 +895,7 @@ function WhatsAppConfig() {
       <div className="grid gap-4 md:grid-cols-2">
         <Field label="Account Name" value={name} onChange={setName} placeholder="Default WhatsApp" disabled={!active} />
         <Field label="Phone Number ID" value={waPhoneNumberId} onChange={setWaPhoneNumberId} placeholder="From Meta Business Suite" disabled={!active} />
+        <Field label="Business Account ID" value={waBusinessAccountId} onChange={setWaBusinessAccountId} placeholder="WABA ID for template messages" disabled={!active} />
         <Field label="Verify Token" value={waVerifyToken} onChange={setWaVerifyToken} placeholder="Custom string for webhook verification" disabled={!active} />
         <div className="md:col-span-2">
           <Field

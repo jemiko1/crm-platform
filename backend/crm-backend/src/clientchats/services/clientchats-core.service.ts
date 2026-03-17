@@ -505,7 +505,13 @@ export class ClientChatsCoreService {
       },
     });
     if (!conversation) throw new NotFoundException('Conversation not found');
-    return conversation;
+
+    let whatsappWindowOpen: boolean | undefined;
+    if (conversation.channelType === ClientChatChannelType.WHATSAPP) {
+      whatsappWindowOpen = await this.isWhatsAppWindowOpen(id);
+    }
+
+    return { ...conversation, whatsappWindowOpen };
   }
 
   async getMessages(
@@ -608,6 +614,141 @@ export class ClientChatsCoreService {
         ...(data.status != null && { status: data.status }),
       },
     });
+  }
+
+  // ── WhatsApp 24-hour window & templates ──────────────────
+
+  private templateCache: { data: any[]; fetchedAt: number } | null = null;
+
+  async isWhatsAppWindowOpen(conversationId: string): Promise<boolean> {
+    const lastInbound = await this.prisma.clientChatMessage.findFirst({
+      where: {
+        conversationId,
+        direction: 'IN',
+      },
+      orderBy: { sentAt: 'desc' },
+    });
+    if (!lastInbound) return false;
+    const hoursSince =
+      (Date.now() - new Date(lastInbound.sentAt).getTime()) / (1000 * 60 * 60);
+    return hoursSince < 24;
+  }
+
+  async getWhatsAppTemplates(): Promise<any[]> {
+    if (
+      this.templateCache &&
+      Date.now() - this.templateCache.fetchedAt < 5 * 60 * 1000
+    ) {
+      return this.templateCache.data;
+    }
+
+    const account = await this.getOrCreateDefaultAccount(
+      ClientChatChannelType.WHATSAPP,
+    );
+    const meta = account.metadata as Record<string, unknown> | null;
+    const token = (meta?.waAccessToken as string) || '';
+    const wabaId = (meta?.waBusinessAccountId as string) || '';
+
+    if (!token || !wabaId) return [];
+
+    try {
+      const res = await fetch(
+        `https://graph.facebook.com/v21.0/${wabaId}/message_templates?fields=name,language,status,components&limit=100&access_token=${encodeURIComponent(token)}`,
+      );
+      const data = (await res.json()) as Record<string, unknown>;
+      const templates = ((data.data as any[]) || []).filter(
+        (t: any) => t.status === 'APPROVED',
+      );
+      this.templateCache = { data: templates, fetchedAt: Date.now() };
+      return templates;
+    } catch (err) {
+      this.logger.error(`Failed to fetch WhatsApp templates: ${err}`);
+      return [];
+    }
+  }
+
+  async sendWhatsAppTemplate(
+    conversationId: string,
+    userId: string,
+    templateName: string,
+    language: string,
+    components?: any[],
+  ): Promise<any> {
+    const conversation = await this.prisma.clientChatConversation.findUnique({
+      where: { id: conversationId },
+      include: { channelAccount: true },
+    });
+    if (!conversation) throw new NotFoundException('Conversation not found');
+    if (conversation.channelType !== ClientChatChannelType.WHATSAPP) {
+      throw new BadRequestException('Templates are only for WhatsApp');
+    }
+
+    const meta = (conversation.channelAccount.metadata ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const token = (meta.waAccessToken as string) || '';
+    const phoneNumberId = (meta.waPhoneNumberId as string) || '';
+
+    if (!token || !phoneNumberId) {
+      throw new BadRequestException('WhatsApp not configured');
+    }
+
+    const recipientPhone =
+      conversation.externalConversationId.replace('wa_', '');
+
+    const body: Record<string, unknown> = {
+      messaging_product: 'whatsapp',
+      to: recipientPhone,
+      type: 'template',
+      template: {
+        name: templateName,
+        language: { code: language },
+        ...(components?.length ? { components } : {}),
+      },
+    };
+
+    const res = await fetch(
+      `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      },
+    );
+
+    const data = (await res.json()) as Record<string, unknown>;
+
+    if (data.error) {
+      const errObj = data.error as Record<string, unknown>;
+      throw new BadRequestException(
+        (errObj.message as string) || 'Template send failed',
+      );
+    }
+
+    const messages = data.messages as any[];
+    const externalId = messages?.[0]?.id || `wa_tmpl_${Date.now()}`;
+
+    const message = await this.saveMessage({
+      conversationId,
+      participantId: null,
+      senderUserId: userId,
+      direction: ClientChatDirection.OUT,
+      externalMessageId: externalId,
+      text: `[Template: ${templateName}]`,
+    });
+
+    await this.prisma.clientChatConversation.update({
+      where: { id: conversationId },
+      data: { lastMessageAt: new Date() },
+    });
+
+    this.events.emitNewMessage(conversationId, message as any);
+
+    return { message, templateName };
   }
 
   // ── WhatsApp media proxy ─────────────────────────────────

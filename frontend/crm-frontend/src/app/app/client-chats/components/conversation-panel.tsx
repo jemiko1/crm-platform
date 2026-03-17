@@ -130,6 +130,7 @@ export default function ConversationPanel({ conversationId }: ConversationPanelP
             ? [conversation.client.firstName, conversation.client.lastName].filter(Boolean).join(" ")
             : undefined
         }
+        whatsappWindowOpen={conversation.whatsappWindowOpen}
         onSent={fetchMessages}
       />
     </div>
