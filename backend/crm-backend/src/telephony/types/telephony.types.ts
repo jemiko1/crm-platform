@@ -166,6 +166,49 @@ export interface CallerLookupResult {
   }>;
 }
 
+export interface BreakdownRow {
+  label: string;
+  sortKey: number;
+  totalCalls: number;
+  answeredCalls: number;
+  lostCalls: number;
+  callsLostBefore5Sec: number;
+  totalCallsDurationMin: number;
+  avgCallDurationSec: number | null;
+  answeredAvgHoldTimeSec: number | null;
+  answeredAvgPosition: number | null;
+  lostAvgHoldTimeSec: number | null;
+  lostAvgPosition: number | null;
+  slaPercent: number | null;
+}
+
+export interface HoldTimeDistribution {
+  under15: { count: number; percent: number };
+  under30: { count: number; percent: number };
+  under60: { count: number; percent: number };
+  over60: { count: number; percent: number };
+}
+
+export interface BreakdownResponse {
+  rows: BreakdownRow[];
+  answeredHoldDistribution?: HoldTimeDistribution;
+  lostHoldDistribution?: HoldTimeDistribution;
+}
+
+export interface AgentBreakdownRow {
+  userId: string;
+  displayName: string | null;
+  extension: string | null;
+  answeredCalls: number;
+  noAnswerCalls: number;
+  busyCalls: number;
+  totalCalls: number;
+  totalCallsDurationMin: number;
+  avgCallDurationSec: number | null;
+  answeredAvgRingTimeSec: number | null;
+  noAnswerAvgRingTimeSec: number | null;
+}
+
 export interface WorktimeWindow {
   day: number; // 0=Sun, 1=Mon, ..., 6=Sat
   start: string; // "HH:mm"

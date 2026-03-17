@@ -3,6 +3,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { TelephonyStatsService } from '../services/telephony-stats.service';
 import { QueryStatsDto } from '../dto/query-stats.dto';
+import { QueryBreakdownDto } from '../dto/query-breakdown.dto';
 
 @ApiTags('Telephony')
 @Controller('v1/telephony/stats')
@@ -23,5 +24,20 @@ export class TelephonyStatsController {
   @Get('queues')
   async getQueueStats(@Query() query: QueryStatsDto) {
     return this.statsService.getQueueStats(query);
+  }
+
+  @Get('breakdown')
+  async getBreakdown(@Query() query: QueryBreakdownDto) {
+    return this.statsService.getBreakdown(query);
+  }
+
+  @Get('overview-extended')
+  async getOverviewExtended(@Query() query: QueryStatsDto) {
+    return this.statsService.getOverviewExtended(query);
+  }
+
+  @Get('agents-breakdown')
+  async getAgentBreakdown(@Query() query: QueryStatsDto) {
+    return this.statsService.getAgentBreakdown(query);
   }
 }

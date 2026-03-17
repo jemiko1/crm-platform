@@ -7,6 +7,9 @@ import type {
   LiveQueue,
   LiveAgent,
   CallbacksPaginated,
+  BreakdownResponse,
+  OverviewExtended,
+  AgentBreakdownRow,
 } from "./types";
 
 function qs(params: Record<string, string | number | undefined | null>): string {
@@ -64,6 +67,36 @@ export async function fetchLiveQueues(): Promise<LiveQueue[]> {
 
 export async function fetchLiveAgents(): Promise<LiveAgent[]> {
   return apiGet<LiveAgent[]>("/v1/telephony/agents/live");
+}
+
+export async function fetchBreakdown(params: {
+  from: string;
+  to: string;
+  groupBy: 'hour' | 'day' | 'weekday';
+  queueId?: string;
+  agentId?: string;
+  direction?: 'IN' | 'OUT';
+}): Promise<BreakdownResponse> {
+  const q = qs(params);
+  return apiGet<BreakdownResponse>(`/v1/telephony/stats/breakdown?${q}`);
+}
+
+export async function fetchOverviewExtended(params: {
+  from: string;
+  to: string;
+  queueId?: string;
+}): Promise<OverviewExtended> {
+  const q = qs(params);
+  return apiGet<OverviewExtended>(`/v1/telephony/stats/overview-extended?${q}`);
+}
+
+export async function fetchAgentBreakdown(params: {
+  from: string;
+  to: string;
+  queueId?: string;
+}): Promise<AgentBreakdownRow[]> {
+  const q = qs(params);
+  return apiGet<AgentBreakdownRow[]>(`/v1/telephony/stats/agents-breakdown?${q}`);
 }
 
 export async function fetchCallbacks(params: {
