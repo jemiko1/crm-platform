@@ -33,6 +33,6 @@ export interface ChannelAdapter {
     externalConversationId: string,
     text: string,
     channelAccountMetadata: Record<string, unknown>,
-    attachments?: Record<string, unknown>[],
+    media?: { buffer: Buffer; mimeType: string; filename: string },
   ): Promise<SendResult>;
 }

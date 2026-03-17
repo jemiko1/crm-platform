@@ -104,6 +104,7 @@ export class FacebookAdapter implements ChannelAdapter {
     externalConversationId: string,
     text: string,
     channelAccountMetadata: Record<string, unknown>,
+    media?: { buffer: Buffer; mimeType: string; filename: string },
   ): Promise<SendResult> {
     const token =
       (channelAccountMetadata.fbPageAccessToken as string) || this.pageToken;
@@ -113,6 +114,16 @@ export class FacebookAdapter implements ChannelAdapter {
         success: false,
         error: 'No Facebook page token',
       };
+    }
+
+    // TODO: Implement Facebook Messenger attachment upload API for outbound media.
+    // Requires either a public file URL or the attachment upload API
+    // (POST /me/message_attachments) which needs a hosted file.
+    if (media) {
+      this.logger.warn(
+        'Facebook outbound media not yet supported — sending text only',
+      );
+      text = text ? `${text} (attachment)` : '(attachment)';
     }
 
     const recipientId = externalConversationId.replace('fb_', '');

@@ -72,11 +72,21 @@ export class ViberAdapter implements ChannelAdapter {
     externalConversationId: string,
     text: string,
     channelAccountMetadata: Record<string, unknown>,
+    media?: { buffer: Buffer; mimeType: string; filename: string },
   ): Promise<SendResult> {
     const token =
       (channelAccountMetadata.viberBotToken as string) || this.token;
     if (!token) {
       return { externalMessageId: '', success: false, error: 'No Viber token' };
+    }
+
+    // TODO: Implement Viber outbound media (picture/file types).
+    // Requires a publicly accessible URL for the media file.
+    if (media) {
+      this.logger.warn(
+        'Viber outbound media not yet supported — sending text only',
+      );
+      text = text ? `${text} (attachment)` : '(attachment)';
     }
 
     const receiverId = externalConversationId.replace('viber_', '');

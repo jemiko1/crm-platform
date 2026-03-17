@@ -44,6 +44,7 @@ export interface ConversationDetail {
     lastName: string | null;
     primaryPhone: string | null;
   } | null;
+  whatsappWindowOpen?: boolean;
   messages?: {
     participant: { displayName: string; phone: string | null } | null;
   }[];

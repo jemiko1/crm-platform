@@ -2,6 +2,8 @@ import {
   Controller,
   Get,
   Post,
+  Put,
+  Delete,
   Patch,
   Param,
   Query,
@@ -9,23 +11,32 @@ import {
   Req,
   Res,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { PositionPermissionGuard } from '../../common/guards/position-permission.guard';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { ClientChatsCoreService } from '../services/clientchats-core.service';
+import { CannedResponsesService } from '../services/canned-responses.service';
 import { ConversationQueryDto } from '../dto/conversation-query.dto';
-import { ReplyMessageDto } from '../dto/reply-message.dto';
 import { AssignConversationDto } from '../dto/assign-conversation.dto';
 import { ChangeStatusDto } from '../dto/change-status.dto';
 import { LinkClientDto } from '../dto/link-client.dto';
+import { CreateCannedResponseDto } from '../dto/create-canned-response.dto';
+import { UpdateCannedResponseDto } from '../dto/update-canned-response.dto';
 
 @Controller('v1/clientchats')
 @UseGuards(JwtAuthGuard, PositionPermissionGuard)
 export class ClientChatsAgentController {
-  constructor(private readonly core: ClientChatsCoreService) {}
+  constructor(
+    private readonly core: ClientChatsCoreService,
+    private readonly cannedResponses: CannedResponsesService,
+  ) {}
 
   @Get('conversations')
   @RequirePermission('client_chats.menu')
@@ -53,14 +64,56 @@ export class ClientChatsAgentController {
     );
   }
 
+  private static readonly ALLOWED_MEDIA_TYPES = [
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+    'application/pdf',
+  ];
+
   @Post('conversations/:id/reply')
   @RequirePermission('client_chats.menu')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 10 * 1024 * 1024 },
+      fileFilter: (_req, file, cb) => {
+        const allowed = [
+          'image/jpeg',
+          'image/png',
+          'image/webp',
+          'image/gif',
+          'application/pdf',
+        ];
+        if (allowed.includes(file.mimetype)) {
+          cb(null, true);
+        } else {
+          cb(new BadRequestException('File type not allowed'), false);
+        }
+      },
+    }),
+  )
   reply(
     @Param('id') id: string,
-    @Body() dto: ReplyMessageDto,
+    @Body('text') text: string | undefined,
+    @UploadedFile() file: Express.Multer.File | undefined,
     @Req() req: any,
   ) {
-    return this.core.sendReply(id, req.user.id, dto.text);
+    if (!text?.trim() && !file) {
+      throw new BadRequestException('Text or file is required');
+    }
+    return this.core.sendReply(
+      id,
+      req.user.id,
+      text?.trim() || '',
+      file
+        ? {
+            buffer: file.buffer,
+            mimeType: file.mimetype,
+            filename: file.originalname,
+          }
+        : undefined,
+    );
   }
 
   @Patch('conversations/:id/assign')
@@ -87,6 +140,33 @@ export class ClientChatsAgentController {
     return this.core.unlinkClient(id);
   }
 
+  @Get('whatsapp/templates')
+  @RequirePermission('client_chats.menu')
+  getWhatsAppTemplates() {
+    return this.core.getWhatsAppTemplates();
+  }
+
+  @Post('whatsapp/send-template')
+  @RequirePermission('client_chats.menu')
+  sendWhatsAppTemplate(
+    @Body()
+    dto: {
+      conversationId: string;
+      templateName: string;
+      language: string;
+      components?: any[];
+    },
+    @Req() req: any,
+  ) {
+    return this.core.sendWhatsAppTemplate(
+      dto.conversationId,
+      req.user.id,
+      dto.templateName,
+      dto.language,
+      dto.components,
+    );
+  }
+
   @Get('media/:mediaId')
   @RequirePermission('client_chats.menu')
   async proxyMedia(
@@ -98,5 +178,60 @@ export class ClientChatsAgentController {
     res.setHeader('Content-Type', result.contentType);
     res.setHeader('Cache-Control', 'private, max-age=86400');
     result.stream.pipe(res);
+  }
+
+  // ── Canned Responses ─────────────────────────────────────
+
+  @Get('canned-responses')
+  @RequirePermission('client_chats.menu')
+  listCannedResponses(
+    @Req() req: any,
+    @Query('category') category?: string,
+    @Query('channelType') channelType?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.cannedResponses.findAll(req.user.id, {
+      category,
+      channelType,
+      search,
+    });
+  }
+
+  @Post('canned-responses')
+  @RequirePermission('client_chats.menu')
+  createCannedResponse(
+    @Req() req: any,
+    @Body() dto: CreateCannedResponseDto,
+  ) {
+    return this.cannedResponses.create(
+      req.user.id,
+      req.user.isSuperAdmin ?? false,
+      dto,
+    );
+  }
+
+  @Put('canned-responses/:id')
+  @RequirePermission('client_chats.menu')
+  updateCannedResponse(
+    @Param('id') id: string,
+    @Req() req: any,
+    @Body() dto: UpdateCannedResponseDto,
+  ) {
+    return this.cannedResponses.update(
+      id,
+      req.user.id,
+      req.user.isSuperAdmin ?? false,
+      dto,
+    );
+  }
+
+  @Delete('canned-responses/:id')
+  @RequirePermission('client_chats.menu')
+  deleteCannedResponse(@Param('id') id: string, @Req() req: any) {
+    return this.cannedResponses.delete(
+      id,
+      req.user.id,
+      req.user.isSuperAdmin ?? false,
+    );
   }
 }

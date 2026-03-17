@@ -43,6 +43,7 @@ export class WebChatAdapter implements ChannelAdapter {
     _externalConversationId: string,
     _text: string,
     _channelAccountMetadata: Record<string, unknown>,
+    _media?: { buffer: Buffer; mimeType: string; filename: string },
   ): Promise<SendResult> {
     // Web chat does not push messages back — the frontend polls or uses WebSocket.
     return {

@@ -122,7 +122,17 @@ export default function ConversationPanel({ conversationId }: ConversationPanelP
         <div ref={bottomRef} />
       </div>
 
-      <ReplyBox conversationId={conversationId} onSent={fetchMessages} />
+      <ReplyBox
+        conversationId={conversationId}
+        channelType={conversation.channelType}
+        clientName={
+          conversation.client
+            ? [conversation.client.firstName, conversation.client.lastName].filter(Boolean).join(" ")
+            : undefined
+        }
+        whatsappWindowOpen={conversation.whatsappWindowOpen}
+        onSent={fetchMessages}
+      />
     </div>
   );
 }

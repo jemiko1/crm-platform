@@ -117,6 +117,7 @@ export class TelegramAdapter implements ChannelAdapter {
     externalConversationId: string,
     text: string,
     channelAccountMetadata: Record<string, unknown>,
+    media?: { buffer: Buffer; mimeType: string; filename: string },
   ): Promise<SendResult> {
     const token =
       (channelAccountMetadata.telegramBotToken as string) || this.token;
@@ -127,34 +128,71 @@ export class TelegramAdapter implements ChannelAdapter {
     const chatId = externalConversationId.replace('tg_', '');
 
     try {
-      const res = await fetch(`${TELEGRAM_API_BASE}${token}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text,
-        }),
-      });
-
-      const data = (await res.json()) as Record<string, unknown>;
-      if (!data.ok) {
-        const errMsg =
-          (data.description as string) || 'Unknown Telegram error';
-        this.logger.error(`Telegram send failed: ${errMsg}`);
-        return { externalMessageId: '', success: false, error: errMsg };
+      if (media) {
+        return this.sendMediaMessage(token, chatId, text, media);
       }
-
-      const result = data.result as Record<string, unknown> | undefined;
-      const messageId = result?.message_id;
-
-      return {
-        externalMessageId: messageId ? String(messageId) : `tg_out_${Date.now()}`,
-        success: true,
-      };
+      return this.sendTextMessage(token, chatId, text);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       this.logger.error(`Telegram send error: ${msg}`);
       return { externalMessageId: '', success: false, error: msg };
     }
+  }
+
+  private async sendTextMessage(
+    token: string,
+    chatId: string,
+    text: string,
+  ): Promise<SendResult> {
+    const res = await fetch(`${TELEGRAM_API_BASE}${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text }),
+    });
+    return this.parseTgResponse(res);
+  }
+
+  private async sendMediaMessage(
+    token: string,
+    chatId: string,
+    text: string,
+    media: { buffer: Buffer; mimeType: string; filename: string },
+  ): Promise<SendResult> {
+    const isImage = media.mimeType.startsWith('image/');
+    const method = isImage ? 'sendPhoto' : 'sendDocument';
+    const fieldName = isImage ? 'photo' : 'document';
+
+    const formData = new FormData();
+    formData.append('chat_id', chatId);
+    formData.append(
+      fieldName,
+      new Blob([new Uint8Array(media.buffer)], { type: media.mimeType }),
+      media.filename,
+    );
+    if (text) {
+      formData.append('caption', text);
+    }
+
+    const res = await fetch(`${TELEGRAM_API_BASE}${token}/${method}`, {
+      method: 'POST',
+      body: formData,
+    });
+    return this.parseTgResponse(res);
+  }
+
+  private async parseTgResponse(res: Response): Promise<SendResult> {
+    const data = (await res.json()) as Record<string, unknown>;
+    if (!data.ok) {
+      const errMsg = (data.description as string) || 'Unknown Telegram error';
+      this.logger.error(`Telegram send failed: ${errMsg}`);
+      return { externalMessageId: '', success: false, error: errMsg };
+    }
+
+    const result = data.result as Record<string, unknown> | undefined;
+    const messageId = result?.message_id;
+    return {
+      externalMessageId: messageId ? String(messageId) : `tg_out_${Date.now()}`,
+      success: true,
+    };
   }
 }

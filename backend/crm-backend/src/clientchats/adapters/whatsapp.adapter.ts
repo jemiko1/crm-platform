@@ -169,6 +169,7 @@ export class WhatsAppAdapter implements ChannelAdapter {
     externalConversationId: string,
     text: string,
     channelAccountMetadata: Record<string, unknown>,
+    media?: { buffer: Buffer; mimeType: string; filename: string },
   ): Promise<SendResult> {
     const token =
       (channelAccountMetadata.waAccessToken as string) ||
@@ -187,46 +188,149 @@ export class WhatsAppAdapter implements ChannelAdapter {
       };
     }
 
-    const to = externalConversationId.replace('wa_', '');
+    const to = externalConversationId.replace('wa_', '').replace(/\D/g, '');
 
     try {
+      if (media) {
+        return this.sendMediaMessage(phoneNumberId, token, to, text, media);
+      }
+      return this.sendTextMessage(phoneNumberId, token, to, text);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(`WhatsApp send error: ${msg}`);
+      return { externalMessageId: '', success: false, error: msg };
+    }
+  }
+
+  private async sendTextMessage(
+    phoneNumberId: string,
+    token: string,
+    to: string,
+    text: string,
+  ): Promise<SendResult> {
+    const res = await fetch(
+      `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to,
+          type: 'text',
+          text: { body: text },
+        }),
+      },
+    );
+    return this.parseWaResponse(res);
+  }
+
+  private async sendMediaMessage(
+    phoneNumberId: string,
+    token: string,
+    to: string,
+    text: string,
+    media: { buffer: Buffer; mimeType: string; filename: string },
+  ): Promise<SendResult> {
+    const mediaId = await this.uploadMedia(phoneNumberId, token, media);
+    if (!mediaId) {
+      return { externalMessageId: '', success: false, error: 'Media upload failed' };
+    }
+
+    const mediaType = media.mimeType.startsWith('image/') ? 'image' : 'document';
+    const mediaPayload: Record<string, unknown> = { id: mediaId };
+    if (text) {
+      if (mediaType === 'image') {
+        mediaPayload.caption = text;
+      }
+    }
+    if (mediaType === 'document') {
+      mediaPayload.filename = media.filename;
+    }
+
+    const res = await fetch(
+      `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to,
+          type: mediaType,
+          [mediaType]: mediaPayload,
+        }),
+      },
+    );
+
+    const result = await this.parseWaResponse(res);
+
+    if (result.success && text && mediaType === 'document') {
+      await this.sendTextMessage(phoneNumberId, token, to, text).catch((err) =>
+        this.logger.warn(`Follow-up text after document failed: ${err}`),
+      );
+    }
+
+    return result;
+  }
+
+  private async uploadMedia(
+    phoneNumberId: string,
+    token: string,
+    media: { buffer: Buffer; mimeType: string; filename: string },
+  ): Promise<string | null> {
+    try {
+      const formData = new FormData();
+      formData.append(
+        'file',
+        new Blob([new Uint8Array(media.buffer)], { type: media.mimeType }),
+        media.filename,
+      );
+      formData.append('type', media.mimeType);
+      formData.append('messaging_product', 'whatsapp');
+
       const res = await fetch(
-        `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
+        `https://graph.facebook.com/v21.0/${phoneNumberId}/media`,
         {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            messaging_product: 'whatsapp',
-            recipient_type: 'individual',
-            to: to.replace(/\D/g, ''),
-            type: 'text',
-            text: { body: text },
-          }),
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
         },
       );
 
       const data = (await res.json()) as Record<string, unknown>;
       if (data.error) {
         const errObj = data.error as Record<string, unknown>;
-        const errMsg = (errObj.message as string) || 'Unknown WhatsApp error';
-        this.logger.error(`WhatsApp send failed: ${errMsg}`);
-        return { externalMessageId: '', success: false, error: errMsg };
+        this.logger.error(`WhatsApp media upload failed: ${errObj.message}`);
+        return null;
       }
-
-      const messages = data.messages as Record<string, unknown>[] | undefined;
-      const msgId = messages?.[0]?.id as string | undefined;
-
-      return {
-        externalMessageId: msgId ?? `wa_out_${Date.now()}`,
-        success: true,
-      };
+      return (data.id as string) ?? null;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      this.logger.error(`WhatsApp send error: ${msg}`);
-      return { externalMessageId: '', success: false, error: msg };
+      this.logger.error(`WhatsApp media upload error: ${err}`);
+      return null;
     }
+  }
+
+  private async parseWaResponse(res: Response): Promise<SendResult> {
+    const data = (await res.json()) as Record<string, unknown>;
+    if (data.error) {
+      const errObj = data.error as Record<string, unknown>;
+      const errMsg = (errObj.message as string) || 'Unknown WhatsApp error';
+      this.logger.error(`WhatsApp send failed: ${errMsg}`);
+      return { externalMessageId: '', success: false, error: errMsg };
+    }
+
+    const messages = data.messages as Record<string, unknown>[] | undefined;
+    const msgId = messages?.[0]?.id as string | undefined;
+    return {
+      externalMessageId: msgId ?? `wa_out_${Date.now()}`,
+      success: true,
+    };
   }
 }

@@ -3,6 +3,7 @@ import { ClientChatsCoreService } from '../services/clientchats-core.service';
 import { ClientChatsMatchingService } from '../services/clientchats-matching.service';
 import { ClientChatsEventService } from '../services/clientchats-event.service';
 import { AdapterRegistryService } from '../adapters/adapter-registry.service';
+import { AssignmentService } from '../services/assignment.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ClientChatChannelType, ClientChatDirection } from '@prisma/client';
 
@@ -84,6 +85,7 @@ describe('ClientChatsCoreService', () => {
         { provide: AdapterRegistryService, useValue: adapterRegistry },
         { provide: ClientChatsMatchingService, useValue: matching },
         { provide: ClientChatsEventService, useValue: events },
+        { provide: AssignmentService, useValue: { autoAssign: jest.fn().mockResolvedValue(null) } },
       ],
     }).compile();
 
