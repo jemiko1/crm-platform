@@ -162,7 +162,7 @@ describe('ClientChatsCoreService', () => {
         id: 'conv-1',
         channelType: ClientChatChannelType.WEB,
         externalConversationId: 'web_visitor1',
-        channelAccount: { id: 'acc-1', metadata: {} },
+        channelAccount: { id: 'acc-1', metadata: {}, status: 'ACTIVE' },
       });
 
       const result = await service.sendReply('conv-1', 'user-1', 'Reply text');
