@@ -101,6 +101,24 @@ export class CdrImportService {
       };
       events.push(startDto);
 
+      // Generate call_answer for CDR rows that were actually answered
+      const cdrDisp = (row.disposition ?? '').toUpperCase();
+      if (cdrDisp === 'ANSWERED' && row.billsec > 0 && row.answer) {
+        const answerDto = new IngestEventItemDto();
+        answerDto.eventType = 'call_answer' as any;
+        answerDto.timestamp = new Date(row.answer).toISOString();
+        answerDto.idempotencyKey = `cdr:answer:${row.uniqueid}`;
+        answerDto.linkedId = row.linkedid;
+        answerDto.uniqueId = row.uniqueid;
+        answerDto.payload = {
+          callerIdNum: row.src,
+          connectedLineNum: row.dst,
+          channel: row.channel,
+          source: 'asterisk-cdr',
+        };
+        events.push(answerDto);
+      }
+
       const endDto = new IngestEventItemDto();
       endDto.eventType = 'call_end' as any;
       endDto.timestamp = new Date(row.end).toISOString();

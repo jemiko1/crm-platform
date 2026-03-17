@@ -62,7 +62,7 @@ export class AmiEventMapperService implements OnModuleInit {
       case 'dialend':
         return this.mapDialEnd(raw);
       case 'bridgeenter':
-        return this.mapBridgeEnter(raw);
+        return null;
       case 'hangup':
         return this.mapHangup(raw);
       case 'queuecallerjoin':
@@ -116,24 +116,6 @@ export class AmiEventMapperService implements OnModuleInit {
       ];
     }
     return null;
-  }
-
-  private mapBridgeEnter(raw: RawAmiEvent): MappedEvent[] | null {
-    if (!raw.linkedid) return null;
-
-    const ext = extractExtensionFromChannel(raw.channel);
-    if (!ext) return null;
-
-    return [
-      {
-        eventType: 'call_answer',
-        timestamp: new Date().toISOString(),
-        idempotencyKey: `ami:bridgeenter:${raw.uniqueid ?? raw.linkedid}:${raw.bridgeuniqueid ?? ''}`,
-        linkedId: raw.linkedid,
-        uniqueId: raw.uniqueid,
-        payload: { ...this.buildPayload(raw), extension: ext },
-      },
-    ];
   }
 
   private mapHangup(raw: RawAmiEvent): MappedEvent[] | null {
