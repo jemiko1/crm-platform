@@ -159,9 +159,23 @@ export class ClientChatsPublicController {
   // ── Facebook Webhook ───────────────────────────────────
 
   @Get('webhook/facebook')
-  facebookVerify(@Req() req: Request, @Res() res: Response) {
+  async facebookVerify(@Req() req: Request, @Res() res: Response) {
     const challenge = this.facebook.getVerificationChallenge(req);
-    if (this.facebook.verifyWebhook(req) && challenge) {
+    if (!challenge) {
+      return res.status(400).send('Missing hub.challenge');
+    }
+    const account = await this.core.getOrCreateDefaultAccount(
+      ClientChatChannelType.FACEBOOK,
+    );
+    const meta = account.metadata as Record<string, unknown> | null;
+    const overrides =
+      meta?.fbAppSecret || meta?.fbVerifyToken
+        ? {
+            appSecret: meta?.fbAppSecret as string | undefined,
+            verifyToken: meta?.fbVerifyToken as string | undefined,
+          }
+        : undefined;
+    if (this.facebook.verifyWebhook(req, overrides)) {
       return res.status(200).send(challenge);
     }
     return res.status(403).send('Verification failed');
