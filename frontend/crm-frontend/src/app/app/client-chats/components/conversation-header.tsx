@@ -22,6 +22,7 @@ const statusStyles: Record<ConversationStatus, string> = {
 export default function ConversationHeader({ conversation, onUpdate }: ConversationHeaderProps) {
   const [showAssign, setShowAssign] = useState(false);
   const [showLink, setShowLink] = useState(false);
+  const [returningToQueue, setReturningToQueue] = useState(false);
   const [agents, setAgents] = useState<AgentOption[]>([]);
   const [linkSearch, setLinkSearch] = useState("");
   const [linkResults, setLinkResults] = useState<{ id: string; firstName: string | null; lastName: string | null; primaryPhone: string | null }[]>([]);
@@ -53,6 +54,19 @@ export default function ConversationHeader({ conversation, onUpdate }: Conversat
     await apiPatch(`/v1/clientchats/conversations/${conversation.id}/assign`, { userId });
     setShowAssign(false);
     onUpdate();
+  }
+
+  async function handleReturnToQueue() {
+    setReturningToQueue(true);
+    try {
+      await apiPatch(`/v1/clientchats/conversations/${conversation.id}/assign`, { userId: null });
+      await apiPatch(`/v1/clientchats/conversations/${conversation.id}/status`, { status: "OPEN" });
+      onUpdate();
+    } catch {
+      // silent
+    } finally {
+      setReturningToQueue(false);
+    }
   }
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -144,6 +158,17 @@ export default function ConversationHeader({ conversation, onUpdate }: Conversat
               </div>
             )}
           </div>
+
+          {conversation.assignedUserId && (
+            <button
+              onClick={handleReturnToQueue}
+              disabled={returningToQueue}
+              title="Unassign and reopen conversation"
+              className="px-2.5 py-1.5 text-xs font-medium rounded-lg border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 transition disabled:opacity-50"
+            >
+              {returningToQueue ? "Returning..." : "↩ Return to Queue"}
+            </button>
+          )}
 
           {/* Client link */}
           {conversation.client ? (

@@ -2,10 +2,10 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { apiGet, apiPut, apiPost, apiDelete } from "@/lib/api";
+import { apiGet, apiGetList, apiPut, apiPost, apiDelete } from "@/lib/api";
 import { PermissionGuard } from "@/lib/permission-guard";
 
-const TABS = ["Channels", "Canned Responses", "Webhook Logs"] as const;
+const TABS = ["Channels", "Canned Responses", "Assignment Rules", "Webhook Logs"] as const;
 type Tab = (typeof TABS)[number];
 
 type ChannelAccount = {
@@ -128,6 +128,7 @@ export default function ClientChatsConfigPage() {
           </div>
         )}
         {activeTab === "Canned Responses" && <CannedResponsesTab />}
+        {activeTab === "Assignment Rules" && <AssignmentRulesTab />}
         {activeTab === "Webhook Logs" && <WebhookLogsTab />}
       </div>
     </PermissionGuard>
@@ -955,6 +956,214 @@ function WhatsAppConfig() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+type AssignmentConfig = {
+  id: string;
+  channelType: string | null;
+  strategy: string;
+  assignableUsers: string[];
+  lastAssignedTo: string | null;
+};
+
+type AgentOption = { id: string; email: string };
+
+const CHANNEL_TYPES = ["VIBER", "FACEBOOK", "TELEGRAM", "WHATSAPP"] as const;
+
+function AssignmentRulesTab() {
+  const [configs, setConfigs] = useState<AssignmentConfig[]>([]);
+  const [agents, setAgents] = useState<AgentOption[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [cfgs, emps] = await Promise.all([
+        apiGet<AssignmentConfig[]>("/v1/clientchats/assignment-config"),
+        apiGetList<{ userId: string; user: { id: string; email: string } }>("/v1/employees?limit=100"),
+      ]);
+      setConfigs(cfgs);
+      setAgents(emps.map((e) => ({ id: e.user?.id ?? e.userId, email: e.user?.email ?? "—" })));
+    } catch {
+      setConfigs([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="rounded-2xl border border-zinc-200 bg-white p-6">
+            <div className="mb-4 h-6 w-48 animate-pulse rounded bg-zinc-200" />
+            <div className="h-10 w-full animate-pulse rounded bg-zinc-100" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const defaultConfig = configs.find((c) => c.channelType === null);
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-zinc-500">
+        Configure how new conversations are assigned to agents. &quot;Manual&quot; means agents pick conversations themselves. &quot;Round Robin&quot; distributes new conversations evenly among selected agents.
+      </p>
+      <AssignmentRuleCard
+        key="default"
+        label="Default (All Channels)"
+        channelType={null}
+        config={defaultConfig ?? null}
+        agents={agents}
+        onSaved={load}
+      />
+      {CHANNEL_TYPES.map((ch) => {
+        const cfg = configs.find((c) => c.channelType === ch);
+        return (
+          <AssignmentRuleCard
+            key={ch}
+            label={ch.charAt(0) + ch.slice(1).toLowerCase()}
+            channelType={ch}
+            config={cfg ?? null}
+            agents={agents}
+            onSaved={load}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function AssignmentRuleCard({
+  label,
+  channelType,
+  config,
+  agents,
+  onSaved,
+}: {
+  label: string;
+  channelType: string | null;
+  config: AssignmentConfig | null;
+  agents: AgentOption[];
+  onSaved: () => void;
+}) {
+  const [strategy, setStrategy] = useState(config?.strategy ?? "manual");
+  const [selectedUsers, setSelectedUsers] = useState<Set<string>>(
+    new Set(config?.assignableUsers ?? []),
+  );
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    setStrategy(config?.strategy ?? "manual");
+    setSelectedUsers(new Set(config?.assignableUsers ?? []));
+  }, [config]);
+
+  function toggleUser(id: string) {
+    setSelectedUsers((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    setMsg("");
+    try {
+      await apiPut("/v1/clientchats/assignment-config", {
+        channelType,
+        strategy,
+        assignableUsers: Array.from(selectedUsers),
+      });
+      setMsg("Saved");
+      onSaved();
+    } catch (err: any) {
+      setMsg(`Error: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-zinc-200 bg-white p-6">
+      <div className="mb-4 flex items-center gap-3">
+        <h3 className="text-base font-semibold text-zinc-900">{label}</h3>
+        {channelType === null && (
+          <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600">
+            Fallback
+          </span>
+        )}
+      </div>
+
+      <div className="mb-4">
+        <label className="mb-1 block text-sm font-medium text-zinc-700">Strategy</label>
+        <select
+          value={strategy}
+          onChange={(e) => setStrategy(e.target.value)}
+          className="w-full max-w-xs rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+        >
+          <option value="manual">Manual</option>
+          <option value="round_robin">Round Robin</option>
+        </select>
+      </div>
+
+      {strategy === "round_robin" && (
+        <div className="mb-4">
+          <label className="mb-2 block text-sm font-medium text-zinc-700">
+            Assignable Agents
+          </label>
+          {agents.length === 0 ? (
+            <p className="text-sm text-zinc-400">No agents found</p>
+          ) : (
+            <div className="max-h-48 overflow-y-auto rounded-lg border border-zinc-200 p-2 space-y-1">
+              {agents.map((a) => (
+                <label
+                  key={a.id}
+                  className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-zinc-700 cursor-pointer hover:bg-zinc-50"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedUsers.has(a.id)}
+                    onChange={() => toggleUser(a.id)}
+                    className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+                  />
+                  {a.email}
+                </label>
+              ))}
+            </div>
+          )}
+          {selectedUsers.size === 0 && (
+            <p className="mt-1 text-xs text-amber-600">
+              Select at least one agent for round-robin assignment.
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className="flex items-center gap-3">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
+        >
+          {saving ? "Saving..." : "Save"}
+        </button>
+        {msg && (
+          <span className={`text-sm ${msg.startsWith("Error") ? "text-red-500" : "text-zinc-500"}`}>
+            {msg}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
