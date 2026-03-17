@@ -70,6 +70,7 @@ export class ClientChatsAdminController {
     return this.core.updateChannelAccountConfig(channelType, {
       name: dto.name,
       metadata: dto.metadata,
+      status: dto.status,
     });
   }
 

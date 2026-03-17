@@ -3,6 +3,7 @@ import {
   Logger,
   NotFoundException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
@@ -285,6 +286,12 @@ export class ClientChatsCoreService {
     });
     if (!conversation) throw new NotFoundException('Conversation not found');
 
+    if (!this.isChannelActive(conversation.channelAccount)) {
+      throw new BadRequestException(
+        `${conversation.channelType} channel is currently disabled`,
+      );
+    }
+
     const adapter = this.adapterRegistry.getOrThrow(conversation.channelType);
     const metadata = (conversation.channelAccount.metadata ?? {}) as Record<
       string,
@@ -506,7 +513,8 @@ export class ClientChatsCoreService {
 
   async getOrCreateDefaultAccount(channelType: ClientChatChannelType) {
     const existing = await this.prisma.clientChatChannelAccount.findFirst({
-      where: { type: channelType, status: 'ACTIVE' },
+      where: { type: channelType },
+      orderBy: { createdAt: 'asc' },
     });
     if (existing) return existing;
 
@@ -517,6 +525,10 @@ export class ClientChatsCoreService {
         status: 'ACTIVE',
       },
     });
+  }
+
+  isChannelActive(account: { status: string }): boolean {
+    return account.status === 'ACTIVE';
   }
 
   // ── Admin config (channel accounts) ────────────────────────
@@ -553,7 +565,11 @@ export class ClientChatsCoreService {
 
   async updateChannelAccountConfig(
     channelType: ClientChatChannelType,
-    data: { name?: string; metadata?: Record<string, unknown> },
+    data: {
+      name?: string;
+      metadata?: Record<string, unknown>;
+      status?: 'ACTIVE' | 'INACTIVE';
+    },
   ) {
     const account = await this.getOrCreateDefaultAccount(channelType);
     return this.prisma.clientChatChannelAccount.update({
@@ -561,6 +577,7 @@ export class ClientChatsCoreService {
       data: {
         ...(data.name != null && { name: data.name }),
         ...(data.metadata != null && { metadata: data.metadata as object }),
+        ...(data.status != null && { status: data.status }),
       },
     });
   }

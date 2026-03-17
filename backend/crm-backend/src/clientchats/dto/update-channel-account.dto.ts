@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsObject } from 'class-validator';
+import { IsOptional, IsString, IsObject, IsIn } from 'class-validator';
 
 export class UpdateChannelAccountDto {
   @IsOptional()
@@ -8,4 +8,8 @@ export class UpdateChannelAccountDto {
   @IsOptional()
   @IsObject()
   metadata?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsIn(['ACTIVE', 'INACTIVE'])
+  status?: 'ACTIVE' | 'INACTIVE';
 }

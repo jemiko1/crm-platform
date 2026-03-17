@@ -29,12 +29,14 @@ function Field({
   onChange,
   placeholder,
   type = "text",
+  disabled,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   type?: string;
+  disabled?: boolean;
 }) {
   return (
     <div>
@@ -44,9 +46,39 @@ function Field({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+        disabled={disabled}
+        className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400"
       />
     </div>
+  );
+}
+
+function ChannelToggle({
+  channelType,
+  active,
+  onToggle,
+  toggling,
+}: {
+  channelType: string;
+  active: boolean;
+  onToggle: () => void;
+  toggling: boolean;
+}) {
+  return (
+    <button
+      onClick={onToggle}
+      disabled={toggling}
+      title={active ? `Disable ${channelType}` : `Enable ${channelType}`}
+      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 ${
+        active ? "bg-emerald-500" : "bg-zinc-300"
+      }`}
+    >
+      <span
+        className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 ${
+          active ? "translate-x-5" : "translate-x-0.5"
+        }`}
+      />
+    </button>
   );
 }
 
@@ -106,8 +138,10 @@ function ViberConfig() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [registering, setRegistering] = useState(false);
+  const [toggling, setToggling] = useState(false);
   const [msg, setMsg] = useState("");
   const [name, setName] = useState("");
+  const [active, setActive] = useState(true);
   const [viberBotToken, setViberBotToken] = useState("");
   const [senderName, setSenderName] = useState("Support");
   const [webhookStatus, setWebhookStatus] = useState<{
@@ -125,6 +159,7 @@ function ViberConfig() {
       if (acc) {
         setAccount(acc);
         setName(acc.name);
+        setActive(acc.status === "ACTIVE");
         setViberBotToken((acc.metadata?.viberBotToken as string) || "");
         setSenderName((acc.metadata?.senderName as string) || "Support");
       }
@@ -193,13 +228,36 @@ function ViberConfig() {
     }
   }
 
+  async function handleToggle() {
+    setToggling(true);
+    setMsg("");
+    const newStatus = active ? "INACTIVE" : "ACTIVE";
+    try {
+      await apiPut(`/v1/clientchats/channel-accounts/VIBER`, { status: newStatus });
+      setActive(newStatus === "ACTIVE");
+      setMsg(newStatus === "ACTIVE" ? "Viber enabled" : "Viber disabled");
+    } catch (err: any) {
+      setMsg(`Error: ${err.message}`);
+    } finally {
+      setToggling(false);
+    }
+  }
+
   if (loading) return <ChannelCardSkeleton channel="Viber" />;
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-6">
+    <div className={`rounded-2xl border bg-white p-6 ${active ? "border-zinc-200" : "border-zinc-200 opacity-60"}`}>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-zinc-900">Viber</h2>
-        <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">Bot</span>
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold text-zinc-900">Viber</h2>
+          <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">Bot</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={`text-xs font-medium ${active ? "text-emerald-600" : "text-zinc-400"}`}>
+            {active ? "Active" : "Disabled"}
+          </span>
+          <ChannelToggle channelType="Viber" active={active} onToggle={handleToggle} toggling={toggling} />
+        </div>
       </div>
       <p className="mb-4 text-sm text-zinc-500">
         Create a bot at{" "}
@@ -238,8 +296,8 @@ function ViberConfig() {
       )}
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Account Name" value={name} onChange={setName} placeholder="Default Viber" />
-        <Field label="Sender Name" value={senderName} onChange={setSenderName} placeholder="Support" />
+        <Field label="Account Name" value={name} onChange={setName} placeholder="Default Viber" disabled={!active} />
+        <Field label="Sender Name" value={senderName} onChange={setSenderName} placeholder="Support" disabled={!active} />
         <div className="md:col-span-2">
           <Field
             label="Viber Bot Token"
@@ -247,27 +305,29 @@ function ViberConfig() {
             onChange={setViberBotToken}
             placeholder="Your Viber authentication token"
             type="password"
+            disabled={!active}
           />
         </div>
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <button
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || !active}
           className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
         >
           {saving ? "Saving..." : "Save Viber"}
         </button>
         <button
           onClick={handleRegisterWebhook}
-          disabled={registering || !viberBotToken}
+          disabled={registering || !viberBotToken || !active}
           className="rounded-xl border border-purple-600 bg-white px-4 py-2 text-sm font-medium text-purple-600 transition hover:bg-purple-50 disabled:opacity-50"
         >
           {registering ? "Registering..." : "Register Webhook"}
         </button>
         <button
           onClick={loadWebhookStatus}
-          className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-600 transition hover:bg-zinc-50"
+          disabled={!active}
+          className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-600 transition hover:bg-zinc-50 disabled:opacity-50"
         >
           Refresh status
         </button>
@@ -280,8 +340,10 @@ function ViberConfig() {
 function FacebookConfig() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [toggling, setToggling] = useState(false);
   const [msg, setMsg] = useState("");
   const [name, setName] = useState("");
+  const [active, setActive] = useState(true);
   const [fbPageAccessToken, setFbPageAccessToken] = useState("");
   const [fbAppSecret, setFbAppSecret] = useState("");
   const [fbVerifyToken, setFbVerifyToken] = useState("");
@@ -299,6 +361,7 @@ function FacebookConfig() {
       const acc = data.FACEBOOK;
       if (acc) {
         setName(acc.name);
+        setActive(acc.status === "ACTIVE");
         setFbPageAccessToken((acc.metadata?.fbPageAccessToken as string) || "");
         setFbAppSecret((acc.metadata?.fbAppSecret as string) || "");
         setFbVerifyToken((acc.metadata?.fbVerifyToken as string) || "");
@@ -351,13 +414,36 @@ function FacebookConfig() {
     }
   }
 
+  async function handleToggle() {
+    setToggling(true);
+    setMsg("");
+    const newStatus = active ? "INACTIVE" : "ACTIVE";
+    try {
+      await apiPut(`/v1/clientchats/channel-accounts/FACEBOOK`, { status: newStatus });
+      setActive(newStatus === "ACTIVE");
+      setMsg(newStatus === "ACTIVE" ? "Facebook enabled" : "Facebook disabled");
+    } catch (err: any) {
+      setMsg(`Error: ${err.message}`);
+    } finally {
+      setToggling(false);
+    }
+  }
+
   if (loading) return <ChannelCardSkeleton channel="Facebook" />;
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-6">
+    <div className={`rounded-2xl border bg-white p-6 ${active ? "border-zinc-200" : "border-zinc-200 opacity-60"}`}>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-zinc-900">Facebook Messenger</h2>
-        <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">Page</span>
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold text-zinc-900">Facebook Messenger</h2>
+          <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">Page</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={`text-xs font-medium ${active ? "text-emerald-600" : "text-zinc-400"}`}>
+            {active ? "Active" : "Disabled"}
+          </span>
+          <ChannelToggle channelType="Facebook" active={active} onToggle={handleToggle} toggling={toggling} />
+        </div>
       </div>
       <p className="mb-4 text-sm text-zinc-500">
         Create an app at{" "}
@@ -394,8 +480,8 @@ function FacebookConfig() {
       )}
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Account Name" value={name} onChange={setName} placeholder="Default Facebook" />
-        <Field label="Verify Token" value={fbVerifyToken} onChange={setFbVerifyToken} placeholder="Custom string for webhook verification" />
+        <Field label="Account Name" value={name} onChange={setName} placeholder="Default Facebook" disabled={!active} />
+        <Field label="Verify Token" value={fbVerifyToken} onChange={setFbVerifyToken} placeholder="Custom string for webhook verification" disabled={!active} />
         <div className="md:col-span-2">
           <Field
             label="Page Access Token"
@@ -403,6 +489,7 @@ function FacebookConfig() {
             onChange={setFbPageAccessToken}
             placeholder="Long-lived page access token"
             type="password"
+            disabled={!active}
           />
         </div>
         <div className="md:col-span-2">
@@ -412,20 +499,22 @@ function FacebookConfig() {
             onChange={setFbAppSecret}
             placeholder="App secret for signature verification"
             type="password"
+            disabled={!active}
           />
         </div>
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <button
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || !active}
           className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
         >
           {saving ? "Saving..." : "Save Facebook"}
         </button>
         <button
           onClick={loadWebhookStatus}
-          className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-600 transition hover:bg-zinc-50"
+          disabled={!active}
+          className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-600 transition hover:bg-zinc-50 disabled:opacity-50"
         >
           Refresh status
         </button>
@@ -439,8 +528,10 @@ function TelegramConfig() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [registering, setRegistering] = useState(false);
+  const [toggling, setToggling] = useState(false);
   const [msg, setMsg] = useState("");
   const [name, setName] = useState("");
+  const [active, setActive] = useState(true);
   const [telegramBotToken, setTelegramBotToken] = useState("");
   const [webhookStatus, setWebhookStatus] = useState<{
     ok: boolean;
@@ -455,6 +546,7 @@ function TelegramConfig() {
       const acc = data.TELEGRAM;
       if (acc) {
         setName(acc.name);
+        setActive(acc.status === "ACTIVE");
         setTelegramBotToken((acc.metadata?.telegramBotToken as string) || "");
       }
     } catch {
@@ -522,13 +614,36 @@ function TelegramConfig() {
     }
   }
 
+  async function handleToggle() {
+    setToggling(true);
+    setMsg("");
+    const newStatus = active ? "INACTIVE" : "ACTIVE";
+    try {
+      await apiPut(`/v1/clientchats/channel-accounts/TELEGRAM`, { status: newStatus });
+      setActive(newStatus === "ACTIVE");
+      setMsg(newStatus === "ACTIVE" ? "Telegram enabled" : "Telegram disabled");
+    } catch (err: any) {
+      setMsg(`Error: ${err.message}`);
+    } finally {
+      setToggling(false);
+    }
+  }
+
   if (loading) return <ChannelCardSkeleton channel="Telegram" />;
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-6">
+    <div className={`rounded-2xl border bg-white p-6 ${active ? "border-zinc-200" : "border-zinc-200 opacity-60"}`}>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-zinc-900">Telegram</h2>
-        <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700">Bot</span>
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold text-zinc-900">Telegram</h2>
+          <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700">Bot</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={`text-xs font-medium ${active ? "text-emerald-600" : "text-zinc-400"}`}>
+            {active ? "Active" : "Disabled"}
+          </span>
+          <ChannelToggle channelType="Telegram" active={active} onToggle={handleToggle} toggling={toggling} />
+        </div>
       </div>
       <p className="mb-4 text-sm text-zinc-500">
         Create a bot via{" "}
@@ -565,7 +680,7 @@ function TelegramConfig() {
       )}
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Account Name" value={name} onChange={setName} placeholder="Default Telegram" />
+        <Field label="Account Name" value={name} onChange={setName} placeholder="Default Telegram" disabled={!active} />
         <div className="md:col-span-2">
           <Field
             label="Bot Token"
@@ -573,27 +688,29 @@ function TelegramConfig() {
             onChange={setTelegramBotToken}
             placeholder="123456789:ABCdefGHI..."
             type="password"
+            disabled={!active}
           />
         </div>
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <button
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || !active}
           className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
         >
           {saving ? "Saving..." : "Save Telegram"}
         </button>
         <button
           onClick={handleRegisterWebhook}
-          disabled={registering || !telegramBotToken}
+          disabled={registering || !telegramBotToken || !active}
           className="rounded-xl border border-sky-600 bg-white px-4 py-2 text-sm font-medium text-sky-600 transition hover:bg-sky-50 disabled:opacity-50"
         >
           {registering ? "Registering..." : "Register Webhook"}
         </button>
         <button
           onClick={loadWebhookStatus}
-          className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-600 transition hover:bg-zinc-50"
+          disabled={!active}
+          className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-600 transition hover:bg-zinc-50 disabled:opacity-50"
         >
           Refresh status
         </button>
@@ -607,9 +724,11 @@ function WhatsAppConfig() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [toggling, setToggling] = useState(false);
   const [testPhone, setTestPhone] = useState("");
   const [msg, setMsg] = useState("");
   const [name, setName] = useState("");
+  const [active, setActive] = useState(true);
   const [waAccessToken, setWaAccessToken] = useState("");
   const [waPhoneNumberId, setWaPhoneNumberId] = useState("");
   const [waVerifyToken, setWaVerifyToken] = useState("");
@@ -627,6 +746,7 @@ function WhatsAppConfig() {
       const acc = data.WHATSAPP;
       if (acc) {
         setName(acc.name);
+        setActive(acc.status === "ACTIVE");
         setWaAccessToken((acc.metadata?.waAccessToken as string) || "");
         setWaPhoneNumberId((acc.metadata?.waPhoneNumberId as string) || "");
         setWaVerifyToken((acc.metadata?.waVerifyToken as string) || "");
@@ -702,13 +822,36 @@ function WhatsAppConfig() {
     }
   }
 
+  async function handleToggle() {
+    setToggling(true);
+    setMsg("");
+    const newStatus = active ? "INACTIVE" : "ACTIVE";
+    try {
+      await apiPut(`/v1/clientchats/channel-accounts/WHATSAPP`, { status: newStatus });
+      setActive(newStatus === "ACTIVE");
+      setMsg(newStatus === "ACTIVE" ? "WhatsApp enabled" : "WhatsApp disabled");
+    } catch (err: any) {
+      setMsg(`Error: ${err.message}`);
+    } finally {
+      setToggling(false);
+    }
+  }
+
   if (loading) return <ChannelCardSkeleton channel="WhatsApp" />;
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-6">
+    <div className={`rounded-2xl border bg-white p-6 ${active ? "border-zinc-200" : "border-zinc-200 opacity-60"}`}>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-zinc-900">WhatsApp Business</h2>
-        <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Cloud API</span>
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold text-zinc-900">WhatsApp Business</h2>
+          <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Cloud API</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={`text-xs font-medium ${active ? "text-emerald-600" : "text-zinc-400"}`}>
+            {active ? "Active" : "Disabled"}
+          </span>
+          <ChannelToggle channelType="WhatsApp" active={active} onToggle={handleToggle} toggling={toggling} />
+        </div>
       </div>
       <p className="mb-4 text-sm text-zinc-500">
         Use{" "}
@@ -745,9 +888,9 @@ function WhatsAppConfig() {
       )}
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Account Name" value={name} onChange={setName} placeholder="Default WhatsApp" />
-        <Field label="Phone Number ID" value={waPhoneNumberId} onChange={setWaPhoneNumberId} placeholder="From Meta Business Suite" />
-        <Field label="Verify Token" value={waVerifyToken} onChange={setWaVerifyToken} placeholder="Custom string for webhook verification" />
+        <Field label="Account Name" value={name} onChange={setName} placeholder="Default WhatsApp" disabled={!active} />
+        <Field label="Phone Number ID" value={waPhoneNumberId} onChange={setWaPhoneNumberId} placeholder="From Meta Business Suite" disabled={!active} />
+        <Field label="Verify Token" value={waVerifyToken} onChange={setWaVerifyToken} placeholder="Custom string for webhook verification" disabled={!active} />
         <div className="md:col-span-2">
           <Field
             label="Access Token"
@@ -755,6 +898,7 @@ function WhatsAppConfig() {
             onChange={setWaAccessToken}
             placeholder="Permanent token from Meta"
             type="password"
+            disabled={!active}
           />
         </div>
         <div className="md:col-span-2">
@@ -764,20 +908,22 @@ function WhatsAppConfig() {
             onChange={setWaAppSecret}
             placeholder="App secret for signature verification"
             type="password"
+            disabled={!active}
           />
         </div>
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <button
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || !active}
           className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
         >
           {saving ? "Saving..." : "Save WhatsApp"}
         </button>
         <button
           onClick={loadWebhookStatus}
-          className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-600 transition hover:bg-zinc-50"
+          disabled={!active}
+          className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-600 transition hover:bg-zinc-50 disabled:opacity-50"
         >
           Refresh status
         </button>

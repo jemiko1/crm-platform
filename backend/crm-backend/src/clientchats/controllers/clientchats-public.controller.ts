@@ -125,17 +125,20 @@ export class ClientChatsPublicController {
     try {
       const b = body as Record<string, unknown>;
 
-      // Viber sends a 'webhook' event on registration — acknowledge it
       if (b.event === 'webhook') {
         return { status: 0, status_message: 'ok' };
       }
 
-      const parsed = this.viber.parseInbound(body);
-      if (!parsed) return { status: 0 };
-
       const account = await this.core.getOrCreateDefaultAccount(
         ClientChatChannelType.VIBER,
       );
+      if (!this.core.isChannelActive(account)) {
+        this.logger.debug('Viber channel is INACTIVE — ignoring webhook');
+        return { status: 0 };
+      }
+
+      const parsed = this.viber.parseInbound(body);
+      if (!parsed) return { status: 0 };
 
       await this.core.processInbound(
         ClientChatChannelType.VIBER,
@@ -186,12 +189,16 @@ export class ClientChatsPublicController {
   @HttpCode(200)
   async facebookWebhook(@Body() body: unknown) {
     try {
-      const parsed = this.facebook.parseInbound(body);
-      if (!parsed) return 'EVENT_RECEIVED';
-
       const account = await this.core.getOrCreateDefaultAccount(
         ClientChatChannelType.FACEBOOK,
       );
+      if (!this.core.isChannelActive(account)) {
+        this.logger.debug('Facebook channel is INACTIVE — ignoring webhook');
+        return 'EVENT_RECEIVED';
+      }
+
+      const parsed = this.facebook.parseInbound(body);
+      if (!parsed) return 'EVENT_RECEIVED';
 
       await this.core.processInbound(
         ClientChatChannelType.FACEBOOK,
@@ -219,12 +226,16 @@ export class ClientChatsPublicController {
   @HttpCode(200)
   async telegramWebhook(@Body() body: unknown) {
     try {
-      const parsed = this.telegram.parseInbound(body);
-      if (!parsed) return { ok: true };
-
       const account = await this.core.getOrCreateDefaultAccount(
         ClientChatChannelType.TELEGRAM,
       );
+      if (!this.core.isChannelActive(account)) {
+        this.logger.debug('Telegram channel is INACTIVE — ignoring webhook');
+        return { ok: true };
+      }
+
+      const parsed = this.telegram.parseInbound(body);
+      if (!parsed) return { ok: true };
 
       await this.core.processInbound(
         ClientChatChannelType.TELEGRAM,
@@ -274,12 +285,16 @@ export class ClientChatsPublicController {
   @HttpCode(200)
   async whatsappWebhook(@Body() body: unknown) {
     try {
-      const parsed = this.whatsapp.parseInbound(body);
-      if (!parsed) return 'EVENT_RECEIVED';
-
       const account = await this.core.getOrCreateDefaultAccount(
         ClientChatChannelType.WHATSAPP,
       );
+      if (!this.core.isChannelActive(account)) {
+        this.logger.debug('WhatsApp channel is INACTIVE — ignoring webhook');
+        return 'EVENT_RECEIVED';
+      }
+
+      const parsed = this.whatsapp.parseInbound(body);
+      if (!parsed) return 'EVENT_RECEIVED';
 
       await this.core.processInbound(
         ClientChatChannelType.WHATSAPP,
