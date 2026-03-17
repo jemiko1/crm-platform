@@ -2,10 +2,10 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { apiGet, apiPut, apiPost } from "@/lib/api";
+import { apiGet, apiPut, apiPost, apiDelete } from "@/lib/api";
 import { PermissionGuard } from "@/lib/permission-guard";
 
-const TABS = ["Channels", "Webhook Logs"] as const;
+const TABS = ["Channels", "Canned Responses", "Webhook Logs"] as const;
 type Tab = (typeof TABS)[number];
 
 type ChannelAccount = {
@@ -127,6 +127,7 @@ export default function ClientChatsConfigPage() {
             <WhatsAppConfig />
           </div>
         )}
+        {activeTab === "Canned Responses" && <CannedResponsesTab />}
         {activeTab === "Webhook Logs" && <WebhookLogsTab />}
       </div>
     </PermissionGuard>
@@ -1034,6 +1035,253 @@ function WebhookLogsTab() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+type CannedResponse = {
+  id: string;
+  title: string;
+  content: string;
+  category: string | null;
+  channelType: string | null;
+  isGlobal: boolean;
+  sortOrder: number;
+  createdBy: { id: string; email: string } | null;
+};
+
+const CHANNEL_OPTIONS = [
+  { value: "", label: "All Channels" },
+  { value: "WEB", label: "WEB" },
+  { value: "VIBER", label: "VIBER" },
+  { value: "FACEBOOK", label: "FACEBOOK" },
+  { value: "TELEGRAM", label: "TELEGRAM" },
+  { value: "WHATSAPP", label: "WHATSAPP" },
+];
+
+function CannedResponsesTab() {
+  const [responses, setResponses] = useState<CannedResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<CannedResponse | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const [formTitle, setFormTitle] = useState("");
+  const [formContent, setFormContent] = useState("");
+  const [formCategory, setFormCategory] = useState("");
+  const [formChannelType, setFormChannelType] = useState("");
+  const [formIsGlobal, setFormIsGlobal] = useState(true);
+
+  const fetchAll = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await apiGet<CannedResponse[]>("/v1/clientchats/canned-responses");
+      setResponses(data);
+    } catch {
+      setResponses([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
+
+  function resetForm() {
+    setFormTitle("");
+    setFormContent("");
+    setFormCategory("");
+    setFormChannelType("");
+    setFormIsGlobal(true);
+    setEditing(null);
+    setCreating(false);
+  }
+
+  function startCreate() {
+    resetForm();
+    setCreating(true);
+  }
+
+  function startEdit(r: CannedResponse) {
+    setCreating(false);
+    setEditing(r);
+    setFormTitle(r.title);
+    setFormContent(r.content);
+    setFormCategory(r.category || "");
+    setFormChannelType(r.channelType || "");
+    setFormIsGlobal(r.isGlobal);
+  }
+
+  async function handleSave() {
+    if (!formTitle.trim() || !formContent.trim()) return;
+    setSaving(true);
+    try {
+      const body: Record<string, unknown> = {
+        title: formTitle.trim(),
+        content: formContent.trim(),
+        category: formCategory.trim() || undefined,
+        channelType: formChannelType || undefined,
+        isGlobal: formIsGlobal,
+      };
+      if (editing) {
+        await apiPut(`/v1/clientchats/canned-responses/${editing.id}`, body);
+      } else {
+        await apiPost("/v1/clientchats/canned-responses", body);
+      }
+      resetForm();
+      fetchAll();
+    } catch {
+      // keep form open for retry
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!window.confirm("Delete this canned response?")) return;
+    try {
+      await apiDelete(`/v1/clientchats/canned-responses/${id}`);
+      if (editing?.id === id) resetForm();
+      fetchAll();
+    } catch {
+      // silent
+    }
+  }
+
+  const showForm = creating || editing !== null;
+
+  return (
+    <div className="space-y-4">
+      {showForm && (
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6">
+          <h3 className="mb-4 text-base font-semibold text-zinc-900">
+            {editing ? "Edit Canned Response" : "New Canned Response"}
+          </h3>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Title" value={formTitle} onChange={setFormTitle} placeholder="e.g. Greeting" />
+            <Field label="Category" value={formCategory} onChange={setFormCategory} placeholder="e.g. General (optional)" />
+            <div className="md:col-span-2">
+              <label className="mb-1 block text-sm font-medium text-zinc-700">Content</label>
+              <textarea
+                value={formContent}
+                onChange={(e) => setFormContent(e.target.value)}
+                placeholder="Hello {clientName}, how can I help you today?"
+                rows={3}
+                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
+              <p className="mt-1 text-xs text-zinc-400">Use {"{clientName}"} as a placeholder for the client&apos;s name.</p>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-zinc-700">Channel Type</label>
+              <select
+                value={formChannelType}
+                onChange={(e) => setFormChannelType(e.target.value)}
+                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              >
+                {CHANNEL_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-3 self-end pb-2">
+              <label className="flex items-center gap-2 text-sm text-zinc-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formIsGlobal}
+                  onChange={(e) => setFormIsGlobal(e.target.checked)}
+                  className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+                />
+                Global (visible to all agents)
+              </label>
+            </div>
+          </div>
+          <div className="mt-4 flex items-center gap-3">
+            <button
+              onClick={handleSave}
+              disabled={saving || !formTitle.trim() || !formContent.trim()}
+              className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {saving ? "Saving..." : editing ? "Update" : "Create"}
+            </button>
+            <button
+              onClick={resetForm}
+              className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-600 transition hover:bg-zinc-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-zinc-900">Canned Responses</h2>
+          {!showForm && (
+            <button
+              onClick={startCreate}
+              className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700"
+            >
+              Add New
+            </button>
+          )}
+        </div>
+        <p className="mb-4 text-sm text-zinc-500">
+          Pre-written replies that agents can insert with a &quot;/&quot; shortcut in the chat reply box.
+        </p>
+
+        {loading ? (
+          <div className="py-8 text-center text-sm text-zinc-400">Loading...</div>
+        ) : responses.length === 0 ? (
+          <div className="py-8 text-center text-sm text-zinc-400">No canned responses yet</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-zinc-200 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
+                  <th className="pb-2 pr-4">Title</th>
+                  <th className="pb-2 pr-4">Category</th>
+                  <th className="pb-2 pr-4">Channel</th>
+                  <th className="pb-2 pr-4">Content</th>
+                  <th className="pb-2 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {responses.map((r) => (
+                  <tr key={r.id} className="hover:bg-zinc-50/50">
+                    <td className="py-2.5 pr-4 font-medium text-zinc-900">{r.title}</td>
+                    <td className="py-2.5 pr-4 text-zinc-500">{r.category || "—"}</td>
+                    <td className="py-2.5 pr-4">
+                      <span className="inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600">
+                        {r.channelType || "All"}
+                      </span>
+                    </td>
+                    <td className="py-2.5 pr-4 text-zinc-500 max-w-xs truncate" title={r.content}>
+                      {r.content.length > 50 ? r.content.slice(0, 50) + "..." : r.content}
+                    </td>
+                    <td className="py-2.5 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => startEdit(r)}
+                          className="rounded-lg px-2.5 py-1 text-xs font-medium text-emerald-600 transition hover:bg-emerald-50"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(r.id)}
+                          className="rounded-lg px-2.5 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
