@@ -1723,6 +1723,18 @@ model ClientChatCannedResponse {
   @@index([channelType])
 }
 
+model ClientChatAssignmentConfig {
+  id              String                  @id @default(uuid())
+  channelType     ClientChatChannelType?
+  strategy        String                  @default("manual")
+  assignableUsers String[]
+  lastAssignedTo  String?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  @@unique([channelType])
+}
+
 enum DeviceStatus {
   ONLINE
   OFFLINE

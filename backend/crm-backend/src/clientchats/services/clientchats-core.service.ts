@@ -17,6 +17,7 @@ import { ParsedInboundMessage } from '../interfaces/channel-adapter.interface';
 import { TelegramAdapter } from '../adapters/telegram.adapter';
 import { ClientChatsMatchingService } from './clientchats-matching.service';
 import { ClientChatsEventService } from './clientchats-event.service';
+import { AssignmentService } from './assignment.service';
 import { ConversationQueryDto } from '../dto/conversation-query.dto';
 
 @Injectable()
@@ -28,6 +29,7 @@ export class ClientChatsCoreService {
     private readonly adapterRegistry: AdapterRegistryService,
     private readonly matching: ClientChatsMatchingService,
     private readonly events: ClientChatsEventService,
+    private readonly assignment: AssignmentService,
   ) {}
 
   // ── Inbound pipeline ──────────────────────────────────
@@ -53,12 +55,27 @@ export class ClientChatsCoreService {
       parsed,
     );
 
-    const conversation = await this.upsertConversation(
+    const existingConv = await this.prisma.clientChatConversation.findUnique({
+      where: { externalConversationId: parsed.externalConversationId },
+    });
+    const isNewConversation = !existingConv;
+
+    let conversation = await this.upsertConversation(
       channelType,
       channelAccountId,
       parsed.externalConversationId,
       participant.id,
     );
+
+    if (isNewConversation) {
+      const assignedUserId = await this.assignment.autoAssign(channelType);
+      if (assignedUserId) {
+        conversation = await this.prisma.clientChatConversation.update({
+          where: { id: conversation.id },
+          data: { assignedUserId },
+        });
+      }
+    }
 
     const message = await this.saveMessage({
       conversationId: conversation.id,
