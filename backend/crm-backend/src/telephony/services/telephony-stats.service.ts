@@ -1,8 +1,46 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CallDisposition, Prisma } from '@prisma/client';
-import { OverviewKpis, AgentKpis, QueueKpis } from '../types/telephony.types';
+import {
+  OverviewKpis,
+  AgentKpis,
+  QueueKpis,
+  BreakdownRow,
+  BreakdownResponse,
+  HoldTimeDistribution,
+  AgentBreakdownRow,
+} from '../types/telephony.types';
 import { QueryStatsDto } from '../dto/query-stats.dto';
+import { QueryBreakdownDto } from '../dto/query-breakdown.dto';
+
+const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+function round2(v: number): number {
+  return Math.round(v * 100) / 100;
+}
+
+function avg(values: number[]): number | null {
+  if (values.length === 0) return null;
+  return round2(values.reduce((a, b) => a + b, 0) / values.length);
+}
+
+function buildHoldDistribution(waitValues: number[]): HoldTimeDistribution {
+  const total = waitValues.length;
+  let u15 = 0, u30 = 0, u60 = 0, o60 = 0;
+  for (const w of waitValues) {
+    if (w < 15) u15++;
+    else if (w < 30) u30++;
+    else if (w < 60) u60++;
+    else o60++;
+  }
+  const pct = (n: number) => total > 0 ? round2((n / total) * 100) : 0;
+  return {
+    under15: { count: u15, percent: pct(u15) },
+    under30: { count: u30, percent: pct(u30) },
+    under60: { count: u60, percent: pct(u60) },
+    over60: { count: o60, percent: pct(o60) },
+  };
+}
 
 @Injectable()
 export class TelephonyStatsService {
@@ -203,6 +241,253 @@ export class TelephonyStatsService {
           stats.answered > 0 ? stats.talkSum / stats.answered : null,
         slaMetPercent:
           stats.slaTotal > 0 ? (stats.slaMetCount / stats.slaTotal) * 100 : null,
+      });
+    }
+
+    return result.sort((a, b) => b.totalCalls - a.totalCalls);
+  }
+
+  async getBreakdown(query: QueryBreakdownDto): Promise<BreakdownResponse> {
+    const from = new Date(query.from);
+    const to = new Date(query.to);
+
+    const where: Prisma.CallSessionWhereInput = {
+      startAt: { gte: from, lte: to },
+      ...(query.queueId ? { queueId: query.queueId } : {}),
+      ...(query.agentId ? { assignedUserId: query.agentId } : {}),
+      ...(query.direction ? { direction: query.direction } : {}),
+    };
+
+    const sessions = await this.prisma.callSession.findMany({
+      where,
+      select: {
+        startAt: true,
+        disposition: true,
+        callMetrics: {
+          select: { waitSeconds: true, talkSeconds: true, holdSeconds: true, isSlaMet: true },
+        },
+      },
+    });
+
+    type BucketAccum = {
+      total: number;
+      answered: number;
+      lost: number;
+      lostBefore5: number;
+      durationSum: number;
+      answeredDurationValues: number[];
+      answeredWaitValues: number[];
+      lostWaitValues: number[];
+      slaMetCount: number;
+      slaTotal: number;
+    };
+
+    const buckets = new Map<string, BucketAccum>();
+
+    const getKey = (s: { startAt: Date }): { label: string; sortKey: number } => {
+      const d = s.startAt;
+      switch (query.groupBy) {
+        case 'hour': {
+          const h = d.getHours();
+          return { label: String(h), sortKey: h };
+        }
+        case 'day': {
+          const day = d.getDate();
+          return { label: String(day), sortKey: day };
+        }
+        case 'weekday': {
+          const dow = d.getDay();
+          const mondayFirst = dow === 0 ? 6 : dow - 1;
+          return { label: WEEKDAY_NAMES[dow], sortKey: mondayFirst };
+        }
+      }
+    };
+
+    const keyMeta = new Map<string, number>();
+
+    for (const s of sessions) {
+      const { label, sortKey } = getKey(s);
+      keyMeta.set(label, sortKey);
+
+      const b = buckets.get(label) ?? {
+        total: 0, answered: 0, lost: 0, lostBefore5: 0, durationSum: 0,
+        answeredDurationValues: [], answeredWaitValues: [], lostWaitValues: [],
+        slaMetCount: 0, slaTotal: 0,
+      };
+
+      b.total++;
+      const isAnswered = s.disposition === CallDisposition.ANSWERED;
+      const talk = s.callMetrics?.talkSeconds ?? 0;
+      const hold = s.callMetrics?.holdSeconds ?? 0;
+      const wait = s.callMetrics?.waitSeconds ?? 0;
+      const duration = talk + hold;
+
+      b.durationSum += duration;
+
+      if (isAnswered) {
+        b.answered++;
+        b.answeredDurationValues.push(duration);
+        b.answeredWaitValues.push(wait);
+      } else {
+        b.lost++;
+        b.lostWaitValues.push(wait);
+        if (wait < 5) b.lostBefore5++;
+      }
+
+      if (s.callMetrics?.isSlaMet !== null && s.callMetrics?.isSlaMet !== undefined) {
+        b.slaTotal++;
+        if (s.callMetrics.isSlaMet) b.slaMetCount++;
+      }
+
+      buckets.set(label, b);
+    }
+
+    const rows: BreakdownRow[] = [];
+    for (const [label, b] of buckets) {
+      rows.push({
+        label,
+        sortKey: keyMeta.get(label)!,
+        totalCalls: b.total,
+        answeredCalls: b.answered,
+        lostCalls: b.lost,
+        callsLostBefore5Sec: b.lostBefore5,
+        totalCallsDurationMin: round2(b.durationSum / 60),
+        avgCallDurationSec: avg(b.answeredDurationValues),
+        answeredAvgHoldTimeSec: avg(b.answeredWaitValues),
+        answeredAvgPosition: b.answered > 0 ? 1.00 : null,
+        lostAvgHoldTimeSec: avg(b.lostWaitValues),
+        lostAvgPosition: b.lost > 0 ? 1.00 : null,
+        slaPercent: b.slaTotal > 0 ? round2((b.slaMetCount / b.slaTotal) * 100) : null,
+      });
+    }
+
+    rows.sort((a, b) => a.sortKey - b.sortKey);
+    return { rows };
+  }
+
+  async getOverviewExtended(query: QueryStatsDto): Promise<{
+    holdDistribution: { answered: HoldTimeDistribution; lost: HoldTimeDistribution };
+  }> {
+    const from = new Date(query.from);
+    const to = new Date(query.to);
+
+    const sessions = await this.prisma.callSession.findMany({
+      where: {
+        startAt: { gte: from, lte: to },
+        ...(query.queueId ? { queueId: query.queueId } : {}),
+      },
+      select: {
+        disposition: true,
+        callMetrics: { select: { waitSeconds: true } },
+      },
+    });
+
+    const answeredWaits: number[] = [];
+    const lostWaits: number[] = [];
+
+    for (const s of sessions) {
+      const wait = s.callMetrics?.waitSeconds ?? 0;
+      if (s.disposition === CallDisposition.ANSWERED) {
+        answeredWaits.push(wait);
+      } else {
+        lostWaits.push(wait);
+      }
+    }
+
+    return {
+      holdDistribution: {
+        answered: buildHoldDistribution(answeredWaits),
+        lost: buildHoldDistribution(lostWaits),
+      },
+    };
+  }
+
+  async getAgentBreakdown(query: QueryStatsDto): Promise<AgentBreakdownRow[]> {
+    const from = new Date(query.from);
+    const to = new Date(query.to);
+
+    const sessions = await this.prisma.callSession.findMany({
+      where: {
+        startAt: { gte: from, lte: to },
+        assignedUserId: { not: null },
+        ...(query.queueId ? { queueId: query.queueId } : {}),
+      },
+      select: {
+        assignedUserId: true,
+        disposition: true,
+        callMetrics: {
+          select: { waitSeconds: true, talkSeconds: true, holdSeconds: true },
+        },
+      },
+    });
+
+    type AgentAccum = {
+      answered: number;
+      noAnswer: number;
+      busy: number;
+      total: number;
+      durationSum: number;
+      answeredDurations: number[];
+      answeredWaits: number[];
+      nonAnsweredWaits: number[];
+    };
+
+    const agentMap = new Map<string, AgentAccum>();
+
+    for (const s of sessions) {
+      const uid = s.assignedUserId!;
+      const a = agentMap.get(uid) ?? {
+        answered: 0, noAnswer: 0, busy: 0, total: 0, durationSum: 0,
+        answeredDurations: [], answeredWaits: [], nonAnsweredWaits: [],
+      };
+
+      a.total++;
+      const talk = s.callMetrics?.talkSeconds ?? 0;
+      const hold = s.callMetrics?.holdSeconds ?? 0;
+      const wait = s.callMetrics?.waitSeconds ?? 0;
+      const duration = talk + hold;
+      a.durationSum += duration;
+
+      if (s.disposition === CallDisposition.ANSWERED) {
+        a.answered++;
+        a.answeredDurations.push(duration);
+        a.answeredWaits.push(wait);
+      } else if (
+        s.disposition === CallDisposition.BUSY ||
+        s.disposition === CallDisposition.FAILED
+      ) {
+        a.busy++;
+        a.nonAnsweredWaits.push(wait);
+      } else {
+        a.noAnswer++;
+        a.nonAnsweredWaits.push(wait);
+      }
+
+      agentMap.set(uid, a);
+    }
+
+    const userIds = [...agentMap.keys()];
+    const extensions = await this.prisma.telephonyExtension.findMany({
+      where: { crmUserId: { in: userIds } },
+      select: { crmUserId: true, displayName: true, extension: true },
+    });
+    const extMap = new Map(extensions.map((e) => [e.crmUserId, e]));
+
+    const result: AgentBreakdownRow[] = [];
+    for (const [userId, a] of agentMap) {
+      const ext = extMap.get(userId);
+      result.push({
+        userId,
+        displayName: ext?.displayName ?? null,
+        extension: ext?.extension ?? null,
+        answeredCalls: a.answered,
+        noAnswerCalls: a.noAnswer,
+        busyCalls: a.busy,
+        totalCalls: a.total,
+        totalCallsDurationMin: round2(a.durationSum / 60),
+        avgCallDurationSec: avg(a.answeredDurations),
+        answeredAvgRingTimeSec: avg(a.answeredWaits),
+        noAnswerAvgRingTimeSec: avg(a.nonAnsweredWaits),
       });
     }
 

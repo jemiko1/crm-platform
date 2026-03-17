@@ -13,6 +13,7 @@ const TABS = [
   { href: "/app/call-center/callbacks", label: "Callbacks", labelKey: "callCenter.tabs.callbacks" },
   { href: "/app/call-center/quality", label: "Quality", labelKey: "callCenter.tabs.quality" },
   { href: "/app/call-center/agents", label: "Agents", labelKey: "callCenter.tabs.agents" },
+  { href: "/app/call-center/statistics", label: "Statistics", labelKey: "callCenter.tabs.statistics" },
 ];
 
 export default function CallCenterLayout({ children }: { children: React.ReactNode }) {
