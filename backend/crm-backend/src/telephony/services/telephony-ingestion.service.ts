@@ -262,13 +262,27 @@ export class TelephonyIngestionService {
       userId = telExt?.crmUserId ?? null;
     }
 
+    const answerTime = new Date(event.timestamp);
+
     await this.prisma.callSession.update({
       where: { id: existingSession.id },
       data: {
         assignedUserId: userId,
         assignedExtension: ext ?? null,
+        answerAt: answerTime,
       },
     });
+
+    // Update customer leg answer time if not already set
+    const customerLeg = await this.prisma.callLeg.findFirst({
+      where: { callSessionId: existingSession.id, type: CallLegType.CUSTOMER, answerAt: null },
+    });
+    if (customerLeg) {
+      await this.prisma.callLeg.update({
+        where: { id: customerLeg.id },
+        data: { answerAt: answerTime },
+      });
+    }
 
     await this.prisma.callLeg.create({
       data: {
@@ -276,7 +290,7 @@ export class TelephonyIngestionService {
         type: CallLegType.AGENT,
         userId,
         extension: ext ?? null,
-        startAt: new Date(event.timestamp),
+        startAt: answerTime,
       },
     });
   }
@@ -521,7 +535,8 @@ export class TelephonyIngestionService {
     const causeTxt = (payload.causeTxt ?? '').toUpperCase().replace(/[\s-]+/g, '_');
     const causeCode = (payload.cause ?? '').trim();
 
-    if (causeTxt.includes('NORMAL_CLEARING') || causeTxt.includes('ANSWERED') || causeCode === '16') {
+    // CDR import sets causeTxt to the literal CDR disposition string "ANSWERED"
+    if (causeTxt === 'ANSWERED') {
       return CallDisposition.ANSWERED;
     }
     if (causeTxt.includes('NO_ANSWER') || causeCode === '19') {
@@ -535,6 +550,10 @@ export class TelephonyIngestionService {
     }
     if (causeTxt.includes('FAILURE') || causeTxt.includes('CONGESTION')) {
       return CallDisposition.FAILED;
+    }
+    // NORMAL_CLEARING (cause 16) without answerAt = caller hung up or timed out
+    if (causeTxt.includes('NORMAL_CLEARING') || causeCode === '16') {
+      return CallDisposition.NOANSWER;
     }
     return CallDisposition.MISSED;
   }

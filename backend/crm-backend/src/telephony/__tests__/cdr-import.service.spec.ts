@@ -43,8 +43,17 @@ describe('CdrImportService', () => {
       end: '2026-01-15T10:02:00Z',
     };
 
-    it('should produce call_start and call_end events', () => {
+    it('should produce call_start, call_answer, and call_end events for ANSWERED CDR', () => {
       const events = service.mapCdrToEvents([sampleRow]);
+      expect(events.length).toBe(3);
+      expect(events[0].eventType).toBe('call_start');
+      expect(events[1].eventType).toBe('call_answer');
+      expect(events[2].eventType).toBe('call_end');
+    });
+
+    it('should not produce call_answer for unanswered CDR', () => {
+      const noAnswer = { ...sampleRow, disposition: 'NO ANSWER', billsec: 0, answer: '' };
+      const events = service.mapCdrToEvents([noAnswer]);
       expect(events.length).toBe(2);
       expect(events[0].eventType).toBe('call_start');
       expect(events[1].eventType).toBe('call_end');
@@ -59,9 +68,9 @@ describe('CdrImportService', () => {
     it('should produce recording_ready when recordingfile exists', () => {
       const withRecording = { ...sampleRow, recordingfile: '/rec/123.wav' };
       const events = service.mapCdrToEvents([withRecording]);
-      expect(events.length).toBe(3);
-      expect(events[2].eventType).toBe('recording_ready');
-      expect(events[2].payload.recordingFile).toBe('/rec/123.wav');
+      expect(events.length).toBe(4);
+      expect(events[3].eventType).toBe('recording_ready');
+      expect(events[3].payload.recordingFile).toBe('/rec/123.wav');
     });
 
     it('should map caller and callee from CDR fields', () => {
@@ -70,21 +79,24 @@ describe('CdrImportService', () => {
       expect(events[0].payload.connectedLineNum).toBe('100');
     });
 
-    it('should map CDR disposition to cause code', () => {
+    it('should map CDR disposition to cause code in call_end event', () => {
       const events = service.mapCdrToEvents([sampleRow]);
-      expect(events[1].payload.cause).toBe('16');
+      const endEvent = events.find((e) => e.eventType === ('call_end' as any));
+      expect(endEvent!.payload.cause).toBe('16');
     });
 
     it('should handle NO ANSWER disposition', () => {
-      const noAnswer = { ...sampleRow, disposition: 'NO ANSWER' };
+      const noAnswer = { ...sampleRow, disposition: 'NO ANSWER', billsec: 0, answer: '' };
       const events = service.mapCdrToEvents([noAnswer]);
-      expect(events[1].payload.cause).toBe('19');
+      const endEvent = events.find((e) => e.eventType === ('call_end' as any));
+      expect(endEvent!.payload.cause).toBe('19');
     });
 
     it('should handle BUSY disposition', () => {
-      const busy = { ...sampleRow, disposition: 'BUSY' };
+      const busy = { ...sampleRow, disposition: 'BUSY', billsec: 0, answer: '' };
       const events = service.mapCdrToEvents([busy]);
-      expect(events[1].payload.cause).toBe('17');
+      const endEvent = events.find((e) => e.eventType === ('call_end' as any));
+      expect(endEvent!.payload.cause).toBe('17');
     });
 
     it('should handle empty rows', () => {
