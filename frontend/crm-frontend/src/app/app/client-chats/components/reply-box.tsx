@@ -28,8 +28,11 @@ export default function ReplyBox({ conversationId, channelType, clientName, onSe
   const [responses, setResponses] = useState<CannedResponse[]>([]);
   const [slashFilter, setSlashFilter] = useState("");
   const [selectedIdx, setSelectedIdx] = useState(0);
+  const [file, setFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchResponses = useCallback(async () => {
     try {
@@ -83,14 +86,55 @@ export default function ReplyBox({ conversationId, channelType, clientName, onSe
     }
   }
 
+  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
+  const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = e.target.files?.[0];
+    if (!selected) return;
+
+    if (!ALLOWED_TYPES.includes(selected.type)) {
+      alert('File type not allowed. Use JPEG, PNG, WebP, GIF, or PDF.');
+      return;
+    }
+    if (selected.size > MAX_FILE_SIZE) {
+      alert('File too large. Maximum 10 MB.');
+      return;
+    }
+
+    setFile(selected);
+    setFilePreview(selected.type.startsWith('image/') ? URL.createObjectURL(selected) : null);
+  }
+
+  function clearFile() {
+    setFile(null);
+    if (filePreview) URL.revokeObjectURL(filePreview);
+    setFilePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
   async function handleSend() {
-    if (!text.trim() || sending) return;
+    if ((!text.trim() && !file) || sending) return;
     setSending(true);
     try {
-      await apiPost(`/v1/clientchats/conversations/${conversationId}/reply`, {
-        text: text.trim(),
-      });
-      setText("");
+      if (file) {
+        const formData = new FormData();
+        if (text.trim()) formData.append('text', text.trim());
+        formData.append('file', file);
+
+        const res = await fetch(`/v1/clientchats/conversations/${conversationId}/reply`, {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+        });
+        if (!res.ok) throw new Error('Send failed');
+      } else {
+        await apiPost(`/v1/clientchats/conversations/${conversationId}/reply`, {
+          text: text.trim(),
+        });
+      }
+      setText('');
+      clearFile();
       onSent();
     } catch {
       // keep text for retry
@@ -205,6 +249,29 @@ export default function ReplyBox({ conversationId, channelType, clientName, onSe
         </div>
       )}
 
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+        onChange={handleFileSelect}
+        className="hidden"
+      />
+
+      {file && (
+        <div className="mb-2 flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
+          {filePreview ? (
+            <img src={filePreview} alt="" className="h-10 w-10 rounded object-cover" />
+          ) : (
+            <div className="flex h-10 w-10 items-center justify-center rounded bg-zinc-200 text-xs text-zinc-500">PDF</div>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-zinc-700 truncate">{file.name}</p>
+            <p className="text-xs text-zinc-400">{(file.size / 1024).toFixed(0)} KB</p>
+          </div>
+          <button onClick={clearFile} className="text-zinc-400 hover:text-red-500 text-lg">&times;</button>
+        </div>
+      )}
+
       <div className="flex items-end gap-2">
         <textarea
           ref={textareaRef}
@@ -216,6 +283,15 @@ export default function ReplyBox({ conversationId, channelType, clientName, onSe
           className="flex-1 resize-none border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white/80"
         />
         <button
+          onClick={() => fileInputRef.current?.click()}
+          title="Attach file"
+          className="p-2 rounded-xl border border-zinc-200 text-zinc-500 hover:bg-zinc-50 hover:text-emerald-600 transition"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
+          </svg>
+        </button>
+        <button
           onClick={() => { setShowPicker(!showPicker); setShowSlash(false); }}
           title="Quick replies"
           className="p-2 rounded-xl border border-zinc-200 text-zinc-500 hover:bg-zinc-50 hover:text-emerald-600 transition"
@@ -226,7 +302,7 @@ export default function ReplyBox({ conversationId, channelType, clientName, onSe
         </button>
         <button
           onClick={handleSend}
-          disabled={!text.trim() || sending}
+          disabled={(!text.trim() && !file) || sending}
           className="px-4 py-2 rounded-xl bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 disabled:opacity-40 transition-colors"
         >
           {sending ? "..." : "Send"}

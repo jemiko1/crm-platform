@@ -296,7 +296,12 @@ export class ClientChatsCoreService {
 
   // ── Agent reply ────────────────────────────────────────
 
-  async sendReply(conversationId: string, userId: string, text: string) {
+  async sendReply(
+    conversationId: string,
+    userId: string,
+    text: string,
+    media?: { buffer: Buffer; mimeType: string; filename: string },
+  ) {
     const conversation = await this.prisma.clientChatConversation.findUnique({
       where: { id: conversationId },
       include: { channelAccount: true },
@@ -319,7 +324,12 @@ export class ClientChatsCoreService {
       conversation.externalConversationId,
       text,
       metadata,
+      media,
     );
+
+    const attachments = media
+      ? [{ filename: media.filename, mimeType: media.mimeType }]
+      : undefined;
 
     const message = await this.saveMessage({
       conversationId,
@@ -329,7 +339,8 @@ export class ClientChatsCoreService {
       externalMessageId:
         result.externalMessageId ||
         `out_${conversationId}_${Date.now()}`,
-      text,
+      text: text || (media ? `[${media.filename}]` : ''),
+      attachments,
     });
 
     const updatedConv = await this.prisma.clientChatConversation.update({

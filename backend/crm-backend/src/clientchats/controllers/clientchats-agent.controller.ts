@@ -11,8 +11,12 @@ import {
   Req,
   Res,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { PositionPermissionGuard } from '../../common/guards/position-permission.guard';
@@ -20,7 +24,6 @@ import { RequirePermission } from '../../common/decorators/require-permission.de
 import { ClientChatsCoreService } from '../services/clientchats-core.service';
 import { CannedResponsesService } from '../services/canned-responses.service';
 import { ConversationQueryDto } from '../dto/conversation-query.dto';
-import { ReplyMessageDto } from '../dto/reply-message.dto';
 import { AssignConversationDto } from '../dto/assign-conversation.dto';
 import { ChangeStatusDto } from '../dto/change-status.dto';
 import { LinkClientDto } from '../dto/link-client.dto';
@@ -61,14 +64,56 @@ export class ClientChatsAgentController {
     );
   }
 
+  private static readonly ALLOWED_MEDIA_TYPES = [
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+    'application/pdf',
+  ];
+
   @Post('conversations/:id/reply')
   @RequirePermission('client_chats.menu')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 10 * 1024 * 1024 },
+      fileFilter: (_req, file, cb) => {
+        const allowed = [
+          'image/jpeg',
+          'image/png',
+          'image/webp',
+          'image/gif',
+          'application/pdf',
+        ];
+        if (allowed.includes(file.mimetype)) {
+          cb(null, true);
+        } else {
+          cb(new BadRequestException('File type not allowed'), false);
+        }
+      },
+    }),
+  )
   reply(
     @Param('id') id: string,
-    @Body() dto: ReplyMessageDto,
+    @Body('text') text: string | undefined,
+    @UploadedFile() file: Express.Multer.File | undefined,
     @Req() req: any,
   ) {
-    return this.core.sendReply(id, req.user.id, dto.text);
+    if (!text?.trim() && !file) {
+      throw new BadRequestException('Text or file is required');
+    }
+    return this.core.sendReply(
+      id,
+      req.user.id,
+      text?.trim() || '',
+      file
+        ? {
+            buffer: file.buffer,
+            mimeType: file.mimetype,
+            filename: file.originalname,
+          }
+        : undefined,
+    );
   }
 
   @Patch('conversations/:id/assign')

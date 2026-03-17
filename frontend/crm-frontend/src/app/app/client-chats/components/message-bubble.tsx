@@ -13,7 +13,7 @@ interface Attachment {
   name?: string;
 }
 
-function MediaAttachment({ att }: { att: Attachment }) {
+function MediaAttachment({ att, isOutbound }: { att: Attachment; isOutbound?: boolean }) {
   const [error, setError] = useState(false);
 
   if (!att.mediaId && att.type !== "location") return null;
@@ -26,7 +26,7 @@ function MediaAttachment({ att }: { att: Attachment }) {
         href={mapUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-xs underline text-blue-600 dark:text-blue-300"
+        className={`text-xs underline ${isOutbound ? "text-emerald-100" : "text-blue-600 dark:text-blue-300"}`}
       >
         📍 {label}
       </a>
@@ -72,7 +72,11 @@ function MediaAttachment({ att }: { att: Attachment }) {
         href={src}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 mt-1 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+        className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 mt-1 rounded-lg transition-colors ${
+          isOutbound
+            ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+            : "bg-gray-100 hover:bg-gray-200"
+        }`}
       >
         <span>📄</span>
         <span className="underline">{att.filename || "Document"}</span>
@@ -113,7 +117,7 @@ export default function MessageBubble({ msg }: { msg: ChatMessage }) {
         {hasMedia && (
           <div className="space-y-1">
             {attachments.map((att, i) => (
-              <MediaAttachment key={i} att={att} />
+              <MediaAttachment key={i} att={att} isOutbound={isOutbound} />
             ))}
           </div>
         )}
