@@ -14,6 +14,7 @@ import { ClientChatsCoreService } from './services/clientchats-core.service';
 import { ClientChatsMatchingService } from './services/clientchats-matching.service';
 import { ClientChatsObservabilityService } from './services/clientchats-observability.service';
 import { ClientChatsEventService } from './services/clientchats-event.service';
+import { CannedResponsesService } from './services/canned-responses.service';
 import { ClientChatsGateway } from './clientchats.gateway';
 import { TelegramWebhookService } from './services/telegram-webhook.service';
 import { TelegramPollingService } from './services/telegram-polling.service';
@@ -57,6 +58,7 @@ import {
     ClientChatsMatchingService,
     ClientChatsObservabilityService,
     ClientChatsEventService,
+    CannedResponsesService,
     ClientChatsGateway,
     TelegramWebhookService,
     TelegramPollingService,

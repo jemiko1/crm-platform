@@ -2,6 +2,8 @@ import {
   Controller,
   Get,
   Post,
+  Put,
+  Delete,
   Patch,
   Param,
   Query,
@@ -16,16 +18,22 @@ import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { PositionPermissionGuard } from '../../common/guards/position-permission.guard';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { ClientChatsCoreService } from '../services/clientchats-core.service';
+import { CannedResponsesService } from '../services/canned-responses.service';
 import { ConversationQueryDto } from '../dto/conversation-query.dto';
 import { ReplyMessageDto } from '../dto/reply-message.dto';
 import { AssignConversationDto } from '../dto/assign-conversation.dto';
 import { ChangeStatusDto } from '../dto/change-status.dto';
 import { LinkClientDto } from '../dto/link-client.dto';
+import { CreateCannedResponseDto } from '../dto/create-canned-response.dto';
+import { UpdateCannedResponseDto } from '../dto/update-canned-response.dto';
 
 @Controller('v1/clientchats')
 @UseGuards(JwtAuthGuard, PositionPermissionGuard)
 export class ClientChatsAgentController {
-  constructor(private readonly core: ClientChatsCoreService) {}
+  constructor(
+    private readonly core: ClientChatsCoreService,
+    private readonly cannedResponses: CannedResponsesService,
+  ) {}
 
   @Get('conversations')
   @RequirePermission('client_chats.menu')
@@ -98,5 +106,60 @@ export class ClientChatsAgentController {
     res.setHeader('Content-Type', result.contentType);
     res.setHeader('Cache-Control', 'private, max-age=86400');
     result.stream.pipe(res);
+  }
+
+  // ── Canned Responses ─────────────────────────────────────
+
+  @Get('canned-responses')
+  @RequirePermission('client_chats.menu')
+  listCannedResponses(
+    @Req() req: any,
+    @Query('category') category?: string,
+    @Query('channelType') channelType?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.cannedResponses.findAll(req.user.id, {
+      category,
+      channelType,
+      search,
+    });
+  }
+
+  @Post('canned-responses')
+  @RequirePermission('client_chats.menu')
+  createCannedResponse(
+    @Req() req: any,
+    @Body() dto: CreateCannedResponseDto,
+  ) {
+    return this.cannedResponses.create(
+      req.user.id,
+      req.user.isSuperAdmin ?? false,
+      dto,
+    );
+  }
+
+  @Put('canned-responses/:id')
+  @RequirePermission('client_chats.menu')
+  updateCannedResponse(
+    @Param('id') id: string,
+    @Req() req: any,
+    @Body() dto: UpdateCannedResponseDto,
+  ) {
+    return this.cannedResponses.update(
+      id,
+      req.user.id,
+      req.user.isSuperAdmin ?? false,
+      dto,
+    );
+  }
+
+  @Delete('canned-responses/:id')
+  @RequirePermission('client_chats.menu')
+  deleteCannedResponse(@Param('id') id: string, @Req() req: any) {
+    return this.cannedResponses.delete(
+      id,
+      req.user.id,
+      req.user.isSuperAdmin ?? false,
+    );
   }
 }

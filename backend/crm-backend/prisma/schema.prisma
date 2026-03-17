@@ -263,6 +263,7 @@ model User {
   qualityReviews        QualityReview[]     @relation("UserQualityReviews")
   assignedClientChats   ClientChatConversation[] @relation("UserAssignedClientChats")
   clientChatMessages    ClientChatMessage[]      @relation("UserClientChatMessages")
+  cannedResponses       ClientChatCannedResponse[] @relation("UserCannedResponses")
   deviceHandshakeTokens DeviceHandshakeToken[]
 
   @@index([email])
@@ -1702,6 +1703,24 @@ model ClientChatWebhookFailure {
 
   @@index([channelType])
   @@index([createdAt(sort: Desc)])
+}
+
+model ClientChatCannedResponse {
+  id          String                 @id @default(uuid())
+  title       String
+  content     String
+  category    String?
+  channelType ClientChatChannelType?
+  createdById String
+  createdBy   User                   @relation("UserCannedResponses", fields: [createdById], references: [id])
+  isGlobal    Boolean                @default(true)
+  sortOrder   Int                    @default(0)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  @@index([isGlobal])
+  @@index([createdById])
+  @@index([channelType])
 }
 
 enum DeviceStatus {
