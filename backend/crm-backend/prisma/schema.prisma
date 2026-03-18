@@ -1646,11 +1646,13 @@ model ClientChatConversation {
   lastMessageAt          DateTime?
   firstResponseAt        DateTime?
   resolvedAt             DateTime?
+  lastOperatorActivityAt DateTime?
   createdAt              DateTime                @default(now())
   channelAccount         ClientChatChannelAccount @relation(fields: [channelAccountId], references: [id], onDelete: Cascade)
   assignedUser           User?                   @relation("UserAssignedClientChats", fields: [assignedUserId], references: [id], onDelete: SetNull)
   client                 Client?                 @relation("ClientChatConversations", fields: [clientId], references: [id], onDelete: SetNull)
   messages               ClientChatMessage[]
+  escalationEvents       ClientChatEscalationEvent[]
 
   @@index([lastMessageAt(sort: Desc)])
   @@index([assignedUserId])
@@ -2035,6 +2037,28 @@ enum QualityReviewStatus {
   PROCESSING
   DONE
   FAILED
+}
+
+model ClientChatEscalationConfig {
+  id                        String   @id @default(uuid())
+  firstResponseTimeoutMins  Int      @default(5)
+  reassignAfterMins         Int      @default(10)
+  notifyManagerOnEscalation Boolean  @default(true)
+  updatedAt                 DateTime @updatedAt
+}
+
+model ClientChatEscalationEvent {
+  id              String                 @id @default(uuid())
+  conversationId  String
+  conversation    ClientChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  type            String
+  fromUserId      String?
+  toUserId        String?
+  metadata        Json?                  @default("{}")
+  createdAt       DateTime               @default(now())
+
+  @@index([conversationId])
+  @@index([createdAt(sort: Desc)])
 }
 
 model ClientChatQueueSchedule {

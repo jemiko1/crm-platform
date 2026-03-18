@@ -3,6 +3,7 @@ import {
   Get,
   Put,
   Delete,
+  Query,
   Param,
   Body,
   Req,
@@ -13,6 +14,8 @@ import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { PositionPermissionGuard } from '../../common/guards/position-permission.guard';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { QueueScheduleService } from '../services/queue-schedule.service';
+import { EscalationService } from '../services/escalation.service';
+import { ClientChatsEventService } from '../services/clientchats-event.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ClientChatStatus } from '@prisma/client';
 
@@ -21,6 +24,8 @@ import { ClientChatStatus } from '@prisma/client';
 export class ClientChatsManagerController {
   constructor(
     private readonly schedule: QueueScheduleService,
+    private readonly escalation: EscalationService,
+    private readonly events: ClientChatsEventService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -116,5 +121,169 @@ export class ClientChatsManagerController {
   @RequirePermission('client_chats.manage')
   removeDailyOverride(@Param('date') date: string) {
     return this.schedule.removeDailyOverride(new Date(date));
+  }
+
+  // ── Escalation config ──────────────────────────────────
+
+  @Get('escalation-config')
+  @RequirePermission('client_chats.manage')
+  getEscalationConfig() {
+    return this.escalation.getConfig();
+  }
+
+  @Put('escalation-config')
+  @RequirePermission('client_chats.manage')
+  updateEscalationConfig(
+    @Body()
+    body: {
+      firstResponseTimeoutMins?: number;
+      reassignAfterMins?: number;
+      notifyManagerOnEscalation?: boolean;
+    },
+  ) {
+    return this.escalation.updateConfig(body);
+  }
+
+  @Get('escalation-events')
+  @RequirePermission('client_chats.manage')
+  getEscalationEvents(@Query('limit') limit?: string) {
+    return this.escalation.getRecentEvents(
+      limit ? parseInt(limit, 10) : 50,
+    );
+  }
+
+  // ── Live status dashboard ──────────────────────────────
+
+  @Get('live-status')
+  @RequirePermission('client_chats.manage')
+  async getLiveStatus() {
+    const operatorIds = await this.schedule.getActiveOperatorsToday();
+
+    const users = operatorIds.length > 0
+      ? await this.prisma.user.findMany({
+          where: { id: { in: operatorIds } },
+          select: {
+            id: true,
+            email: true,
+            employee: { select: { firstName: true, lastName: true } },
+          },
+        })
+      : [];
+
+    const chatCounts = operatorIds.length > 0
+      ? await this.prisma.clientChatConversation.groupBy({
+          by: ['assignedUserId'],
+          where: {
+            assignedUserId: { in: operatorIds },
+            status: ClientChatStatus.OPEN,
+          },
+          _count: true,
+        })
+      : [];
+    const countMap = new Map(
+      chatCounts.map((c) => [c.assignedUserId, c._count]),
+    );
+
+    const responseTimeData = operatorIds.length > 0
+      ? await this.prisma.clientChatConversation.findMany({
+          where: {
+            assignedUserId: { in: operatorIds },
+            firstResponseAt: { not: null },
+            createdAt: { gte: new Date(Date.now() - 24 * 60 * 60_000) },
+          },
+          select: { assignedUserId: true, createdAt: true, firstResponseAt: true },
+        })
+      : [];
+
+    const avgResponseMap = new Map<string, number>();
+    const grouped = new Map<string, number[]>();
+    for (const r of responseTimeData) {
+      if (!r.assignedUserId || !r.firstResponseAt) continue;
+      const mins =
+        (new Date(r.firstResponseAt).getTime() -
+          new Date(r.createdAt).getTime()) /
+        60_000;
+      const arr = grouped.get(r.assignedUserId) ?? [];
+      arr.push(mins);
+      grouped.set(r.assignedUserId, arr);
+    }
+    for (const [uid, times] of grouped) {
+      avgResponseMap.set(
+        uid,
+        Math.round(times.reduce((a, b) => a + b, 0) / times.length),
+      );
+    }
+
+    const onlineUserIds = this.events.getConnectedAgentIds?.() ?? [];
+
+    const activeOperators = users.map((u) => ({
+      userId: u.id,
+      name: u.employee
+        ? `${u.employee.firstName} ${u.employee.lastName}`.trim()
+        : u.email,
+      email: u.email,
+      openChats: countMap.get(u.id) ?? 0,
+      avgResponseMins: avgResponseMap.get(u.id) ?? null,
+      isOnline: onlineUserIds.includes(u.id),
+    }));
+
+    const escalationConfig = await this.escalation.getConfig();
+    const slaThresholdMs =
+      escalationConfig.firstResponseTimeoutMins * 60_000;
+
+    const [totalOpen, unassigned, pastSLACount] = await Promise.all([
+      this.prisma.clientChatConversation.count({
+        where: { status: ClientChatStatus.OPEN },
+      }),
+      this.prisma.clientChatConversation.count({
+        where: {
+          status: ClientChatStatus.OPEN,
+          assignedUserId: null,
+        },
+      }),
+      this.prisma.clientChatConversation.count({
+        where: {
+          status: ClientChatStatus.OPEN,
+          firstResponseAt: null,
+          lastMessageAt: {
+            lt: new Date(Date.now() - slaThresholdMs),
+          },
+        },
+      }),
+    ]);
+
+    const openConvs = await this.prisma.clientChatConversation.findMany({
+      where: {
+        status: ClientChatStatus.OPEN,
+        assignedUserId: { not: null },
+        firstResponseAt: null,
+      },
+      select: { lastMessageAt: true },
+    });
+    const waitTimes = openConvs
+      .filter((c) => c.lastMessageAt)
+      .map(
+        (c) =>
+          (Date.now() - new Date(c.lastMessageAt!).getTime()) / 60_000,
+      );
+    const avgWaitMins =
+      waitTimes.length > 0
+        ? Math.round(
+            waitTimes.reduce((a, b) => a + b, 0) / waitTimes.length,
+          )
+        : 0;
+
+    const recentEscalations = await this.escalation.getRecentEvents(10);
+
+    return {
+      activeOperators,
+      queueStats: {
+        totalOpen,
+        unassigned,
+        pastSLA: pastSLACount,
+        avgWaitMins,
+      },
+      recentEscalations,
+    };
   }
 }
