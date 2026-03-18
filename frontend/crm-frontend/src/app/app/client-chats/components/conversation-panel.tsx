@@ -59,14 +59,7 @@ export default function ConversationPanel({ conversationId }: ConversationPanelP
       const res = await apiGet<PaginatedResponse<ChatMessage>>(
         `/v1/clientchats/conversations/${conversationId}/messages?limit=100`,
       );
-      setMessages((prev) => {
-        const last = res.data[res.data.length - 1];
-        const prevLast = prev[prev.length - 1];
-        if (res.data.length === prev.length && last?.id === prevLast?.id) {
-          return prev;
-        }
-        return res.data;
-      });
+      setMessages(res.data);
     } catch {
       setMessages([]);
     }
@@ -162,11 +155,13 @@ export default function ConversationPanel({ conversationId }: ConversationPanelP
         if (prev.some((m) => m.id === data.message.id)) return prev;
         return [...prev, data.message];
       });
+      fetchConversation();
     };
 
     const handleConversationUpdated = (conv: any) => {
       if (conv.id !== conversationId) return;
       fetchConversation();
+      fetchMessages();
     };
 
     const handlePaused = (data: { conversationId: string }) => {
@@ -190,7 +185,7 @@ export default function ConversationPanel({ conversationId }: ConversationPanelP
       off("operator:paused", handlePaused);
       off("operator:unpaused", handleUnpaused);
     };
-  }, [on, off, conversationId, fetchConversation]);
+  }, [on, off, conversationId, fetchConversation, fetchMessages]);
 
   useEffect(() => {
     if (messages.length > prevMsgCountRef.current) {

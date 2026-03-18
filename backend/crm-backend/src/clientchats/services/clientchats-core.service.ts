@@ -56,17 +56,15 @@ export class ClientChatsCoreService {
       parsed,
     );
 
-    const existingConv = await this.prisma.clientChatConversation.findUnique({
-      where: { externalConversationId: parsed.externalConversationId },
-    });
-    const isNewConversation = !existingConv;
+    const { conversation: upsertedConv, isNew: isNewConversation } =
+      await this.upsertConversation(
+        channelType,
+        channelAccountId,
+        parsed.externalConversationId,
+        participant.id,
+      );
 
-    let conversation = await this.upsertConversation(
-      channelType,
-      channelAccountId,
-      parsed.externalConversationId,
-      participant.id,
-    );
+    let conversation = upsertedConv;
 
     if (isNewConversation || !conversation.assignedUserId) {
       const assignedUserId = await this.assignment.autoAssign(channelType);
@@ -90,6 +88,10 @@ export class ClientChatsCoreService {
     });
 
     await this.matching.autoMatch(participant, conversation);
+
+    if (isNewConversation) {
+      this.events.emitConversationNew(conversation as any);
+    }
 
     this.events.emitNewMessage(
       conversation.id,
@@ -181,15 +183,13 @@ export class ClientChatsCoreService {
     channelAccountId: string,
     externalConversationId: string,
     _participantId: string,
-  ) {
+  ): Promise<{ conversation: any; isNew: boolean }> {
     const existing = await this.prisma.clientChatConversation.findUnique({
       where: { externalConversationId },
     });
 
     if (existing) {
       if (existing.status === ClientChatStatus.CLOSED) {
-        // Customer texted back on a closed conversation -- create a new one
-        // and link the old one as previous history
         await this.prisma.clientChatConversation.update({
           where: { id: existing.id },
           data: { externalConversationId: `${externalConversationId}__archived_${Date.now()}` },
@@ -205,8 +205,7 @@ export class ClientChatsCoreService {
             previousConversationId: existing.id,
           },
         });
-        this.events.emitConversationNew(created as any);
-        return created;
+        return { conversation: created, isNew: true };
       }
 
       const updated = await this.prisma.clientChatConversation.update({
@@ -214,7 +213,7 @@ export class ClientChatsCoreService {
         data: { lastMessageAt: new Date() },
       });
       this.events.emitConversationUpdated(updated as any);
-      return updated;
+      return { conversation: updated, isNew: false };
     }
 
     const created = await this.prisma.clientChatConversation.create({
@@ -225,8 +224,7 @@ export class ClientChatsCoreService {
         lastMessageAt: new Date(),
       },
     });
-    this.events.emitConversationNew(created as any);
-    return created;
+    return { conversation: created, isNew: true };
   }
 
   /**
@@ -861,10 +859,27 @@ export class ClientChatsCoreService {
       },
       orderBy: { sentAt: 'desc' },
     });
-    if (!lastInbound) return false;
-    const hoursSince =
-      (Date.now() - new Date(lastInbound.sentAt).getTime()) / (1000 * 60 * 60);
-    return hoursSince < 24;
+
+    if (lastInbound) {
+      const hoursSince =
+        (Date.now() - new Date(lastInbound.sentAt).getTime()) / (1000 * 60 * 60);
+      return hoursSince < 24;
+    }
+
+    // New conversation created from a closed one may not have messages yet
+    // (race between upsertConversation and saveMessage). Check the conversation's
+    // creation time -- if it was just created, the customer just texted us.
+    const conv = await this.prisma.clientChatConversation.findUnique({
+      where: { id: conversationId },
+      select: { createdAt: true, previousConversationId: true },
+    });
+    if (conv?.previousConversationId) {
+      const minutesSinceCreation =
+        (Date.now() - new Date(conv.createdAt).getTime()) / (1000 * 60);
+      if (minutesSinceCreation < 5) return true;
+    }
+
+    return false;
   }
 
   async getWhatsAppTemplates(): Promise<any[]> {
