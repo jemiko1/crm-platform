@@ -264,6 +264,8 @@ model User {
   assignedClientChats   ClientChatConversation[] @relation("UserAssignedClientChats")
   clientChatMessages    ClientChatMessage[]      @relation("UserClientChatMessages")
   cannedResponses       ClientChatCannedResponse[] @relation("UserCannedResponses")
+  chatQueueSchedules    ClientChatQueueSchedule[] @relation("UserChatQueueSchedules")
+  chatQueueOverrides    ClientChatQueueOverride[] @relation("UserChatQueueOverrides")
   deviceHandshakeTokens DeviceHandshakeToken[]
 
   @@index([email])
@@ -2033,6 +2035,29 @@ enum QualityReviewStatus {
   PROCESSING
   DONE
   FAILED
+}
+
+model ClientChatQueueSchedule {
+  id        String   @id @default(uuid())
+  dayOfWeek Int
+  userId    String
+  user      User     @relation("UserChatQueueSchedules", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([dayOfWeek, userId])
+  @@index([dayOfWeek])
+}
+
+model ClientChatQueueOverride {
+  id        String   @id @default(uuid())
+  date      DateTime @db.Date
+  userIds   String[]
+  createdBy String
+  creator   User     @relation("UserChatQueueOverrides", fields: [createdBy], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([date])
 }
 
 // ──────────────────────────────────────────────

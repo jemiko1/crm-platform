@@ -16,6 +16,7 @@ import { ClientChatsObservabilityService } from './services/clientchats-observab
 import { ClientChatsEventService } from './services/clientchats-event.service';
 import { CannedResponsesService } from './services/canned-responses.service';
 import { AssignmentService } from './services/assignment.service';
+import { QueueScheduleService } from './services/queue-schedule.service';
 import { ClientChatsAnalyticsService } from './services/clientchats-analytics.service';
 import { ClientChatsGateway } from './clientchats.gateway';
 import { TelegramWebhookService } from './services/telegram-webhook.service';
@@ -27,6 +28,7 @@ import { WhatsAppWebhookService } from './services/whatsapp-webhook.service';
 import { ClientChatsPublicController } from './controllers/clientchats-public.controller';
 import { ClientChatsAgentController } from './controllers/clientchats-agent.controller';
 import { ClientChatsAdminController } from './controllers/clientchats-admin.controller';
+import { ClientChatsManagerController } from './controllers/clientchats-manager.controller';
 
 import { ConversationTokenGuard } from './guards/conversation-token.guard';
 import {
@@ -48,6 +50,7 @@ import {
     ClientChatsPublicController,
     ClientChatsAgentController,
     ClientChatsAdminController,
+    ClientChatsManagerController,
   ],
   providers: [
     WebChatAdapter,
@@ -62,6 +65,7 @@ import {
     ClientChatsEventService,
     CannedResponsesService,
     AssignmentService,
+    QueueScheduleService,
     ClientChatsAnalyticsService,
     ClientChatsGateway,
     TelegramWebhookService,
