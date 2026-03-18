@@ -168,8 +168,17 @@ const DEFAULT_PERMISSIONS = [
 
   // Client Chats (Unified Inbox)
   { resource: "client_chats", action: "menu", category: PermissionCategory.CLIENT_CHATS, description: "Show Client Chats in left menu and access inbox" },
+  { resource: "client_chats", action: "reply", category: PermissionCategory.CLIENT_CHATS, description: "Send replies and messages to clients" },
+  { resource: "client_chats", action: "assign", category: PermissionCategory.CLIENT_CHATS, description: "Assign/reassign conversations to agents" },
+  { resource: "client_chats", action: "change_status", category: PermissionCategory.CLIENT_CHATS, description: "Change conversation status (open, close, spam)" },
+  { resource: "client_chats", action: "link_client", category: PermissionCategory.CLIENT_CHATS, description: "Link/unlink clients to conversations" },
+  { resource: "client_chats", action: "send_media", category: PermissionCategory.CLIENT_CHATS, description: "Send images and files to clients" },
+  { resource: "client_chats", action: "send_template", category: PermissionCategory.CLIENT_CHATS, description: "Send WhatsApp template messages" },
+  { resource: "client_chats", action: "use_canned", category: PermissionCategory.CLIENT_CHATS, description: "Use canned responses (quick replies)" },
+  { resource: "client_chats", action: "manage_canned", category: PermissionCategory.CLIENT_CHATS, description: "Create and edit global canned responses" },
+  { resource: "client_chats", action: "view_analytics", category: PermissionCategory.CLIENT_CHATS, description: "View chat analytics and reports" },
   { resource: "client_chats", action: "manage", category: PermissionCategory.CLIENT_CHATS, description: "Manager: view all chats, manage queues, escalations" },
-  { resource: "client_chats_config", action: "access", category: PermissionCategory.ADMIN, description: "Configure Client Chats channels (Viber, Telegram, Facebook) in admin panel" },
+  { resource: "client_chats_config", action: "access", category: PermissionCategory.CLIENT_CHATS, description: "Configure Client Chats channels and assignment rules" },
 ];
 
 async function main() {
