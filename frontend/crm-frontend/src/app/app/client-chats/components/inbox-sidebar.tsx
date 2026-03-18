@@ -11,6 +11,7 @@ import ChannelBadge from "./channel-badge";
 interface InboxSidebarProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
+  isManager?: boolean;
   notify?: (title: string, body: string) => void;
   soundToggle?: React.ReactNode;
 }
@@ -37,7 +38,7 @@ function statusDot(status: ConversationStatus) {
   return <span className={`inline-block w-2 h-2 rounded-full ${colors[status]}`} />;
 }
 
-export default function InboxSidebar({ selectedId, onSelect, notify, soundToggle }: InboxSidebarProps) {
+export default function InboxSidebar({ selectedId, onSelect, isManager, notify, soundToggle }: InboxSidebarProps) {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -46,6 +47,7 @@ export default function InboxSidebar({ selectedId, onSelect, notify, soundToggle
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [unreadMap, setUnreadMap] = useState<Record<string, number>>({});
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const isInitialLoad = useRef(true);
   const lastSeenRef = useRef<Record<string, string>>({});
@@ -54,6 +56,15 @@ export default function InboxSidebar({ selectedId, onSelect, notify, soundToggle
   notifyRef.current = notify;
   selectedRef.current = selectedId;
   const { on, off, isConnected } = useClientChatSocket();
+
+  useEffect(() => {
+    apiGet<any>("/auth/me")
+      .then((data) => {
+        const user = data?.user || data;
+        if (user?.id) setCurrentUserId(user.id);
+      })
+      .catch(() => {});
+  }, []);
 
   const fetchConversations = useCallback(async () => {
     if (isInitialLoad.current) setLoading(true);
@@ -129,13 +140,20 @@ export default function InboxSidebar({ selectedId, onSelect, notify, soundToggle
     };
 
     const handleConversationUpdated = (conv: any) => {
-      setConversations((prev) =>
-        prev.map((c) =>
+      setConversations((prev) => {
+        if (
+          !isManager &&
+          currentUserId &&
+          conv.assignedUserId !== currentUserId
+        ) {
+          return prev.filter((c) => c.id !== conv.id);
+        }
+        return prev.map((c) =>
           c.id === conv.id
             ? { ...c, status: conv.status ?? c.status, assignedUserId: conv.assignedUserId ?? c.assignedUserId, lastMessageAt: conv.lastMessageAt ?? c.lastMessageAt }
             : c,
-        ),
-      );
+        );
+      });
     };
 
     const handleNewMessage = (data: { conversationId: string; message: any }) => {
@@ -205,7 +223,9 @@ export default function InboxSidebar({ selectedId, onSelect, notify, soundToggle
     <div className="flex flex-col h-full">
       <div className="px-4 py-3 border-b border-gray-200">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-800">Client Chats</h2>
+          <h2 className="text-lg font-semibold text-gray-800">
+            {isManager ? "All Chats" : "My Chats"}
+          </h2>
           <div className="flex items-center gap-2">
             <Link
               href="/app/client-chats/analytics"

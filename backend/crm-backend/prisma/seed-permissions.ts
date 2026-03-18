@@ -168,6 +168,7 @@ const DEFAULT_PERMISSIONS = [
 
   // Client Chats (Unified Inbox)
   { resource: "client_chats", action: "menu", category: PermissionCategory.CLIENT_CHATS, description: "Show Client Chats in left menu and access inbox" },
+  { resource: "client_chats", action: "manage", category: PermissionCategory.CLIENT_CHATS, description: "Manager: view all chats, manage queues, escalations" },
   { resource: "client_chats_config", action: "access", category: PermissionCategory.ADMIN, description: "Configure Client Chats channels (Viber, Telegram, Facebook) in admin panel" },
 ];
 

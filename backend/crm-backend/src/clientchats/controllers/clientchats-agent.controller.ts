@@ -40,7 +40,13 @@ export class ClientChatsAgentController {
 
   @Get('conversations')
   @RequirePermission('client_chats.menu')
-  listConversations(@Query() query: ConversationQueryDto) {
+  listConversations(@Query() query: ConversationQueryDto, @Req() req: any) {
+    const isManager =
+      req.user.isSuperAdmin ||
+      req.user.permissions?.includes('client_chats.manage');
+    if (!isManager) {
+      query.assignedUserId = req.user.id;
+    }
     return this.core.listConversations(query);
   }
 

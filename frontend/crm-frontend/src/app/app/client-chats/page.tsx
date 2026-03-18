@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { PermissionGuard } from "@/lib/permission-guard";
+import { usePermissions } from "@/lib/use-permissions";
 import { useNotifications } from "./hooks/useNotifications";
 import InboxSidebar from "./components/inbox-sidebar";
 import ConversationPanel from "./components/conversation-panel";
@@ -9,6 +10,8 @@ import EmptyState from "./components/empty-state";
 
 function ClientChatsContent() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const { hasPermission } = usePermissions();
+  const isManager = hasPermission("client_chats.manage");
   const { showBanner, soundEnabled, requestPermission, dismissBanner, toggleSound, notify } = useNotifications();
 
   return (
@@ -35,7 +38,7 @@ function ClientChatsContent() {
 
       <div className="flex flex-1 min-h-0 bg-white/40 backdrop-blur-sm rounded-2xl shadow-sm border border-white/60 overflow-hidden">
         <div className="w-[350px] min-w-[280px] border-r border-gray-200 flex-shrink-0 bg-white/50">
-          <InboxSidebar selectedId={selectedId} onSelect={setSelectedId} notify={notify} soundToggle={
+          <InboxSidebar selectedId={selectedId} onSelect={setSelectedId} isManager={isManager} notify={notify} soundToggle={
             <button
               onClick={toggleSound}
               className="text-gray-400 hover:text-gray-600 transition-colors"
