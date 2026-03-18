@@ -310,6 +310,12 @@ export class ClientChatsCoreService {
         sentAt: new Date(),
         rawPayload: data.rawPayload as any,
       },
+      include: {
+        participant: {
+          select: { id: true, displayName: true, externalUserId: true },
+        },
+        senderUser: { select: { id: true, email: true } },
+      },
     });
   }
 
