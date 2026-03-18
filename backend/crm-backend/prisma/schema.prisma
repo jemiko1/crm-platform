@@ -1642,6 +1642,8 @@ model ClientChatConversation {
   clientId               String?
   status                 ClientChatStatus        @default(OPEN)
   lastMessageAt          DateTime?
+  firstResponseAt        DateTime?
+  resolvedAt             DateTime?
   createdAt              DateTime                @default(now())
   channelAccount         ClientChatChannelAccount @relation(fields: [channelAccountId], references: [id], onDelete: Cascade)
   assignedUser           User?                   @relation("UserAssignedClientChats", fields: [assignedUserId], references: [id], onDelete: SetNull)
@@ -1652,6 +1654,7 @@ model ClientChatConversation {
   @@index([assignedUserId])
   @@index([status])
   @@index([channelType])
+  @@index([createdAt])
 }
 
 model ClientChatParticipant {
