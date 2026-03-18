@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { apiGet } from "@/lib/api";
 import { useClientChatSocket } from "../hooks/useClientChatSocket";
+import ManagerQueuePanel from "./manager-queue-panel";
 import {
   BarChart,
   Bar,
@@ -77,7 +78,7 @@ interface AgentData {
   avgFirstResponseMinutes: number | null;
 }
 
-type DashboardTab = "analytics" | "operators" | "live";
+type DashboardTab = "analytics" | "operators" | "live" | "queue";
 
 const CHANNEL_COLORS: Record<string, string> = {
   WHATSAPP: "#25D366",
@@ -141,11 +142,15 @@ export default function ManagerDashboard({ visible }: Props) {
         <TabButton active={tab === "live"} onClick={() => setTab("live")}>
           Live Dashboard
         </TabButton>
+        <TabButton active={tab === "queue"} onClick={() => setTab("queue")}>
+          Queue &amp; Schedule
+        </TabButton>
       </div>
       <div className="flex-1 overflow-y-auto p-4 bg-zinc-50/50">
         {tab === "analytics" && <AnalyticsTab />}
         {tab === "operators" && <OperatorsTab />}
         {tab === "live" && <LiveDashboardTab />}
+        {tab === "queue" && <ManagerQueuePanel open={true} onToggle={() => {}} />}
       </div>
     </div>
   );

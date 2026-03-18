@@ -178,6 +178,7 @@ const DEFAULT_PERMISSIONS = [
   { resource: "client_chats", action: "manage_canned", category: PermissionCategory.CLIENT_CHATS, description: "Create and edit global canned responses" },
   { resource: "client_chats", action: "view_analytics", category: PermissionCategory.CLIENT_CHATS, description: "View chat analytics and reports" },
   { resource: "client_chats", action: "manage", category: PermissionCategory.CLIENT_CHATS, description: "Manager: view all chats, manage queues, escalations" },
+  { resource: "client_chats", action: "delete", category: PermissionCategory.CLIENT_CHATS, description: "Permanently delete conversations with all messages and history" },
   { resource: "client_chats_config", action: "access", category: PermissionCategory.CLIENT_CHATS, description: "Configure Client Chats channels and assignment rules" },
 ];
 

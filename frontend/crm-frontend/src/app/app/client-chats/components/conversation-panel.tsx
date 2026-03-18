@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { apiGet, apiPatch } from "@/lib/api";
+import { usePermissions } from "@/lib/use-permissions";
 import type { ConversationDetail, ChatMessage, PaginatedResponse } from "../types";
 import { useClientChatSocket } from "../hooks/useClientChatSocket";
 import ConversationHeader from "./conversation-header";
@@ -10,9 +11,10 @@ import ReplyBox from "./reply-box";
 
 interface ConversationPanelProps {
   conversationId: string;
+  onDeleted?: () => void;
 }
 
-export default function ConversationPanel({ conversationId }: ConversationPanelProps) {
+export default function ConversationPanel({ conversationId, onDeleted }: ConversationPanelProps) {
   const [conversation, setConversation] = useState<ConversationDetail | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,6 +22,8 @@ export default function ConversationPanel({ conversationId }: ConversationPanelP
   const bottomRef = useRef<HTMLDivElement>(null);
   const prevMsgCountRef = useRef(0);
   const { on, off, isConnected } = useClientChatSocket();
+  const { hasPermission } = usePermissions();
+  const isManager = hasPermission("client_chats.manage");
 
   // Inactivity alert state
   const [showInactivityAlert, setShowInactivityAlert] = useState(false);
@@ -215,7 +219,7 @@ export default function ConversationPanel({ conversationId }: ConversationPanelP
 
   return (
     <div className="flex flex-col h-full">
-      <ConversationHeader conversation={conversation} currentUserId={currentUserId} onUpdate={loadAll} />
+      <ConversationHeader conversation={conversation} currentUserId={currentUserId} onUpdate={loadAll} onDeleted={onDeleted} />
 
       {/* Pause banner for the paused operator */}
       {imPaused && (
@@ -312,6 +316,7 @@ export default function ConversationPanel({ conversationId }: ConversationPanelP
             : undefined
         }
         whatsappWindowOpen={conversation.whatsappWindowOpen}
+        isManager={isManager}
         disabled={imPaused || conversation.status === "CLOSED"}
         disabledReason={
           imPaused

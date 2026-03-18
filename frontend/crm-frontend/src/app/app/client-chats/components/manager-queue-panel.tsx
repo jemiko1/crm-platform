@@ -182,100 +182,77 @@ export default function ManagerQueuePanel({ open, onToggle }: Props) {
     (e) => !operators.some((o) => o.id === e.id),
   );
 
-  return (
-    <div className="border-b border-gray-200 bg-white/80 backdrop-blur-sm">
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center justify-between px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-      >
-        <div className="flex items-center gap-2">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-            <line x1="16" y1="2" x2="16" y2="6" />
-            <line x1="8" y1="2" x2="8" y2="6" />
-            <line x1="3" y1="10" x2="21" y2="10" />
-          </svg>
-          <span>Queue Management</span>
-          {!open && operators.length > 0 && (
-            <span className="text-xs text-gray-400">
-              ({operators.length} active today)
-            </span>
-          )}
-        </div>
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          className={`transition-transform ${open ? "rotate-180" : ""}`}
+  if (!open) {
+    return (
+      <div className="border-b border-gray-200 bg-white/80 backdrop-blur-sm">
+        <button
+          onClick={onToggle}
+          className="w-full flex items-center justify-between px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
         >
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
-      </button>
-
-      {open && (
-        <div className="px-4 pb-4">
-          <div className="flex gap-1 mb-3">
-            <button
-              onClick={() => setTab("today")}
-              className={`px-3 py-1 text-xs rounded-full transition-colors ${
-                tab === "today"
-                  ? "bg-emerald-100 text-emerald-700 font-medium"
-                  : "text-gray-500 hover:bg-gray-100"
-              }`}
-            >
-              Today&apos;s Queue
-            </button>
-            <button
-              onClick={() => setTab("schedule")}
-              className={`px-3 py-1 text-xs rounded-full transition-colors ${
-                tab === "schedule"
-                  ? "bg-emerald-100 text-emerald-700 font-medium"
-                  : "text-gray-500 hover:bg-gray-100"
-              }`}
-            >
-              Weekly Schedule
-            </button>
-            <button
-              onClick={() => setTab("escalation")}
-              className={`px-3 py-1 text-xs rounded-full transition-colors ${
-                tab === "escalation"
-                  ? "bg-emerald-100 text-emerald-700 font-medium"
-                  : "text-gray-500 hover:bg-gray-100"
-              }`}
-            >
-              Escalation
-            </button>
+          <div className="flex items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+            <span>Queue Management</span>
+            {operators.length > 0 && (
+              <span className="text-xs text-gray-400">
+                ({operators.length} active today)
+              </span>
+            )}
           </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+      </div>
+    );
+  }
 
-          {loading ? (
-            <div className="text-center text-sm text-gray-400 py-4">Loading...</div>
-          ) : tab === "today" ? (
-            <TodayTab
-              operators={operators}
-              hasOverride={hasOverride}
-              availableToAdd={availableToAdd}
-              saving={saving}
-              onAdd={handleOverrideAdd}
-              onRemove={handleOverrideRemove}
-            />
-          ) : tab === "schedule" ? (
-            <ScheduleTab
-              schedule={schedule}
-              employees={employees}
-              saving={saving}
-              onToggle={handleDayToggle}
-            />
-          ) : (
-            <EscalationTab
-              config={escalationConfig}
-              saving={saving}
-              onSave={handleSaveEscalation}
-            />
-          )}
-        </div>
+  return (
+    <div>
+      <div className="flex gap-2 mb-4">
+        {(["today", "schedule", "escalation"] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+              tab === t
+                ? "bg-emerald-100 text-emerald-700 font-medium"
+                : "text-gray-500 hover:bg-gray-100"
+            }`}
+          >
+            {t === "today" ? "Today\u2019s Queue" : t === "schedule" ? "Weekly Schedule" : "Escalation"}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="text-center text-sm text-gray-400 py-8">Loading...</div>
+      ) : tab === "today" ? (
+        <TodayTab
+          operators={operators}
+          hasOverride={hasOverride}
+          availableToAdd={availableToAdd}
+          saving={saving}
+          onAdd={handleOverrideAdd}
+          onRemove={handleOverrideRemove}
+        />
+      ) : tab === "schedule" ? (
+        <ScheduleTab
+          schedule={schedule}
+          employees={employees}
+          saving={saving}
+          onToggle={handleDayToggle}
+        />
+      ) : (
+        <EscalationTab
+          config={escalationConfig}
+          saving={saving}
+          onSave={handleSaveEscalation}
+        />
       )}
     </div>
   );
