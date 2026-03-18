@@ -18,10 +18,12 @@ interface ReplyBoxProps {
   channelType?: ChannelType;
   clientName?: string;
   whatsappWindowOpen?: boolean;
+  disabled?: boolean;
+  disabledReason?: string;
   onSent: () => void;
 }
 
-export default function ReplyBox({ conversationId, channelType, clientName, whatsappWindowOpen, onSent }: ReplyBoxProps) {
+export default function ReplyBox({ conversationId, channelType, clientName, whatsappWindowOpen, disabled, disabledReason, onSent }: ReplyBoxProps) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [showSlash, setShowSlash] = useState(false);
@@ -57,6 +59,7 @@ export default function ReplyBox({ conversationId, channelType, clientName, what
   }, [fetchResponses]);
 
   const windowClosed = channelType === 'WHATSAPP' && whatsappWindowOpen === false;
+  const isDisabled = disabled || false;
 
   async function fetchTemplates() {
     setLoadingTemplates(true);
@@ -253,6 +256,16 @@ export default function ReplyBox({ conversationId, channelType, clientName, what
     if (!body?.text) return [];
     const matches = body.text.match(/\{\{\d+\}\}/g) || [];
     return [...new Set(matches)].sort() as string[];
+  }
+
+  if (isDisabled) {
+    return (
+      <div className="border-t border-gray-200 p-3 bg-gray-50">
+        <div className="flex items-center justify-center py-3 text-sm text-gray-400">
+          {disabledReason || "Messaging is disabled"}
+        </div>
+      </div>
+    );
   }
 
   return (

@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Post,
   Put,
   Delete,
   Query,
@@ -16,6 +17,7 @@ import { RequirePermission } from '../../common/decorators/require-permission.de
 import { QueueScheduleService } from '../services/queue-schedule.service';
 import { EscalationService } from '../services/escalation.service';
 import { ClientChatsEventService } from '../services/clientchats-event.service';
+import { ClientChatsCoreService } from '../services/clientchats-core.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ClientChatStatus } from '@prisma/client';
 
@@ -26,6 +28,7 @@ export class ClientChatsManagerController {
     private readonly schedule: QueueScheduleService,
     private readonly escalation: EscalationService,
     private readonly events: ClientChatsEventService,
+    private readonly core: ClientChatsCoreService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -51,7 +54,7 @@ export class ClientChatsManagerController {
       by: ['assignedUserId'],
       where: {
         assignedUserId: { in: operatorIds },
-        status: ClientChatStatus.OPEN,
+        status: ClientChatStatus.LIVE,
       },
       _count: true,
     });
@@ -175,7 +178,7 @@ export class ClientChatsManagerController {
           by: ['assignedUserId'],
           where: {
             assignedUserId: { in: operatorIds },
-            status: ClientChatStatus.OPEN,
+            status: ClientChatStatus.LIVE,
           },
           _count: true,
         })
@@ -233,17 +236,17 @@ export class ClientChatsManagerController {
 
     const [totalOpen, unassigned, pastSLACount] = await Promise.all([
       this.prisma.clientChatConversation.count({
-        where: { status: ClientChatStatus.OPEN },
+        where: { status: ClientChatStatus.LIVE },
       }),
       this.prisma.clientChatConversation.count({
         where: {
-          status: ClientChatStatus.OPEN,
+          status: ClientChatStatus.LIVE,
           assignedUserId: null,
         },
       }),
       this.prisma.clientChatConversation.count({
         where: {
-          status: ClientChatStatus.OPEN,
+          status: ClientChatStatus.LIVE,
           firstResponseAt: null,
           lastMessageAt: {
             lt: new Date(Date.now() - slaThresholdMs),
@@ -254,7 +257,7 @@ export class ClientChatsManagerController {
 
     const openConvs = await this.prisma.clientChatConversation.findMany({
       where: {
-        status: ClientChatStatus.OPEN,
+        status: ClientChatStatus.LIVE,
         assignedUserId: { not: null },
         firstResponseAt: null,
       },
@@ -285,5 +288,37 @@ export class ClientChatsManagerController {
       },
       recentEscalations,
     };
+  }
+
+  // ── Manager chat controls ─────────────────────────────
+
+  @Post('conversations/:id/pause-operator')
+  @RequirePermission('client_chats.manage')
+  pauseOperator(@Param('id') id: string) {
+    return this.core.pauseOperator(id);
+  }
+
+  @Post('conversations/:id/unpause-operator')
+  @RequirePermission('client_chats.manage')
+  unpauseOperator(@Param('id') id: string) {
+    return this.core.unpauseOperator(id);
+  }
+
+  @Post('conversations/:id/reopen')
+  @RequirePermission('client_chats.manage')
+  reopenConversation(
+    @Param('id') id: string,
+    @Body() body: { keepOperator?: boolean },
+  ) {
+    return this.core.approveReopen(id, body.keepOperator ?? false);
+  }
+
+  @Post('conversations/:id/approve-reopen')
+  @RequirePermission('client_chats.manage')
+  approveReopen(
+    @Param('id') id: string,
+    @Body() body: { keepOperator?: boolean },
+  ) {
+    return this.core.approveReopen(id, body.keepOperator ?? false);
   }
 }

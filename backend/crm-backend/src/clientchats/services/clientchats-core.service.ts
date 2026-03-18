@@ -4,6 +4,7 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
@@ -186,15 +187,31 @@ export class ClientChatsCoreService {
     });
 
     if (existing) {
+      if (existing.status === ClientChatStatus.CLOSED) {
+        // Customer texted back on a closed conversation -- create a new one
+        // and link the old one as previous history
+        await this.prisma.clientChatConversation.update({
+          where: { id: existing.id },
+          data: { externalConversationId: `${externalConversationId}__archived_${Date.now()}` },
+        });
+
+        const created = await this.prisma.clientChatConversation.create({
+          data: {
+            channelType,
+            channelAccountId,
+            externalConversationId,
+            lastMessageAt: new Date(),
+            clientId: existing.clientId,
+            previousConversationId: existing.id,
+          },
+        });
+        this.events.emitConversationNew(created as any);
+        return created;
+      }
+
       const updated = await this.prisma.clientChatConversation.update({
         where: { id: existing.id },
-        data: {
-          lastMessageAt: new Date(),
-          status:
-            existing.status === ClientChatStatus.CLOSED
-              ? ClientChatStatus.OPEN
-              : existing.status,
-        },
+        data: { lastMessageAt: new Date() },
       });
       this.events.emitConversationUpdated(updated as any);
       return updated;
@@ -312,6 +329,12 @@ export class ClientChatsCoreService {
     });
     if (!conversation) throw new NotFoundException('Conversation not found');
 
+    if (conversation.pausedOperatorId === userId) {
+      throw new ForbiddenException(
+        'You are paused by manager. You can view but not send messages.',
+      );
+    }
+
     if (!this.isChannelActive(conversation.channelAccount)) {
       throw new BadRequestException(
         `${conversation.channelType} channel is currently disabled`,
@@ -397,6 +420,8 @@ export class ClientChatsCoreService {
     const data: Record<string, unknown> = { status };
     if (status === ClientChatStatus.CLOSED) {
       data.resolvedAt = new Date();
+      data.pausedOperatorId = null;
+      data.pausedAt = null;
     } else if (conversation.status === ClientChatStatus.CLOSED) {
       data.resolvedAt = null;
     }
@@ -407,6 +432,177 @@ export class ClientChatsCoreService {
     });
     this.events.emitConversationUpdated(updated as any);
     return updated;
+  }
+
+  async pauseOperator(conversationId: string) {
+    const conversation = await this.prisma.clientChatConversation.findUnique({
+      where: { id: conversationId },
+    });
+    if (!conversation) throw new NotFoundException('Conversation not found');
+    if (!conversation.assignedUserId) {
+      throw new BadRequestException('No operator assigned to pause');
+    }
+
+    const updated = await this.prisma.clientChatConversation.update({
+      where: { id: conversationId },
+      data: {
+        pausedOperatorId: conversation.assignedUserId,
+        pausedAt: new Date(),
+      },
+    });
+    this.events.emitToAgent(conversation.assignedUserId, 'operator:paused', {
+      conversationId,
+    });
+    this.events.emitConversationUpdated(updated as any);
+    return updated;
+  }
+
+  async unpauseOperator(conversationId: string) {
+    const conversation = await this.prisma.clientChatConversation.findUnique({
+      where: { id: conversationId },
+    });
+    if (!conversation) throw new NotFoundException('Conversation not found');
+
+    const pausedId = conversation.pausedOperatorId;
+    const updated = await this.prisma.clientChatConversation.update({
+      where: { id: conversationId },
+      data: { pausedOperatorId: null, pausedAt: null },
+    });
+    if (pausedId) {
+      this.events.emitToAgent(pausedId, 'operator:unpaused', {
+        conversationId,
+      });
+    }
+    this.events.emitConversationUpdated(updated as any);
+    return updated;
+  }
+
+  async requestReopen(conversationId: string, userId: string) {
+    const conversation = await this.prisma.clientChatConversation.findUnique({
+      where: { id: conversationId },
+    });
+    if (!conversation) throw new NotFoundException('Conversation not found');
+    if (conversation.status !== ClientChatStatus.CLOSED) {
+      throw new BadRequestException('Only closed conversations can be reopened');
+    }
+
+    const updated = await this.prisma.clientChatConversation.update({
+      where: { id: conversationId },
+      data: {
+        reopenRequestedBy: userId,
+        reopenRequestedAt: new Date(),
+      },
+    });
+    this.events.emitToManagers('reopen:requested', {
+      conversationId,
+      requestedBy: userId,
+    });
+    return updated;
+  }
+
+  async approveReopen(
+    conversationId: string,
+    keepOperator: boolean,
+  ) {
+    const conversation = await this.prisma.clientChatConversation.findUnique({
+      where: { id: conversationId },
+    });
+    if (!conversation) throw new NotFoundException('Conversation not found');
+
+    const data: Record<string, unknown> = {
+      status: ClientChatStatus.LIVE,
+      resolvedAt: null,
+      reopenRequestedBy: null,
+      reopenRequestedAt: null,
+    };
+
+    if (!keepOperator) {
+      data.assignedUserId = null;
+    }
+
+    const updated = await this.prisma.clientChatConversation.update({
+      where: { id: conversationId },
+      data,
+    });
+
+    if (conversation.reopenRequestedBy) {
+      this.events.emitToAgent(
+        conversation.reopenRequestedBy,
+        'reopen:approved',
+        { conversationId },
+      );
+    }
+    this.events.emitConversationUpdated(updated as any);
+
+    if (!keepOperator) {
+      const assignedUserId = await this.assignment.autoAssign(
+        conversation.channelType,
+      );
+      if (assignedUserId) {
+        const reassigned = await this.prisma.clientChatConversation.update({
+          where: { id: conversationId },
+          data: { assignedUserId, lastOperatorActivityAt: null },
+        });
+        this.events.emitConversationUpdated(reassigned as any);
+        return reassigned;
+      }
+    }
+
+    return updated;
+  }
+
+  async getConversationHistory(
+    conversationId: string,
+    page: number = 1,
+    limit: number = 50,
+  ) {
+    const conversation = await this.prisma.clientChatConversation.findUnique({
+      where: { id: conversationId },
+      select: { previousConversationId: true },
+    });
+    if (!conversation) throw new NotFoundException('Conversation not found');
+    if (!conversation.previousConversationId) {
+      return { data: [], meta: { hasMore: false, previousConversationId: null } };
+    }
+
+    const prevConv = await this.prisma.clientChatConversation.findUnique({
+      where: { id: conversation.previousConversationId },
+      select: { id: true, previousConversationId: true, createdAt: true, resolvedAt: true },
+    });
+    if (!prevConv) {
+      return { data: [], meta: { hasMore: false, previousConversationId: null } };
+    }
+
+    const skip = (page - 1) * limit;
+    const [messages, total] = await Promise.all([
+      this.prisma.clientChatMessage.findMany({
+        where: { conversationId: prevConv.id },
+        include: {
+          participant: {
+            select: { id: true, displayName: true, externalUserId: true },
+          },
+          senderUser: { select: { id: true, email: true } },
+        },
+        orderBy: { sentAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.clientChatMessage.count({
+        where: { conversationId: prevConv.id },
+      }),
+    ]);
+
+    return {
+      data: messages.reverse(),
+      meta: {
+        total,
+        page,
+        limit,
+        hasMore: skip + messages.length < total || !!prevConv.previousConversationId,
+        previousConversationId: prevConv.previousConversationId,
+        closedAt: prevConv.resolvedAt ?? prevConv.createdAt,
+      },
+    };
   }
 
   async linkClient(conversationId: string, clientId: string) {
@@ -472,7 +668,13 @@ export class ClientChatsCoreService {
       this.prisma.clientChatConversation.findMany({
         where,
         include: {
-          assignedUser: { select: { id: true, email: true } },
+          assignedUser: {
+            select: {
+              id: true,
+              email: true,
+              employee: { select: { firstName: true, lastName: true } },
+            },
+          },
           client: {
             select: {
               id: true,
@@ -510,7 +712,13 @@ export class ClientChatsCoreService {
       where: { id },
       include: {
         channelAccount: true,
-        assignedUser: { select: { id: true, email: true } },
+        assignedUser: {
+          select: {
+            id: true,
+            email: true,
+            employee: { select: { firstName: true, lastName: true } },
+          },
+        },
         client: {
           select: {
             id: true,

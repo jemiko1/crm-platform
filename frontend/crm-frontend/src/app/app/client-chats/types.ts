@@ -1,5 +1,5 @@
 export type ChannelType = "WEB" | "VIBER" | "FACEBOOK" | "TELEGRAM" | "WHATSAPP";
-export type ConversationStatus = "OPEN" | "PENDING" | "CLOSED" | "SPAM";
+export type ConversationStatus = "LIVE" | "CLOSED";
 export type MessageDirection = "IN" | "OUT";
 
 export interface ConversationSummary {
@@ -11,8 +11,12 @@ export interface ConversationSummary {
   status: ConversationStatus;
   lastMessageAt: string | null;
   firstResponseAt?: string | null;
+  pausedOperatorId?: string | null;
+  previousConversationId?: string | null;
+  reopenRequestedBy?: string | null;
+  reopenRequestedAt?: string | null;
   createdAt: string;
-  assignedUser: { id: string; email: string } | null;
+  assignedUser: { id: string; email: string; employee?: { firstName: string; lastName: string } | null } | null;
   client: {
     id: string;
     firstName: string | null;
@@ -35,9 +39,13 @@ export interface ConversationDetail {
   clientId: string | null;
   status: ConversationStatus;
   lastMessageAt: string | null;
+  pausedOperatorId: string | null;
+  previousConversationId: string | null;
+  reopenRequestedBy: string | null;
+  reopenRequestedAt: string | null;
   createdAt: string;
   channelAccount: { id: string; type: ChannelType; name: string };
-  assignedUser: { id: string; email: string } | null;
+  assignedUser: { id: string; email: string; employee?: { firstName: string; lastName: string } | null } | null;
   client: {
     id: string;
     coreId: number;
@@ -79,4 +87,5 @@ export interface PaginatedResponse<T> {
 export interface AgentOption {
   id: string;
   email: string;
+  name?: string;
 }

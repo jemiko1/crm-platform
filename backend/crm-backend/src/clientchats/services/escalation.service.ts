@@ -70,7 +70,7 @@ export class EscalationService {
     const staleConversations = await this.prisma.clientChatConversation.findMany(
       {
         where: {
-          status: ClientChatStatus.OPEN,
+          status: ClientChatStatus.LIVE,
           assignedUserId: { not: null },
           firstResponseAt: null,
           lastMessageAt: { lt: warningThreshold },
