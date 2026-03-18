@@ -1,25 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PermissionGuard } from "@/lib/permission-guard";
 import { usePermissions } from "@/lib/use-permissions";
+import { apiGet } from "@/lib/api";
 import { useNotifications } from "./hooks/useNotifications";
 import InboxSidebar from "./components/inbox-sidebar";
 import ConversationPanel from "./components/conversation-panel";
 import EmptyState from "./components/empty-state";
 import ManagerQueuePanel from "./components/manager-queue-panel";
+import ManagerDashboard from "./components/manager-dashboard";
 
 function ClientChatsContent() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { hasPermission } = usePermissions();
   const isManager = hasPermission("client_chats.manage");
   const [queuePanelOpen, setQueuePanelOpen] = useState(false);
+  const [slaTimeoutMins, setSlaTimeoutMins] = useState(5);
   const { showBanner, soundEnabled, requestPermission, dismissBanner, toggleSound, notify } = useNotifications();
+
+  useEffect(() => {
+    if (!isManager) return;
+    apiGet<{ firstResponseTimeoutMins: number }>("/v1/clientchats/queue/escalation-config")
+      .then((cfg) => {
+        if (cfg?.firstResponseTimeoutMins) setSlaTimeoutMins(cfg.firstResponseTimeoutMins);
+      })
+      .catch(() => {});
+  }, [isManager]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-80px)]">
       {isManager && (
-        <ManagerQueuePanel open={queuePanelOpen} onToggle={() => setQueuePanelOpen((v) => !v)} />
+        <>
+          <ManagerDashboard />
+          <ManagerQueuePanel open={queuePanelOpen} onToggle={() => setQueuePanelOpen((v) => !v)} />
+        </>
       )}
 
       {showBanner && (
@@ -44,7 +59,7 @@ function ClientChatsContent() {
 
       <div className="flex flex-1 min-h-0 bg-white/40 backdrop-blur-sm rounded-2xl shadow-sm border border-white/60 overflow-hidden">
         <div className="w-[350px] min-w-[280px] border-r border-gray-200 flex-shrink-0 bg-white/50">
-          <InboxSidebar selectedId={selectedId} onSelect={setSelectedId} isManager={isManager} notify={notify} soundToggle={
+          <InboxSidebar selectedId={selectedId} onSelect={setSelectedId} isManager={isManager} slaTimeoutMins={slaTimeoutMins} notify={notify} soundToggle={
             <button
               onClick={toggleSound}
               className="text-gray-400 hover:text-gray-600 transition-colors"

@@ -10,6 +10,7 @@ export interface ConversationSummary {
   clientId: string | null;
   status: ConversationStatus;
   lastMessageAt: string | null;
+  firstResponseAt?: string | null;
   createdAt: string;
   assignedUser: { id: string; email: string } | null;
   client: {

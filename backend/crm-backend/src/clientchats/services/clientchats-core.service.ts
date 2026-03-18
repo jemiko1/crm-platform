@@ -72,7 +72,7 @@ export class ClientChatsCoreService {
       if (assignedUserId) {
         conversation = await this.prisma.clientChatConversation.update({
           where: { id: conversation.id },
-          data: { assignedUserId },
+          data: { assignedUserId, lastOperatorActivityAt: null },
         });
       }
     }
@@ -347,7 +347,10 @@ export class ClientChatsCoreService {
       attachments,
     });
 
-    const updateData: Record<string, unknown> = { lastMessageAt: new Date() };
+    const updateData: Record<string, unknown> = {
+      lastMessageAt: new Date(),
+      lastOperatorActivityAt: new Date(),
+    };
     if (!conversation.firstResponseAt) {
       updateData.firstResponseAt = new Date();
     }
@@ -379,7 +382,7 @@ export class ClientChatsCoreService {
 
     const updated = await this.prisma.clientChatConversation.update({
       where: { id: conversationId },
-      data: { assignedUserId: userId },
+      data: { assignedUserId: userId, lastOperatorActivityAt: null },
     });
     this.events.emitConversationUpdated(updated as any, previousAssignedUserId);
     return updated;

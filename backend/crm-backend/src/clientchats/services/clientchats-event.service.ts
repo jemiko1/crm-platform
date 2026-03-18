@@ -60,4 +60,17 @@ export class ClientChatsEventService {
   emitQueueUpdated(data: unknown) {
     this.emitToManagers('queue:updated', data);
   }
+
+  getConnectedAgentIds(): string[] {
+    if (!this.server) return [];
+    const ids: string[] = [];
+    const sockets = this.server.sockets;
+    if (sockets) {
+      for (const [, socket] of sockets as any) {
+        const userId = (socket as any)?.userId;
+        if (userId && !ids.includes(userId)) ids.push(userId);
+      }
+    }
+    return ids;
+  }
 }

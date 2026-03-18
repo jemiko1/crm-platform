@@ -12,8 +12,28 @@ interface InboxSidebarProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
   isManager?: boolean;
+  slaTimeoutMins?: number;
   notify?: (title: string, body: string) => void;
   soundToggle?: React.ReactNode;
+}
+
+function slaDot(conv: ConversationSummary, timeoutMins: number) {
+  if (conv.status !== "OPEN" || conv.firstResponseAt || !conv.lastMessageAt) return null;
+  const elapsed = (Date.now() - new Date(conv.lastMessageAt).getTime()) / 60000;
+  const ratio = elapsed / timeoutMins;
+  if (ratio >= 1) {
+    return (
+      <span className="inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse" title={`SLA breached (${Math.round(elapsed)}m)`} />
+    );
+  }
+  if (ratio >= 0.75) {
+    return (
+      <span className="inline-block w-2 h-2 rounded-full bg-amber-400" title={`SLA warning (${Math.round(elapsed)}m)`} />
+    );
+  }
+  return (
+    <span className="inline-block w-2 h-2 rounded-full bg-emerald-400" title={`Within SLA (${Math.round(elapsed)}m)`} />
+  );
 }
 
 function timeAgo(dateStr: string | null): string {
@@ -38,7 +58,7 @@ function statusDot(status: ConversationStatus) {
   return <span className={`inline-block w-2 h-2 rounded-full ${colors[status]}`} />;
 }
 
-export default function InboxSidebar({ selectedId, onSelect, isManager, notify, soundToggle }: InboxSidebarProps) {
+export default function InboxSidebar({ selectedId, onSelect, isManager, slaTimeoutMins = 5, notify, soundToggle }: InboxSidebarProps) {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -280,6 +300,7 @@ export default function InboxSidebar({ selectedId, onSelect, isManager, notify, 
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-2">
                     {statusDot(conv.status)}
+                    {isManager && slaDot(conv, slaTimeoutMins)}
                     <span className="text-sm font-medium text-gray-800 truncate max-w-[140px]">
                       {displayName}
                     </span>

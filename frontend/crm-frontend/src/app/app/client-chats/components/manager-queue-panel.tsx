@@ -39,12 +39,19 @@ interface Props {
   onToggle: () => void;
 }
 
+interface EscalationConfig {
+  firstResponseTimeoutMins: number;
+  reassignAfterMins: number;
+  notifyManagerOnEscalation: boolean;
+}
+
 export default function ManagerQueuePanel({ open, onToggle }: Props) {
-  const [tab, setTab] = useState<"today" | "schedule">("today");
+  const [tab, setTab] = useState<"today" | "schedule" | "escalation">("today");
   const [operators, setOperators] = useState<Operator[]>([]);
   const [hasOverride, setHasOverride] = useState(false);
   const [schedule, setSchedule] = useState<WeeklySchedule>({});
   const [employees, setEmployees] = useState<{ id: string; email: string; name: string }[]>([]);
+  const [escalationConfig, setEscalationConfig] = useState<EscalationConfig | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -92,12 +99,25 @@ export default function ManagerQueuePanel({ open, onToggle }: Props) {
     }
   }, []);
 
+  const fetchEscalationConfig = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await apiGet<EscalationConfig>("/v1/clientchats/queue/escalation-config");
+      setEscalationConfig(res);
+    } catch {
+      setEscalationConfig(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     fetchEmployees();
     if (tab === "today") fetchToday();
-    else fetchSchedule();
-  }, [open, tab, fetchEmployees, fetchToday, fetchSchedule]);
+    else if (tab === "schedule") fetchSchedule();
+    else fetchEscalationConfig();
+  }, [open, tab, fetchEmployees, fetchToday, fetchSchedule, fetchEscalationConfig]);
 
   const todayStr = new Date().toISOString().slice(0, 10);
 
@@ -143,6 +163,16 @@ export default function ManagerQueuePanel({ open, onToggle }: Props) {
     try {
       await apiPut(`/v1/clientchats/queue/schedule/${day}`, { userIds: next });
       await fetchSchedule();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveEscalation = async (cfg: EscalationConfig) => {
+    setSaving(true);
+    try {
+      const res = await apiPut<EscalationConfig>("/v1/clientchats/queue/escalation-config", cfg);
+      setEscalationConfig(res);
     } finally {
       setSaving(false);
     }
@@ -208,6 +238,16 @@ export default function ManagerQueuePanel({ open, onToggle }: Props) {
             >
               Weekly Schedule
             </button>
+            <button
+              onClick={() => setTab("escalation")}
+              className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                tab === "escalation"
+                  ? "bg-emerald-100 text-emerald-700 font-medium"
+                  : "text-gray-500 hover:bg-gray-100"
+              }`}
+            >
+              Escalation
+            </button>
           </div>
 
           {loading ? (
@@ -221,12 +261,18 @@ export default function ManagerQueuePanel({ open, onToggle }: Props) {
               onAdd={handleOverrideAdd}
               onRemove={handleOverrideRemove}
             />
-          ) : (
+          ) : tab === "schedule" ? (
             <ScheduleTab
               schedule={schedule}
               employees={employees}
               saving={saving}
               onToggle={handleDayToggle}
+            />
+          ) : (
+            <EscalationTab
+              config={escalationConfig}
+              saving={saving}
+              onSave={handleSaveEscalation}
             />
           )}
         </div>
@@ -389,6 +435,87 @@ function ScheduleTab({
           )}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function EscalationTab({
+  config,
+  saving,
+  onSave,
+}: {
+  config: EscalationConfig | null;
+  saving: boolean;
+  onSave: (cfg: EscalationConfig) => void;
+}) {
+  const [timeout, setTimeout_] = useState(config?.firstResponseTimeoutMins ?? 5);
+  const [reassign, setReassign] = useState(config?.reassignAfterMins ?? 10);
+  const [notifyMgr, setNotifyMgr] = useState(config?.notifyManagerOnEscalation ?? true);
+
+  useEffect(() => {
+    if (config) {
+      setTimeout_(config.firstResponseTimeoutMins);
+      setReassign(config.reassignAfterMins);
+      setNotifyMgr(config.notifyManagerOnEscalation);
+    }
+  }, [config]);
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">
+          First response timeout (minutes)
+        </label>
+        <input
+          type="number"
+          min={1}
+          max={120}
+          value={timeout}
+          onChange={(e) => setTimeout_(Number(e.target.value))}
+          className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+        />
+        <p className="text-[10px] text-gray-400 mt-0.5">
+          Warning sent to managers after this many minutes without agent reply
+        </p>
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">
+          Auto-reassign after (minutes)
+        </label>
+        <input
+          type="number"
+          min={1}
+          max={240}
+          value={reassign}
+          onChange={(e) => setReassign(Number(e.target.value))}
+          className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+        />
+        <p className="text-[10px] text-gray-400 mt-0.5">
+          Conversation silently reassigned to next available operator
+        </p>
+      </div>
+      <label className="flex items-center gap-2 text-sm text-gray-700">
+        <input
+          type="checkbox"
+          checked={notifyMgr}
+          onChange={(e) => setNotifyMgr(e.target.checked)}
+          className="w-3.5 h-3.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+        />
+        Notify managers on escalation
+      </label>
+      <button
+        onClick={() =>
+          onSave({
+            firstResponseTimeoutMins: timeout,
+            reassignAfterMins: reassign,
+            notifyManagerOnEscalation: notifyMgr,
+          })
+        }
+        disabled={saving}
+        className="px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+      >
+        {saving ? "Saving..." : "Save Escalation Settings"}
+      </button>
     </div>
   );
 }

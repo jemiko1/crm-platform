@@ -200,7 +200,7 @@ describe('ClientChatsCoreService', () => {
       expect(prisma.clientChatConversation.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'conv-1' },
-          data: { assignedUserId: 'user-2' },
+          data: { assignedUserId: 'user-2', lastOperatorActivityAt: null },
         }),
       );
     });
