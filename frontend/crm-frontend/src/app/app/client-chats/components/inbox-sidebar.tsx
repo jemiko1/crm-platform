@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import Link from "next/link";
 import { apiGet } from "@/lib/api";
 import type { ConversationSummary, PaginatedResponse, ChannelType, ConversationStatus } from "../types";
 import { useClientChatSocket } from "../hooks/useClientChatSocket";
@@ -12,28 +11,8 @@ interface InboxSidebarProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
   isManager?: boolean;
-  slaTimeoutMins?: number;
   notify?: (title: string, body: string) => void;
   soundToggle?: React.ReactNode;
-}
-
-function slaDot(conv: ConversationSummary, timeoutMins: number) {
-  if (conv.status !== "OPEN" || conv.firstResponseAt || !conv.lastMessageAt) return null;
-  const elapsed = (Date.now() - new Date(conv.lastMessageAt).getTime()) / 60000;
-  const ratio = elapsed / timeoutMins;
-  if (ratio >= 1) {
-    return (
-      <span className="inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse" title={`SLA breached (${Math.round(elapsed)}m)`} />
-    );
-  }
-  if (ratio >= 0.75) {
-    return (
-      <span className="inline-block w-2 h-2 rounded-full bg-amber-400" title={`SLA warning (${Math.round(elapsed)}m)`} />
-    );
-  }
-  return (
-    <span className="inline-block w-2 h-2 rounded-full bg-emerald-400" title={`Within SLA (${Math.round(elapsed)}m)`} />
-  );
 }
 
 function timeAgo(dateStr: string | null): string {
@@ -58,7 +37,7 @@ function statusDot(status: ConversationStatus) {
   return <span className={`inline-block w-2 h-2 rounded-full ${colors[status]}`} />;
 }
 
-export default function InboxSidebar({ selectedId, onSelect, isManager, slaTimeoutMins = 5, notify, soundToggle }: InboxSidebarProps) {
+export default function InboxSidebar({ selectedId, onSelect, isManager, notify, soundToggle }: InboxSidebarProps) {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -247,15 +226,6 @@ export default function InboxSidebar({ selectedId, onSelect, isManager, slaTimeo
             {isManager ? "All Chats" : "My Chats"}
           </h2>
           <div className="flex items-center gap-2">
-            <Link
-              href="/app/client-chats/analytics"
-              title="Chat Analytics"
-              className="text-gray-400 hover:text-emerald-600 transition-colors"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" />
-              </svg>
-            </Link>
             {soundToggle}
             <span
               className={`w-2 h-2 rounded-full ${isConnected ? "bg-emerald-500" : "bg-gray-300"}`}
@@ -300,7 +270,6 @@ export default function InboxSidebar({ selectedId, onSelect, isManager, slaTimeo
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-2">
                     {statusDot(conv.status)}
-                    {isManager && slaDot(conv, slaTimeoutMins)}
                     <span className="text-sm font-medium text-gray-800 truncate max-w-[140px]">
                       {displayName}
                     </span>

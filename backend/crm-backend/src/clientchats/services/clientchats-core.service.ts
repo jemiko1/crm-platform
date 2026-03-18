@@ -67,7 +67,7 @@ export class ClientChatsCoreService {
       participant.id,
     );
 
-    if (isNewConversation) {
+    if (isNewConversation || !conversation.assignedUserId) {
       const assignedUserId = await this.assignment.autoAssign(channelType);
       if (assignedUserId) {
         conversation = await this.prisma.clientChatConversation.update({
