@@ -18,12 +18,13 @@ interface ReplyBoxProps {
   channelType?: ChannelType;
   clientName?: string;
   whatsappWindowOpen?: boolean;
+  isManager?: boolean;
   disabled?: boolean;
   disabledReason?: string;
   onSent: () => void;
 }
 
-export default function ReplyBox({ conversationId, channelType, clientName, whatsappWindowOpen, disabled, disabledReason, onSent }: ReplyBoxProps) {
+export default function ReplyBox({ conversationId, channelType, clientName, whatsappWindowOpen, isManager, disabled, disabledReason, onSent }: ReplyBoxProps) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [showSlash, setShowSlash] = useState(false);
@@ -58,7 +59,7 @@ export default function ReplyBox({ conversationId, channelType, clientName, what
     fetchResponses();
   }, [fetchResponses]);
 
-  const windowClosed = channelType === 'WHATSAPP' && whatsappWindowOpen === false;
+  const windowClosed = channelType === 'WHATSAPP' && whatsappWindowOpen === false && !isManager;
   const isDisabled = disabled || false;
 
   async function fetchTemplates() {
