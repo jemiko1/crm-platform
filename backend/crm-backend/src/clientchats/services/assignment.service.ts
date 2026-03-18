@@ -18,8 +18,8 @@ export class AssignmentService {
     });
     if (specific) return specific;
 
-    return this.prisma.clientChatAssignmentConfig.findUnique({
-      where: { channelType: undefined },
+    return this.prisma.clientChatAssignmentConfig.findFirst({
+      where: { channelType: null },
     });
   }
 
