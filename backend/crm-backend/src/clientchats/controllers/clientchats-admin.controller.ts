@@ -14,6 +14,7 @@ import { RequirePermission } from '../../common/decorators/require-permission.de
 import { ClientChatsObservabilityService } from '../services/clientchats-observability.service';
 import { ClientChatsCoreService } from '../services/clientchats-core.service';
 import { AssignmentService } from '../services/assignment.service';
+import { ClientChatsAnalyticsService } from '../services/clientchats-analytics.service';
 import { TelegramWebhookService } from '../services/telegram-webhook.service';
 import { ViberWebhookService } from '../services/viber-webhook.service';
 import { FacebookWebhookService } from '../services/facebook-webhook.service';
@@ -29,6 +30,7 @@ export class ClientChatsAdminController {
     private readonly observability: ClientChatsObservabilityService,
     private readonly core: ClientChatsCoreService,
     private readonly assignment: AssignmentService,
+    private readonly analytics: ClientChatsAnalyticsService,
     private readonly telegramWebhook: TelegramWebhookService,
     private readonly viberWebhook: ViberWebhookService,
     private readonly facebookWebhook: FacebookWebhookService,
@@ -168,5 +170,37 @@ export class ClientChatsAdminController {
       strategy: dto.strategy,
       assignableUsers: dto.assignableUsers,
     });
+  }
+
+  // ── Analytics ─────────────────────────────────────────
+
+  @Get('analytics/overview')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('client_chats_config.access')
+  getAnalyticsOverview(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.analytics.getOverview(from, to);
+  }
+
+  @Get('analytics/by-channel')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('client_chats_config.access')
+  getAnalyticsByChannel(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.analytics.getByChannel(from, to);
+  }
+
+  @Get('analytics/by-agent')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('client_chats_config.access')
+  getAnalyticsByAgent(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.analytics.getByAgent(from, to);
   }
 }

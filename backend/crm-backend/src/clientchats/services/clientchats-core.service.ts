@@ -343,9 +343,14 @@ export class ClientChatsCoreService {
       attachments,
     });
 
+    const updateData: Record<string, unknown> = { lastMessageAt: new Date() };
+    if (!conversation.firstResponseAt) {
+      updateData.firstResponseAt = new Date();
+    }
+
     const updatedConv = await this.prisma.clientChatConversation.update({
       where: { id: conversationId },
-      data: { lastMessageAt: new Date() },
+      data: updateData,
     });
 
     this.events.emitNewMessage(conversationId, message as any);
@@ -376,9 +381,16 @@ export class ClientChatsCoreService {
     });
     if (!conversation) throw new NotFoundException('Conversation not found');
 
+    const data: Record<string, unknown> = { status };
+    if (status === ClientChatStatus.CLOSED) {
+      data.resolvedAt = new Date();
+    } else if (conversation.status === ClientChatStatus.CLOSED) {
+      data.resolvedAt = null;
+    }
+
     const updated = await this.prisma.clientChatConversation.update({
       where: { id: conversationId },
-      data: { status },
+      data,
     });
     this.events.emitConversationUpdated(updated as any);
     return updated;

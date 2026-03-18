@@ -208,13 +208,13 @@ describe('ClientChatsCoreService', () => {
 
   describe('changeStatus', () => {
     it('should update status', async () => {
-      prisma.clientChatConversation.findUnique.mockResolvedValue({ id: 'conv-1' });
+      prisma.clientChatConversation.findUnique.mockResolvedValue({ id: 'conv-1', status: 'OPEN' });
 
       await service.changeStatus('conv-1', 'CLOSED' as any);
 
       expect(prisma.clientChatConversation.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: { status: 'CLOSED' },
+          data: expect.objectContaining({ status: 'CLOSED', resolvedAt: expect.any(Date) }),
         }),
       );
     });
