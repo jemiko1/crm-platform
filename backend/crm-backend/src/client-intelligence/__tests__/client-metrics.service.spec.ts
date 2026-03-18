@@ -119,7 +119,7 @@ describe('ClientMetricsService', () => {
       {
         id: 'conv-1',
         channelType: 'WEB',
-        status: 'OPEN',
+        status: 'LIVE',
         lastMessageAt: now,
         createdAt: now,
         _count: { messages: 10 },
