@@ -9,6 +9,7 @@ import { Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
 import * as cookie from 'cookie';
+import { PrismaService } from '../prisma/prisma.service';
 import { ClientChatsEventService } from './services/clientchats-event.service';
 
 @WebSocketGateway({
@@ -31,6 +32,7 @@ export class ClientChatsGateway
   constructor(
     private readonly events: ClientChatsEventService,
     private readonly jwt: JwtService,
+    private readonly prisma: PrismaService,
   ) {}
 
   afterInit(server: Server) {
@@ -38,7 +40,7 @@ export class ClientChatsGateway
     this.logger.log('ClientChatsGateway initialized');
   }
 
-  handleConnection(client: Socket) {
+  async handleConnection(client: Socket) {
     try {
       const token = this.extractToken(client);
       if (!token) {
@@ -60,12 +62,51 @@ export class ClientChatsGateway
       client.join('agents');
       client.join(`agent:${userId}`);
 
-      this.logger.log(`Agent connected: ${userId} (${client.id})`);
+      const isManager = await this.checkManagerPermission(userId);
+      if (isManager) {
+        client.join('managers');
+        this.logger.log(`Manager connected: ${userId} (${client.id})`);
+      } else {
+        this.logger.log(`Agent connected: ${userId} (${client.id})`);
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       this.logger.warn(`Connection rejected: ${msg} (${client.id})`);
       client.disconnect(true);
     }
+  }
+
+  private async checkManagerPermission(userId: string): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { isSuperAdmin: true },
+    });
+    if (user?.isSuperAdmin) return true;
+
+    const employee = await this.prisma.employee.findUnique({
+      where: { userId },
+      include: {
+        position: {
+          include: {
+            roleGroup: {
+              include: {
+                permissions: {
+                  include: { permission: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!employee?.position) return false;
+
+    return employee.position.roleGroup.permissions.some(
+      (rp) =>
+        rp.permission.resource === 'client_chats' &&
+        rp.permission.action === 'manage',
+    );
   }
 
   handleDisconnect(client: Socket) {

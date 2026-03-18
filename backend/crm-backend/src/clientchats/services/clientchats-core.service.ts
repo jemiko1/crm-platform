@@ -90,7 +90,11 @@ export class ClientChatsCoreService {
 
     await this.matching.autoMatch(participant, conversation);
 
-    this.events.emitNewMessage(conversation.id, message as any);
+    this.events.emitNewMessage(
+      conversation.id,
+      message as any,
+      conversation.assignedUserId,
+    );
 
     if (
       channelType === ClientChatChannelType.TELEGRAM &&
@@ -353,7 +357,11 @@ export class ClientChatsCoreService {
       data: updateData,
     });
 
-    this.events.emitNewMessage(conversationId, message as any);
+    this.events.emitNewMessage(
+      conversationId,
+      message as any,
+      conversation.assignedUserId,
+    );
     this.events.emitConversationUpdated(updatedConv as any);
 
     return { message, sendResult: result };
@@ -367,11 +375,13 @@ export class ClientChatsCoreService {
     });
     if (!conversation) throw new NotFoundException('Conversation not found');
 
+    const previousAssignedUserId = conversation.assignedUserId;
+
     const updated = await this.prisma.clientChatConversation.update({
       where: { id: conversationId },
       data: { assignedUserId: userId },
     });
-    this.events.emitConversationUpdated(updated as any);
+    this.events.emitConversationUpdated(updated as any, previousAssignedUserId);
     return updated;
   }
 
@@ -758,7 +768,11 @@ export class ClientChatsCoreService {
       data: { lastMessageAt: new Date() },
     });
 
-    this.events.emitNewMessage(conversationId, message as any);
+    this.events.emitNewMessage(
+      conversationId,
+      message as any,
+      conversation.assignedUserId,
+    );
 
     return { message, templateName };
   }
