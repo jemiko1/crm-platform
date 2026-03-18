@@ -11,9 +11,10 @@ import ReplyBox from "./reply-box";
 
 interface ConversationPanelProps {
   conversationId: string;
+  onDeleted?: () => void;
 }
 
-export default function ConversationPanel({ conversationId }: ConversationPanelProps) {
+export default function ConversationPanel({ conversationId, onDeleted }: ConversationPanelProps) {
   const [conversation, setConversation] = useState<ConversationDetail | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -218,7 +219,7 @@ export default function ConversationPanel({ conversationId }: ConversationPanelP
 
   return (
     <div className="flex flex-col h-full">
-      <ConversationHeader conversation={conversation} currentUserId={currentUserId} onUpdate={loadAll} />
+      <ConversationHeader conversation={conversation} currentUserId={currentUserId} onUpdate={loadAll} onDeleted={onDeleted} />
 
       {/* Pause banner for the paused operator */}
       {imPaused && (

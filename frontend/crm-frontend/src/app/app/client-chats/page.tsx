@@ -78,7 +78,7 @@ function ClientChatsContent() {
           </div>
           <div className="flex-1 min-w-0">
             {selectedId ? (
-              <ConversationPanel key={selectedId} conversationId={selectedId} />
+              <ConversationPanel key={selectedId} conversationId={selectedId} onDeleted={() => setSelectedId(null)} />
             ) : (
               <EmptyState />
             )}

@@ -432,6 +432,51 @@ export class ClientChatsCoreService {
     return updated;
   }
 
+  async deleteConversation(conversationId: string) {
+    const conversation = await this.prisma.clientChatConversation.findUnique({
+      where: { id: conversationId },
+    });
+    if (!conversation) throw new NotFoundException('Conversation not found');
+
+    // Collect the full chain of linked previous conversations
+    const idsToDelete = [conversationId];
+    let prevId = conversation.previousConversationId;
+    while (prevId) {
+      idsToDelete.push(prevId);
+      const prev = await this.prisma.clientChatConversation.findUnique({
+        where: { id: prevId },
+        select: { previousConversationId: true },
+      });
+      prevId = prev?.previousConversationId ?? null;
+    }
+
+    // Also find any conversations that reference these as previousConversationId
+    const forward = await this.prisma.clientChatConversation.findMany({
+      where: { previousConversationId: { in: idsToDelete } },
+      select: { id: true },
+    });
+    for (const f of forward) {
+      if (!idsToDelete.includes(f.id)) idsToDelete.push(f.id);
+    }
+
+    // Nullify self-references so FK constraints don't block deletion
+    await this.prisma.clientChatConversation.updateMany({
+      where: { id: { in: idsToDelete } },
+      data: { previousConversationId: null },
+    });
+
+    // Messages and escalation events cascade-delete with the conversation
+    await this.prisma.clientChatConversation.deleteMany({
+      where: { id: { in: idsToDelete } },
+    });
+
+    this.logger.log(
+      `Deleted ${idsToDelete.length} conversation(s) in chain starting from ${conversationId}`,
+    );
+
+    return { deleted: idsToDelete.length, ids: idsToDelete };
+  }
+
   async pauseOperator(conversationId: string) {
     const conversation = await this.prisma.clientChatConversation.findUnique({
       where: { id: conversationId },

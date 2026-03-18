@@ -292,6 +292,12 @@ export class ClientChatsManagerController {
 
   // ── Manager chat controls ─────────────────────────────
 
+  @Delete('conversations/:id')
+  @RequirePermission('client_chats.delete')
+  deleteConversation(@Param('id') id: string) {
+    return this.core.deleteConversation(id);
+  }
+
   @Post('conversations/:id/pause-operator')
   @RequirePermission('client_chats.manage')
   pauseOperator(@Param('id') id: string) {
