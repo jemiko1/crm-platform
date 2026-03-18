@@ -7,15 +7,21 @@ import { useNotifications } from "./hooks/useNotifications";
 import InboxSidebar from "./components/inbox-sidebar";
 import ConversationPanel from "./components/conversation-panel";
 import EmptyState from "./components/empty-state";
+import ManagerQueuePanel from "./components/manager-queue-panel";
 
 function ClientChatsContent() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { hasPermission } = usePermissions();
   const isManager = hasPermission("client_chats.manage");
+  const [queuePanelOpen, setQueuePanelOpen] = useState(false);
   const { showBanner, soundEnabled, requestPermission, dismissBanner, toggleSound, notify } = useNotifications();
 
   return (
     <div className="flex flex-col h-[calc(100vh-80px)]">
+      {isManager && (
+        <ManagerQueuePanel open={queuePanelOpen} onToggle={() => setQueuePanelOpen((v) => !v)} />
+      )}
+
       {showBanner && (
         <div className="flex items-center justify-between px-4 py-2 bg-amber-50 border-b border-amber-200 text-sm text-amber-800">
           <span>Enable notifications to get alerted about new messages</span>

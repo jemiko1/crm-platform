@@ -1,12 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { ClientChatChannelType } from '@prisma/client';
+import { ClientChatChannelType, ClientChatStatus } from '@prisma/client';
+import { QueueScheduleService } from './queue-schedule.service';
 
 @Injectable()
 export class AssignmentService {
   private readonly logger = new Logger(AssignmentService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly queueSchedule: QueueScheduleService,
+  ) {}
 
   async getConfig(channelType: ClientChatChannelType) {
     const specific = await this.prisma.clientChatAssignmentConfig.findUnique({
@@ -46,26 +50,71 @@ export class AssignmentService {
 
   async autoAssign(channelType: ClientChatChannelType): Promise<string | null> {
     const config = await this.getConfig(channelType);
-    if (!config || config.strategy !== 'round_robin' || config.assignableUsers.length === 0) {
+    if (
+      !config ||
+      config.strategy !== 'round_robin' ||
+      config.assignableUsers.length === 0
+    ) {
       return null;
     }
 
-    const users = config.assignableUsers;
-    let nextIdx = 0;
+    const todayPool = await this.queueSchedule.getActiveOperatorsToday();
 
-    if (config.lastAssignedTo) {
-      const lastIdx = users.indexOf(config.lastAssignedTo);
-      nextIdx = lastIdx >= 0 ? (lastIdx + 1) % users.length : 0;
+    let effectivePool: string[];
+    if (todayPool.length > 0) {
+      effectivePool = config.assignableUsers.filter((u) =>
+        todayPool.includes(u),
+      );
+      if (effectivePool.length === 0) {
+        effectivePool = todayPool;
+      }
+    } else {
+      effectivePool = config.assignableUsers;
     }
 
-    const nextUserId = users[nextIdx];
+    if (effectivePool.length === 0) return null;
+
+    const workloads = await this.prisma.clientChatConversation.groupBy({
+      by: ['assignedUserId'],
+      where: {
+        assignedUserId: { in: effectivePool },
+        status: ClientChatStatus.OPEN,
+      },
+      _count: true,
+    });
+    const loadMap = new Map(
+      workloads.map((w) => [w.assignedUserId, w._count]),
+    );
+
+    let minLoad = Infinity;
+    for (const uid of effectivePool) {
+      const load = loadMap.get(uid) ?? 0;
+      if (load < minLoad) minLoad = load;
+    }
+
+    const candidates = effectivePool.filter(
+      (uid) => (loadMap.get(uid) ?? 0) === minLoad,
+    );
+
+    let nextUserId: string;
+    if (candidates.length === 1) {
+      nextUserId = candidates[0];
+    } else {
+      const lastIdx = config.lastAssignedTo
+        ? candidates.indexOf(config.lastAssignedTo)
+        : -1;
+      const nextIdx = (lastIdx + 1) % candidates.length;
+      nextUserId = candidates[nextIdx];
+    }
 
     await this.prisma.clientChatAssignmentConfig.update({
       where: { id: config.id },
       data: { lastAssignedTo: nextUserId },
     });
 
-    this.logger.log(`Auto-assigned to ${nextUserId} (round-robin index ${nextIdx})`);
+    this.logger.log(
+      `Auto-assigned to ${nextUserId} (pool=${effectivePool.length}, load=${loadMap.get(nextUserId) ?? 0})`,
+    );
     return nextUserId;
   }
 }
