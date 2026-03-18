@@ -134,6 +134,26 @@ export class ClientChatsAgentController {
     return this.core.changeStatus(id, dto.status);
   }
 
+  @Post('conversations/:id/request-reopen')
+  @RequirePermission('client_chats.menu')
+  requestReopen(@Param('id') id: string, @Req() req: any) {
+    return this.core.requestReopen(id, req.user.id);
+  }
+
+  @Get('conversations/:id/history')
+  @RequirePermission('client_chats.menu')
+  getConversationHistory(
+    @Param('id') id: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.core.getConversationHistory(
+      id,
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 50,
+    );
+  }
+
   @Post('conversations/:id/link-client')
   @RequirePermission('client_chats.menu')
   linkClient(@Param('id') id: string, @Body() dto: LinkClientDto) {

@@ -27,22 +27,12 @@ function timeAgo(dateStr: string | null): string {
   return `${days}d`;
 }
 
-function statusDot(status: ConversationStatus) {
-  const colors: Record<ConversationStatus, string> = {
-    OPEN: "bg-emerald-500",
-    PENDING: "bg-amber-400",
-    CLOSED: "bg-gray-400",
-    SPAM: "bg-red-400",
-  };
-  return <span className={`inline-block w-2 h-2 rounded-full ${colors[status]}`} />;
-}
-
 export default function InboxSidebar({ selectedId, onSelect, isManager, notify, soundToggle }: InboxSidebarProps) {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [channelFilter, setChannelFilter] = useState<ChannelType | "">("");
-  const [statusFilter, setStatusFilter] = useState<ConversationStatus | "">("");
+  const [activeTab, setActiveTab] = useState<ConversationStatus>("LIVE");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [unreadMap, setUnreadMap] = useState<Record<string, number>>({});
@@ -71,9 +61,9 @@ export default function InboxSidebar({ selectedId, onSelect, isManager, notify, 
       const params = new URLSearchParams();
       params.set("page", String(page));
       params.set("limit", "25");
+      params.set("status", activeTab);
       if (search) params.set("search", search);
       if (channelFilter) params.set("channelType", channelFilter);
-      if (statusFilter) params.set("status", statusFilter);
 
       const res = await apiGet<PaginatedResponse<ConversationSummary>>(
         `/v1/clientchats/conversations?${params}`,
@@ -121,7 +111,7 @@ export default function InboxSidebar({ selectedId, onSelect, isManager, notify, 
       setLoading(false);
       isInitialLoad.current = false;
     }
-  }, [page, search, channelFilter, statusFilter]);
+  }, [page, search, channelFilter, activeTab]);
 
   useEffect(() => { fetchConversations(); }, [fetchConversations]);
 
@@ -131,7 +121,7 @@ export default function InboxSidebar({ selectedId, onSelect, isManager, notify, 
     return () => clearInterval(interval);
   }, [fetchConversations, pollInterval]);
 
-  useEffect(() => { setPage(1); }, [search, channelFilter, statusFilter]);
+  useEffect(() => { setPage(1); }, [search, channelFilter, activeTab]);
 
   useEffect(() => {
     const handleNewConversation = () => {
@@ -205,7 +195,7 @@ export default function InboxSidebar({ selectedId, onSelect, isManager, notify, 
       off("conversation:updated", handleConversationUpdated);
       off("message:new", handleNewMessage);
     };
-  }, [on, off, fetchConversations, selectedId, notify]);
+  }, [on, off, fetchConversations, selectedId, notify, isManager, currentUserId]);
 
   useEffect(() => {
     if (selectedId) {
@@ -218,10 +208,17 @@ export default function InboxSidebar({ selectedId, onSelect, isManager, notify, 
     }
   }, [selectedId]);
 
+  function getAssignedName(conv: ConversationSummary): string | null {
+    if (!conv.assignedUser) return null;
+    const emp = conv.assignedUser.employee;
+    if (emp) return `${emp.firstName} ${emp.lastName}`.trim();
+    return conv.assignedUser.email;
+  }
+
   return (
     <div className="flex flex-col h-full">
       <div className="px-4 py-3 border-b border-gray-200">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold text-gray-800">
             {isManager ? "All Chats" : "My Chats"}
           </h2>
@@ -233,6 +230,36 @@ export default function InboxSidebar({ selectedId, onSelect, isManager, notify, 
             />
           </div>
         </div>
+
+        {/* Live / Closed tabs */}
+        <div className="flex rounded-lg bg-gray-100 p-0.5">
+          <button
+            onClick={() => setActiveTab("LIVE")}
+            className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
+              activeTab === "LIVE"
+                ? "bg-white text-emerald-700 shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <span className="flex items-center justify-center gap-1.5">
+              <span className={`w-2 h-2 rounded-full ${activeTab === "LIVE" ? "bg-emerald-500 animate-pulse" : "bg-gray-400"}`} />
+              Live Chats
+            </span>
+          </button>
+          <button
+            onClick={() => setActiveTab("CLOSED")}
+            className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
+              activeTab === "CLOSED"
+                ? "bg-white text-gray-700 shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <span className="flex items-center justify-center gap-1.5">
+              <span className={`w-2 h-2 rounded-full ${activeTab === "CLOSED" ? "bg-gray-500" : "bg-gray-400"}`} />
+              Closed
+            </span>
+          </button>
+        </div>
       </div>
 
       <FilterBar
@@ -240,15 +267,15 @@ export default function InboxSidebar({ selectedId, onSelect, isManager, notify, 
         onSearchChange={setSearch}
         channelFilter={channelFilter}
         onChannelChange={setChannelFilter}
-        statusFilter={statusFilter}
-        onStatusChange={setStatusFilter}
       />
 
       <div className="flex-1 overflow-y-auto">
         {loading && conversations.length === 0 ? (
           <div className="p-4 text-center text-sm text-gray-400">Loading...</div>
         ) : conversations.length === 0 ? (
-          <div className="p-4 text-center text-sm text-gray-400">No conversations found</div>
+          <div className="p-4 text-center text-sm text-gray-400">
+            {activeTab === "LIVE" ? "No live conversations" : "No closed conversations"}
+          </div>
         ) : (
           conversations.map((conv) => {
             const lastMsg = conv.messages?.[0];
@@ -258,6 +285,7 @@ export default function InboxSidebar({ selectedId, onSelect, isManager, notify, 
             const participantName = lastMsg?.participant?.displayName ?? null;
             const displayName = clientName || participantName || conv.externalConversationId.slice(0, 16);
             const unread = unreadMap[conv.id] ?? 0;
+            const assignedName = getAssignedName(conv);
 
             return (
               <button
@@ -269,7 +297,6 @@ export default function InboxSidebar({ selectedId, onSelect, isManager, notify, 
               >
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-2">
-                    {statusDot(conv.status)}
                     <span className="text-sm font-medium text-gray-800 truncate max-w-[140px]">
                       {displayName}
                     </span>
@@ -290,9 +317,9 @@ export default function InboxSidebar({ selectedId, onSelect, isManager, notify, 
                     {lastMsg.text}
                   </p>
                 )}
-                {conv.assignedUser && (
+                {assignedName && (
                   <p className="text-xs text-gray-400 mt-0.5 truncate">
-                    → {conv.assignedUser.email}
+                    Assigned to: {assignedName}
                   </p>
                 )}
               </button>

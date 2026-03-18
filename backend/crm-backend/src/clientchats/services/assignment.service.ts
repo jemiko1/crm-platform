@@ -78,7 +78,7 @@ export class AssignmentService {
       by: ['assignedUserId'],
       where: {
         assignedUserId: { in: effectivePool },
-        status: ClientChatStatus.OPEN,
+        status: ClientChatStatus.LIVE,
       },
       _count: true,
     });

@@ -131,7 +131,7 @@ export class ClientMetricsService {
     for (const c of conversations) {
       channels[c.channelType] = (channels[c.channelType] ?? 0) + 1;
       totalMessages += c._count.messages;
-      if (c.status === 'OPEN' || c.status === 'PENDING') openCount++;
+      if (c.status === 'LIVE') openCount++;
       if (c.status === 'CLOSED') closedCount++;
 
       const ts = c.lastMessageAt ?? c.createdAt;

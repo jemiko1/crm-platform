@@ -57,6 +57,11 @@ export class ClientChatsEventService {
     this.server.to('managers').emit(event, data);
   }
 
+  emitToAgent(userId: string, event: string, data: unknown) {
+    if (!this.server) return;
+    this.server.to(`agent:${userId}`).emit(event, data);
+  }
+
   emitQueueUpdated(data: unknown) {
     this.emitToManagers('queue:updated', data);
   }

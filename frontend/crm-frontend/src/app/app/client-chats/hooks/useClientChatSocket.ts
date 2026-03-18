@@ -7,13 +7,10 @@ type EventCallback = (...args: any[]) => void;
 
 function getSocketUrl(): string {
   if (typeof window === "undefined") return "";
-  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
   const host = window.location.hostname;
   const isLocalDev = host === "localhost" || host === "127.0.0.1";
-  const backendOrigin = isLocalDev
-    ? `${window.location.protocol}//localhost:3000`
-    : `${window.location.protocol}//api-${host}`;
-  return backendOrigin;
+  if (isLocalDev) return "http://localhost:3000";
+  return window.location.origin;
 }
 
 export function useClientChatSocket() {

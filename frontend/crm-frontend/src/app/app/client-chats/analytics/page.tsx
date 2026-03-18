@@ -212,10 +212,9 @@ function ChatAnalyticsContent() {
                 {Object.entries(overview.byStatus).map(([status, count]) => (
                   <div key={status} className="flex items-center gap-2">
                     <span className={`inline-block h-3 w-3 rounded-full ${
-                      status === "OPEN" ? "bg-emerald-400" :
-                      status === "PENDING" ? "bg-amber-400" :
+                      status === "LIVE" ? "bg-emerald-400" :
                       status === "CLOSED" ? "bg-zinc-400" :
-                      "bg-red-400"
+                      "bg-gray-400"
                     }`} />
                     <span className="text-sm text-zinc-700">{status}</span>
                     <span className="text-sm font-semibold text-zinc-900">{count}</span>

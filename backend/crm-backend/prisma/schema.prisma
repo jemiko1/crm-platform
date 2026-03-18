@@ -1636,29 +1636,37 @@ model ClientChatChannelAccount {
 }
 
 model ClientChatConversation {
-  id                     String                  @id @default(uuid())
-  channelType            ClientChatChannelType
-  channelAccountId       String
-  externalConversationId String                  @unique
-  assignedUserId         String?
-  clientId               String?
-  status                 ClientChatStatus        @default(OPEN)
-  lastMessageAt          DateTime?
-  firstResponseAt        DateTime?
-  resolvedAt             DateTime?
-  lastOperatorActivityAt DateTime?
-  createdAt              DateTime                @default(now())
-  channelAccount         ClientChatChannelAccount @relation(fields: [channelAccountId], references: [id], onDelete: Cascade)
-  assignedUser           User?                   @relation("UserAssignedClientChats", fields: [assignedUserId], references: [id], onDelete: SetNull)
-  client                 Client?                 @relation("ClientChatConversations", fields: [clientId], references: [id], onDelete: SetNull)
-  messages               ClientChatMessage[]
-  escalationEvents       ClientChatEscalationEvent[]
+  id                      String                  @id @default(uuid())
+  channelType             ClientChatChannelType
+  channelAccountId        String
+  externalConversationId  String                  @unique
+  assignedUserId          String?
+  clientId                String?
+  status                  ClientChatStatus        @default(LIVE)
+  lastMessageAt           DateTime?
+  firstResponseAt         DateTime?
+  resolvedAt              DateTime?
+  lastOperatorActivityAt  DateTime?
+  pausedOperatorId        String?
+  pausedAt                DateTime?
+  previousConversationId  String?
+  reopenRequestedBy       String?
+  reopenRequestedAt       DateTime?
+  createdAt               DateTime                @default(now())
+  channelAccount          ClientChatChannelAccount @relation(fields: [channelAccountId], references: [id], onDelete: Cascade)
+  assignedUser            User?                   @relation("UserAssignedClientChats", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  client                  Client?                 @relation("ClientChatConversations", fields: [clientId], references: [id], onDelete: SetNull)
+  previousConversation    ClientChatConversation?  @relation("ConversationHistory", fields: [previousConversationId], references: [id], onDelete: SetNull)
+  nextConversations       ClientChatConversation[] @relation("ConversationHistory")
+  messages                ClientChatMessage[]
+  escalationEvents        ClientChatEscalationEvent[]
 
   @@index([lastMessageAt(sort: Desc)])
   @@index([assignedUserId])
   @@index([status])
   @@index([channelType])
   @@index([createdAt])
+  @@index([previousConversationId])
 }
 
 model ClientChatParticipant {
@@ -2097,10 +2105,8 @@ enum ClientChatChannelType {
 }
 
 enum ClientChatStatus {
-  OPEN
-  PENDING
+  LIVE
   CLOSED
-  SPAM
 }
 
 enum ClientChatDirection {
