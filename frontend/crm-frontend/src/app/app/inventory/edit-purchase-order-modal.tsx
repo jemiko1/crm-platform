@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import ModalDialog from "../../modal-dialog";
 import { API_BASE } from "@/lib/api";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type Product = {
   id: string;
@@ -186,7 +186,7 @@ export default function EditPurchaseOrderModal({
               value={formData.supplierName}
               onChange={handleChange}
               placeholder="China Supplier Ltd"
-              className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
             />
           </div>
 
@@ -198,7 +198,7 @@ export default function EditPurchaseOrderModal({
               value={formData.supplierEmail}
               onChange={handleChange}
               placeholder="supplier@example.com"
-              className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
             />
           </div>
         </div>
@@ -212,7 +212,7 @@ export default function EditPurchaseOrderModal({
               name="orderDate"
               value={formData.orderDate}
               onChange={handleChange}
-              className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
             />
           </div>
 
@@ -223,7 +223,7 @@ export default function EditPurchaseOrderModal({
               name="expectedDate"
               value={formData.expectedDate}
               onChange={handleChange}
-              className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
             />
           </div>
         </div>
@@ -237,7 +237,7 @@ export default function EditPurchaseOrderModal({
             <button
               type="button"
               onClick={addItem}
-              className="rounded-full bg-emerald-50 px-4 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+              className="rounded-full bg-teal-50 px-4 py-1.5 text-xs font-semibold text-teal-900 transition hover:bg-teal-100"
             >
               + Add Item
             </button>
@@ -252,7 +252,7 @@ export default function EditPurchaseOrderModal({
                     required
                     value={item.productId}
                     onChange={(e) => handleProductSelect(index, e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="mt-1 w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   >
                     <option value="">Select product...</option>
                     {products.map((product) => (
@@ -271,7 +271,7 @@ export default function EditPurchaseOrderModal({
                     required
                     value={item.quantity}
                     onChange={(e) => updateItem(index, "quantity", e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="mt-1 w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   />
                 </div>
 
@@ -284,7 +284,7 @@ export default function EditPurchaseOrderModal({
                     required
                     value={item.purchasePrice}
                     onChange={(e) => updateItem(index, "purchasePrice", e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="mt-1 w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   />
                 </div>
 
@@ -297,7 +297,7 @@ export default function EditPurchaseOrderModal({
                     required
                     value={item.sellPrice}
                     onChange={(e) => updateItem(index, "sellPrice", e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="mt-1 w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   />
                 </div>
 
@@ -322,9 +322,9 @@ export default function EditPurchaseOrderModal({
           </div>
 
           {/* Total */}
-          <div className="flex items-center justify-between rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
-            <div className="text-sm font-semibold text-emerald-900">Total Amount</div>
-            <div className="text-xl font-bold text-emerald-900">${calculateTotal()}</div>
+          <div className="flex items-center justify-between rounded-2xl bg-teal-50 p-4 ring-1 ring-teal-200">
+            <div className="text-sm font-semibold text-teal-900">Total Amount</div>
+            <div className="text-xl font-bold text-teal-900">${calculateTotal()}</div>
           </div>
         </div>
 
@@ -337,7 +337,7 @@ export default function EditPurchaseOrderModal({
             onChange={handleChange}
             rows={3}
             placeholder="Additional notes or special instructions..."
-            className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
           />
         </div>
 

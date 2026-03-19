@@ -85,7 +85,7 @@ export default function CreateGroupDialog({ onClose, onCreated }: CreateGroupDia
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter group name..."
-              className="w-full px-3 py-2 text-sm bg-zinc-100/80 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 placeholder:text-zinc-400"
+              className="w-full px-3 py-2 text-sm bg-zinc-100/80 rounded-xl outline-none focus:ring-2 focus:ring-teal-500/20 placeholder:text-zinc-400"
             />
           </div>
 
@@ -101,7 +101,7 @@ export default function CreateGroupDialog({ onClose, onCreated }: CreateGroupDia
                 {selectedEmployees.map((emp) => (
                   <div
                     key={emp.id}
-                    className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-xs"
+                    className="flex items-center gap-1 px-2 py-1 bg-teal-50 text-teal-900 rounded-lg text-xs"
                   >
                     <span>{emp.firstName} {emp.lastName}</span>
                     <button onClick={() => handleRemoveEmployee(emp.id)} className="hover:text-red-500">
@@ -119,7 +119,7 @@ export default function CreateGroupDialog({ onClose, onCreated }: CreateGroupDia
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search employees..."
-              className="w-full px-3 py-2 text-sm bg-zinc-100/80 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 placeholder:text-zinc-400"
+              className="w-full px-3 py-2 text-sm bg-zinc-100/80 rounded-xl outline-none focus:ring-2 focus:ring-teal-500/20 placeholder:text-zinc-400"
             />
 
             {/* Search results */}
@@ -134,7 +134,7 @@ export default function CreateGroupDialog({ onClose, onCreated }: CreateGroupDia
                     {emp.avatar ? (
                       <img src={emp.avatar} alt="" className="w-7 h-7 rounded-full object-cover" />
                     ) : (
-                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-[10px] font-semibold">
+                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white text-[10px] font-semibold">
                         {emp.firstName.charAt(0)}{emp.lastName.charAt(0)}
                       </div>
                     )}
@@ -160,7 +160,7 @@ export default function CreateGroupDialog({ onClose, onCreated }: CreateGroupDia
           <button
             onClick={handleCreate}
             disabled={!name.trim() || selectedEmployees.length === 0 || creating}
-            className="px-4 py-2 text-sm bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-zinc-200 disabled:text-zinc-400 rounded-xl transition-colors font-medium"
+            className="px-4 py-2 text-sm bg-teal-500 text-white hover:bg-teal-800 disabled:bg-zinc-200 disabled:text-zinc-400 rounded-xl transition-colors font-medium"
           >
             {creating ? "Creating..." : "Create Group"}
           </button>

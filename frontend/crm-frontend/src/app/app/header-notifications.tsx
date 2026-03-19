@@ -67,7 +67,7 @@ export default function HeaderNotifications() {
         onClick={() => setOpen(!open)}
         className={`relative w-10 h-10 flex items-center justify-center rounded-full transition-colors ${
           open
-            ? "bg-emerald-100 text-emerald-600"
+            ? "bg-teal-100 text-teal-800"
             : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
         }`}
         title="Notifications"
@@ -96,7 +96,7 @@ export default function HeaderNotifications() {
             <div className="px-4 py-3 border-b border-zinc-100 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-zinc-900">Notifications</h3>
               {unreadCount > 0 && (
-                <span className="text-xs text-emerald-600 font-medium">{unreadCount} unread</span>
+                <span className="text-xs text-teal-800 font-medium">{unreadCount} unread</span>
               )}
             </div>
             <div className="overflow-y-auto max-h-[400px]">
@@ -106,10 +106,10 @@ export default function HeaderNotifications() {
                 notifications.map((n) => (
                   <div
                     key={n.id}
-                    className={`px-4 py-3 border-b border-zinc-50 hover:bg-zinc-50 transition-colors cursor-pointer ${!n.readAt ? "bg-emerald-50/30" : ""}`}
+                    className={`px-4 py-3 border-b border-zinc-50 hover:bg-zinc-50 transition-colors cursor-pointer ${!n.readAt ? "bg-teal-50/30" : ""}`}
                   >
                     <div className="flex items-start gap-3">
-                      <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${!n.readAt ? "bg-emerald-500" : "bg-transparent"}`} />
+                      <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${!n.readAt ? "bg-teal-500" : "bg-transparent"}`} />
                       <div className="min-w-0">
                         <p className="text-sm text-zinc-900 truncate">Work Order #{n.workOrder?.workOrderNumber ?? ""}</p>
                         <p className="text-xs text-zinc-500 truncate">{n.workOrder?.title ?? "Notification"}</p>

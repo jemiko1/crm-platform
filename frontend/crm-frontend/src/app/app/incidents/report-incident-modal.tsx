@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { useListItems } from "@/hooks/useListItems";
 import { API_BASE } from "@/lib/api";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type Building = {
   coreId: number;
@@ -443,9 +443,9 @@ export default function ReportIncidentModal({
           )}
 
           {isClientLocked && presetClient && (
-            <div className="mb-4 rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
-              <div className="text-sm font-semibold text-emerald-900">Client Locked</div>
-              <div className="mt-1 text-xs text-emerald-700">
+            <div className="mb-4 rounded-2xl bg-teal-50 p-4 ring-1 ring-teal-200">
+              <div className="text-sm font-semibold text-teal-900">Client Locked</div>
+              <div className="mt-1 text-xs text-teal-900">
                 Creating incident for: <span className="font-semibold">{fullNameOf(presetClient)}</span>
               </div>
             </div>
@@ -466,7 +466,7 @@ export default function ReportIncidentModal({
                   value={buildingSearch}
                   onChange={(e) => setBuildingSearch(e.target.value)}
                   placeholder="Start typing building name..."
-                  className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/70"
+                  className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-teal-500/70"
                   autoFocus
                 />
               </div>
@@ -484,7 +484,7 @@ export default function ReportIncidentModal({
                       key={building.coreId}
                       type="button"
                       onClick={() => handleBuildingSelect(building)}
-                      className="group w-full rounded-2xl bg-white p-4 text-left ring-1 ring-zinc-200 transition hover:bg-emerald-50/60 hover:ring-emerald-300"
+                      className="group w-full rounded-2xl bg-white p-4 text-left ring-1 ring-zinc-200 transition hover:bg-teal-50/60 hover:ring-teal-300"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0 flex-1">
@@ -505,9 +505,9 @@ export default function ReportIncidentModal({
           {/* Step 2: Client (only if not locked) */}
           {!isClientLocked && step === 2 && (
             <div className="space-y-4">
-              <div className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
-                <div className="text-sm font-semibold text-emerald-900">Selected Building</div>
-                <div className="mt-1 text-xs text-emerald-700">
+              <div className="rounded-2xl bg-teal-50 p-4 ring-1 ring-teal-200">
+                <div className="text-sm font-semibold text-teal-900">Selected Building</div>
+                <div className="mt-1 text-xs text-teal-900">
                   {selectedBuilding?.name ?? "—"} - {selectedBuilding?.city ?? "—"}
                 </div>
               </div>
@@ -520,7 +520,7 @@ export default function ReportIncidentModal({
                   value={clientSearch}
                   onChange={(e) => setClientSearch(e.target.value)}
                   placeholder="Start typing client name..."
-                  className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/70"
+                  className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-teal-500/70"
                   autoFocus
                 />
               </div>
@@ -542,7 +542,7 @@ export default function ReportIncidentModal({
                       key={client.coreId}
                       type="button"
                       onClick={() => handleClientSelect(client)}
-                      className="group w-full rounded-2xl bg-white p-4 text-left ring-1 ring-zinc-200 transition hover:bg-emerald-50/60 hover:ring-emerald-300"
+                      className="group w-full rounded-2xl bg-white p-4 text-left ring-1 ring-zinc-200 transition hover:bg-teal-50/60 hover:ring-teal-300"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div>
@@ -584,9 +584,9 @@ export default function ReportIncidentModal({
           {/* Step 3: Products */}
           {step === 3 && (
             <div className="space-y-4">
-              <div className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
-                <div className="text-sm font-semibold text-emerald-900">Summary</div>
-                <div className="mt-2 space-y-1 text-xs text-emerald-700">
+              <div className="rounded-2xl bg-teal-50 p-4 ring-1 ring-teal-200">
+                <div className="text-sm font-semibold text-teal-900">Summary</div>
+                <div className="mt-2 space-y-1 text-xs text-teal-900">
                   <div>Building: {selectedBuilding?.name ?? "—"}</div>
                   <div>
                     Client:{" "}
@@ -617,14 +617,14 @@ export default function ReportIncidentModal({
                       <label
                         key={asset.coreId}
                         className={`flex cursor-pointer items-center gap-3 rounded-2xl p-4 ring-1 transition ${
-                          isSelected ? "bg-emerald-50 ring-emerald-300" : "bg-white ring-zinc-200 hover:bg-zinc-50"
+                          isSelected ? "bg-teal-50 ring-teal-300" : "bg-white ring-zinc-200 hover:bg-zinc-50"
                         }`}
                       >
                         <input
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => handleProductToggle(asset.coreId)}
-                          className="h-5 w-5 rounded border-zinc-300 text-emerald-600 focus:ring-2 focus:ring-emerald-500"
+                          className="h-5 w-5 rounded border-zinc-300 text-teal-800 focus:ring-2 focus:ring-teal-500"
                         />
                         <div className="flex-1">
                           <div className="text-sm font-semibold text-zinc-900">{asset.name}</div>
@@ -662,9 +662,9 @@ export default function ReportIncidentModal({
           {/* Step 4: Details */}
           {step === 4 && (
             <div className="space-y-4">
-              <div className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
-                <div className="text-sm font-semibold text-emerald-900">Summary</div>
-                <div className="mt-2 space-y-1 text-xs text-emerald-700">
+              <div className="rounded-2xl bg-teal-50 p-4 ring-1 ring-teal-200">
+                <div className="text-sm font-semibold text-teal-900">Summary</div>
+                <div className="mt-2 space-y-1 text-xs text-teal-900">
                   <div>Building: {selectedBuilding?.name ?? "—"}</div>
                   <div>
                     Client:{" "}
@@ -686,7 +686,7 @@ export default function ReportIncidentModal({
                   value={formData.contactMethod ?? ""}
                   onChange={(e) => setFormData((prev) => ({ ...prev, contactMethod: e.target.value as any }))}
                   disabled={loadingContactMethods}
-                  className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/70 disabled:opacity-50"
+                  className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-teal-500/70 disabled:opacity-50"
                 >
                   <option value="">Select contact method</option>
                   {loadingContactMethods ? (
@@ -709,7 +709,7 @@ export default function ReportIncidentModal({
                   value={formData.incidentType ?? ""}
                   onChange={(e) => setFormData((prev) => ({ ...prev, incidentType: e.target.value }))}
                   disabled={loadingIncidentTypes}
-                  className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/70 disabled:opacity-50"
+                  className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-teal-500/70 disabled:opacity-50"
                 >
                   <option value="">Select incident type</option>
                   {loadingIncidentTypes ? (
@@ -766,7 +766,7 @@ export default function ReportIncidentModal({
                   onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
                   placeholder="Describe the incident in detail..."
                   rows={5}
-                  className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/70"
+                  className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-teal-500/70"
                 />
               </div>
 

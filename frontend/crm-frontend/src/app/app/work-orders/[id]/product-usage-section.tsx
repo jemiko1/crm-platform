@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { apiGet, apiPost, ApiError } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type Product = {
   id: string;
@@ -222,7 +222,7 @@ export default function ProductUsageSection({
                           }
                         }
                       }}
-                      className="w-20 rounded-xl border-zinc-300 bg-white px-2 py-1 text-sm text-center focus:border-emerald-500 focus:ring-emerald-500"
+                      className="w-20 rounded-xl border-zinc-300 bg-white px-2 py-1 text-sm text-center focus:border-teal-500 focus:ring-teal-500"
                     />
                     <button
                       type="button"
@@ -295,7 +295,7 @@ export default function ProductUsageSection({
                           updateUsage(actualIndex >= 0 ? actualIndex : index, "quantity", product?.currentStock || 1);
                         }
                       }}
-                      className="w-20 rounded-xl border-zinc-300 bg-white px-2 py-1 text-sm text-center focus:border-emerald-500 focus:ring-emerald-500 transition-colors"
+                      className="w-20 rounded-xl border-zinc-300 bg-white px-2 py-1 text-sm text-center focus:border-teal-500 focus:ring-teal-500 transition-colors"
                     />
                     <button
                       type="button"
@@ -347,7 +347,7 @@ export default function ProductUsageSection({
         )}
 
         {isHeadOfTechnical && !hasUnapproved && usages.length === 0 && (
-          <div className="rounded-2xl bg-emerald-50 p-4 text-center text-sm text-emerald-700 ring-1 ring-emerald-200">
+          <div className="rounded-2xl bg-teal-50 p-4 text-center text-sm text-teal-900 ring-1 ring-teal-200">
             All products approved. You can add more products if needed.
           </div>
         )}
@@ -428,7 +428,7 @@ function AddProductModal({
             <select
               value={selectedProductId}
               onChange={(e) => setSelectedProductId(e.target.value)}
-              className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+              className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-teal-500/30"
             >
               <option value="">Select product</option>
               {products.map((p) => (
@@ -447,7 +447,7 @@ function AddProductModal({
                 max={selectedProduct.currentStock}
                 value={quantity}
                 onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-teal-500/30"
               />
               <div className="mt-1 text-xs text-zinc-500">
                 Available: {selectedProduct.currentStock}

@@ -51,7 +51,7 @@ type BuildingRow = {
   updatedAt: string;
 };
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 function useHasMounted() {
   const [mounted, setMounted] = useState(false);
@@ -286,7 +286,7 @@ function BuildingsPageContent() {
                     setPage(1);
                   }}
                   placeholder={t("buildings.searchPlaceholder", "Search by ID, name, address, city...")}
-                  className="min-w-0 flex-1 rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-md ring-2 ring-emerald-500/40 border border-emerald-500/30 hover:ring-emerald-500/60 hover:border-emerald-500/50 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/70 focus:shadow-lg focus:border-emerald-500/60 transition-all sm:max-w-md"
+                  className="min-w-0 flex-1 rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-md ring-2 ring-teal-500/40 border border-teal-500/30 hover:ring-teal-500/60 hover:border-teal-500/50 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-teal-500/70 focus:shadow-lg focus:border-teal-500/60 transition-all sm:max-w-md"
                 />
                 {hasPermission("buildings.create") && (
                   <button
@@ -330,7 +330,7 @@ function BuildingsPageContent() {
                               key={b.coreId}
                               className={[
                                 "group transition-all duration-200 ease-out",
-                                "hover:bg-emerald-50/60",
+                                "hover:bg-teal-50/60",
                                 "hover:shadow-lg hover:-translate-y-0.5 hover:z-10",
                                 !isLast && "border-b border-zinc-100",
                               ].join(" ")}

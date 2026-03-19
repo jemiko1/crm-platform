@@ -7,7 +7,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { API_BASE } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
 
-const BRAND_GREEN = "rgb(8,117,56)";
+const BRAND_TEAL = "rgb(0, 86, 83)";
 const STORAGE_KEY = "crm28_menu_order";
 
 type NavItemDef = {
@@ -269,9 +269,9 @@ function CustomizeMode({
             onDragOver={(e) => e.preventDefault()}
             className={`relative flex items-center gap-2 rounded-2xl px-2 py-2 cursor-grab active:cursor-grabbing transition-all select-none ${
               draggingIdx === idx
-                ? "opacity-50 scale-95 bg-emerald-50 ring-1 ring-emerald-300"
+                ? "opacity-50 scale-95 bg-teal-50 ring-1 ring-teal-300"
                 : overIdx === idx && draggingIdx !== null
-                ? "bg-emerald-50/60 ring-1 ring-emerald-200"
+                ? "bg-teal-50/60 ring-1 ring-teal-200"
                 : "bg-white/60 hover:bg-white ring-1 ring-transparent"
             }`}
           >
@@ -321,7 +321,7 @@ function CustomizeMode({
         <button
           onClick={onSave}
           className="w-full py-2 rounded-xl text-[11px] font-semibold text-white transition"
-          style={{ backgroundColor: BRAND_GREEN }}
+          style={{ backgroundColor: BRAND_TEAL }}
         >
           Save Order
         </button>
@@ -371,7 +371,7 @@ function RailItem({
           "absolute left-1 top-3 bottom-3 w-1 rounded-full transition-opacity",
           isActive ? "opacity-100" : "opacity-0 group-hover:opacity-40",
         ].join(" ")}
-        style={{ backgroundColor: BRAND_GREEN }}
+        style={{ backgroundColor: BRAND_TEAL }}
       />
 
       <span
@@ -388,7 +388,7 @@ function RailItem({
             "transition-opacity",
             isActive ? "opacity-100" : "opacity-80 group-hover:opacity-100",
           ].join(" ")}
-          style={isActive ? { color: BRAND_GREEN } : undefined}
+          style={isActive ? { color: BRAND_TEAL } : undefined}
         >
           {icon}
         </span>
@@ -406,7 +406,7 @@ function RailItem({
       <span
         className="h-2 w-2 rounded-full transition-opacity"
         style={{
-          backgroundColor: BRAND_GREEN,
+          backgroundColor: BRAND_TEAL,
           opacity: isActive ? 1 : 0,
         }}
       />

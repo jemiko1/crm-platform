@@ -112,7 +112,7 @@ export default function ConversationList({
           {canCreateGroup && (
             <button
               onClick={() => setShowCreateGroup(true)}
-              className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-medium transition-colors"
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-900 rounded-lg text-xs font-medium transition-colors"
               title="Create new group"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -148,7 +148,7 @@ export default function ConversationList({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search people..."
-            className="w-full pl-9 pr-3 py-2 text-sm bg-zinc-100/80 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 placeholder:text-zinc-400"
+            className="w-full pl-9 pr-3 py-2 text-sm bg-zinc-100/80 rounded-xl outline-none focus:ring-2 focus:ring-teal-500/20 placeholder:text-zinc-400"
           />
         </div>
 
@@ -158,7 +158,7 @@ export default function ConversationList({
             {canCreateGroup && (
               <button
                 onClick={() => setShowCreateGroup(true)}
-                className="lg:hidden flex items-center gap-1 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-medium transition-colors"
+                className="lg:hidden flex items-center gap-1 px-3 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-900 rounded-lg text-xs font-medium transition-colors"
                 title="Create new group"
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -173,7 +173,7 @@ export default function ConversationList({
                 onClick={() => setFilter(f.key)}
                 className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                   filter === f.key
-                    ? "bg-emerald-100 text-emerald-700"
+                    ? "bg-teal-100 text-teal-900"
                     : "text-zinc-500 hover:bg-zinc-100"
                 }`}
               >
@@ -206,7 +206,7 @@ export default function ConversationList({
                       className="w-9 h-9 rounded-full object-cover"
                     />
                   ) : (
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-xs font-semibold">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white text-xs font-semibold">
                       {emp.firstName.charAt(0)}
                       {emp.lastName.charAt(0)}
                     </div>
@@ -240,7 +240,7 @@ export default function ConversationList({
             {hasMore && (
               <button
                 onClick={handleLoadMore}
-                className="w-full py-2 text-xs text-emerald-600 hover:text-emerald-700 font-medium"
+                className="w-full py-2 text-xs text-teal-800 hover:text-teal-900 font-medium"
               >
                 Load more
               </button>

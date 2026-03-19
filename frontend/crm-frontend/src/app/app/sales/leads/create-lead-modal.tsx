@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { apiGet, apiGetList, apiPost, ApiError } from "@/lib/api";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type LeadSource = {
   id: string;
@@ -210,7 +210,7 @@ export default function CreateLeadModal({ open, onClose, onSuccess }: CreateLead
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     required
-                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                     placeholder="Building or company name"
                   />
                 </div>
@@ -220,7 +220,7 @@ export default function CreateLeadModal({ open, onClose, onSuccess }: CreateLead
                     type="text"
                     value={representative}
                     onChange={(e) => setRepresentative(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                     placeholder="Contact person name"
                   />
                 </div>
@@ -233,7 +233,7 @@ export default function CreateLeadModal({ open, onClose, onSuccess }: CreateLead
                     value={primaryPhone}
                     onChange={(e) => setPrimaryPhone(e.target.value)}
                     required
-                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                     placeholder="+995 XXX XX XX XX"
                   />
                 </div>
@@ -243,7 +243,7 @@ export default function CreateLeadModal({ open, onClose, onSuccess }: CreateLead
                     type="text"
                     value={associationName}
                     onChange={(e) => setAssociationName(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                     placeholder="HOA name (optional)"
                   />
                 </div>
@@ -252,7 +252,7 @@ export default function CreateLeadModal({ open, onClose, onSuccess }: CreateLead
                   <select
                     value={sourceId}
                     onChange={(e) => setSourceId(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   >
                     <option value="">Select source</option>
                     {sources.map((source) => (
@@ -278,7 +278,7 @@ export default function CreateLeadModal({ open, onClose, onSuccess }: CreateLead
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
                     required
-                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                     placeholder="e.g., Tbilisi"
                   />
                 </div>
@@ -291,7 +291,7 @@ export default function CreateLeadModal({ open, onClose, onSuccess }: CreateLead
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
                     required
-                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                     placeholder="Street and number"
                   />
                 </div>
@@ -302,7 +302,7 @@ export default function CreateLeadModal({ open, onClose, onSuccess }: CreateLead
                     value={floorsCount}
                     onChange={(e) => setFloorsCount(parseInt(e.target.value) || 0)}
                     min={0}
-                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   />
                 </div>
                 <div>
@@ -312,7 +312,7 @@ export default function CreateLeadModal({ open, onClose, onSuccess }: CreateLead
                     value={entrancesCount}
                     onChange={(e) => setEntrancesCount(parseInt(e.target.value) || 0)}
                     min={0}
-                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   />
                 </div>
                 <div>
@@ -322,7 +322,7 @@ export default function CreateLeadModal({ open, onClose, onSuccess }: CreateLead
                     value={apartmentsPerFloor}
                     onChange={(e) => setApartmentsPerFloor(parseInt(e.target.value) || 0)}
                     min={0}
-                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   />
                 </div>
                 <div>
@@ -332,7 +332,7 @@ export default function CreateLeadModal({ open, onClose, onSuccess }: CreateLead
                     value={elevatorsCount}
                     onChange={(e) => setElevatorsCount(parseInt(e.target.value) || 0)}
                     min={0}
-                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   />
                 </div>
                 <div>
@@ -342,7 +342,7 @@ export default function CreateLeadModal({ open, onClose, onSuccess }: CreateLead
                     value={entranceDoorsCount}
                     onChange={(e) => setEntranceDoorsCount(parseInt(e.target.value) || 0)}
                     min={0}
-                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   />
                 </div>
               </div>
@@ -357,7 +357,7 @@ export default function CreateLeadModal({ open, onClose, onSuccess }: CreateLead
                     key={service.id}
                     className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition ${
                       selectedServices.includes(service.id)
-                        ? "border-emerald-500 bg-emerald-50"
+                        ? "border-teal-500 bg-teal-50"
                         : "border-zinc-200 hover:border-zinc-300"
                     }`}
                   >
@@ -365,7 +365,7 @@ export default function CreateLeadModal({ open, onClose, onSuccess }: CreateLead
                       type="checkbox"
                       checked={selectedServices.includes(service.id)}
                       onChange={() => toggleService(service.id)}
-                      className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+                      className="h-4 w-4 rounded border-zinc-300 text-teal-800 focus:ring-teal-500"
                     />
                     <div className="flex-1">
                       <div className="text-sm font-medium text-zinc-900">{service.name}</div>
@@ -394,7 +394,7 @@ export default function CreateLeadModal({ open, onClose, onSuccess }: CreateLead
                 <select
                   value={responsibleEmployeeId}
                   onChange={(e) => setResponsibleEmployeeId(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                 >
                   <option value="">Assign to me (default)</option>
                   {employees.map((emp) => (

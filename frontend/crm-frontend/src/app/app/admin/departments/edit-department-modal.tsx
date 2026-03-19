@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { apiPatch, apiDelete, ApiError } from "@/lib/api";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type Department = {
   id: string;
@@ -207,7 +207,7 @@ export default function EditDepartmentModal({
                 onClick={() => setActiveTab(tab.id as any)}
                 className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
                   activeTab === tab.id
-                    ? "bg-emerald-600 text-white"
+                    ? "bg-teal-800 text-white"
                     : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
                 }`}
               >
@@ -237,7 +237,7 @@ export default function EditDepartmentModal({
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     required
-                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                     placeholder="e.g., Sales Department"
                   />
                 </div>
@@ -250,7 +250,7 @@ export default function EditDepartmentModal({
                     type="text"
                     value={nameKa}
                     onChange={(e) => setNameKa(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                     placeholder="მაგ., გაყიდვების დეპარტამენტი"
                   />
                 </div>
@@ -264,7 +264,7 @@ export default function EditDepartmentModal({
                     value={code}
                     onChange={(e) => setCode(e.target.value.toUpperCase())}
                     required
-                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm uppercase focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm uppercase focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                     placeholder="e.g., SALES"
                   />
                 </div>
@@ -277,7 +277,7 @@ export default function EditDepartmentModal({
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     rows={3}
-                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                     placeholder="Brief description of the department..."
                   />
                 </div>
@@ -288,7 +288,7 @@ export default function EditDepartmentModal({
                     id="isActive"
                     checked={isActive}
                     onChange={(e) => setIsActive(e.target.checked)}
-                    className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+                    className="h-4 w-4 rounded border-zinc-300 text-teal-800 focus:ring-teal-500"
                   />
                   <label htmlFor="isActive" className="text-sm text-zinc-700">
                     Department is active
@@ -311,7 +311,7 @@ export default function EditDepartmentModal({
                   <select
                     value={parentId || ""}
                     onChange={(e) => setParentId(e.target.value || null)}
-                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   >
                     <option value="">None (Top-level department)</option>
                     {availableParents.map((d) => (
@@ -323,9 +323,9 @@ export default function EditDepartmentModal({
                 </div>
 
                 {parentId && (
-                  <div className="rounded-xl bg-emerald-50 p-4">
-                    <div className="text-sm font-medium text-emerald-800">New hierarchy:</div>
-                    <div className="mt-2 text-sm text-emerald-700">
+                  <div className="rounded-xl bg-teal-50 p-4">
+                    <div className="text-sm font-medium text-teal-900">New hierarchy:</div>
+                    <div className="mt-2 text-sm text-teal-900">
                       {availableParents.find((d) => d.id === parentId)?.name} → {name}
                     </div>
                   </div>
@@ -346,7 +346,7 @@ export default function EditDepartmentModal({
                   <select
                     value={headId || ""}
                     onChange={(e) => setHeadId(e.target.value || null)}
-                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   >
                     <option value="">Not assigned</option>
                     {employees.map((emp) => (

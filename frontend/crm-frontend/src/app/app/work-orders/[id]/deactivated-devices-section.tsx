@@ -5,7 +5,7 @@ import { apiGet, apiPost, ApiError } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
 import { usePermissions } from "@/lib/use-permissions";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type Product = {
   id: string;
@@ -209,7 +209,7 @@ export default function DeactivatedDevicesSection({
               <div className="mt-1 text-xs text-zinc-500">
                 SKU: {device.product.sku} • Quantity: {device.quantity}
                 {device.isWorkingCondition && (
-                  <span className="ml-2 text-emerald-600">✓ Working Condition</span>
+                  <span className="ml-2 text-teal-800">✓ Working Condition</span>
                 )}
                 {device.transferredToStock && (
                   <span className="ml-2 text-blue-600">✓ Transferred to Stock</span>
@@ -260,7 +260,7 @@ function AddDeviceModal({
             <select
               value={selectedProductId}
               onChange={(e) => setSelectedProductId(e.target.value)}
-              className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+              className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-teal-500/30"
             >
               <option value="">Select product</option>
               {products.map((p) => (
@@ -278,7 +278,7 @@ function AddDeviceModal({
                 min="1"
                 value={quantity}
                 onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-teal-500/30"
               />
             </div>
           )}
@@ -288,7 +288,7 @@ function AddDeviceModal({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
-              className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 resize-none"
+              className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-teal-500/30 resize-none"
             />
           </div>
           <div className="flex items-center gap-3">

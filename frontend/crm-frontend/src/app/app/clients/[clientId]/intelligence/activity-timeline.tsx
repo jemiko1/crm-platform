@@ -18,9 +18,9 @@ const TYPE_CONFIG: Record<
   },
   chat: {
     icon: <IconChat />,
-    color: "text-emerald-700",
-    bg: "bg-emerald-50",
-    ring: "ring-emerald-200",
+    color: "text-teal-900",
+    bg: "bg-teal-50",
+    ring: "ring-teal-200",
   },
   incident: {
     icon: <IconAlert />,

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { apiPost } from "@/lib/api";
 import { createPortal } from "react-dom";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type AddRoleGroupModalProps = {
   open: boolean;
@@ -124,7 +124,7 @@ export default function AddRoleGroupModal({
                   value={formData.name}
                   onChange={handleChange}
                   required
-                  className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   placeholder="e.g., Full Access, Management"
                 />
               </div>
@@ -138,7 +138,7 @@ export default function AddRoleGroupModal({
                   value={formData.description}
                   onChange={handleChange}
                   rows={2}
-                  className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   placeholder="Brief description of this role group"
                 />
               </div>
@@ -150,7 +150,7 @@ export default function AddRoleGroupModal({
                   id="isActive"
                   checked={formData.isActive}
                   onChange={handleChange}
-                  className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+                  className="h-4 w-4 rounded border-zinc-300 text-teal-800 focus:ring-teal-500"
                 />
                 <label htmlFor="isActive" className="text-sm text-zinc-700">
                   Active

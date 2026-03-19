@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { apiPatch, ApiError } from "@/lib/api";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type WorkOrderDetail = {
   id: string;
@@ -131,7 +131,7 @@ export default function EditWorkOrderModal({
                   value={formData.status}
                   onChange={handleChange}
                   required
-                  className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                  className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-teal-500/30"
                 >
                   <option value="CREATED">Created</option>
                   <option value="LINKED_TO_GROUP">Technicians Assigned</option>
@@ -153,7 +153,7 @@ export default function EditWorkOrderModal({
                   onChange={handleChange}
                   required
                   placeholder="Work order title"
-                  className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                  className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-teal-500/30"
                 />
               </div>
 
@@ -166,7 +166,7 @@ export default function EditWorkOrderModal({
                   onChange={handleChange}
                   rows={4}
                   placeholder="Additional notes..."
-                  className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 resize-none"
+                  className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-teal-500/30 resize-none"
                 />
               </div>
             </div>

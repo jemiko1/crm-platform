@@ -12,7 +12,7 @@ import StagesMonitoring from "./stages-monitoring";
 import EditWorkOrderModal from "./edit-work-order-modal";
 import { getStatusLabel, getStatusBadge, resolveDisplayStatus } from "@/lib/work-order-status";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type WorkOrderDetail = {
   id: string;
@@ -376,7 +376,7 @@ function WorkflowDebugPanel({ workOrder }: { workOrder: WorkOrderDetail }) {
   }, [workflowSteps, workOrder.assignments, getStepAssignees]);
 
   const statusColors = {
-    completed: { bg: "bg-emerald-50", border: "border-emerald-300", text: "text-emerald-700", dot: "bg-emerald-500" },
+    completed: { bg: "bg-teal-50", border: "border-teal-300", text: "text-teal-900", dot: "bg-teal-500" },
     in_progress: { bg: "bg-amber-50", border: "border-amber-300", text: "text-amber-700", dot: "bg-amber-500 animate-pulse" },
     pending: { bg: "bg-zinc-50", border: "border-zinc-200", text: "text-zinc-500", dot: "bg-zinc-300" },
     skipped: { bg: "bg-red-50", border: "border-red-200", text: "text-red-500", dot: "bg-red-400" },
@@ -556,10 +556,10 @@ function WorkflowDebugPanel({ workOrder }: { workOrder: WorkOrderDetail }) {
                           {/* Performed by (for completed steps) */}
                           {step.performedBy && step.status === "completed" && (
                             <div className="mt-2 flex items-center gap-2">
-                              <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <svg className="w-4 h-4 text-teal-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
-                              <span className="text-xs font-semibold text-emerald-700">Performed by: {step.performedBy}</span>
+                              <span className="text-xs font-semibold text-teal-900">Performed by: {step.performedBy}</span>
                             </div>
                           )}
                           
@@ -947,7 +947,7 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
           {/* Close button - integrated into popup, top left corner (desktop) */}
           <button
             onClick={handleClose}
-            className="hidden lg:flex absolute -left-12 top-6 h-12 w-12 bg-emerald-500 text-white shadow-lg hover:bg-emerald-600 transition-colors items-center justify-center"
+            className="hidden lg:flex absolute -left-12 top-6 h-12 w-12 bg-teal-800 text-white shadow-lg hover:bg-teal-800 transition-colors items-center justify-center"
             aria-label="Close"
             style={{ 
               zIndex: zIndex + 1,
@@ -963,7 +963,7 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
           {/* Mobile close button - inside popup, top right corner */}
           <button
             onClick={handleClose}
-            className="lg:hidden absolute top-4 right-4 h-10 w-10 bg-emerald-500 text-white shadow-lg hover:bg-emerald-600 transition-colors flex items-center justify-center rounded-full"
+            className="lg:hidden absolute top-4 right-4 h-10 w-10 bg-teal-800 text-white shadow-lg hover:bg-teal-800 transition-colors flex items-center justify-center rounded-full"
             style={{ zIndex: zIndex + 1 }}
             aria-label="Close"
           >
@@ -982,9 +982,9 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
             )}
             {workOrder && (
               <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                workOrder.status === "COMPLETED" ? "bg-green-100 text-green-700" :
+                workOrder.status === "COMPLETED" ? "bg-teal-100 text-teal-800" :
                 workOrder.status === "CANCELED" ? "bg-red-100 text-red-700" :
-                workOrder.status === "IN_PROGRESS" ? "bg-emerald-100 text-emerald-700" :
+                workOrder.status === "IN_PROGRESS" ? "bg-amber-100 text-amber-700" :
                 "bg-zinc-100 text-zinc-700"
               }`}>
                 {getStatusLabel(resolveDisplayStatus(workOrder.status, workOrder.techEmployeeComment), t)}
@@ -1013,7 +1013,7 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
                         <div
                           className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${
                             isCompleted
-                              ? "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white"
+                              ? "bg-gradient-to-br from-teal-500 to-teal-600 text-white"
                               : isActive
                               ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white scale-110"
                               : "bg-zinc-200 text-zinc-600"
@@ -1028,7 +1028,7 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
                           )}
                         </div>
                         <span className={`text-[9px] font-medium mt-0.5 whitespace-nowrap ${
-                          isActive ? "text-blue-600" : isCompleted ? "text-emerald-600" : "text-zinc-400"
+                          isActive ? "text-blue-600" : isCompleted ? "text-teal-800" : "text-zinc-400"
                         }`}>
                           {stageNames[stage - 1]}
                         </span>
@@ -1037,7 +1037,7 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
                         <div
                           className={`h-0.5 w-6 sm:w-8 transition-all ${
                             isCompleted
-                              ? "bg-gradient-to-r from-emerald-500 to-emerald-600"
+                              ? "bg-gradient-to-r from-teal-500 to-teal-600"
                               : isActive
                               ? "bg-gradient-to-r from-blue-500 to-blue-600"
                               : "bg-zinc-200"
@@ -1110,7 +1110,7 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
                     <>
                       {/* Wave overlay connecting tab to content */}
                       <div 
-                        className="absolute bottom-0 left-0 right-0 h-8 bg-emerald-50/30 pointer-events-none"
+                        className="absolute bottom-0 left-0 right-0 h-8 bg-teal-50/30 pointer-events-none"
                         style={{
                           clipPath: "polygon(0% 100%, 0% 60%, 20% 50%, 40% 60%, 50% 50%, 60% 60%, 80% 50%, 100% 60%, 100% 100%)",
                         }}
@@ -1133,7 +1133,7 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
                     Products
                     {activeInfoTab === "products" && (
                       <div 
-                        className="absolute bottom-0 left-0 right-0 h-8 bg-emerald-50/30 pointer-events-none"
+                        className="absolute bottom-0 left-0 right-0 h-8 bg-teal-50/30 pointer-events-none"
                         style={{
                           clipPath: "polygon(0% 100%, 0% 60%, 20% 50%, 40% 60%, 50% 50%, 60% 60%, 80% 50%, 100% 60%, 100% 100%)",
                         }}
@@ -1155,7 +1155,7 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
                   Activity
                   {activeInfoTab === "activity" && (
                     <div 
-                      className="absolute bottom-0 left-0 right-0 h-8 bg-emerald-50/30 pointer-events-none"
+                      className="absolute bottom-0 left-0 right-0 h-8 bg-teal-50/30 pointer-events-none"
                       style={{
                         clipPath: "polygon(0% 100%, 0% 60%, 20% 50%, 40% 60%, 50% 50%, 60% 60%, 80% 50%, 100% 60%, 100% 100%)",
                       }}
@@ -1177,7 +1177,7 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
                     Workflow (Debug)
                     {activeInfoTab === "workflow" && (
                       <div 
-                        className="absolute bottom-0 left-0 right-0 h-8 bg-emerald-50/30 pointer-events-none"
+                        className="absolute bottom-0 left-0 right-0 h-8 bg-teal-50/30 pointer-events-none"
                         style={{
                           clipPath: "polygon(0% 100%, 0% 60%, 20% 50%, 40% 60%, 50% 50%, 60% 60%, 80% 50%, 100% 60%, 100% 100%)",
                         }}
@@ -1189,11 +1189,11 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
             </div>
 
             {/* Tab Content with light green overlay - description div */}
-            <div className="relative p-6 bg-emerald-50/30 min-h-full rounded-t-3xl lg:rounded-l-3xl lg:rounded-tr-none lg:rounded-br-none">
+            <div className="relative p-6 bg-teal-50/30 min-h-full rounded-t-3xl lg:rounded-l-3xl lg:rounded-tr-none lg:rounded-br-none">
               {/* Wave connection from selected tab to content */}
               {activeInfoTab && (
                 <div 
-                  className="absolute top-0 left-0 right-0 h-12 bg-emerald-50/30 pointer-events-none z-0"
+                  className="absolute top-0 left-0 right-0 h-12 bg-teal-50/30 pointer-events-none z-0"
                   style={{
                     clipPath: "polygon(0% 100%, 0% 80%, 10% 75%, 20% 80%, 30% 75%, 40% 80%, 50% 75%, 60% 80%, 70% 75%, 80% 80%, 90% 75%, 100% 80%, 100% 100%)",
                   }}
@@ -1306,15 +1306,15 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
                 <div className="space-y-6">
                   {/* Approved Products Display - EMERALD (Read-only) */}
                   {workOrder.productUsages && workOrder.productUsages.filter((u: any) => u.isApproved).length > 0 && (
-                    <div className="rounded-xl bg-gradient-to-br from-emerald-50 via-white to-emerald-50 border-2 border-emerald-200 shadow-sm p-6">
+                    <div className="rounded-xl bg-gradient-to-br from-teal-50 via-white to-teal-50 border-2 border-teal-200 shadow-sm p-6">
                       <div className="flex items-center gap-3 mb-4">
-                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-md">
+                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center shadow-md">
                           <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                         </div>
                         <h3 className="text-base font-bold text-zinc-900">Approved Products</h3>
-                        <span className="ml-auto px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold">
+                        <span className="ml-auto px-3 py-1 bg-teal-100 text-teal-900 rounded-full text-xs font-bold">
                           {workOrder.productUsages.filter((u: any) => u.isApproved).length} product(s)
                         </span>
                       </div>
@@ -1322,12 +1322,12 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
                         {workOrder.productUsages
                           .filter((u: any) => u.isApproved)
                           .map((usage: any) => (
-                            <div key={usage.id} className="bg-white/80 rounded-lg border border-emerald-100 p-4 hover:shadow-md transition-shadow">
+                            <div key={usage.id} className="bg-white/80 rounded-lg border border-teal-100 p-4 hover:shadow-md transition-shadow">
                               <div className="flex items-start justify-between">
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2 mb-2">
                                     <div className="text-sm font-bold text-zinc-900">{usage.product.name}</div>
-                                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded text-xs font-semibold">
+                                    <span className="px-2 py-0.5 bg-teal-100 text-teal-900 rounded text-xs font-semibold">
                                       ✓ Approved
                                     </span>
                                   </div>
@@ -1514,14 +1514,14 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
             )}
 
             {workOrder?.building && inventoryImpact.approvedProductUsages > 0 && (
-              <div className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
+              <div className="rounded-2xl bg-teal-50 p-4 ring-1 ring-teal-200">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-lg">🏢</span>
-                  <span className="text-sm font-semibold text-emerald-900">
+                  <span className="text-sm font-semibold text-teal-900">
                     Building: {workOrder.building.name}
                   </span>
                 </div>
-                <div className="ml-7 text-xs text-emerald-700">
+                <div className="ml-7 text-xs text-teal-900">
                   Products were installed/used at this building location
                 </div>
               </div>

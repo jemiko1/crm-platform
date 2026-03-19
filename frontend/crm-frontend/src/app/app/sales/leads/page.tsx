@@ -9,7 +9,7 @@ import { PermissionGuard } from "@/lib/permission-guard";
 import { usePermissions } from "@/lib/use-permissions";
 import { useI18n } from "@/hooks/useI18n";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type LeadStage = {
   id: string;
@@ -78,7 +78,7 @@ type Statistics = {
 function getStatusBadge(status: Lead["status"]) {
   const styles: Record<string, string> = {
     ACTIVE: "bg-blue-50 text-blue-700 ring-blue-200",
-    WON: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+    WON: "bg-teal-50 text-teal-900 ring-teal-200",
     LOST: "bg-red-50 text-red-700 ring-red-200",
   };
   return styles[status] || "bg-zinc-50 text-zinc-700 ring-zinc-200";
@@ -215,7 +215,7 @@ function LeadsPageContent() {
           </div>
           <div className="rounded-2xl bg-white p-4 shadow-md ring-1 ring-zinc-200">
             <div className="text-sm font-medium text-zinc-600">{t("sales.leads.won", "Won")}</div>
-            <div className="mt-1 text-2xl font-bold text-emerald-600">{statistics.won}</div>
+            <div className="mt-1 text-2xl font-bold text-teal-800">{statistics.won}</div>
           </div>
           <div className="rounded-2xl bg-white p-4 shadow-md ring-1 ring-zinc-200">
             <div className="text-sm font-medium text-zinc-600">{t("sales.leads.lost", "Lost")}</div>
@@ -294,7 +294,7 @@ function LeadsPageContent() {
               setPage(1);
             }}
             placeholder={t("sales.leads.searchPlaceholder", "Search leads...")}
-            className="w-full rounded-xl border border-zinc-200 py-2.5 pl-10 pr-4 text-sm transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            className="w-full rounded-xl border border-zinc-200 py-2.5 pl-10 pr-4 text-sm transition focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
           />
         </div>
 
@@ -304,7 +304,7 @@ function LeadsPageContent() {
             setSelectedStatus(e.target.value);
             setPage(1);
           }}
-          className="rounded-xl border border-zinc-200 px-4 py-2.5 text-sm transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+          className="rounded-xl border border-zinc-200 px-4 py-2.5 text-sm transition focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
         >
           <option value="">All Statuses</option>
           <option value="ACTIVE">Active</option>
@@ -318,7 +318,7 @@ function LeadsPageContent() {
             setSelectedStage(e.target.value);
             setPage(1);
           }}
-          className="rounded-xl border border-zinc-200 px-4 py-2.5 text-sm transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+          className="rounded-xl border border-zinc-200 px-4 py-2.5 text-sm transition focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
         >
           <option value="">All Stages</option>
           {stages.map((stage) => (
@@ -333,7 +333,7 @@ function LeadsPageContent() {
       <div className="rounded-2xl bg-white shadow-lg ring-1 ring-zinc-200">
         {loading ? (
           <div className="flex h-64 items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal-500 border-t-transparent" />
           </div>
         ) : error ? (
           <div className="flex h-64 flex-col items-center justify-center gap-4">

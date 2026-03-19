@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useListItems } from "@/hooks/useListItems";
 import { API_BASE } from "@/lib/api";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type AddDeviceModalProps = {
   buildingCoreId: string;
@@ -150,7 +150,7 @@ export default function AddDeviceModal({
                   onChange={handleChange}
                   required
                   disabled={isLoadingLists}
-                  className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 disabled:opacity-50"
+                  className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-teal-500/30 disabled:opacity-50"
                 >
                   {isLoadingLists ? (
                     <option>Loading...</option>
@@ -176,7 +176,7 @@ export default function AddDeviceModal({
                   onChange={handleChange}
                   required
                   placeholder="e.g., Small Lift, Main Entrance Door"
-                  className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                  className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-teal-500/30"
                 />
               </div>
 
@@ -191,7 +191,7 @@ export default function AddDeviceModal({
                   value={formData.ip}
                   onChange={handleChange}
                   placeholder="e.g., 10.0.0.10"
-                  className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                  className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-teal-500/30"
                 />
               </div>
 
@@ -206,7 +206,7 @@ export default function AddDeviceModal({
                   onChange={handleChange}
                   required
                   disabled={isLoadingLists}
-                  className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 disabled:opacity-50"
+                  className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-teal-500/30 disabled:opacity-50"
                 >
                   {isLoadingLists ? (
                     <option>Loading...</option>

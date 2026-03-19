@@ -159,7 +159,7 @@ export default function MessengerDropdown({
           <h3 className="text-base font-semibold text-zinc-900">Messenger</h3>
           <button
             onClick={handleOpenFullMessenger}
-            className="text-xs text-emerald-600 hover:text-emerald-700 font-medium"
+            className="text-xs text-teal-800 hover:text-teal-900 font-medium"
           >
             Open Messenger
           </button>
@@ -185,7 +185,7 @@ export default function MessengerDropdown({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search people..."
-            className="w-full pl-9 pr-3 py-2 text-sm bg-zinc-100/80 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 placeholder:text-zinc-400"
+            className="w-full pl-9 pr-3 py-2 text-sm bg-zinc-100/80 rounded-xl outline-none focus:ring-2 focus:ring-teal-500/20 placeholder:text-zinc-400"
           />
         </div>
 
@@ -198,7 +198,7 @@ export default function MessengerDropdown({
                 onClick={() => setFilter(f.key)}
                 className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                   filter === f.key
-                    ? "bg-emerald-100 text-emerald-700"
+                    ? "bg-teal-100 text-teal-900"
                     : "text-zinc-500 hover:bg-zinc-100"
                 }`}
               >
@@ -235,7 +235,7 @@ export default function MessengerDropdown({
                       className="w-9 h-9 rounded-full object-cover"
                     />
                   ) : (
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-xs font-semibold">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white text-xs font-semibold">
                       {emp.firstName.charAt(0)}
                       {emp.lastName.charAt(0)}
                     </div>
@@ -269,7 +269,7 @@ export default function MessengerDropdown({
               <button
                 onClick={handleLoadMore}
                 disabled={loading}
-                className="w-full py-2 text-xs text-emerald-600 hover:text-emerald-700 font-medium"
+                className="w-full py-2 text-xs text-teal-800 hover:text-teal-900 font-medium"
               >
                 {loading ? "Loading..." : "Load more"}
               </button>

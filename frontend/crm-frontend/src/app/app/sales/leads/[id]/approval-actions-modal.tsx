@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { createPortal } from "react-dom";
 import { apiPost, ApiError } from "@/lib/api";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 interface ApprovalActionsModalProps {
   open: boolean;
@@ -99,12 +99,12 @@ export default function ApprovalActionsModal({
                 onClick={() => setSelectedAction("APPROVE")}
                 className={`w-full rounded-xl border p-4 text-left transition ${
                   selectedAction === "APPROVE"
-                    ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/20"
+                    ? "border-teal-500 bg-teal-50 ring-2 ring-teal-500/20"
                     : "border-zinc-200 hover:border-zinc-300"
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-lg">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-100 text-lg">
                     ✅
                   </div>
                   <div>
@@ -175,7 +175,7 @@ export default function ApprovalActionsModal({
                       ? "Explain what needs to be corrected..."
                       : "Optional notes..."
                   }
-                  className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                 />
               </div>
             )}
@@ -192,7 +192,7 @@ export default function ApprovalActionsModal({
                   required
                   rows={2}
                   placeholder="Why was this lead lost?"
-                  className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                 />
               </div>
             )}
@@ -211,7 +211,7 @@ export default function ApprovalActionsModal({
                 disabled={loading || !selectedAction || (selectedAction === "CANCEL" && !lostReason)}
                 className={`rounded-xl px-5 py-2.5 text-sm font-medium text-white shadow-lg transition-all hover:shadow-xl disabled:opacity-50 ${
                   selectedAction === "APPROVE"
-                    ? "bg-emerald-600 hover:bg-emerald-700"
+                    ? "bg-teal-800 hover:bg-teal-900"
                     : selectedAction === "UNLOCK"
                     ? "bg-amber-600 hover:bg-amber-700"
                     : selectedAction === "CANCEL"

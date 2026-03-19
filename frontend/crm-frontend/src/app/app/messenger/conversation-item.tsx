@@ -53,7 +53,7 @@ export default function ConversationItem({
       onClick={onClick}
       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${
         isActive
-          ? "bg-emerald-50 border border-emerald-100"
+          ? "bg-teal-50 border border-teal-100"
           : "hover:bg-zinc-50"
       }`}
     >
@@ -66,7 +66,7 @@ export default function ConversationItem({
             className="w-10 h-10 rounded-full object-cover"
           />
         ) : (
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-sm font-semibold">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white text-sm font-semibold">
             {conversation.type === "GROUP"
               ? displayName.charAt(0).toUpperCase()
               : otherParticipants[0]
@@ -75,7 +75,7 @@ export default function ConversationItem({
           </div>
         )}
         {isOnline && (
-          <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white" />
+          <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-teal-500 border-2 border-white" />
         )}
       </div>
 
@@ -108,7 +108,7 @@ export default function ConversationItem({
 
       {/* Unread badge */}
       {unread > 0 && (
-        <div className="shrink-0 min-w-[20px] h-5 flex items-center justify-center rounded-full bg-emerald-500 text-white text-[10px] font-bold px-1.5">
+        <div className="shrink-0 min-w-[20px] h-5 flex items-center justify-center rounded-full bg-teal-800 text-white text-[10px] font-bold px-1.5">
           {unread > 99 ? "99+" : unread}
         </div>
       )}

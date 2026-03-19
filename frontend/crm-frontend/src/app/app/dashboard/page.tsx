@@ -9,9 +9,9 @@ export default function DashboardPage() {
         {/* Hero header (matches login style) */}
         <div className="relative overflow-hidden rounded-3xl border border-white/60 bg-white/85 backdrop-blur-xl shadow-[0_30px_70px_-22px_rgba(0,0,0,0.35)]">
           {/* Abstract background */}
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-200 via-emerald-100 to-slate-200" />
+          <div className="absolute inset-0 bg-gradient-to-br from-teal-200 via-teal-100 to-slate-200" />
           <div className="absolute inset-0 bg-slate-900/10" />
-          <div className="absolute -top-20 -left-16 h-56 w-56 rounded-full bg-emerald-600/25 blur-3xl" />
+          <div className="absolute -top-20 -left-16 h-56 w-56 rounded-full bg-teal-800/25 blur-3xl" />
           <div className="absolute -bottom-24 right-10 h-72 w-72 rounded-full bg-slate-700/20 blur-3xl" />
           <div className="absolute inset-0 opacity-[0.18] bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.22)_1px,transparent_0)] bg-[length:22px_22px]" />
   
@@ -19,7 +19,7 @@ export default function DashboardPage() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/60 bg-white/60 px-3 py-1 text-xs text-zinc-700">
-                  <span className="h-2 w-2 rounded-full bg-[rgb(8,117,56)]" />
+                  <span className="h-2 w-2 rounded-full bg-[rgb(0,86,83)]" />
                   HOA Operations Dashboard
                 </div>
   
@@ -267,7 +267,7 @@ export default function DashboardPage() {
         ? "bg-red-50 border-red-200 text-red-700"
         : props.tone === "warn"
         ? "bg-amber-50 border-amber-200 text-amber-800"
-        : "bg-emerald-50 border-emerald-200 text-emerald-800";
+        : "bg-teal-50 border-teal-200 text-teal-900";
   
     return (
       <div className={`rounded-2xl border px-4 py-3 ${tone}`}>
@@ -297,7 +297,7 @@ export default function DashboardPage() {
         ? "text-red-600"
         : props.status === "Medium"
         ? "text-amber-700"
-        : "text-emerald-700";
+        : "text-teal-900";
   
     return (
       <div className="grid grid-cols-12 px-4 py-3 text-sm border-t border-zinc-100">

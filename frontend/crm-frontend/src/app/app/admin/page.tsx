@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { PermissionGuard } from "@/lib/permission-guard";
 import { useI18n } from "@/hooks/useI18n";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type AdminSection = {
   id: string;
@@ -149,16 +149,16 @@ export default function AdminPanelPage() {
               href={section.href}
               className={`group relative rounded-2xl border-2 p-6 transition-all hover:shadow-lg ${
                 isActive
-                  ? "border-emerald-500 bg-emerald-50/50 shadow-md"
-                  : "border-zinc-200 bg-white hover:border-emerald-300"
+                  ? "border-teal-500 bg-teal-50/50 shadow-md"
+                  : "border-zinc-200 bg-white hover:border-teal-300"
               }`}
             >
               {/* Icon */}
               <div
                 className={`mb-4 inline-flex rounded-2xl p-3 transition ${
                   isActive
-                    ? "bg-emerald-100 text-emerald-700"
-                    : "bg-zinc-100 text-zinc-600 group-hover:bg-emerald-100 group-hover:text-emerald-700"
+                    ? "bg-teal-100 text-teal-900"
+                    : "bg-zinc-100 text-zinc-600 group-hover:bg-teal-100 group-hover:text-teal-900"
                 }`}
               >
                 {section.icon}
@@ -173,7 +173,7 @@ export default function AdminPanelPage() {
               {/* Arrow */}
               <div
                 className={`mt-4 flex items-center text-sm font-semibold transition ${
-                  isActive ? "text-emerald-700" : "text-zinc-500 group-hover:text-emerald-600"
+                  isActive ? "text-teal-900" : "text-zinc-500 group-hover:text-teal-800"
                 }`}
               >
                 {t("admin.manage", "Manage")}

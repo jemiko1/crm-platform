@@ -103,7 +103,7 @@ export default function EmailConfigPage() {
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal-500 border-t-transparent" />
       </div>
     );
   }
@@ -136,7 +136,7 @@ export default function EmailConfigPage() {
             </div>
             <button
               onClick={() => update("isActive", !config?.isActive)}
-              className={`relative inline-flex h-7 w-12 items-center rounded-full transition ${config?.isActive ? "bg-emerald-500" : "bg-zinc-300"}`}
+              className={`relative inline-flex h-7 w-12 items-center rounded-full transition ${config?.isActive ? "bg-teal-500" : "bg-zinc-300"}`}
             >
               <span
                 className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${config?.isActive ? "translate-x-6" : "translate-x-1"}`}
@@ -159,7 +159,7 @@ export default function EmailConfigPage() {
                   type="checkbox"
                   checked={config?.smtpSecure ?? false}
                   onChange={(e) => update("smtpSecure", e.target.checked)}
-                  className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+                  className="h-4 w-4 rounded border-zinc-300 text-teal-800 focus:ring-teal-500"
                 />
                 <label className="text-sm text-zinc-700">Use SSL/TLS (port 465)</label>
               </div>
@@ -179,7 +179,7 @@ export default function EmailConfigPage() {
                   type="checkbox"
                   checked={config?.imapSecure ?? true}
                   onChange={(e) => update("imapSecure", e.target.checked)}
-                  className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+                  className="h-4 w-4 rounded border-zinc-300 text-teal-800 focus:ring-teal-500"
                 />
                 <label className="text-sm text-zinc-700">Use SSL/TLS</label>
               </div>
@@ -198,7 +198,7 @@ export default function EmailConfigPage() {
           )}
 
           {saveMsg && (
-            <p className={`text-sm font-medium ${saveMsg.startsWith("Error") ? "text-red-600" : "text-emerald-600"}`}>{saveMsg}</p>
+            <p className={`text-sm font-medium ${saveMsg.startsWith("Error") ? "text-red-600" : "text-teal-800"}`}>{saveMsg}</p>
           )}
 
           {/* Actions */}
@@ -206,7 +206,7 @@ export default function EmailConfigPage() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="rounded-xl bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-emerald-700 disabled:opacity-50"
+              className="rounded-xl bg-teal-800 px-6 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-teal-900 disabled:opacity-50"
             >
               {saving ? "Saving..." : "Save Configuration"}
             </button>
@@ -245,7 +245,7 @@ function Field({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 transition focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+        className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 transition focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
       />
     </div>
   );
@@ -253,13 +253,13 @@ function Field({
 
 function ResultBadge({ label, success, message }: { label: string; success: boolean; message: string }) {
   return (
-    <div className={`flex items-center gap-3 rounded-xl px-4 py-2.5 ${success ? "bg-emerald-50" : "bg-red-50"}`}>
-      <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white ${success ? "bg-emerald-500" : "bg-red-500"}`}>
+    <div className={`flex items-center gap-3 rounded-xl px-4 py-2.5 ${success ? "bg-teal-50" : "bg-red-50"}`}>
+      <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white ${success ? "bg-teal-500" : "bg-red-500"}`}>
         {success ? "\u2713" : "\u2717"}
       </span>
       <div>
         <span className="font-semibold text-zinc-800">{label}: </span>
-        <span className={`text-sm ${success ? "text-emerald-700" : "text-red-700"}`}>{message}</span>
+        <span className={`text-sm ${success ? "text-teal-900" : "text-red-700"}`}>{message}</span>
       </div>
     </div>
   );

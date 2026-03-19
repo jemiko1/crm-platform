@@ -13,7 +13,7 @@ const DeleteItemModal = dynamic(() => import("./delete-item-modal"), {
   ssr: false,
 });
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type ListCategory = {
   id: string;
@@ -216,7 +216,7 @@ export default function CategoryDetailPage() {
                 </span>
               )}
               {category.isUserEditable ? (
-                <span className="rounded-full bg-emerald-100 px-2 py-1 font-medium text-emerald-700">
+                <span className="rounded-full bg-teal-100 px-2 py-1 font-medium text-teal-900">
                   ✏️ Editable
                 </span>
               ) : (

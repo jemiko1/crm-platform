@@ -17,7 +17,7 @@ function defaultTo() {
 }
 
 const DISPOSITION_COLORS: Record<string, { bg: string; text: string }> = {
-  ANSWERED: { bg: "bg-emerald-50", text: "text-emerald-700" },
+  ANSWERED: { bg: "bg-teal-50", text: "text-teal-900" },
   NO_ANSWER: { bg: "bg-rose-50", text: "text-rose-700" },
   BUSY: { bg: "bg-amber-50", text: "text-amber-700" },
   FAILED: { bg: "bg-zinc-100", text: "text-zinc-600" },
@@ -101,23 +101,23 @@ export default function CallLogsPage() {
         <div>
           <label className="mb-1 block text-xs text-zinc-500">{t("callCenter.logs.from", "From")}</label>
           <input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPage(1); }}
-            className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
+            className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50" />
         </div>
         <div>
           <label className="mb-1 block text-xs text-zinc-500">{t("callCenter.logs.to", "To")}</label>
           <input type="date" value={to} onChange={(e) => { setTo(e.target.value); setPage(1); }}
-            className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
+            className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50" />
         </div>
         <div className="flex-1 min-w-[200px]">
           <label className="mb-1 block text-xs text-zinc-500">{t("callCenter.logs.search", "Search")}</label>
           <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             placeholder={t("callCenter.logs.searchPlaceholder", "Phone number, agent name...")}
-            className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
+            className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-teal-500/50" />
         </div>
         <div>
           <label className="mb-1 block text-xs text-zinc-500">{t("callCenter.logs.disposition", "Status")}</label>
           <select value={disposition} onChange={(e) => { setDisposition(e.target.value); setPage(1); }}
-            className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
+            className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50">
             <option value="">{t("callCenter.logs.allStatuses", "All")}</option>
             <option value="ANSWERED">Answered</option>
             <option value="NO_ANSWER">No Answer</option>
@@ -164,7 +164,7 @@ export default function CallLogsPage() {
                     key={c.id}
                     className={[
                       "group transition-all duration-200 ease-out",
-                      "hover:bg-emerald-50/60 hover:shadow-sm",
+                      "hover:bg-teal-50/60 hover:shadow-sm",
                       i < calls.length - 1 ? "border-b border-zinc-100" : "",
                     ].join(" ")}
                   >

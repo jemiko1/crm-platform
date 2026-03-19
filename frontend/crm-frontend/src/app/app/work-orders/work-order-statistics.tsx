@@ -31,7 +31,7 @@ type StatBoxProps = {
   clickHint?: string;
 };
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 function StatBox({
   title,
@@ -51,21 +51,21 @@ function StatBox({
   const isClickable = !!onClick && !loading;
 
   const bottomBorderStyles = {
-    primary: "border-b-4 border-emerald-500",
+    primary: "border-b-4 border-teal-500",
     change: "border-b-4 border-sky-500",
     average: "border-b-4 border-violet-500",
     total: "border-b-4 border-amber-500",
   };
 
   const iconContainerStyles = {
-    primary: "bg-emerald-50/80 shadow-[0_2px_12px_rgba(5,150,105,0.15)]",
+    primary: "bg-teal-50/80 shadow-[0_2px_12px_rgba(5,150,105,0.15)]",
     change: "bg-sky-50/80 shadow-[0_2px_12px_rgba(14,165,233,0.15)]",
     average: "bg-violet-50/80 shadow-[0_2px_12px_rgba(139,92,246,0.15)]",
     total: "bg-amber-50/80 shadow-[0_2px_12px_rgba(245,158,11,0.15)]",
   };
 
   const iconColorStyles = {
-    primary: "text-emerald-600",
+    primary: "text-teal-800",
     change: "text-sky-600",
     average: "text-violet-600",
     total: "text-amber-600",
@@ -90,7 +90,7 @@ function StatBox({
       </div>
       {subtitle && <div className="hidden sm:block text-[11px] text-zinc-500">{subtitle}</div>}
       {clickHint && isClickable && (
-        <div className="hidden sm:inline-flex items-center gap-1 rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-300/60 w-fit">
+        <div className="hidden sm:inline-flex items-center gap-1 rounded-md bg-teal-100 px-1.5 py-0.5 text-[10px] font-semibold text-teal-900 ring-1 ring-teal-300/60 w-fit">
           <IconExternalLink />
           <span>{clickHint}</span>
         </div>
@@ -100,8 +100,8 @@ function StatBox({
           <div className="flex items-center gap-1.5">
             {isPositive && (
               <>
-                <IconArrowUp className="text-green-600 shrink-0" />
-                <span className="font-semibold text-green-600">
+                <IconArrowUp className="text-teal-800 shrink-0" />
+                <span className="font-semibold text-teal-800">
                   +{changeValue!.toFixed(1)}%
                 </span>
               </>
@@ -263,13 +263,13 @@ function MonthlyBreakdownModal({
                     key={monthName}
                     className={[
                       "flex items-center justify-between rounded-xl px-4 py-3",
-                      hasData ? "bg-emerald-50 ring-1 ring-emerald-200" : "bg-zinc-50",
+                      hasData ? "bg-teal-50 ring-1 ring-teal-200" : "bg-zinc-50",
                     ].join(" ")}
                   >
                     <span className={["text-sm font-medium", hasData ? "text-zinc-900" : "text-zinc-500"].join(" ")}>
                       {monthName}
                     </span>
-                    <span className={["text-sm font-bold tabular-nums", hasData ? "text-emerald-700" : "text-zinc-400"].join(" ")}>
+                    <span className={["text-sm font-bold tabular-nums", hasData ? "text-teal-900" : "text-zinc-400"].join(" ")}>
                       {displayVal}
                     </span>
                   </div>

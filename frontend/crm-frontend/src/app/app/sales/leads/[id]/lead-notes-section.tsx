@@ -198,7 +198,7 @@ export default function LeadNotesSection({
             onClick={() => setActiveSubTab(tab.id as any)}
             className={`border-b-2 pb-3 text-sm font-medium ${
               activeSubTab === tab.id
-                ? "border-emerald-500 text-emerald-600"
+                ? "border-teal-500 text-teal-800"
                 : "border-transparent text-zinc-500 hover:text-zinc-700"
             }`}
           >
@@ -213,7 +213,7 @@ export default function LeadNotesSection({
           <div className="mb-4 flex justify-end">
             <button
               onClick={() => setShowAddNote(true)}
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+              className="rounded-lg bg-teal-800 px-4 py-2 text-sm font-medium text-white hover:bg-teal-900"
             >
               Add Note
             </button>
@@ -253,7 +253,7 @@ export default function LeadNotesSection({
                   <button
                     type="submit"
                     disabled={loading}
-                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white"
+                    className="rounded-lg bg-teal-800 px-4 py-2 text-sm font-medium text-white"
                   >
                     {loading ? "Saving..." : "Save Note"}
                   </button>
@@ -305,7 +305,7 @@ export default function LeadNotesSection({
           <div className="mb-4 flex justify-end">
             <button
               onClick={() => setShowAddReminder(true)}
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+              className="rounded-lg bg-teal-800 px-4 py-2 text-sm font-medium text-white hover:bg-teal-900"
             >
               Add Reminder
             </button>
@@ -358,7 +358,7 @@ export default function LeadNotesSection({
                 <button
                   type="submit"
                   disabled={loading}
-                  className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white"
+                  className="rounded-lg bg-teal-800 px-4 py-2 text-sm font-medium text-white"
                 >
                   {loading ? "Creating..." : "Create Reminder"}
                 </button>
@@ -372,7 +372,7 @@ export default function LeadNotesSection({
                 key={reminder.id}
                 className={`flex items-center justify-between rounded-xl border p-4 ${
                   reminder.status === "COMPLETED"
-                    ? "border-emerald-200 bg-emerald-50"
+                    ? "border-teal-200 bg-teal-50"
                     : new Date(reminder.remindAt) < new Date()
                     ? "border-red-200 bg-red-50"
                     : "border-zinc-200 bg-white"
@@ -384,7 +384,7 @@ export default function LeadNotesSection({
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                         reminder.status === "COMPLETED"
-                          ? "bg-emerald-100 text-emerald-700"
+                          ? "bg-teal-100 text-teal-900"
                           : reminder.status === "CANCELLED"
                           ? "bg-zinc-100 text-zinc-600"
                           : "bg-amber-100 text-amber-700"
@@ -403,7 +403,7 @@ export default function LeadNotesSection({
                 {reminder.status === "PENDING" && (
                   <button
                     onClick={() => handleCompleteReminder(reminder.id)}
-                    className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
+                    className="rounded-lg bg-teal-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-900"
                   >
                     Complete
                   </button>
@@ -421,7 +421,7 @@ export default function LeadNotesSection({
           <div className="mb-4 flex justify-end">
             <button
               onClick={() => setShowAddAppointment(true)}
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+              className="rounded-lg bg-teal-800 px-4 py-2 text-sm font-medium text-white hover:bg-teal-900"
             >
               Schedule Appointment
             </button>
@@ -492,7 +492,7 @@ export default function LeadNotesSection({
                 <button
                   type="submit"
                   disabled={loading}
-                  className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white"
+                  className="rounded-lg bg-teal-800 px-4 py-2 text-sm font-medium text-white"
                 >
                   {loading ? "Creating..." : "Schedule"}
                 </button>
@@ -506,7 +506,7 @@ export default function LeadNotesSection({
                 key={appointment.id}
                 className={`rounded-xl border p-4 ${
                   appointment.status === "COMPLETED"
-                    ? "border-emerald-200 bg-emerald-50"
+                    ? "border-teal-200 bg-teal-50"
                     : appointment.status === "CANCELLED"
                     ? "border-zinc-200 bg-zinc-50"
                     : "border-blue-200 bg-blue-50"
@@ -518,7 +518,7 @@ export default function LeadNotesSection({
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                         appointment.status === "COMPLETED"
-                          ? "bg-emerald-100 text-emerald-700"
+                          ? "bg-teal-100 text-teal-900"
                           : appointment.status === "CANCELLED"
                           ? "bg-zinc-100 text-zinc-600"
                           : "bg-blue-100 text-blue-700"
@@ -536,7 +536,7 @@ export default function LeadNotesSection({
                   {appointment.location && <span>📍 {appointment.location}</span>}
                 </div>
                 {appointment.outcome && (
-                  <p className="mt-2 rounded bg-emerald-100 p-2 text-sm text-emerald-700">
+                  <p className="mt-2 rounded bg-teal-100 p-2 text-sm text-teal-900">
                     Outcome: {appointment.outcome}
                   </p>
                 )}

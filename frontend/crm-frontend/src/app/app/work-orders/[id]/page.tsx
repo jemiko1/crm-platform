@@ -11,7 +11,7 @@ import { usePermissions } from "@/lib/use-permissions";
 import { PermissionGuard } from "@/lib/permission-guard";
 import { getStatusLabel as sharedGetStatusLabel, getStatusBadge as sharedGetStatusBadge, resolveDisplayStatus } from "@/lib/work-order-status";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type WorkOrderDetail = {
   id: string;
@@ -829,24 +829,24 @@ export default function WorkOrderDetailPage() {
                 )}
 
                 {inventoryImpact.buildingProductFlowCount > 0 && (
-                  <div className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
+                  <div className="rounded-2xl bg-teal-50 p-4 ring-1 ring-teal-200">
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-lg">🏢</span>
-                      <span className="text-sm font-semibold text-emerald-900">
+                      <span className="text-sm font-semibold text-teal-900">
                         Building Product Flow Records ({inventoryImpact.buildingProductFlowCount})
                       </span>
                     </div>
                     <div className="ml-7 space-y-1">
                       {inventoryImpact.buildingProductFlow?.slice(0, 3).map((bpf: any, idx: number) => (
                         <div key={idx} className="flex items-center justify-between text-xs">
-                          <span className="text-emerald-700">{bpf.productName} → {bpf.buildingName}</span>
-                          <span className="font-medium text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-lg">
+                          <span className="text-teal-900">{bpf.productName} → {bpf.buildingName}</span>
+                          <span className="font-medium text-teal-900 bg-teal-100 px-2 py-0.5 rounded-lg">
                             {bpf.quantity} units
                           </span>
                         </div>
                       ))}
                       {inventoryImpact.buildingProductFlow?.length > 3 && (
-                        <div className="text-xs text-emerald-600 italic">
+                        <div className="text-xs text-teal-800 italic">
                           +{inventoryImpact.buildingProductFlow.length - 3} more entries...
                         </div>
                       )}
@@ -856,14 +856,14 @@ export default function WorkOrderDetailPage() {
 
                 {/* Show building info for context if work order has building */}
                 {workOrder?.building && inventoryImpact.approvedProductUsages > 0 && (
-                  <div className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
+                  <div className="rounded-2xl bg-teal-50 p-4 ring-1 ring-teal-200">
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-lg">🏢</span>
-                      <span className="text-sm font-semibold text-emerald-900">
+                      <span className="text-sm font-semibold text-teal-900">
                         Building: {workOrder.building.name}
                       </span>
                     </div>
-                    <div className="ml-7 text-xs text-emerald-700">
+                    <div className="ml-7 text-xs text-teal-900">
                       Products were installed/used at this building location
                     </div>
                   </div>
@@ -1182,7 +1182,7 @@ function WorkflowTab({ workOrder }: { workOrder: WorkOrderDetail }) {
                       Notification created: {new Date(notif.createdAt).toLocaleString()}
                     </div>
                     {notif.notifiedAt && (
-                      <div className="mt-1 text-xs text-emerald-600">
+                      <div className="mt-1 text-xs text-teal-800">
                         ✓ Notified: {new Date(notif.notifiedAt).toLocaleString()}
                       </div>
                     )}
@@ -1197,7 +1197,7 @@ function WorkflowTab({ workOrder }: { workOrder: WorkOrderDetail }) {
                   </div>
                   <div className="flex flex-col gap-1">
                     {notif.notifiedAt ? (
-                      <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 ring-1 ring-emerald-200">
+                      <span className="inline-flex items-center rounded-full bg-teal-100 px-2 py-0.5 text-xs font-medium text-teal-900 ring-1 ring-teal-200">
                         Notified
                       </span>
                     ) : (
@@ -1266,7 +1266,7 @@ function WorkflowTab({ workOrder }: { workOrder: WorkOrderDetail }) {
           <h2 className="text-lg font-semibold text-zinc-900 mb-4">Parent Work Order</h2>
           <Link
             href={`/app/work-orders/${workOrder.parentWorkOrder.workOrderNumber}`}
-            className="block rounded-2xl bg-zinc-50 p-4 ring-1 ring-zinc-200 transition hover:bg-emerald-50/60 hover:ring-emerald-300"
+            className="block rounded-2xl bg-zinc-50 p-4 ring-1 ring-zinc-200 transition hover:bg-teal-50/60 hover:ring-teal-300"
           >
             <div className="text-sm font-semibold text-zinc-900">
               {workOrder.parentWorkOrder.title}
@@ -1289,7 +1289,7 @@ function WorkflowTab({ workOrder }: { workOrder: WorkOrderDetail }) {
               <Link
                 key={child.id}
                 href={`/app/work-orders/${child.workOrderNumber}`}
-                className="block rounded-2xl bg-zinc-50 p-4 ring-1 ring-zinc-200 transition hover:bg-emerald-50/60 hover:ring-emerald-300"
+                className="block rounded-2xl bg-zinc-50 p-4 ring-1 ring-zinc-200 transition hover:bg-teal-50/60 hover:ring-teal-300"
               >
                 <div className="text-sm font-semibold text-zinc-900">{child.title}</div>
                 <div className="mt-1 text-xs text-zinc-500">

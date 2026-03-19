@@ -8,7 +8,7 @@ import EditPositionModal from "./edit-position-modal";
 import DeletePositionDialog from "./delete-position-dialog";
 import { PermissionGuard } from "@/lib/permission-guard";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type Position = {
   id: string;
@@ -128,7 +128,7 @@ export default function PositionsPage() {
           placeholder="Search positions..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+          className="w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
         />
       </div>
 
@@ -184,7 +184,7 @@ export default function PositionsPage() {
                       <span
                         className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${
                           position.isActive
-                            ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                            ? "bg-teal-50 text-teal-900 ring-teal-200"
                             : "bg-zinc-50 text-zinc-700 ring-zinc-200"
                         }`}
                       >

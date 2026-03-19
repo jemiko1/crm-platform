@@ -8,7 +8,7 @@ import AddPositionModal from "../positions/add-position-modal";
 import EmployeePopup from "./employee-popup";
 import { PermissionGuard } from "@/lib/permission-guard";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type Department = {
   id: string;
@@ -405,7 +405,7 @@ export default function DepartmentsPage() {
           onClick={() => setViewMode("split")}
           className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
             viewMode === "split"
-              ? "bg-emerald-600 text-white"
+              ? "bg-teal-800 text-white"
               : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
           }`}
         >
@@ -415,7 +415,7 @@ export default function DepartmentsPage() {
           onClick={() => setViewMode("tree")}
           className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
             viewMode === "tree"
-              ? "bg-emerald-600 text-white"
+              ? "bg-teal-800 text-white"
               : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
           }`}
         >
@@ -485,7 +485,7 @@ export default function DepartmentsPage() {
             <div
               className={`mb-3 rounded-xl border-2 border-dashed p-3 text-center text-xs transition ${
                 dropTargetId === "root"
-                  ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                  ? "border-teal-500 bg-teal-50 text-teal-900"
                   : "border-zinc-300 text-zinc-400"
               }`}
               onDragOver={(e) => {
@@ -582,7 +582,7 @@ export default function DepartmentsPage() {
                         setAddParentId(selectedDepartment.id);
                         setShowAddModal(true);
                       }}
-                      className="w-fit rounded-2xl bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100"
+                      className="w-fit rounded-2xl bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-900 ring-1 ring-teal-200 hover:bg-teal-100"
                     >
                       + Add Sub-department
                     </button>
@@ -661,7 +661,7 @@ export default function DepartmentsPage() {
                                             </div>
                                           )}
                                         </div>
-                            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                            <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-900">
                               {bucket.employees.length} employee
                               {bucket.employees.length === 1 ? "" : "s"}
                             </span>
@@ -683,7 +683,7 @@ export default function DepartmentsPage() {
                                   <div className="mt-1">
                                     <a
                                       href={`tel:${emp.extensionNumber}`}
-                                      className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100"
+                                      className="inline-flex items-center gap-1 rounded-lg bg-teal-50 px-2 py-1 text-xs font-semibold text-teal-900 ring-1 ring-teal-200 hover:bg-teal-100"
                                     >
                                       Ext: {emp.extensionNumber}
                                     </a>
@@ -861,9 +861,9 @@ function TreeView({
             isDragging
               ? "opacity-50 ring-2 ring-blue-500"
               : isDropTarget
-              ? "bg-emerald-100 ring-2 ring-emerald-500"
+              ? "bg-teal-100 ring-2 ring-teal-500"
               : isSelected
-              ? "bg-emerald-50 ring-2 ring-emerald-500"
+              ? "bg-teal-50 ring-2 ring-teal-500"
               : "bg-white hover:bg-zinc-50 ring-1 ring-zinc-200"
           }`}
           style={{ marginLeft: `${level * 20}px` }}
@@ -907,7 +907,7 @@ function TreeView({
                     onEmployeeClick(dept.id);
                   }
                 }}
-                className={employeeCount > 0 ? "text-emerald-600 font-semibold cursor-pointer hover:underline" : ""}
+                className={employeeCount > 0 ? "text-teal-800 font-semibold cursor-pointer hover:underline" : ""}
               >
                 {employeeCount} emp
               </span>
@@ -936,7 +936,7 @@ function TreeView({
                   event.stopPropagation();
                   onAddChild(dept);
                 }}
-                className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                className="rounded-full border border-teal-200 bg-teal-50 px-2 py-1 text-xs font-semibold text-teal-900 hover:bg-teal-100"
               >
                 +
               </button>
@@ -1033,10 +1033,10 @@ function OrgChartView({
             isDragging
               ? "opacity-50 ring-4 ring-blue-500"
               : isDropTarget
-              ? "bg-emerald-100 border-emerald-500 ring-4 ring-emerald-300"
+              ? "bg-teal-100 border-teal-500 ring-4 ring-teal-300"
               : isSelected
-              ? "bg-emerald-50 border-emerald-500 shadow-xl ring-4 ring-emerald-500/20"
-              : "bg-white border-zinc-300 shadow-lg hover:shadow-xl hover:border-emerald-300"
+              ? "bg-teal-50 border-teal-500 shadow-xl ring-4 ring-teal-500/20"
+              : "bg-white border-zinc-300 shadow-lg hover:shadow-xl hover:border-teal-300"
           }`}
           onClick={() => onSelect(dept)}
         >
@@ -1076,7 +1076,7 @@ function OrgChartView({
                 }}
                 className={`font-semibold ${
                   employeeCount > 0
-                    ? "text-emerald-700 cursor-pointer hover:underline"
+                    ? "text-teal-900 cursor-pointer hover:underline"
                     : "text-zinc-500"
                 }`}
               >
@@ -1108,7 +1108,7 @@ function OrgChartView({
                 e.stopPropagation();
                 onAddChild(dept);
               }}
-              className="absolute -bottom-3 left-1/2 -translate-x-1/2 rounded-full border-2 border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 shadow-md z-10"
+              className="absolute -bottom-3 left-1/2 -translate-x-1/2 rounded-full border-2 border-teal-200 bg-teal-50 px-2 py-0.5 text-xs font-semibold text-teal-900 hover:bg-teal-100 shadow-md z-10"
             >
               + Sub
             </button>
@@ -1158,7 +1158,7 @@ function OrgChartView({
       <div
         className={`mb-6 mx-auto max-w-xs rounded-xl border-2 border-dashed p-3 text-center text-xs transition ${
           dropTargetId === "root"
-            ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+            ? "border-teal-500 bg-teal-50 text-teal-900"
             : "border-zinc-300 text-zinc-400"
         }`}
         onDragOver={(e) => {
@@ -1200,17 +1200,17 @@ function StatCard({
       onClick={onClick}
       className={`rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-sm ${
         clickable
-          ? "cursor-pointer hover:border-emerald-300 hover:bg-emerald-50 transition-colors"
+          ? "cursor-pointer hover:border-teal-300 hover:bg-teal-50 transition-colors"
           : ""
       }`}
     >
       <div className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
         {label}
       </div>
-      <div className={`mt-2 text-2xl font-bold ${clickable ? "text-emerald-700" : "text-zinc-900"}`}>
+      <div className={`mt-2 text-2xl font-bold ${clickable ? "text-teal-900" : "text-zinc-900"}`}>
         {value}
         {clickable && (
-          <span className="ml-2 text-xs font-normal text-emerald-600">
+          <span className="ml-2 text-xs font-normal text-teal-800">
             (click to manage)
           </span>
         )}

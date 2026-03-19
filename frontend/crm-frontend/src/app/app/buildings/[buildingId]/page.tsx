@@ -13,7 +13,7 @@ import { PermissionGuard } from "@/lib/permission-guard";
 import { usePermissions } from "@/lib/use-permissions";
 import { useModalContext } from "../../modal-manager";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type Building = {
   coreId: number;
@@ -96,13 +96,13 @@ function typeRank(type: string) {
 }
 
 function getStatusDotColor(status: string) {
-  if (status === "ONLINE") return "bg-emerald-500";
+  if (status === "ONLINE") return "bg-teal-500";
   if (status === "OFFLINE") return "bg-rose-500";
   return "bg-zinc-400";
 }
 
 function getStatusPill(status: string) {
-  if (status === "ONLINE") return "bg-emerald-50 text-emerald-700 ring-emerald-200";
+  if (status === "ONLINE") return "bg-teal-50 text-teal-800 ring-teal-200";
   if (status === "OFFLINE") return "bg-rose-50 text-rose-700 ring-rose-200";
   return "bg-zinc-50 text-zinc-700 ring-zinc-200";
 }
@@ -291,7 +291,7 @@ function BuildingDetailPageContent() {
               ].join(" ")}
               title="Edit building"
             >
-              <span className="grid h-7 w-7 place-items-center rounded-xl bg-emerald-50 ring-1 ring-emerald-200">
+              <span className="grid h-7 w-7 place-items-center rounded-xl bg-teal-50 ring-1 ring-teal-200">
                 <IconEditSmall />
               </span>
               Edit
@@ -546,9 +546,9 @@ function OverviewTab({ building }: { building: Building }) {
         </div>
       </div>
 
-      <div className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
-        <div className="text-sm font-semibold text-emerald-900">Core Sync Status</div>
-        <div className="mt-1 text-xs text-emerald-700">
+      <div className="rounded-2xl bg-teal-50 p-4 ring-1 ring-teal-200">
+        <div className="text-sm font-semibold text-teal-900">Core Sync Status</div>
+        <div className="mt-1 text-xs text-teal-900">
           Last synced: {new Date(building.updatedAt).toLocaleString()}
         </div>
       </div>
@@ -749,7 +749,7 @@ function DevicesTab({
                     {g.items.map((asset) => (
                       <tr
                         key={`${asset.type}-${asset.coreId}`}
-                        className="group transition-colors hover:bg-emerald-50/60"
+                        className="group transition-colors hover:bg-teal-50/60"
                       >
                         <td className="px-4 py-3 align-middle">
                           <div className="text-sm font-semibold text-zinc-900">{asset.name}</div>
@@ -827,8 +827,8 @@ const FilterPill = React.memo(function FilterPill({
         : "bg-white text-zinc-700 ring-zinc-200 hover:bg-rose-50/60"
       : tone === "brand"
       ? checked
-        ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-        : "bg-white text-zinc-700 ring-zinc-200 hover:bg-emerald-50/60"
+        ? "bg-teal-50 text-teal-900 ring-teal-200"
+        : "bg-white text-zinc-700 ring-zinc-200 hover:bg-teal-50/60"
       : checked
       ? "bg-zinc-100 text-zinc-900 ring-zinc-200"
       : "bg-white text-zinc-700 ring-zinc-200 hover:bg-zinc-50";
@@ -840,7 +840,7 @@ const FilterPill = React.memo(function FilterPill({
         : "bg-white ring-zinc-300"
       : tone === "brand"
       ? checked
-        ? "bg-emerald-600 ring-emerald-700"
+        ? "bg-teal-800 ring-teal-700"
         : "bg-white ring-zinc-300"
       : checked
       ? "bg-zinc-800 ring-zinc-900"
@@ -914,7 +914,7 @@ function ClientsTab({ clients, onAddClick }: { clients: Client[]; onAddClick: ()
             </thead>
             <tbody className="bg-white">
               {clients.map((client) => (
-                <tr key={client.coreId} className="group transition-colors hover:bg-emerald-50/60">
+                <tr key={client.coreId} className="group transition-colors hover:bg-teal-50/60">
                   <td className="px-4 py-3 align-middle">
                     <div className="text-sm font-semibold text-zinc-900">
                       {client.firstName} {client.lastName}
@@ -1041,7 +1041,7 @@ function WorkOrdersTab({
                   <Link
                     key={wo.id || workOrderId}
                     href={`/app/work-orders/${workOrderId}`}
-                    className="block rounded-2xl bg-white p-4 ring-1 ring-zinc-200 transition hover:bg-emerald-50/60 hover:ring-emerald-300"
+                    className="block rounded-2xl bg-white p-4 ring-1 ring-zinc-200 transition hover:bg-teal-50/60 hover:ring-teal-300"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1">
@@ -1096,7 +1096,7 @@ function IncidentsTab({
     const styles = {
       CREATED: "bg-blue-50 text-blue-700 ring-blue-200",
       IN_PROGRESS: "bg-amber-50 text-amber-700 ring-amber-200",
-      COMPLETED: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+      COMPLETED: "bg-teal-50 text-teal-800 ring-teal-200",
       WORK_ORDER_INITIATED: "bg-purple-50 text-purple-700 ring-purple-200",
     };
     return styles[status];
@@ -1150,7 +1150,7 @@ function IncidentsTab({
         {hasPermission("incidents.create") && (
           <button
             onClick={onAddClick}
-            className="rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition"
+            className="rounded-2xl bg-teal-800 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-900 transition"
           >
             Report Incident
           </button>
@@ -1172,7 +1172,7 @@ function IncidentsTab({
               key={incident.id}
               type="button"
               onClick={() => onIncidentClick(incident.id)}
-              className="group block w-full text-left rounded-3xl bg-white p-5 ring-1 ring-zinc-200 transition hover:bg-emerald-50/50 hover:ring-emerald-300 cursor-pointer"
+              className="group block w-full text-left rounded-3xl bg-white p-5 ring-1 ring-zinc-200 transition hover:bg-teal-50/50 hover:ring-teal-300 cursor-pointer"
             >
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div className="min-w-0">
@@ -1206,7 +1206,7 @@ function IncidentsTab({
                     <Link
                       href={`/app/clients/${incident.clientId}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="font-medium text-emerald-700 hover:underline"
+                      className="font-medium text-teal-900 hover:underline"
                     >
                       {incident.clientName}
                     </Link>
@@ -1492,26 +1492,26 @@ function ProductFlowTab({ buildingCoreId }: { buildingCoreId: number }) {
           ) : (
             <>
               {/* Summary Card */}
-              <div className="rounded-xl bg-gradient-to-br from-emerald-50 via-white to-emerald-50 border-2 border-emerald-200 shadow-sm p-6">
+              <div className="rounded-xl bg-gradient-to-br from-teal-50 via-white to-teal-50 border-2 border-teal-200 shadow-sm p-6">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-md">
+                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center shadow-md">
                     <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
                   </div>
                   <h3 className="text-base font-bold text-zinc-900">Summary</h3>
-                  <span className="ml-auto px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold">
+                  <span className="ml-auto px-3 py-1 bg-teal-100 text-teal-900 rounded-full text-xs font-bold">
                     {productUsages.length} transaction(s)
                   </span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="bg-white/80 rounded-lg border border-emerald-100 p-4">
+                  <div className="bg-white/80 rounded-lg border border-teal-100 p-4">
                     <div className="text-xs font-semibold text-zinc-500 uppercase mb-1">Total Products Used</div>
                     <div className="text-2xl font-bold text-zinc-900">
                       {productUsages.reduce((sum, u) => sum + u.quantity, 0)}
                     </div>
                   </div>
-                  <div className="bg-white/80 rounded-lg border border-emerald-100 p-4">
+                  <div className="bg-white/80 rounded-lg border border-teal-100 p-4">
                     <div className="text-xs font-semibold text-zinc-500 uppercase mb-1">Unique Products</div>
                     <div className="text-2xl font-bold text-zinc-900">
                       {new Set(productUsages.map(u => u.productId)).size}
@@ -1538,7 +1538,7 @@ function ProductFlowTab({ buildingCoreId }: { buildingCoreId: number }) {
                       {productUsages
                         .sort((a, b) => new Date(b.approvedAt || b.createdAt).getTime() - new Date(a.approvedAt || a.createdAt).getTime())
                         .map((usage) => (
-                          <tr key={usage.id} className="group transition-colors hover:bg-emerald-50/60">
+                          <tr key={usage.id} className="group transition-colors hover:bg-teal-50/60">
                             <td className="px-4 py-3 align-middle">
                               <div className="text-sm font-semibold text-zinc-900">{usage.workOrderTitle}</div>
                               <div className="mt-0.5 text-xs text-zinc-500">

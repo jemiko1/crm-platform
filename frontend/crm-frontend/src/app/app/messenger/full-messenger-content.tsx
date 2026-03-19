@@ -92,7 +92,7 @@ export default function FullMessengerContent({ initialConversationId }: FullMess
                 </button>
                 <div className="relative">
                   {conversation.type === "GROUP" ? (
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-sm font-semibold">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white text-sm font-semibold">
                       {(conversation.name ?? "G").charAt(0).toUpperCase()}
                     </div>
                   ) : otherParticipants[0]?.employee.avatar ? (
@@ -102,14 +102,14 @@ export default function FullMessengerContent({ initialConversationId }: FullMess
                       className="w-9 h-9 rounded-full object-cover"
                     />
                   ) : (
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-xs font-semibold">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white text-xs font-semibold">
                       {otherParticipants[0]
                         ? `${otherParticipants[0].employee.firstName.charAt(0)}${otherParticipants[0].employee.lastName.charAt(0)}`
                         : "?"}
                     </div>
                   )}
                   {isOnline && (
-                    <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white" />
+                    <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-teal-500 border-2 border-white" />
                   )}
                 </div>
                 <div>
@@ -137,7 +137,7 @@ export default function FullMessengerContent({ initialConversationId }: FullMess
                   }}
                   className={`p-2 rounded-lg transition-colors ${
                     showInfoPanel || showInfoOverlay
-                      ? "bg-emerald-50 text-emerald-600"
+                      ? "bg-teal-50 text-teal-800"
                       : "hover:bg-zinc-100 text-zinc-400"
                   }`}
                   title="Toggle info panel"

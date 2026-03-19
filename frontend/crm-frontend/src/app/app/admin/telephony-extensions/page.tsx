@@ -5,7 +5,7 @@ import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
 import Link from "next/link";
 import { PermissionGuard } from "@/lib/permission-guard";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type ExtConfig = {
   id: string;
@@ -164,7 +164,7 @@ export default function TelephonyExtensionsPage() {
       return { label: `Ext ${ext.extension} — missing SIP`, cls: "bg-amber-50 text-amber-700 ring-amber-200", dot: "bg-amber-500" };
     if (!ext.isActive)
       return { label: `Ext ${ext.extension} — disabled`, cls: "bg-zinc-50 text-zinc-600 ring-zinc-200", dot: "bg-zinc-400" };
-    return { label: `Ext ${ext.extension} — ready`, cls: "bg-emerald-50 text-emerald-700 ring-emerald-200", dot: "bg-emerald-500" };
+    return { label: `Ext ${ext.extension} — ready`, cls: "bg-teal-50 text-teal-900 ring-teal-200", dot: "bg-teal-500" };
   }
 
   if (loading) {
@@ -321,7 +321,7 @@ export default function TelephonyExtensionsPage() {
                                 type="checkbox"
                                 checked={form.isOperator}
                                 onChange={(e) => setForm({ ...form, isOperator: e.target.checked })}
-                                className="h-4 w-4 rounded border-zinc-300 text-emerald-600"
+                                className="h-4 w-4 rounded border-zinc-300 text-teal-800"
                               />
                               Queue operator (receives calls from queues)
                             </label>
@@ -348,7 +348,7 @@ export default function TelephonyExtensionsPage() {
                                     className={`ml-auto rounded-xl border px-4 py-2 text-sm font-medium ${
                                       u.telephonyExtension.isActive
                                         ? "border-amber-200 text-amber-700 hover:bg-amber-50"
-                                        : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                                        : "border-teal-200 text-teal-900 hover:bg-teal-50"
                                     }`}
                                   >
                                     {u.telephonyExtension.isActive ? "Disable" : "Enable"}

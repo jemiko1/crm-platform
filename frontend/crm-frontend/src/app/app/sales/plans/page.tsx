@@ -6,7 +6,7 @@ import { apiGet, apiGetList, apiPost, apiDelete, ApiError } from "@/lib/api";
 import { PermissionGuard } from "@/lib/permission-guard";
 import { usePermissions } from "@/lib/use-permissions";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type SalesPlan = {
   id: string;
@@ -61,7 +61,7 @@ type Employee = {
 function getStatusBadge(status: SalesPlan["status"]) {
   const styles: Record<string, string> = {
     DRAFT: "bg-zinc-100 text-zinc-700",
-    ACTIVE: "bg-emerald-100 text-emerald-700",
+    ACTIVE: "bg-teal-100 text-teal-800",
     COMPLETED: "bg-blue-100 text-blue-700",
     CANCELLED: "bg-red-100 text-red-700",
   };
@@ -175,7 +175,7 @@ export default function SalesPlansPage() {
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal-500 border-t-transparent" />
       </div>
     );
   }
@@ -412,7 +412,7 @@ export default function SalesPlansPage() {
                           <>
                             <button
                               onClick={() => handleActivate(plan.id)}
-                              className="rounded px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50"
+                              className="rounded px-3 py-1.5 text-xs font-medium text-teal-800 hover:bg-teal-50"
                             >
                               Activate
                             </button>

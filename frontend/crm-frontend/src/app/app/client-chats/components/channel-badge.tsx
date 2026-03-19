@@ -7,7 +7,7 @@ const channelConfig: Record<ChannelType, { label: string; bg: string; text: stri
   VIBER: { label: "Viber", bg: "bg-purple-100", text: "text-purple-700" },
   FACEBOOK: { label: "Facebook", bg: "bg-indigo-100", text: "text-indigo-700" },
   TELEGRAM: { label: "Telegram", bg: "bg-sky-100", text: "text-sky-700" },
-  WHATSAPP: { label: "WhatsApp", bg: "bg-green-100", text: "text-green-700" },
+  WHATSAPP: { label: "WhatsApp", bg: "bg-teal-100", text: "text-teal-900" },
 };
 
 export default function ChannelBadge({ channel }: { channel: ChannelType }) {

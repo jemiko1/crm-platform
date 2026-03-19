@@ -220,7 +220,7 @@ export default function ManagerQueuePanel({ open, onToggle }: Props) {
             onClick={() => setTab(t)}
             className={`px-4 py-2 text-sm rounded-lg transition-colors ${
               tab === t
-                ? "bg-emerald-100 text-emerald-700 font-medium"
+                ? "bg-teal-100 text-teal-900 font-medium"
                 : "text-gray-500 hover:bg-gray-100"
             }`}
           >
@@ -297,7 +297,7 @@ function TodayTab({
                 <span className="text-xs text-gray-400 ml-2">{op.email}</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium">
+                <span className="text-xs px-1.5 py-0.5 rounded bg-teal-100 text-teal-900 font-medium">
                   {op.openChats} open
                 </span>
                 <button
@@ -327,7 +327,7 @@ function TodayTab({
                 key={e.id}
                 onClick={() => { onAdd(e.id); setShowAdd(false); }}
                 disabled={saving}
-                className="w-full text-left px-2 py-1 text-sm hover:bg-emerald-50 rounded disabled:opacity-50"
+                className="w-full text-left px-2 py-1 text-sm hover:bg-teal-50 rounded disabled:opacity-50"
               >
                 {e.name} <span className="text-xs text-gray-400">{e.email}</span>
               </button>
@@ -343,7 +343,7 @@ function TodayTab({
       ) : (
         <button
           onClick={() => setShowAdd(true)}
-          className="text-xs text-emerald-600 hover:text-emerald-700 font-medium"
+          className="text-xs text-teal-800 hover:text-teal-900 font-medium"
         >
           + Add operator to today
         </button>
@@ -396,7 +396,7 @@ function ScheduleTab({
                       checked={isScheduled}
                       disabled={saving}
                       onChange={(e) => onToggle(day, emp.id, e.target.checked)}
-                      className="w-3.5 h-3.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 disabled:opacity-50"
+                      className="w-3.5 h-3.5 rounded border-gray-300 text-teal-800 focus:ring-teal-500 disabled:opacity-50"
                     />
                   </td>
                 );
@@ -449,7 +449,7 @@ function EscalationTab({
           max={120}
           value={timeout}
           onChange={(e) => setTimeout_(Number(e.target.value))}
-          className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+          className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
         />
         <p className="text-[10px] text-gray-400 mt-0.5">
           Warning sent to managers after this many minutes without agent reply
@@ -465,7 +465,7 @@ function EscalationTab({
           max={240}
           value={reassign}
           onChange={(e) => setReassign(Number(e.target.value))}
-          className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+          className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
         />
         <p className="text-[10px] text-gray-400 mt-0.5">
           Conversation silently reassigned to next available operator
@@ -476,7 +476,7 @@ function EscalationTab({
           type="checkbox"
           checked={notifyMgr}
           onChange={(e) => setNotifyMgr(e.target.checked)}
-          className="w-3.5 h-3.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+          className="w-3.5 h-3.5 rounded border-gray-300 text-teal-800 focus:ring-teal-500"
         />
         Notify managers on escalation
       </label>
@@ -489,7 +489,7 @@ function EscalationTab({
           })
         }
         disabled={saving}
-        className="px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+        className="px-3 py-1.5 text-xs font-medium text-white bg-teal-800 rounded-lg hover:bg-teal-900 disabled:opacity-50"
       >
         {saving ? "Saving..." : "Save Escalation Settings"}
       </button>

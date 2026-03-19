@@ -10,7 +10,7 @@ import { useModalContext } from "../../modal-manager";
 import IntelligenceProfileCard from "./intelligence/intelligence-profile-card";
 import ActivityTimeline from "./intelligence/activity-timeline";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type ClientBuildingRef = {
   coreId: number;
@@ -83,7 +83,7 @@ function getStatusBadge(status: Incident["status"]) {
   const styles: Record<Incident["status"], string> = {
     CREATED: "bg-blue-50 text-blue-700 ring-blue-200",
     IN_PROGRESS: "bg-amber-50 text-amber-700 ring-amber-200",
-    COMPLETED: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+    COMPLETED: "bg-teal-50 text-teal-800 ring-teal-200",
     WORK_ORDER_INITIATED: "bg-purple-50 text-purple-700 ring-purple-200",
   };
   return styles[status];
@@ -264,7 +264,7 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
   }
 
   return (
-    <div className="p-6 bg-emerald-50/30 rounded-t-3xl lg:rounded-l-3xl lg:rounded-tr-none lg:rounded-br-none">
+    <div className="p-6 bg-teal-50/30 rounded-t-3xl lg:rounded-l-3xl lg:rounded-tr-none lg:rounded-br-none">
       {/* Header */}
       <div className="mb-6 flex flex-col gap-3 md:mb-8 md:flex-row md:items-start md:justify-between">
         <div className="min-w-0">
@@ -351,7 +351,7 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
                   <Link
                     key={b.coreId}
                     href={buildingUrl}
-                    className="group block rounded-2xl bg-white p-3 ring-1 ring-zinc-200 transition hover:bg-emerald-50/60 hover:ring-emerald-300"
+                    className="group block rounded-2xl bg-white p-3 ring-1 ring-zinc-200 transition hover:bg-teal-50/60 hover:ring-teal-300"
                     title="Open building"
                   >
                   <div className="flex items-center justify-between gap-3">
@@ -369,9 +369,9 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
             )}
           </div>
 
-          <div className="mt-4 rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
-            <div className="text-sm font-semibold text-emerald-900">Note</div>
-            <div className="mt-1 text-xs text-emerald-700">
+          <div className="mt-4 rounded-2xl bg-teal-50 p-4 ring-1 ring-teal-200">
+            <div className="text-sm font-semibold text-teal-900">Note</div>
+            <div className="mt-1 text-xs text-teal-900">
               Client is locked in incident creation from this page (call center safe).
             </div>
           </div>
@@ -444,7 +444,7 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
                 key={inc.id}
                 type="button"
                 onClick={() => openIncidentModal(inc.id)}
-                className="group block w-full text-left rounded-3xl bg-white p-5 ring-1 ring-zinc-200 transition hover:bg-emerald-50/50 hover:ring-emerald-300 cursor-pointer"
+                className="group block w-full text-left rounded-3xl bg-white p-5 ring-1 ring-zinc-200 transition hover:bg-teal-50/50 hover:ring-teal-300 cursor-pointer"
               >
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div className="min-w-0">
@@ -643,7 +643,7 @@ function EditField({
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400"
+        className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-teal-400 focus:ring-1 focus:ring-teal-400"
       />
     </div>
   );

@@ -17,7 +17,7 @@ export default function CallCenterError({
       )}
       <button
         onClick={reset}
-        className="mt-4 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition"
+        className="mt-4 rounded-xl bg-teal-800 px-4 py-2 text-sm font-medium text-white hover:bg-teal-900 transition"
       >
         Try again
       </button>

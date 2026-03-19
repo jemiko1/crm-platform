@@ -88,7 +88,7 @@ export default function LeadActivityTimeline({ leadId }: LeadActivityTimelinePro
   if (loading) {
     return (
       <div className="flex h-48 items-center justify-center">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-teal-500 border-t-transparent" />
       </div>
     );
   }
@@ -106,7 +106,7 @@ export default function LeadActivityTimeline({ leadId }: LeadActivityTimelinePro
             type="checkbox"
             checked={showDetails}
             onChange={(e) => setShowDetails(e.target.checked)}
-            className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+            className="h-4 w-4 rounded border-zinc-300 text-teal-800 focus:ring-teal-500"
           />
           <span className="text-zinc-600">Show detailed events</span>
         </label>

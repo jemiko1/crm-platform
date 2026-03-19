@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { apiGet, apiPatch, apiPost, apiDelete } from "@/lib/api";
 import { PermissionGuard } from "@/lib/permission-guard";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -76,8 +76,8 @@ const STAGES = [
   { key: "CREATED", label: "Created", color: "bg-blue-500" },
   { key: "LINKED_TO_GROUP", label: "Technicians Assigned", color: "bg-purple-500" },
   { key: "IN_PROGRESS", label: "Working", color: "bg-amber-500" },
-  { key: "WAITING_APPROVAL", label: "Waiting For Approval", color: "bg-orange-500" },
-  { key: "COMPLETED_OR_CANCELED", label: "Completed / Canceled", color: "bg-emerald-500" },
+  { key: "WAITING_APPROVAL", label: "Waiting For Approval", color: "bg-teal-500" },
+  { key: "COMPLETED_OR_CANCELED", label: "Completed / Canceled", color: "bg-teal-500" },
 ];
 
 const TRIGGER_TYPE_LABELS: Record<string, string> = {
@@ -570,7 +570,7 @@ export default function WorkflowConfigPage() {
                                 style={{ backgroundColor: `${BRAND}10`, color: BRAND, borderColor: `${BRAND}30` }}
                               >
                                 {ap.position.name}
-                                {ap.isPrimaryAssignee && <span className="text-emerald-600">*</span>}
+                                {ap.isPrimaryAssignee && <span className="text-teal-800">*</span>}
                               </span>
                             ))}
                           </div>
@@ -584,7 +584,7 @@ export default function WorkflowConfigPage() {
                         className={`rounded-xl px-3 py-1.5 text-xs font-medium ${
                           step.isActive
                             ? "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
-                            : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                            : "bg-teal-100 text-teal-900 hover:bg-teal-200"
                         }`}
                       >
                         {step.isActive ? "Disable" : "Enable"}
@@ -720,7 +720,7 @@ export default function WorkflowConfigPage() {
                                 className={`rounded-xl px-3 py-1.5 text-xs font-medium ${
                                   trigger.isActive
                                     ? "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
-                                    : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                                    : "bg-teal-100 text-teal-900 hover:bg-teal-200"
                                 }`}
                               >
                                 {trigger.isActive ? "Disable" : "Enable"}
@@ -769,12 +769,12 @@ export default function WorkflowConfigPage() {
                         )
                       }
                       className={`w-full flex items-center gap-3 p-3 rounded-2xl text-left transition ring-1 ${
-                        sel ? "bg-emerald-50 ring-emerald-300" : "bg-zinc-50 ring-zinc-200 hover:bg-zinc-100"
+                        sel ? "bg-teal-50 ring-teal-300" : "bg-zinc-50 ring-zinc-200 hover:bg-zinc-100"
                       }`}
                     >
                       <div
                         className={`flex h-5 w-5 items-center justify-center rounded-md ${
-                          sel ? "bg-emerald-600" : "bg-white ring-1 ring-zinc-300"
+                          sel ? "bg-teal-800" : "bg-white ring-1 ring-zinc-300"
                         }`}
                       >
                         {sel && (
@@ -824,7 +824,7 @@ export default function WorkflowConfigPage() {
                 <div>
                   <label className="block text-xs font-medium text-zinc-700 mb-1">Name</label>
                   <input
-                    className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                    className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
                     value={triggerForm.name}
                     onChange={(e) => setTriggerForm((f) => ({ ...f, name: e.target.value }))}
                     placeholder="e.g. Notify on creation"
@@ -834,7 +834,7 @@ export default function WorkflowConfigPage() {
                 <div>
                   <label className="block text-xs font-medium text-zinc-700 mb-1">Trigger Type</label>
                   <select
-                    className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                    className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
                     value={triggerForm.triggerType}
                     onChange={(e) =>
                       setTriggerForm((f) => ({ ...f, triggerType: e.target.value as any }))
@@ -852,7 +852,7 @@ export default function WorkflowConfigPage() {
                     Work Order Type (leave empty for all)
                   </label>
                   <select
-                    className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                    className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
                     value={triggerForm.workOrderType || ""}
                     onChange={(e) =>
                       setTriggerForm((f) => ({ ...f, workOrderType: e.target.value || null }))
@@ -970,7 +970,7 @@ export default function WorkflowConfigPage() {
                     id="triggerActive"
                     checked={triggerForm.isActive}
                     onChange={(e) => setTriggerForm((f) => ({ ...f, isActive: e.target.checked }))}
-                    className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-400"
+                    className="h-4 w-4 rounded border-zinc-300 text-teal-800 focus:ring-teal-400"
                   />
                   <label htmlFor="triggerActive" className="text-sm text-zinc-700">Active</label>
                 </div>
@@ -1051,12 +1051,12 @@ export default function WorkflowConfigPage() {
                               }))
                             }
                             className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-xs ${
-                              sel ? "bg-emerald-50 text-emerald-800" : "hover:bg-zinc-50 text-zinc-700"
+                              sel ? "bg-teal-50 text-teal-900" : "hover:bg-zinc-50 text-zinc-700"
                             }`}
                           >
                             <div
                               className={`h-3.5 w-3.5 rounded flex-shrink-0 ${
-                                sel ? "bg-emerald-600" : "ring-1 ring-zinc-300"
+                                sel ? "bg-teal-800" : "ring-1 ring-zinc-300"
                               }`}
                             />
                             {pos.name}

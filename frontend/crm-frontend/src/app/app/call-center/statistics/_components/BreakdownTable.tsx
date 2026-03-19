@@ -15,16 +15,16 @@ type SortDir = "asc" | "desc";
 const COLUMNS: { key: SortField; header: string; align?: "right"; color?: (v: number | null) => string }[] = [
   { key: "label", header: "" },
   { key: "totalCalls", header: "Total Calls", align: "right" },
-  { key: "answeredCalls", header: "Answered", align: "right", color: () => "text-emerald-700" },
+  { key: "answeredCalls", header: "Answered", align: "right", color: () => "text-teal-900" },
   { key: "lostCalls", header: "Lost", align: "right", color: () => "text-red-600" },
-  { key: "callsLostBefore5Sec", header: "Lost < 5s", align: "right", color: (v) => (v && v > 0 ? "text-orange-600" : "") },
+  { key: "callsLostBefore5Sec", header: "Lost < 5s", align: "right", color: (v) => (v && v > 0 ? "text-teal-800" : "") },
   { key: "totalCallsDurationMin", header: "Total Duration", align: "right" },
   { key: "avgCallDurationSec", header: "Avg Duration", align: "right" },
   { key: "answeredAvgHoldTimeSec", header: "Ans. Hold Time", align: "right" },
   { key: "lostAvgHoldTimeSec", header: "Lost Hold Time", align: "right" },
   { key: "slaPercent", header: "SLA %", align: "right", color: (v) => {
     if (v == null) return "";
-    if (v >= 80) return "text-emerald-700";
+    if (v >= 80) return "text-teal-900";
     if (v >= 60) return "text-amber-600";
     return "text-red-600";
   }},

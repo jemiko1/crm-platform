@@ -5,7 +5,7 @@ import type { HoldTimeDistribution } from "../../types";
 
 const COLORS = ["#22c55e", "#eab308", "#f97316", "#ef4444"];
 const LABELS = ["< 15 sec", "< 30 sec", "< 60 sec", "> 60 sec"];
-const BAR_COLORS = ["bg-green-500", "bg-yellow-500", "bg-orange-500", "bg-red-500"];
+const BAR_COLORS = ["bg-teal-500", "bg-yellow-500", "bg-teal-800", "bg-red-500"];
 
 interface HoldDistributionCardProps {
   title: string;

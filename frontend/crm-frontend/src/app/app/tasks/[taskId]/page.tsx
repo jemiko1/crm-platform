@@ -11,7 +11,7 @@ import AssignEmployeesModal from "../../work-orders/[id]/assign-employees-modal"
 import { PermissionGuard } from "@/lib/permission-guard";
 import { getStatusLabel, getStatusBadge, STAGE_LABELS, resolveDisplayStatus, getProgressWidth } from "@/lib/work-order-status";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type TaskDetail = {
   id: string;
@@ -778,14 +778,14 @@ export default function TaskDetailPage() {
                       key={assignment.id}
                       className={`rounded-2xl p-3 ring-1 ${
                         assignment.employee.id === currentEmployee?.id
-                          ? "bg-emerald-50 ring-emerald-200"
+                          ? "bg-teal-50 ring-teal-200"
                           : "bg-zinc-50 ring-zinc-200"
                       }`}
                     >
                       <div className="text-sm font-semibold text-zinc-900">
                         {assignment.employee.firstName} {assignment.employee.lastName}
                         {assignment.employee.id === currentEmployee?.id && (
-                          <span className="ml-2 text-xs text-emerald-600">(You)</span>
+                          <span className="ml-2 text-xs text-teal-800">(You)</span>
                         )}
                       </div>
                       <div className="mt-1 text-xs text-zinc-500">
@@ -802,9 +802,9 @@ export default function TaskDetailPage() {
           <div className="space-y-6">
             {/* Start Work Button */}
             {canStartWork && (
-              <div className="rounded-3xl bg-emerald-50 p-6 shadow-sm ring-1 ring-emerald-200">
-                <h2 className="text-lg font-semibold text-emerald-900 mb-2">🚀 Ready to Start?</h2>
-                <p className="text-sm text-emerald-700 mb-4">
+              <div className="rounded-3xl bg-teal-50 p-6 shadow-sm ring-1 ring-teal-200">
+                <h2 className="text-lg font-semibold text-teal-900 mb-2">🚀 Ready to Start?</h2>
+                <p className="text-sm text-teal-900 mb-4">
                   Click the button below to notify your team that you're starting work on this task.
                 </p>
                 <button
@@ -833,7 +833,7 @@ export default function TaskDetailPage() {
                           loadAvailableProducts();
                           setShowAddProductModal(true);
                         }}
-                        className="rounded-xl bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-200"
+                        className="rounded-xl bg-teal-100 px-3 py-1.5 text-xs font-semibold text-teal-900 hover:bg-teal-200"
                       >
                         + Add Product
                       </button>
@@ -874,7 +874,7 @@ export default function TaskDetailPage() {
                                       updateTechEmployeeProduct(index, Math.min(newQty, product?.currentStock || 999));
                                     }
                                   }}
-                                  className="w-20 rounded-xl border-zinc-300 bg-white px-2 py-1 text-sm text-center focus:border-emerald-500 focus:ring-emerald-500 transition-colors"
+                                  className="w-20 rounded-xl border-zinc-300 bg-white px-2 py-1 text-sm text-center focus:border-teal-500 focus:ring-teal-500 transition-colors"
                                 />
                                 <button
                                   type="button"
@@ -951,7 +951,7 @@ export default function TaskDetailPage() {
                             <select
                               value={item.productId}
                               onChange={(e) => updateDeactivatedDevice(index, "productId", e.target.value)}
-                              className="flex-1 rounded-xl border-zinc-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                              className="flex-1 rounded-xl border-zinc-300 text-sm focus:border-teal-500 focus:ring-teal-500"
                             >
                               <option value="">Select device type...</option>
                               {products.map((p) => (
@@ -967,7 +967,7 @@ export default function TaskDetailPage() {
                               onChange={(e) =>
                                 updateDeactivatedDevice(index, "quantity", parseInt(e.target.value) || 1)
                               }
-                              className="w-20 rounded-xl border-zinc-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                              className="w-20 rounded-xl border-zinc-300 text-sm focus:border-teal-500 focus:ring-teal-500"
                             />
                             <button
                               type="button"
@@ -1070,11 +1070,11 @@ export default function TaskDetailPage() {
                   </p>
 
                   {task.techEmployeeComment ? (
-                    <div className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
-                      <div className="text-xs font-medium text-emerald-700 mb-1">
+                    <div className="rounded-2xl bg-teal-50 p-4 ring-1 ring-teal-200">
+                      <div className="text-xs font-medium text-teal-900 mb-1">
                         Your submitted comment:
                       </div>
-                      <div className="text-sm text-emerald-900">{task.techEmployeeComment}</div>
+                      <div className="text-sm text-teal-900">{task.techEmployeeComment}</div>
                     </div>
                   ) : !showCompletionForm ? (
                     <button
@@ -1092,7 +1092,7 @@ export default function TaskDetailPage() {
                         onChange={(e) => setCompletionComment(e.target.value)}
                         placeholder="Describe what was done, any issues encountered, etc..."
                         rows={4}
-                        className="w-full rounded-xl border-zinc-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                        className="w-full rounded-xl border-zinc-300 text-sm focus:border-teal-500 focus:ring-teal-500"
                       />
                       <div className="flex gap-2">
                         <button
@@ -1126,13 +1126,13 @@ export default function TaskDetailPage() {
               <div
                 className={`rounded-3xl p-6 shadow-sm ring-1 ${
                   task.status === "COMPLETED"
-                    ? "bg-emerald-50 ring-emerald-200"
+                    ? "bg-teal-50 ring-teal-200"
                     : "bg-red-50 ring-red-200"
                 }`}
               >
                 <h2
                   className={`text-lg font-semibold mb-2 ${
-                    task.status === "COMPLETED" ? "text-emerald-900" : "text-red-900"
+                    task.status === "COMPLETED" ? "text-teal-900" : "text-red-900"
                   }`}
                 >
                   {task.status === "COMPLETED" ? "✅ Task Completed" : "❌ Task Canceled"}
@@ -1226,7 +1226,7 @@ export default function TaskDetailPage() {
                           loadAvailableProducts();
                           setShowAddProductModal(true);
                         }}
-                        className="rounded-xl bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-200"
+                        className="rounded-xl bg-teal-100 px-3 py-1.5 text-xs font-semibold text-teal-900 hover:bg-teal-200"
                       >
                         + Add Product
                       </button>
@@ -1314,7 +1314,7 @@ export default function TaskDetailPage() {
                                       }
                                     }
                                   }}
-                                  className="w-20 rounded-xl border-zinc-300 bg-white px-2 py-1 text-sm text-center focus:border-emerald-500 focus:ring-emerald-500 transition-colors"
+                                  className="w-20 rounded-xl border-zinc-300 bg-white px-2 py-1 text-sm text-center focus:border-teal-500 focus:ring-teal-500 transition-colors"
                                 />
                                 <button
                                   type="button"
@@ -1362,7 +1362,7 @@ export default function TaskDetailPage() {
                     {/* Show newly added products (not from tech employee) */}
                     {modifiedProducts.filter((p) => !task.productUsages?.some((u) => u.product.id === p.productId) && p.quantity > 0).length > 0 && (
                       <div className="mb-4 space-y-2">
-                        <div className="text-xs font-semibold text-emerald-600 uppercase mb-2">Newly Added Products</div>
+                        <div className="text-xs font-semibold text-teal-800 uppercase mb-2">Newly Added Products</div>
                         {modifiedProducts
                           .filter((p) => !task.productUsages?.some((u) => u.product.id === p.productId) && p.quantity > 0)
                           .map((item, index) => {
@@ -1370,12 +1370,12 @@ export default function TaskDetailPage() {
                             return (
                               <div
                                 key={`new-${item.productId}-${index}`}
-                                className="flex items-center gap-3 rounded-2xl bg-emerald-50 p-3 ring-1 ring-emerald-200"
+                                className="flex items-center gap-3 rounded-2xl bg-teal-50 p-3 ring-1 ring-teal-200"
                               >
                                 <div className="flex-1">
                                   <div className="text-sm font-semibold text-zinc-900">
                                     {item.productName || "Unknown Product"}
-                                    <span className="ml-2 text-xs text-emerald-600">(New)</span>
+                                    <span className="ml-2 text-xs text-teal-800">(New)</span>
                                   </div>
                                   <div className="mt-1 text-xs text-zinc-500">
                                     SKU: {item.productSku || "N/A"}
@@ -1393,7 +1393,7 @@ export default function TaskDetailPage() {
                                         updateModifiedProduct(actualIndex, newQty);
                                       }
                                     }}
-                                    className="w-20 rounded-xl border-zinc-300 bg-white px-2 py-1 text-sm text-center focus:border-emerald-500 focus:ring-emerald-500 transition-colors"
+                                    className="w-20 rounded-xl border-zinc-300 bg-white px-2 py-1 text-sm text-center focus:border-teal-500 focus:ring-teal-500 transition-colors"
                                   />
                                   <button
                                     type="button"
@@ -1420,11 +1420,11 @@ export default function TaskDetailPage() {
 
                     {/* Products Summary */}
                     {modifiedProducts.filter((p) => p.quantity > 0).length > 0 && (
-                      <div className="mt-4 p-3 rounded-xl bg-emerald-50 ring-1 ring-emerald-200">
-                        <div className="text-xs font-semibold text-emerald-800">
+                      <div className="mt-4 p-3 rounded-xl bg-teal-50 ring-1 ring-teal-200">
+                        <div className="text-xs font-semibold text-teal-900">
                           📦 {modifiedProducts.filter((p) => p.quantity > 0).length} product{modifiedProducts.filter((p) => p.quantity > 0).length !== 1 ? "s" : ""} • Total qty: {modifiedProducts.reduce((sum, p) => sum + (p.quantity > 0 ? p.quantity : 0), 0)}
                         </div>
-                        <div className="text-xs text-emerald-700 mt-1">
+                        <div className="text-xs text-teal-900 mt-1">
                           These products will be deducted from inventory when approved.
                         </div>
                       </div>
@@ -1469,7 +1469,7 @@ export default function TaskDetailPage() {
                       onChange={(e) => setApprovalComment(e.target.value)}
                       placeholder="Add any notes or feedback..."
                       rows={3}
-                      className="w-full rounded-xl border-zinc-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                      className="w-full rounded-xl border-zinc-300 text-sm focus:border-teal-500 focus:ring-teal-500"
                     />
                   </div>
 
@@ -1568,7 +1568,7 @@ export default function TaskDetailPage() {
                     <Link
                       key={child.id}
                       href={`/app/tasks/${(child as any).workOrderNumber || child.id}`}
-                      className="block rounded-2xl bg-zinc-50 p-3 ring-1 ring-zinc-200 transition hover:bg-emerald-50/60 hover:ring-emerald-300"
+                      className="block rounded-2xl bg-zinc-50 p-3 ring-1 ring-zinc-200 transition hover:bg-teal-50/60 hover:ring-teal-300"
                     >
                       <div className="text-sm font-semibold text-zinc-900">{child.title}</div>
                       <div className="mt-1 text-xs text-zinc-500">
@@ -1654,15 +1654,15 @@ export default function TaskDetailPage() {
               // Quantity Input View
               <div className="p-6">
                 {/* Selected Product Info */}
-                <div className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200 mb-6">
+                <div className="rounded-2xl bg-teal-50 p-4 ring-1 ring-teal-200 mb-6">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-xl bg-teal-100 flex items-center justify-center">
                       <span className="text-lg">📦</span>
                     </div>
                     <div className="flex-1">
                       <div className="text-sm font-semibold text-zinc-900">{selectedProductForAdd.name}</div>
                       <div className="text-xs text-zinc-500">{selectedProductForAdd.sku}</div>
-                      <div className="text-xs text-emerald-600 mt-0.5">
+                      <div className="text-xs text-teal-800 mt-0.5">
                         Available: {selectedProductForAdd.currentStock || 0} {selectedProductForAdd.unit || "units"}
                       </div>
                     </div>
@@ -1692,7 +1692,7 @@ export default function TaskDetailPage() {
                         const val = parseInt(e.target.value) || 1;
                         setAddProductQuantity(Math.min(Math.max(1, val), selectedProductForAdd.currentStock || 999));
                       }}
-                      className="flex-1 h-12 rounded-xl border-zinc-300 text-center text-lg font-semibold focus:border-emerald-500 focus:ring-emerald-500"
+                      className="flex-1 h-12 rounded-xl border-zinc-300 text-center text-lg font-semibold focus:border-teal-500 focus:ring-teal-500"
                     />
                     <button
                       type="button"
@@ -1738,7 +1738,7 @@ export default function TaskDetailPage() {
                   value={productSearchQuery}
                   onChange={(e) => setProductSearchQuery(e.target.value)}
                   placeholder="Search by name or SKU..."
-                  className="w-full rounded-xl border-zinc-300 text-sm mb-4 focus:border-emerald-500 focus:ring-emerald-500"
+                  className="w-full rounded-xl border-zinc-300 text-sm mb-4 focus:border-teal-500 focus:ring-teal-500"
                   autoFocus
                 />
 
@@ -1766,7 +1766,7 @@ export default function TaskDetailPage() {
                           className={`w-full flex items-center justify-between p-3 rounded-2xl ring-1 transition ${
                             alreadyAdded
                               ? "bg-zinc-100 ring-zinc-200 opacity-60 cursor-not-allowed"
-                              : "bg-zinc-50 ring-zinc-200 hover:bg-emerald-50 hover:ring-emerald-300 cursor-pointer"
+                              : "bg-zinc-50 ring-zinc-200 hover:bg-teal-50 hover:ring-teal-300 cursor-pointer"
                           }`}
                           onClick={() => {
                             if (!alreadyAdded) {
@@ -1789,10 +1789,10 @@ export default function TaskDetailPage() {
                               </span>
                             ) : (
                               <>
-                                <span className="text-xs font-semibold text-emerald-600">
+                                <span className="text-xs font-semibold text-teal-800">
                                   Select
                                 </span>
-                                <span className="text-emerald-600">→</span>
+                                <span className="text-teal-800">→</span>
                               </>
                             )}
                           </div>

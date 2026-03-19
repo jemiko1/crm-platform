@@ -67,14 +67,14 @@ export default function FilterBar({
         placeholder="Search conversations..."
         value={search}
         onChange={(e) => onSearchChange(e.target.value)}
-        className="w-full bg-white/60 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+        className="w-full bg-white/60 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
       />
       <div className="flex gap-2">
         {/* Multi-select channel dropdown */}
         <div ref={channelRef} className="relative flex-1">
           <button
             onClick={() => setChannelOpen(!channelOpen)}
-            className="w-full bg-white/60 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-left focus:outline-none focus:ring-2 focus:ring-emerald-400 flex items-center justify-between"
+            className="w-full bg-white/60 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-left focus:outline-none focus:ring-2 focus:ring-teal-400 flex items-center justify-between"
           >
             <span className={channelFilter.length === 0 ? "text-gray-500" : "text-gray-800"}>
               {channelLabel}
@@ -88,7 +88,7 @@ export default function FilterBar({
               {channelFilter.length > 0 && (
                 <button
                   onClick={() => { onChannelChange([]); setChannelOpen(false); }}
-                  className="w-full text-left px-3 py-1.5 text-xs text-emerald-600 hover:bg-gray-50 font-medium"
+                  className="w-full text-left px-3 py-1.5 text-xs text-teal-800 hover:bg-gray-50 font-medium"
                 >
                   Clear all
                 </button>
@@ -102,7 +102,7 @@ export default function FilterBar({
                     type="checkbox"
                     checked={channelFilter.includes(ch.value)}
                     onChange={() => toggleChannel(ch.value)}
-                    className="h-3.5 w-3.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                    className="h-3.5 w-3.5 rounded border-gray-300 text-teal-800 focus:ring-teal-500"
                   />
                   {ch.label}
                 </label>
@@ -116,7 +116,7 @@ export default function FilterBar({
           <select
             value={assignedFilter}
             onChange={(e) => onAssignedChange(e.target.value)}
-            className="flex-1 bg-white/60 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            className="flex-1 bg-white/60 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
           >
             <option value="">All agents</option>
             <option value="__unassigned__">Unassigned</option>

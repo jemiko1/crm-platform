@@ -164,7 +164,7 @@ export default function ConversationHeader({ conversation, currentUserId, onUpda
           {isClosed && isManager && (
             <button
               onClick={() => setShowReopenModal(true)}
-              className="px-4 py-1.5 text-sm font-semibold rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-colors shadow-sm"
+              className="px-4 py-1.5 text-sm font-semibold rounded-lg bg-teal-500 text-white hover:bg-teal-800 transition-colors shadow-sm"
             >
               Reopen
             </button>
@@ -172,7 +172,7 @@ export default function ConversationHeader({ conversation, currentUserId, onUpda
           {isClosed && !isManager && isMyChat && !hasReopenRequest && (
             <button
               onClick={handleRequestReopen}
-              className="px-4 py-1.5 text-sm font-medium rounded-lg border border-emerald-400 text-emerald-700 hover:bg-emerald-50 transition-colors"
+              className="px-4 py-1.5 text-sm font-medium rounded-lg border border-teal-400 text-teal-900 hover:bg-teal-50 transition-colors"
             >
               Request Reopen
             </button>
@@ -209,7 +209,7 @@ export default function ConversationHeader({ conversation, currentUserId, onUpda
         {/* Assigned operator display */}
         {assignedName && (
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-200">
-            <span className={`w-2 h-2 rounded-full ${isPaused ? "bg-amber-400" : "bg-emerald-500"}`} />
+            <span className={`w-2 h-2 rounded-full ${isPaused ? "bg-amber-400" : "bg-teal-500"}`} />
             <span className="text-xs font-medium text-blue-700">
               {assignedName}
             </span>
@@ -253,7 +253,7 @@ export default function ConversationHeader({ conversation, currentUserId, onUpda
           isPaused ? (
             <button
               onClick={handleUnpause}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-emerald-400 text-emerald-700 hover:bg-emerald-50 transition-colors"
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-teal-400 text-teal-900 hover:bg-teal-50 transition-colors"
             >
               Unpause Operator
             </button>
@@ -274,7 +274,7 @@ export default function ConversationHeader({ conversation, currentUserId, onUpda
           <div className="flex items-center gap-1">
             <a
               href={`/app/clients/${conversation.client.id}`}
-              className="px-2.5 py-1.5 text-xs font-medium rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+              className="px-2.5 py-1.5 text-xs font-medium rounded-lg bg-teal-50 text-teal-900 hover:bg-teal-100"
             >
               {clientName}
             </a>
@@ -286,7 +286,7 @@ export default function ConversationHeader({ conversation, currentUserId, onUpda
           <div className="relative">
             <button
               onClick={() => setShowLink(!showLink)}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-dashed border-gray-300 text-gray-500 hover:border-emerald-400 hover:text-emerald-600"
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-dashed border-gray-300 text-gray-500 hover:border-teal-400 hover:text-teal-800"
             >
               Link Client
             </button>
@@ -298,14 +298,14 @@ export default function ConversationHeader({ conversation, currentUserId, onUpda
                   value={linkSearch}
                   onChange={(e) => setLinkSearch(e.target.value)}
                   autoFocus
-                  className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400 mb-2"
+                  className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-teal-400 mb-2"
                 />
                 <div className="max-h-40 overflow-y-auto">
                   {linkResults.map((c) => (
                     <button
                       key={c.id}
                       onClick={() => handleLink(c.id)}
-                      className="w-full text-left px-2 py-1.5 text-xs text-gray-700 hover:bg-emerald-50 rounded"
+                      className="w-full text-left px-2 py-1.5 text-xs text-gray-700 hover:bg-teal-50 rounded"
                     >
                       {`${c.firstName ?? ""} ${c.lastName ?? ""}`.trim() || "---"} · {c.primaryPhone ?? "---"}
                     </button>
@@ -338,7 +338,7 @@ export default function ConversationHeader({ conversation, currentUserId, onUpda
               )}
               <button
                 onClick={() => hasReopenRequest ? handleApproveReopen(false) : handleReopen(false)}
-                className="w-full px-4 py-2 text-sm font-medium rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+                className="w-full px-4 py-2 text-sm font-medium rounded-lg bg-teal-50 text-teal-900 hover:bg-teal-100 border border-teal-200"
               >
                 Send to Queue
               </button>

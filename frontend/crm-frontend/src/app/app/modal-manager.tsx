@@ -253,7 +253,7 @@ function ModalShell({
             {isTopmost && (
               <button
                 onClick={handleClose}
-                className="hidden lg:flex absolute -left-12 top-6 h-12 w-12 bg-emerald-500 text-white shadow-lg hover:bg-emerald-600 transition-colors items-center justify-center"
+                className="hidden lg:flex absolute -left-12 top-6 h-12 w-12 bg-teal-500 text-white shadow-lg hover:bg-teal-800 transition-colors items-center justify-center"
                 style={{
                   zIndex: zIndex + 2,
                   borderRadius: "9999px 0 0 9999px",
@@ -270,7 +270,7 @@ function ModalShell({
             {isTopmost && (
               <button
                 onClick={handleClose}
-                className="lg:hidden absolute top-4 right-4 h-10 w-10 bg-emerald-500 text-white shadow-lg hover:bg-emerald-600 transition-colors flex items-center justify-center rounded-full"
+                className="lg:hidden absolute top-4 right-4 h-10 w-10 bg-teal-500 text-white shadow-lg hover:bg-teal-800 transition-colors flex items-center justify-center rounded-full"
                 style={{ zIndex: zIndex + 2 }}
                 aria-label="Close"
               >

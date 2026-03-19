@@ -322,9 +322,9 @@ export default function StagesMonitoring({ workOrder }: Props) {
   const stageColors = {
     1: { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700", dot: "bg-blue-500" },
     2: { bg: "bg-purple-50", border: "border-purple-200", text: "text-purple-700", dot: "bg-purple-500" },
-    3: { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", dot: "bg-emerald-500" },
+    3: { bg: "bg-teal-50", border: "border-teal-200", text: "text-teal-800", dot: "bg-teal-700" },
     4: { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700", dot: "bg-amber-500" },
-    5: { bg: workOrder.status === "COMPLETED" ? "bg-green-50" : "bg-red-50", border: workOrder.status === "COMPLETED" ? "border-green-200" : "border-red-200", text: workOrder.status === "COMPLETED" ? "text-green-700" : "text-red-700", dot: workOrder.status === "COMPLETED" ? "bg-green-500" : "bg-red-500" },
+    5: { bg: workOrder.status === "COMPLETED" ? "bg-emerald-50" : "bg-red-50", border: workOrder.status === "COMPLETED" ? "border-emerald-200" : "border-red-200", text: workOrder.status === "COMPLETED" ? "text-emerald-700" : "text-red-700", dot: workOrder.status === "COMPLETED" ? "bg-emerald-500" : "bg-red-500" },
   };
 
   return (
@@ -339,22 +339,22 @@ export default function StagesMonitoring({ workOrder }: Props) {
       <div className="flex-1 overflow-y-auto px-6 py-6" style={{ scrollBehavior: "smooth" }}>
         <div className="space-y-6">
           {/* Total Time Card */}
-          <div className="rounded-xl bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 border-2 border-emerald-300 shadow-sm p-5">
+          <div className="rounded-xl bg-gradient-to-br from-teal-50 via-teal-50 to-cyan-50 border-2 border-teal-300 shadow-sm p-5">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-bold text-emerald-900 uppercase tracking-wider">Total Time</span>
-              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center shadow-sm">
-                <svg className="w-6 h-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <span className="text-xs font-bold text-teal-900 uppercase tracking-wider">Total Time</span>
+              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-teal-100 to-teal-100 flex items-center justify-center shadow-sm">
+                <svg className="w-6 h-6 text-teal-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
             </div>
-            <div className="text-3xl font-bold text-emerald-900 mb-2">{formatDuration(totalTime)}</div>
-            <div className="text-xs text-emerald-700/80 mt-1 space-y-0.5">
+            <div className="text-3xl font-bold text-teal-900 mb-2">{formatDuration(totalTime)}</div>
+            <div className="text-xs text-teal-900/80 mt-1 space-y-0.5">
               <div>From: {new Date(workOrder.createdAt).toLocaleString()}</div>
               {workOrder.completedAt || workOrder.canceledAt ? (
                 <div>To: {(workOrder.completedAt ? new Date(workOrder.completedAt) : new Date(workOrder.canceledAt!)).toLocaleString()}</div>
               ) : (
-                <div className="text-emerald-600 font-semibold">● Ongoing</div>
+                <div className="text-teal-800 font-semibold">● Ongoing</div>
               )}
             </div>
           </div>

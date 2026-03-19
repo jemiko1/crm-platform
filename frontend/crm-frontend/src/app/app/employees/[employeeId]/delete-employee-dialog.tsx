@@ -288,7 +288,7 @@ export default function DeleteEmployeeDialog({
                     <select
                       value={delegateToId}
                       onChange={(e) => setDelegateToId(e.target.value)}
-                      className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                      className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                     >
                       <option value="">Select an employee...</option>
                       {allEmployees.map((emp) => (

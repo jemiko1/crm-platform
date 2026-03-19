@@ -76,10 +76,54 @@ export default function AppHeader() {
             </div>
           </button>
 
-          {/* CRM28 - on desktop centered above sidebar, on mobile next to hamburger */}
-          <span className="text-xl font-bold text-zinc-900 tracking-tight select-none shrink-0 lg:w-[108px] lg:text-center" title="CRM Platform">
-            CRM28
-          </span>
+          {/* Logo - on desktop centered above sidebar, on mobile next to hamburger */}
+          <a href="/app/dashboard" className="shrink-0 lg:w-[108px] lg:flex lg:justify-center" title="CRM Platform" aria-label="CRM28 Home">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 196 72"
+              className="h-9"
+              style={{ maxWidth: '98px' }}
+              aria-label="CRM28"
+            >
+              <defs>
+                <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#007a75" />
+                  <stop offset="100%" stopColor="#003e3c" />
+                </linearGradient>
+                <clipPath id="logoClip">
+                  <rect x="124" y="0" width="72" height="72" rx="15.5" ry="15.5" />
+                </clipPath>
+              </defs>
+              <text
+                x="0"
+                y="36"
+                dominantBaseline="central"
+                textAnchor="start"
+                fontFamily="var(--font-outfit), 'Helvetica Neue', Arial, sans-serif"
+                fontWeight="700"
+                fontSize="52"
+                letterSpacing="3"
+                fill="#1A140D"
+              >
+                CRM
+              </text>
+              <rect x="124" y="0" width="72" height="72" rx="15.5" ry="15.5" fill="url(#logoGradient)" />
+              <rect x="124" y="0" width="72" height="36" rx="15.5" ry="15.5" fill="white" fillOpacity="0.07" clipPath="url(#logoClip)" />
+              <text
+                x="160"
+                y="47"
+                textAnchor="middle"
+                dominantBaseline="auto"
+                fontFamily="Georgia, 'Times New Roman', serif"
+                fontWeight="700"
+                fontSize="46"
+                letterSpacing="-1"
+                fill="rgba(255,255,255,0.97)"
+              >
+                28
+              </text>
+            </svg>
+          </a>
 
           {/* Spacer to align search with main content start on desktop */}
           <div className="hidden lg:block w-[24px] shrink-0" />

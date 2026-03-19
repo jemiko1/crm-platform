@@ -10,7 +10,7 @@ import ApprovalActionsModal from "./approval-actions-modal";
 import ChangeStageModal from "./change-stage-modal";
 import { PermissionGuard } from "@/lib/permission-guard";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type LeadStage = {
   id: string;
@@ -76,7 +76,7 @@ type Lead = {
 function getStatusBadge(status: Lead["status"]) {
   const styles: Record<string, string> = {
     ACTIVE: "bg-blue-100 text-blue-800",
-    WON: "bg-emerald-100 text-emerald-800",
+    WON: "bg-teal-100 text-teal-900",
     LOST: "bg-red-100 text-red-800",
   };
   return styles[status] || "bg-zinc-100 text-zinc-800";
@@ -138,7 +138,7 @@ export default function LeadDetailPage() {
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal-500 border-t-transparent" />
       </div>
     );
   }
@@ -288,7 +288,7 @@ export default function LeadDetailPage() {
                   </div>
                   {idx < stages.filter((s) => !s.isTerminal).length - 1 && (
                     <svg
-                      className={`h-4 w-4 ${isPast ? "text-emerald-500" : "text-zinc-300"}`}
+                      className={`h-4 w-4 ${isPast ? "text-teal-500" : "text-zinc-300"}`}
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -341,7 +341,7 @@ export default function LeadDetailPage() {
               onClick={() => setActiveTab(tab.id as any)}
               className={`border-b-2 pb-4 text-sm font-medium transition ${
                 activeTab === tab.id
-                  ? "border-emerald-500 text-emerald-600"
+                  ? "border-teal-500 text-teal-800"
                   : "border-transparent text-zinc-500 hover:text-zinc-700"
               }`}
             >
@@ -420,9 +420,9 @@ export default function LeadDetailPage() {
               <div className="lg:col-span-2">
                 <h3 className="mb-4 text-lg font-semibold text-zinc-900">Pricing Summary</h3>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="rounded-xl bg-emerald-50 p-4">
-                    <div className="text-sm text-emerald-600">Monthly Revenue</div>
-                    <div className="text-2xl font-bold text-emerald-700">
+                  <div className="rounded-xl bg-teal-50 p-4">
+                    <div className="text-sm text-teal-800">Monthly Revenue</div>
+                    <div className="text-2xl font-bold text-teal-900">
                       {lead.totalMonthlyPrice ? Number(lead.totalMonthlyPrice).toFixed(2) : "0.00"} GEL
                     </div>
                   </div>
