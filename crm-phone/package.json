@@ -1,6 +1,6 @@
 {
   "name": "crm28-phone",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "description": "CRM28 Desktop Softphone",
   "main": "dist/main/index.js",
   "author": "ASG",
@@ -53,8 +53,13 @@
       "dist/**/*",
       "package.json"
     ],
+    "extraResources": [
+      { "from": "build/icon.ico", "to": "icon.ico" },
+      { "from": "build/icon.png", "to": "icon.png" }
+    ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": true,
