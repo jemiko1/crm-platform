@@ -1642,6 +1642,7 @@ model ClientChatConversation {
   externalConversationId  String                  @unique
   assignedUserId          String?
   clientId                String?
+  participantId           String?
   status                  ClientChatStatus        @default(LIVE)
   lastMessageAt           DateTime?
   firstResponseAt         DateTime?
@@ -1657,6 +1658,7 @@ model ClientChatConversation {
   channelAccount          ClientChatChannelAccount @relation(fields: [channelAccountId], references: [id], onDelete: Cascade)
   assignedUser            User?                   @relation("UserAssignedClientChats", fields: [assignedUserId], references: [id], onDelete: SetNull)
   client                  Client?                 @relation("ClientChatConversations", fields: [clientId], references: [id], onDelete: SetNull)
+  participant             ClientChatParticipant?   @relation("ConversationParticipant", fields: [participantId], references: [id], onDelete: SetNull)
   previousConversation    ClientChatConversation?  @relation("ConversationHistory", fields: [previousConversationId], references: [id], onDelete: SetNull)
   nextConversations       ClientChatConversation[] @relation("ConversationHistory")
   messages                ClientChatMessage[]
@@ -1683,6 +1685,7 @@ model ClientChatParticipant {
   createdAt       DateTime                 @default(now())
   channelAccount  ClientChatChannelAccount @relation(fields: [channelAccountId], references: [id], onDelete: Cascade)
   mappedClient    Client?                  @relation("ClientChatParticipants", fields: [mappedClientId], references: [id], onDelete: SetNull)
+  conversations   ClientChatConversation[] @relation("ConversationParticipant")
   messages        ClientChatMessage[]
 
   @@index([channelType])

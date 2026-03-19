@@ -104,6 +104,14 @@ export class ClientChatsCoreService {
     return message;
   }
 
+  private isBetterName(newName: string | undefined, existing: string): boolean {
+    if (!newName) return false;
+    if (newName === existing) return false;
+    const genericPattern = /^(Unknown|TG User|FB User|Viber User|\+\d|tg_|viber_|wa_|fb_)/i;
+    if (genericPattern.test(newName) && !genericPattern.test(existing)) return false;
+    return true;
+  }
+
   async upsertParticipant(
     channelType: ClientChatChannelType,
     channelAccountId: string,
@@ -114,10 +122,13 @@ export class ClientChatsCoreService {
     });
 
     if (existing) {
+      const newDisplayName = this.isBetterName(parsed.displayName, existing.displayName)
+        ? parsed.displayName!
+        : existing.displayName;
       return this.prisma.clientChatParticipant.update({
         where: { id: existing.id },
         data: {
-          displayName: parsed.displayName || existing.displayName,
+          displayName: newDisplayName,
           phone: parsed.phone || existing.phone,
           email: parsed.email || existing.email,
         },
@@ -170,7 +181,7 @@ export class ClientChatsCoreService {
     channelType: ClientChatChannelType,
     channelAccountId: string,
     externalConversationId: string,
-    _participantId: string,
+    participantId: string,
   ): Promise<{ conversation: any; isNew: boolean }> {
     const existing = await this.prisma.clientChatConversation.findUnique({
       where: { externalConversationId },
@@ -190,15 +201,20 @@ export class ClientChatsCoreService {
             externalConversationId,
             lastMessageAt: new Date(),
             clientId: existing.clientId,
+            participantId,
             previousConversationId: existing.id,
           },
         });
         return { conversation: created, isNew: true };
       }
 
+      const data: Record<string, unknown> = { lastMessageAt: new Date() };
+      if (!existing.participantId) {
+        data.participantId = participantId;
+      }
       const updated = await this.prisma.clientChatConversation.update({
         where: { id: existing.id },
-        data: { lastMessageAt: new Date() },
+        data,
       });
       this.events.emitConversationUpdated(updated as any);
       return { conversation: updated, isNew: false };
@@ -210,6 +226,7 @@ export class ClientChatsCoreService {
         channelAccountId,
         externalConversationId,
         lastMessageAt: new Date(),
+        participantId,
       },
     });
     return { conversation: created, isNew: true };
@@ -735,6 +752,14 @@ export class ClientChatsCoreService {
               primaryPhone: true,
             },
           },
+          participant: {
+            select: {
+              id: true,
+              displayName: true,
+              phone: true,
+              externalUserId: true,
+            },
+          },
           messages: {
             take: 1,
             orderBy: { sentAt: 'desc' },
@@ -778,6 +803,14 @@ export class ClientChatsCoreService {
             firstName: true,
             lastName: true,
             primaryPhone: true,
+          },
+        },
+        participant: {
+          select: {
+            id: true,
+            displayName: true,
+            phone: true,
+            externalUserId: true,
           },
         },
         messages: {

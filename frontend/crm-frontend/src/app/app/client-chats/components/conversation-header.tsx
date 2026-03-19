@@ -28,8 +28,7 @@ export default function ConversationHeader({ conversation, currentUserId, onUpda
   const clientName = conversation.client
     ? `${conversation.client.firstName ?? ""} ${conversation.client.lastName ?? ""}`.trim() || `Client #${conversation.client.coreId}`
     : null;
-  const participantName = conversation.messages?.[0]?.participant?.displayName ?? null;
-  const displayName = clientName ?? participantName ?? conversation.externalConversationId.slice(0, 20);
+  const displayName = clientName ?? conversation.participant?.displayName ?? "Unknown Customer";
 
   const assignedName = conversation.assignedUser
     ? conversation.assignedUser.employee

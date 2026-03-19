@@ -2,6 +2,13 @@ export type ChannelType = "WEB" | "VIBER" | "FACEBOOK" | "TELEGRAM" | "WHATSAPP"
 export type ConversationStatus = "LIVE" | "CLOSED";
 export type MessageDirection = "IN" | "OUT";
 
+export interface ConversationParticipant {
+  id: string;
+  displayName: string;
+  phone: string | null;
+  externalUserId: string;
+}
+
 export interface ConversationSummary {
   id: string;
   channelType: ChannelType;
@@ -17,6 +24,7 @@ export interface ConversationSummary {
   reopenRequestedAt?: string | null;
   createdAt: string;
   assignedUser: { id: string; email: string; employee?: { firstName: string; lastName: string } | null } | null;
+  participant: ConversationParticipant | null;
   client: {
     id: string;
     firstName: string | null;
@@ -46,6 +54,7 @@ export interface ConversationDetail {
   createdAt: string;
   channelAccount: { id: string; type: ChannelType; name: string };
   assignedUser: { id: string; email: string; employee?: { firstName: string; lastName: string } | null } | null;
+  participant: ConversationParticipant | null;
   client: {
     id: string;
     coreId: number;
