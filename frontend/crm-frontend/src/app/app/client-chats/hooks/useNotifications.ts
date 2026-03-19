@@ -32,11 +32,14 @@ function unlockAudio() {
 }
 
 function playNotificationSound() {
+  unlockAudio();
   const el = getAudioEl();
   if (!el) return;
   el.currentTime = 0;
   el.volume = 0.5;
-  el.play().catch(() => {});
+  el.play().catch(() => {
+    audioUnlocked = false;
+  });
 }
 
 export function useNotifications() {
@@ -63,8 +66,6 @@ export function useNotifications() {
 
     const onInteraction = () => {
       unlockAudio();
-      document.removeEventListener("click", onInteraction);
-      document.removeEventListener("keydown", onInteraction);
     };
     document.addEventListener("click", onInteraction);
     document.addEventListener("keydown", onInteraction);

@@ -145,7 +145,7 @@ export default function InboxSidebar({ selectedId, onSelect, isManager, notify, 
       if (notify && conv?.id !== selectedId) {
         const name = conv?.client
           ? [conv.client.firstName, conv.client.lastName].filter(Boolean).join(" ") || "New customer"
-          : conv?.externalConversationId?.slice(0, 16) || "New conversation";
+          : conv?.participant?.displayName || "New conversation";
         notify(name, "New conversation started");
       }
     };
@@ -325,8 +325,7 @@ export default function InboxSidebar({ selectedId, onSelect, isManager, notify, 
             const clientName = conv.client
               ? `${conv.client.firstName ?? ""} ${conv.client.lastName ?? ""}`.trim() || "Client"
               : null;
-            const participantName = lastMsg?.participant?.displayName ?? null;
-            const displayName = clientName || participantName || conv.externalConversationId.slice(0, 16);
+            const displayName = clientName || conv.participant?.displayName || "Unknown Customer";
             const unread = unreadMap[conv.id] ?? 0;
             const assignedName = getAssignedName(conv);
 
