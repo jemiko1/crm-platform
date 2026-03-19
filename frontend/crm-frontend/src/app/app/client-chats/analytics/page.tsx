@@ -19,8 +19,10 @@ interface OverviewData {
   totalConversations: number;
   totalMessages: number;
   avgFirstResponseMinutes: number | null;
+  avgPickupTimeMinutes: number | null;
   avgResolutionMinutes: number | null;
   byStatus: Record<string, number>;
+  unassignedCount: number;
 }
 
 interface ChannelData {
@@ -36,9 +38,11 @@ interface AgentData {
   conversationsHandled: number;
   messagesSent: number;
   avgFirstResponseMinutes: number | null;
+  avgPickupTimeMinutes: number | null;
+  avgResolutionMinutes: number | null;
 }
 
-type SortField = "agentName" | "conversationsHandled" | "messagesSent" | "avgFirstResponseMinutes";
+type SortField = "agentName" | "conversationsHandled" | "messagesSent" | "avgFirstResponseMinutes" | "avgPickupTimeMinutes" | "avgResolutionMinutes";
 type SortDir = "asc" | "desc";
 
 const CHANNEL_COLORS: Record<string, string> = {
@@ -179,7 +183,7 @@ function ChatAnalyticsContent() {
       ) : (
         <>
           {/* Overview KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <KpiCard
               label="Total Conversations"
               value={String(overview?.totalConversations ?? 0)}
@@ -191,6 +195,18 @@ function ChatAnalyticsContent() {
               borderColor="border-l-blue-500"
             />
             <KpiCard
+              label="Currently Unassigned"
+              value={String(overview?.unassignedCount ?? 0)}
+              subtitle="Live conversations waiting in queue"
+              borderColor="border-l-red-500"
+            />
+            <KpiCard
+              label="Avg Pickup Time"
+              value={formatMinutes(overview?.avgPickupTimeMinutes ?? null)}
+              subtitle="Time until operator joins"
+              borderColor="border-l-orange-500"
+            />
+            <KpiCard
               label="Avg First Response"
               value={formatMinutes(overview?.avgFirstResponseMinutes ?? null)}
               subtitle="Time to first agent reply"
@@ -199,7 +215,7 @@ function ChatAnalyticsContent() {
             <KpiCard
               label="Avg Resolution Time"
               value={formatMinutes(overview?.avgResolutionMinutes ?? null)}
-              subtitle="Time from creation to close"
+              subtitle="Time from join to close"
               borderColor="border-l-purple-500"
             />
           </div>
@@ -280,9 +296,21 @@ function ChatAnalyticsContent() {
                       </th>
                       <th
                         className="text-right py-2 px-3 font-medium text-zinc-500 cursor-pointer hover:text-zinc-700 select-none"
+                        onClick={() => toggleSort("avgPickupTimeMinutes")}
+                      >
+                        Avg Pickup {sortIcon("avgPickupTimeMinutes")}
+                      </th>
+                      <th
+                        className="text-right py-2 px-3 font-medium text-zinc-500 cursor-pointer hover:text-zinc-700 select-none"
                         onClick={() => toggleSort("avgFirstResponseMinutes")}
                       >
                         Avg Response {sortIcon("avgFirstResponseMinutes")}
+                      </th>
+                      <th
+                        className="text-right py-2 px-3 font-medium text-zinc-500 cursor-pointer hover:text-zinc-700 select-none"
+                        onClick={() => toggleSort("avgResolutionMinutes")}
+                      >
+                        Avg Resolution {sortIcon("avgResolutionMinutes")}
                       </th>
                     </tr>
                   </thead>
@@ -300,7 +328,13 @@ function ChatAnalyticsContent() {
                           {agent.messagesSent}
                         </td>
                         <td className="text-right py-2.5 px-3 text-zinc-700">
+                          {formatMinutes(agent.avgPickupTimeMinutes)}
+                        </td>
+                        <td className="text-right py-2.5 px-3 text-zinc-700">
                           {formatMinutes(agent.avgFirstResponseMinutes)}
+                        </td>
+                        <td className="text-right py-2.5 px-3 text-zinc-700">
+                          {formatMinutes(agent.avgResolutionMinutes)}
                         </td>
                       </tr>
                     ))}

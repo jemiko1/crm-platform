@@ -41,27 +41,37 @@ export class AssignmentService {
       throw new ConflictException('Conversation already assigned to another operator');
     }
 
-    try {
-      const updated = await this.prisma.$queryRawUnsafe<any[]>(
-        `UPDATE "ClientChatConversation"
-         SET "assignedUserId" = $1, "lastOperatorActivityAt" = NULL
-         WHERE "id" = $2 AND "assignedUserId" IS NULL
-         RETURNING *`,
-        userId,
-        conversationId,
-      );
+    const lockResult = await this.prisma.$queryRawUnsafe<{ id: string }[]>(
+      `UPDATE "ClientChatConversation"
+       SET "assignedUserId" = $1, "lastOperatorActivityAt" = NULL, "joinedAt" = NOW()
+       WHERE "id" = $2 AND "assignedUserId" IS NULL
+       RETURNING "id"`,
+      userId,
+      conversationId,
+    );
 
-      if (!updated || updated.length === 0) {
-        throw new ConflictException('Conversation was already taken by another operator');
-      }
-
-      const result = updated[0];
-      this.events.emitConversationUpdated(result);
-      this.logger.log(`Operator ${userId} joined conversation ${conversationId}`);
-      return result;
-    } catch (err) {
-      if (err instanceof ConflictException) throw err;
+    if (!lockResult || lockResult.length === 0) {
       throw new ConflictException('Conversation was already taken by another operator');
     }
+
+    const updated = await this.prisma.clientChatConversation.findUnique({
+      where: { id: conversationId },
+      include: {
+        assignedUser: {
+          select: {
+            id: true,
+            email: true,
+            employee: { select: { firstName: true, lastName: true } },
+          },
+        },
+        client: {
+          select: { id: true, firstName: true, lastName: true, primaryPhone: true },
+        },
+      },
+    });
+
+    this.events.emitConversationUpdated(updated as any);
+    this.logger.log(`Operator ${userId} joined conversation ${conversationId}`);
+    return updated;
   }
 }

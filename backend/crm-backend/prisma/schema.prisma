@@ -1646,6 +1646,7 @@ model ClientChatConversation {
   lastMessageAt           DateTime?
   firstResponseAt         DateTime?
   resolvedAt              DateTime?
+  joinedAt                DateTime?
   lastOperatorActivityAt  DateTime?
   pausedOperatorId        String?
   pausedAt                DateTime?

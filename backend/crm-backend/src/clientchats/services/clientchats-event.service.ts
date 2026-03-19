@@ -75,9 +75,10 @@ export class ClientChatsEventService {
   getConnectedAgentIds(): string[] {
     if (!this.server) return [];
     const ids: string[] = [];
-    const sockets = this.server.sockets;
-    if (sockets) {
-      for (const [, socket] of sockets as any) {
+    const ns = this.server.of?.('/ws/clientchats') ?? this.server;
+    const sockets = ns.sockets;
+    if (sockets instanceof Map) {
+      for (const [, socket] of sockets) {
         const userId = (socket as any)?.userId;
         if (userId && !ids.includes(userId)) ids.push(userId);
       }
