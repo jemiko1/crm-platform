@@ -163,14 +163,14 @@ function ChatAnalyticsContent() {
           type="date"
           value={from}
           onChange={(e) => setFrom(e.target.value)}
-          className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+          className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
         />
         <label className="text-sm font-medium text-zinc-600">To</label>
         <input
           type="date"
           value={to}
           onChange={(e) => setTo(e.target.value)}
-          className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+          className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
         />
       </div>
 
@@ -228,7 +228,7 @@ function ChatAnalyticsContent() {
                 {Object.entries(overview.byStatus).map(([status, count]) => (
                   <div key={status} className="flex items-center gap-2">
                     <span className={`inline-block h-3 w-3 rounded-full ${
-                      status === "LIVE" ? "bg-emerald-400" :
+                      status === "LIVE" ? "bg-teal-400" :
                       status === "CLOSED" ? "bg-zinc-400" :
                       "bg-gray-400"
                     }`} />

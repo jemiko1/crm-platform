@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { apiPost } from "@/lib/api";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type Department = {
   id: string;
@@ -155,7 +155,7 @@ export default function AddDepartmentModal({
                   value={formData.name}
                   onChange={handleChange}
                   required
-                  className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   placeholder="e.g., Company, IT Department"
                 />
               </div>
@@ -169,7 +169,7 @@ export default function AddDepartmentModal({
                   name="nameKa"
                   value={formData.nameKa}
                   onChange={handleChange}
-                  className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   placeholder="მაგ., კომპანია, IT დეპარტამენტი"
                 />
               </div>
@@ -183,7 +183,7 @@ export default function AddDepartmentModal({
                   value={formData.description}
                   onChange={handleChange}
                   rows={3}
-                  className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   placeholder="Optional department description"
                 />
               </div>
@@ -196,7 +196,7 @@ export default function AddDepartmentModal({
                   name="parentId"
                   value={formData.parentId}
                   onChange={handleChange}
-                  className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                 >
                   <option value="">None (Root level)</option>
                   {departments.map((dept) => (
@@ -220,7 +220,7 @@ export default function AddDepartmentModal({
                   name="headId"
                   value={formData.headId}
                   onChange={handleChange}
-                  className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                 >
                   <option value="">No head assigned</option>
                   {employees.map((emp) => (
@@ -238,7 +238,7 @@ export default function AddDepartmentModal({
                   id="deptActive"
                   checked={formData.isActive}
                   onChange={handleChange}
-                  className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+                  className="h-4 w-4 rounded border-zinc-300 text-teal-800 focus:ring-teal-500"
                 />
                 <label htmlFor="deptActive" className="text-sm text-zinc-700">
                   Active

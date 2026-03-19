@@ -188,7 +188,7 @@ export default function ChangeStageModal({
                 required={isBackward}
                 rows={2}
                 placeholder={isBackward ? "Explain why this lead is moving backward..." : "Optional reason for stage change..."}
-                className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                className="w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
               />
             </div>
 
@@ -204,7 +204,7 @@ export default function ChangeStageModal({
               <button
                 type="submit"
                 disabled={loading || selectedStageId === currentStageId || (isBackward && !reason)}
-                className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg transition-all hover:bg-emerald-700 hover:shadow-xl disabled:opacity-50"
+                className="rounded-xl bg-teal-800 px-5 py-2.5 text-sm font-medium text-white shadow-lg transition-all hover:bg-teal-900 hover:shadow-xl disabled:opacity-50"
               >
                 {loading ? "Changing..." : "Change Stage"}
               </button>

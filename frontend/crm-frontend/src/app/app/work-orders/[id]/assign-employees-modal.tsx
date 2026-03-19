@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { apiGet, apiGetList, apiPost, ApiError } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type Employee = {
   id: string;
@@ -194,7 +194,7 @@ export default function AssignEmployeesModal({
                   value={employeeSearch}
                   onChange={(e) => setEmployeeSearch(e.target.value)}
                   placeholder="Search by name, email, or employee ID..."
-                  className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                  className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-teal-500/30"
                 />
               </div>
 
@@ -222,7 +222,7 @@ export default function AssignEmployeesModal({
                           key={employee.id}
                           className={`flex cursor-pointer items-center gap-3 rounded-2xl p-3 ring-1 transition ${
                             isSelected
-                              ? "bg-emerald-50 ring-emerald-300"
+                              ? "bg-teal-50 ring-teal-300"
                               : "bg-white ring-zinc-200 hover:bg-zinc-50"
                           }`}
                         >
@@ -238,7 +238,7 @@ export default function AssignEmployeesModal({
                                 setSelectedEmployees((prev) => [...prev, employee.id]);
                               }
                             }}
-                            className="h-5 w-5 rounded border-zinc-300 text-emerald-600 focus:ring-2 focus:ring-emerald-500"
+                            className="h-5 w-5 rounded border-zinc-300 text-teal-800 focus:ring-2 focus:ring-teal-500"
                           />
                           <div className="flex-1">
                             <div className="text-sm font-semibold text-zinc-900">
@@ -262,8 +262,8 @@ export default function AssignEmployeesModal({
 
               {/* Selected Count */}
               {selectedEmployees.length > 0 && (
-                <div className="rounded-2xl bg-emerald-50 p-3 ring-1 ring-emerald-200">
-                  <div className="text-sm font-semibold text-emerald-900">
+                <div className="rounded-2xl bg-teal-50 p-3 ring-1 ring-teal-200">
+                  <div className="text-sm font-semibold text-teal-900">
                     {selectedEmployees.length} employee{selectedEmployees.length !== 1 ? "s" : ""}{" "}
                     selected
                   </div>

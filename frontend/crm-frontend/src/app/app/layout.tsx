@@ -17,10 +17,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <div className="min-h-dvh min-h-screen relative bg-zinc-50 lg:bg-transparent">
         {/* App background - hidden on mobile to maximize content space */}
         <div className="hidden lg:block fixed inset-0 -z-10">
-          <div className="fixed inset-0 bg-gradient-to-br from-emerald-200 via-emerald-100 to-slate-200" />
+          <div className="fixed inset-0 bg-gradient-to-br from-teal-200 via-teal-100 to-slate-200" />
           <div className="fixed inset-0 bg-slate-900/12" />
-          <div className="fixed -top-24 -left-24 h-80 w-80 rounded-full bg-emerald-500/30 blur-3xl" />
-          <div className="fixed top-24 -right-24 h-96 w-96 rounded-full bg-emerald-600/25 blur-3xl" />
+          <div className="fixed -top-24 -left-24 h-80 w-80 rounded-full bg-teal-700/30 blur-3xl" />
+          <div className="fixed top-24 -right-24 h-96 w-96 rounded-full bg-teal-800/25 blur-3xl" />
           <div className="fixed -bottom-24 left-1/3 h-96 w-96 rounded-full bg-slate-600/20 blur-3xl" />
           <div className="fixed inset-0 opacity-[0.22] bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.22)_1px,transparent_0)] bg-[length:22px_22px]" />
         </div>

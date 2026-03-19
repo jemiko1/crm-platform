@@ -5,7 +5,7 @@ import { apiGet, apiPatch, apiPost, apiDelete } from "@/lib/api";
 import Link from "next/link";
 import { PermissionGuard } from "@/lib/permission-guard";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type Translation = {
   id: string;
@@ -162,13 +162,13 @@ export default function TranslationsPage() {
             placeholder="Search key or text..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="rounded-xl border border-zinc-300 px-4 py-2.5 text-sm w-72 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            className="rounded-xl border border-zinc-300 px-4 py-2.5 text-sm w-72 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
           />
 
           <select
             value={contextFilter}
             onChange={(e) => setContextFilter(e.target.value)}
-            className="rounded-xl border border-zinc-300 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            className="rounded-xl border border-zinc-300 px-4 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
           >
             <option value="">All sections</option>
             {contexts.map((ctx) => (

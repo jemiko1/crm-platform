@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { apiGet, apiPost } from "@/lib/api";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type Permission = {
   id: string;
@@ -184,7 +184,7 @@ export default function AssignPermissionsModal({
               placeholder="Search permissions by resource, action, or description..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
             />
           </div>
 
@@ -236,7 +236,7 @@ export default function AssignPermissionsModal({
                               type="checkbox"
                               checked={selectedPermissions.has(perm.id)}
                               onChange={() => togglePermission(perm.id)}
-                              className="mt-0.5 h-3.5 w-3.5 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500 flex-shrink-0"
+                              className="mt-0.5 h-3.5 w-3.5 rounded border-zinc-300 text-teal-800 focus:ring-teal-500 flex-shrink-0"
                             />
                             <div className="flex-1 min-w-0">
                               <div className="text-xs font-medium text-zinc-900 truncate">

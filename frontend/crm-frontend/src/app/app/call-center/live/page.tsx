@@ -46,11 +46,11 @@ function getAgentStateStyles(state: AgentLive["currentState"]): {
 } {
   switch (state) {
     case "ON_CALL":
-      return { dotClass: "bg-green-500 animate-pulse", label: "On Call" };
+      return { dotClass: "bg-teal-500 animate-pulse", label: "On Call" };
     case "RINGING":
       return { dotClass: "bg-yellow-500 animate-pulse", label: "Ringing" };
     case "PAUSED":
-      return { dotClass: "bg-orange-500", label: "Paused" };
+      return { dotClass: "bg-teal-500", label: "Paused" };
     case "IDLE":
       return { dotClass: "bg-blue-500", label: "Idle" };
     case "OFFLINE":
@@ -235,7 +235,7 @@ export default function CallCenterLivePage() {
                       </div>
                     )}
                   {a.currentState === "PAUSED" && a.pausedReason && (
-                    <div className="mt-2 text-sm text-orange-600">
+                    <div className="mt-2 text-sm text-teal-800">
                       {a.pausedReason}
                     </div>
                   )}

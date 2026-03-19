@@ -5,7 +5,7 @@ import Link from "next/link";
 import { apiGet, ApiError } from "@/lib/api";
 import { PermissionGuard } from "@/lib/permission-guard";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type PlanProgress = {
   planId: string;
@@ -155,7 +155,7 @@ export default function SalesDashboardPage() {
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal-500 border-t-transparent" />
       </div>
     );
   }
@@ -191,9 +191,9 @@ export default function SalesDashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-medium text-zinc-500">Won This Period</div>
-                <div className="mt-1 text-3xl font-bold text-emerald-600">{statistics.won}</div>
+                <div className="mt-1 text-3xl font-bold text-teal-800">{statistics.won}</div>
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-2xl">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-100 text-2xl">
                 🏆
               </div>
             </div>
@@ -261,7 +261,7 @@ export default function SalesDashboardPage() {
         <div className="mb-8 rounded-2xl bg-white p-6 shadow-lg ring-1 ring-zinc-200">
           <div className="mb-6 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-zinc-900">My Monthly Progress</h2>
-            <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-medium text-emerald-700">
+            <span className="rounded-full bg-teal-100 px-3 py-1 text-sm font-medium text-teal-900">
               {currentPlan.year}/{currentPlan.month}
             </span>
           </div>
@@ -269,7 +269,7 @@ export default function SalesDashboardPage() {
           <div className="grid gap-6 lg:grid-cols-3">
             {/* Revenue Progress */}
             {currentPlan.targetRevenue && (
-              <div className="flex flex-col items-center justify-center rounded-xl bg-emerald-50 p-6">
+              <div className="flex flex-col items-center justify-center rounded-xl bg-teal-50 p-6">
                 <ProgressCircle percent={currentPlan.revenueProgressPercent} color="#10b981" />
                 <div className="mt-4 text-center">
                   <div className="text-sm font-medium text-zinc-500">Revenue Target</div>
@@ -326,7 +326,7 @@ export default function SalesDashboardPage() {
           <div className="mb-6 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-zinc-900">Team Leaderboard</h2>
             <div className="text-sm text-zinc-500">
-              Team Total: <span className="font-semibold text-emerald-600">{teamDashboard.teamTotals.totalRevenue.toFixed(0)} GEL</span>
+              Team Total: <span className="font-semibold text-teal-800">{teamDashboard.teamTotals.totalRevenue.toFixed(0)} GEL</span>
               {" • "}
               <span className="font-semibold text-blue-600">{teamDashboard.teamTotals.wonLeads} Won</span>
             </div>
@@ -435,7 +435,7 @@ export default function SalesDashboardPage() {
           href="/app/admin/services"
           className="flex items-center gap-4 rounded-2xl bg-white p-6 shadow-lg ring-1 ring-zinc-200 transition hover:shadow-xl"
         >
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-2xl">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-100 text-2xl">
             🛠️
           </div>
           <div>

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { apiPost, ApiError } from "@/lib/api";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type Employee = {
   id: string;
@@ -125,8 +125,8 @@ export default function CreateUserAccountModal({
           )}
 
           {success && (
-            <div className="rounded-xl bg-emerald-50 p-3 ring-1 ring-emerald-200">
-              <div className="text-sm text-emerald-700">
+            <div className="rounded-xl bg-teal-50 p-3 ring-1 ring-teal-200">
+              <div className="text-sm text-teal-900">
                 User account created successfully! The employee can now log in.
               </div>
             </div>
@@ -174,7 +174,7 @@ export default function CreateUserAccountModal({
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Minimum 6 characters"
-                  className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                 />
               </div>
 
@@ -189,7 +189,7 @@ export default function CreateUserAccountModal({
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Re-enter password"
-                  className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                 />
               </div>
 

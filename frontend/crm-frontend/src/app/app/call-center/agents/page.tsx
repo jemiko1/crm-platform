@@ -28,7 +28,7 @@ function formatSeconds(sec: number | null | undefined): string {
 
 function getAnswerRateColor(rate: number | null | undefined): string {
   if (rate == null || Number.isNaN(rate)) return "text-zinc-500";
-  if (rate >= 90) return "text-green-600 font-semibold";
+  if (rate >= 90) return "text-teal-800 font-semibold";
   if (rate >= 75) return "text-yellow-600 font-semibold";
   return "text-red-600 font-semibold";
 }

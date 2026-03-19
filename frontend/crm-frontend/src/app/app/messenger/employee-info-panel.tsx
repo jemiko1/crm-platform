@@ -64,7 +64,7 @@ export default function EmployeeInfoPanel({
       {/* Profile */}
       <div className="flex flex-col items-center px-4 py-6 border-b border-zinc-100">
         {isGroup ? (
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-xl font-bold">
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white text-xl font-bold">
             {(conversation.name ?? "G").charAt(0).toUpperCase()}
           </div>
         ) : mainPerson?.employee.avatar ? (
@@ -75,18 +75,18 @@ export default function EmployeeInfoPanel({
               className="w-16 h-16 rounded-full object-cover"
             />
             {isOnline && (
-              <div className="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white" />
+              <div className="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-teal-500 border-2 border-white" />
             )}
           </div>
         ) : (
           <div className="relative">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-lg font-bold">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white text-lg font-bold">
               {mainPerson
                 ? `${mainPerson.employee.firstName.charAt(0)}${mainPerson.employee.lastName.charAt(0)}`
                 : "?"}
             </div>
             {isOnline && (
-              <div className="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white" />
+              <div className="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-teal-500 border-2 border-white" />
             )}
           </div>
         )}
@@ -192,13 +192,13 @@ export default function EmployeeInfoPanel({
                         className="w-7 h-7 rounded-full object-cover"
                       />
                     ) : (
-                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-[9px] font-semibold">
+                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white text-[9px] font-semibold">
                         {p.employee.firstName.charAt(0)}
                         {p.employee.lastName.charAt(0)}
                       </div>
                     )}
                     {onlineUsers.has(p.employeeId) && (
-                      <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-white" />
+                      <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-teal-500 border border-white" />
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -209,7 +209,7 @@ export default function EmployeeInfoPanel({
                       )}
                     </div>
                     {p.role === "ADMIN" && (
-                      <span className="text-[9px] text-emerald-600 font-medium">
+                      <span className="text-[9px] text-teal-800 font-medium">
                         Admin
                       </span>
                     )}

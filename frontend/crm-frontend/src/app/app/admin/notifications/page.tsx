@@ -133,7 +133,7 @@ function TemplatesTab() {
         <p className="text-sm text-zinc-500">{templates.length} template(s)</p>
         <button
           onClick={openCreate}
-          className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+          className="rounded-xl bg-teal-800 px-5 py-2 text-sm font-semibold text-white transition hover:bg-teal-900"
         >
           + New Template
         </button>
@@ -241,7 +241,7 @@ function TemplateModal({
                   key={t}
                   type="button"
                   onClick={() => setType(t)}
-                  className={`rounded-lg border px-4 py-1.5 text-sm font-medium transition ${type === t ? "border-emerald-500 bg-emerald-50 text-emerald-700" : "border-zinc-200 text-zinc-500 hover:bg-zinc-50"}`}
+                  className={`rounded-lg border px-4 py-1.5 text-sm font-medium transition ${type === t ? "border-teal-500 bg-teal-50 text-teal-900" : "border-zinc-200 text-zinc-500 hover:bg-zinc-50"}`}
                 >
                   {t}
                 </button>
@@ -257,12 +257,12 @@ function TemplateModal({
               rows={5}
               required
               placeholder="Hello {{firstName}}, you have been assigned..."
-              className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 transition focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 transition focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
             />
             <p className="mt-1 text-xs text-zinc-400">Use {"{{variable}}"} syntax for dynamic content</p>
           </div>
           <div className="flex items-center gap-2">
-            <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="h-4 w-4 rounded border-zinc-300 text-emerald-600" />
+            <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="h-4 w-4 rounded border-zinc-300 text-teal-800" />
             <label className="text-sm text-zinc-700">Active</label>
           </div>
         </div>
@@ -273,7 +273,7 @@ function TemplateModal({
           <button type="button" onClick={onClose} className="rounded-xl border border-zinc-300 px-5 py-2 text-sm font-medium text-zinc-600 transition hover:bg-zinc-50">
             Cancel
           </button>
-          <button type="submit" disabled={saving} className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50">
+          <button type="submit" disabled={saving} className="rounded-xl bg-teal-800 px-5 py-2 text-sm font-semibold text-white transition hover:bg-teal-900 disabled:opacity-50">
             {saving ? "Saving..." : isEdit ? "Update" : "Create"}
           </button>
         </div>
@@ -365,7 +365,7 @@ function SendTab() {
                 <button
                   key={t}
                   onClick={() => setType(t)}
-                  className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition ${type === t ? "border-emerald-500 bg-emerald-50 text-emerald-700" : "border-zinc-200 text-zinc-500 hover:bg-zinc-50"}`}
+                  className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition ${type === t ? "border-teal-500 bg-teal-50 text-teal-900" : "border-zinc-200 text-zinc-500 hover:bg-zinc-50"}`}
                 >
                   {t}
                 </button>
@@ -377,7 +377,7 @@ function SendTab() {
             <select
               value={templateCode}
               onChange={(e) => setTemplateCode(e.target.value)}
-              className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 transition focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 transition focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
             >
               <option value="">Custom message</option>
               {templates
@@ -399,7 +399,7 @@ function SendTab() {
                 <input
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 transition focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 transition focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
                   placeholder="Notification subject"
                 />
               </div>
@@ -410,7 +410,7 @@ function SendTab() {
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 rows={4}
-                className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 transition focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 transition focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
                 placeholder="Type your message here..."
               />
             </div>
@@ -422,7 +422,7 @@ function SendTab() {
       <div className="rounded-2xl border border-zinc-200 bg-white p-5">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="font-semibold text-zinc-900">Select Recipients ({selected.size} selected)</h3>
-          <button onClick={toggleAll} className="text-xs font-medium text-emerald-600 hover:underline">
+          <button onClick={toggleAll} className="text-xs font-medium text-teal-800 hover:underline">
             {selected.size === filtered.length ? "Deselect All" : "Select All"}
           </button>
         </div>
@@ -430,19 +430,19 @@ function SendTab() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search employees..."
-          className="mb-3 w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 transition focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+          className="mb-3 w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 transition focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
         />
         <div className="max-h-64 space-y-1 overflow-y-auto">
           {filtered.map((emp) => (
             <label
               key={emp.id}
-              className={`flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 transition ${selected.has(emp.id) ? "bg-emerald-50" : "hover:bg-zinc-50"}`}
+              className={`flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 transition ${selected.has(emp.id) ? "bg-teal-50" : "hover:bg-zinc-50"}`}
             >
               <input
                 type="checkbox"
                 checked={selected.has(emp.id)}
                 onChange={() => toggleEmployee(emp.id)}
-                className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+                className="h-4 w-4 rounded border-zinc-300 text-teal-800 focus:ring-teal-500"
               />
               <div className="min-w-0">
                 <p className="text-sm font-medium text-zinc-900">{emp.firstName} {emp.lastName}</p>
@@ -456,14 +456,14 @@ function SendTab() {
 
       {/* Send */}
       {result && (
-        <div className={`rounded-xl px-4 py-3 text-sm font-medium ${result.failed === 0 ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+        <div className={`rounded-xl px-4 py-3 text-sm font-medium ${result.failed === 0 ? "bg-teal-50 text-teal-900" : "bg-amber-50 text-amber-700"}`}>
           Sent: {result.sent} | Failed: {result.failed}
         </div>
       )}
       <button
         onClick={handleSend}
         disabled={sending || selected.size === 0 || (!templateCode && !body)}
-        className="rounded-xl bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-emerald-700 disabled:opacity-50"
+        className="rounded-xl bg-teal-800 px-6 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-teal-900 disabled:opacity-50"
       >
         {sending ? "Sending..." : `Send to ${selected.size} recipient(s)`}
       </button>
@@ -505,7 +505,7 @@ function LogsTab() {
             <button
               key={f}
               onClick={() => { setTypeFilter(f); setPage(1); }}
-              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${typeFilter === f ? "border-emerald-500 bg-emerald-50 text-emerald-700" : "border-zinc-200 text-zinc-500 hover:bg-zinc-50"}`}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${typeFilter === f ? "border-teal-500 bg-teal-50 text-teal-900" : "border-zinc-200 text-zinc-500 hover:bg-zinc-50"}`}
             >
               {f || "All"}
             </button>
@@ -567,7 +567,7 @@ function LogsTab() {
 function Spinner() {
   return (
     <div className="flex h-32 items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal-500 border-t-transparent" />
     </div>
   );
 }
@@ -586,7 +586,7 @@ function TypeBadge({ type }: { type: "EMAIL" | "SMS" }) {
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
-    SENT: "bg-emerald-100 text-emerald-700",
+    SENT: "bg-teal-100 text-teal-900",
     FAILED: "bg-red-100 text-red-700",
     PENDING: "bg-amber-100 text-amber-700",
   };
@@ -617,7 +617,7 @@ function ModalField({
         placeholder={placeholder}
         required={required}
         disabled={disabled}
-        className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 transition focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:bg-zinc-100"
+        className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 transition focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 disabled:bg-zinc-100"
       />
     </div>
   );

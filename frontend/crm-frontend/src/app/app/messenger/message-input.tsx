@@ -86,7 +86,7 @@ export default function MessageInput({
       <button
         onClick={handleSend}
         disabled={!text.trim()}
-        className={`shrink-0 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:bg-zinc-200 disabled:text-zinc-400 text-white transition-colors ${
+        className={`shrink-0 rounded-xl bg-teal-800 hover:bg-teal-800 disabled:bg-zinc-200 disabled:text-zinc-400 text-white transition-colors ${
           compact ? "p-2" : "p-2.5"
         }`}
       >

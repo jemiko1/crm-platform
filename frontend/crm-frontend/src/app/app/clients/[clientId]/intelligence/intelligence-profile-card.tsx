@@ -11,13 +11,13 @@ const LABEL_CONFIG: Record<
   high_contact: { text: "High Contact", color: "text-blue-700", bg: "bg-blue-50 ring-blue-200" },
   low_contact: { text: "Low Contact", color: "text-zinc-600", bg: "bg-zinc-50 ring-zinc-200" },
   frequent_caller: { text: "Frequent Caller", color: "text-indigo-700", bg: "bg-indigo-50 ring-indigo-200" },
-  chat_preferred: { text: "Chat Preferred", color: "text-emerald-700", bg: "bg-emerald-50 ring-emerald-200" },
+  chat_preferred: { text: "Chat Preferred", color: "text-teal-900", bg: "bg-teal-50 ring-teal-200" },
   incident_prone: { text: "Incident Prone", color: "text-amber-700", bg: "bg-amber-50 ring-amber-200" },
   high_priority_issues: { text: "High Priority Issues", color: "text-rose-700", bg: "bg-rose-50 ring-rose-200" },
   long_calls: { text: "Long Calls", color: "text-purple-700", bg: "bg-purple-50 ring-purple-200" },
   vip_potential: { text: "VIP Potential", color: "text-amber-700", bg: "bg-yellow-50 ring-yellow-300" },
   at_risk: { text: "At Risk", color: "text-red-700", bg: "bg-red-50 ring-red-200" },
-  stable: { text: "Stable", color: "text-emerald-700", bg: "bg-emerald-50 ring-emerald-200" },
+  stable: { text: "Stable", color: "text-teal-900", bg: "bg-teal-50 ring-teal-200" },
 };
 
 const SEVERITY_STYLE: Record<string, { dot: string; bg: string; ring: string }> = {
@@ -133,7 +133,7 @@ export default function IntelligenceProfileCard({ clientCoreId }: Props) {
           label="Chats"
           value={metrics.chats.total}
           detail={`${metrics.chats.open} open · ${metrics.chats.totalMessages} messages`}
-          accent="text-emerald-700"
+          accent="text-teal-900"
         />
         <MetricCard
           label="Incidents"
@@ -166,7 +166,7 @@ export default function IntelligenceProfileCard({ clientCoreId }: Props) {
             label="Chat Channels"
             value={Object.keys(metrics.chats.channels).length}
             detail={Object.entries(metrics.chats.channels).map(([k, v]) => `${k}: ${v}`).join(", ")}
-            accent="text-emerald-700"
+            accent="text-teal-900"
           />
         )}
       </div>

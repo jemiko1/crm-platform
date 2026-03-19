@@ -32,7 +32,7 @@ export default function HeaderMessengerIcon() {
         onClick={handleClick}
         className={`relative w-10 h-10 flex items-center justify-center rounded-full transition-colors ${
           open
-            ? "bg-emerald-100 text-emerald-600"
+            ? "bg-teal-100 text-teal-800"
             : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
         }`}
         title="Messenger"

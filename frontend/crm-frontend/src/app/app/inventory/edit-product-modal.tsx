@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import ModalDialog from "../../modal-dialog";
 import { API_BASE } from "@/lib/api";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type Product = {
   id: string;
@@ -112,7 +112,7 @@ export default function EditProductModal({ open, onClose, onSuccess, product }: 
             value={formData.name}
             onChange={handleChange}
             placeholder="e.g., TP-Link Router AC1200"
-            className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
           />
         </div>
 
@@ -125,7 +125,7 @@ export default function EditProductModal({ open, onClose, onSuccess, product }: 
             onChange={handleChange}
             rows={3}
             placeholder="Optional product description..."
-            className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
           />
         </div>
 

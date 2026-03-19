@@ -47,7 +47,7 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         disabled={disabled}
-        className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400"
+        className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400"
       />
     </div>
   );
@@ -69,8 +69,8 @@ function ChannelToggle({
       onClick={onToggle}
       disabled={toggling}
       title={active ? `Disable ${channelType}` : `Enable ${channelType}`}
-      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 ${
-        active ? "bg-emerald-500" : "bg-zinc-300"
+      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50 ${
+        active ? "bg-teal-800" : "bg-zinc-300"
       }`}
     >
       <span
@@ -254,7 +254,7 @@ function ViberConfig() {
           <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">Bot</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className={`text-xs font-medium ${active ? "text-emerald-600" : "text-zinc-400"}`}>
+          <span className={`text-xs font-medium ${active ? "text-teal-800" : "text-zinc-400"}`}>
             {active ? "Active" : "Disabled"}
           </span>
           <ChannelToggle channelType="Viber" active={active} onToggle={handleToggle} toggling={toggling} />
@@ -262,7 +262,7 @@ function ViberConfig() {
       </div>
       <p className="mb-4 text-sm text-zinc-500">
         Create a bot at{" "}
-        <a href="https://partners.viber.com/" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">
+        <a href="https://partners.viber.com/" target="_blank" rel="noopener noreferrer" className="text-teal-800 hover:underline">
           Viber Partners
         </a>
         , save the token below, then click <strong>Register Webhook</strong> to receive messages.
@@ -273,7 +273,7 @@ function ViberConfig() {
           <p className="mb-2 text-sm font-medium text-zinc-700">Connection status</p>
           {webhookStatus.ok ? (
             <div className="space-y-1 text-sm">
-              <p className="text-emerald-600 font-medium">Connected</p>
+              <p className="text-teal-800 font-medium">Connected</p>
               {webhookStatus.accountName && (
                 <p className="text-zinc-500">Account: {webhookStatus.accountName}</p>
               )}
@@ -314,7 +314,7 @@ function ViberConfig() {
         <button
           onClick={handleSave}
           disabled={saving || !active}
-          className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
+          className="rounded-xl bg-teal-800 px-4 py-2 text-sm font-medium text-white transition hover:bg-teal-900 disabled:opacity-50"
         >
           {saving ? "Saving..." : "Save Viber"}
         </button>
@@ -440,7 +440,7 @@ function FacebookConfig() {
           <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">Page</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className={`text-xs font-medium ${active ? "text-emerald-600" : "text-zinc-400"}`}>
+          <span className={`text-xs font-medium ${active ? "text-teal-800" : "text-zinc-400"}`}>
             {active ? "Active" : "Disabled"}
           </span>
           <ChannelToggle channelType="Facebook" active={active} onToggle={handleToggle} toggling={toggling} />
@@ -448,7 +448,7 @@ function FacebookConfig() {
       </div>
       <p className="mb-4 text-sm text-zinc-500">
         Create an app at{" "}
-        <a href="https://developers.facebook.com/" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">
+        <a href="https://developers.facebook.com/" target="_blank" rel="noopener noreferrer" className="text-teal-800 hover:underline">
           Facebook Developers
         </a>
         , add Messenger, and set webhook in the app dashboard. Use Verify Token below when configuring the webhook.
@@ -459,7 +459,7 @@ function FacebookConfig() {
           <p className="mb-2 text-sm font-medium text-zinc-700">Connection status</p>
           {webhookStatus.ok ? (
             <div className="space-y-1 text-sm">
-              <p className="text-emerald-600 font-medium">Connected</p>
+              <p className="text-teal-800 font-medium">Connected</p>
               {webhookStatus.pageName && (
                 <p className="text-zinc-500">Page: {webhookStatus.pageName}</p>
               )}
@@ -508,7 +508,7 @@ function FacebookConfig() {
         <button
           onClick={handleSave}
           disabled={saving || !active}
-          className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
+          className="rounded-xl bg-teal-800 px-4 py-2 text-sm font-medium text-white transition hover:bg-teal-900 disabled:opacity-50"
         >
           {saving ? "Saving..." : "Save Facebook"}
         </button>
@@ -640,7 +640,7 @@ function TelegramConfig() {
           <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700">Bot</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className={`text-xs font-medium ${active ? "text-emerald-600" : "text-zinc-400"}`}>
+          <span className={`text-xs font-medium ${active ? "text-teal-800" : "text-zinc-400"}`}>
             {active ? "Active" : "Disabled"}
           </span>
           <ChannelToggle channelType="Telegram" active={active} onToggle={handleToggle} toggling={toggling} />
@@ -648,7 +648,7 @@ function TelegramConfig() {
       </div>
       <p className="mb-4 text-sm text-zinc-500">
         Create a bot via{" "}
-        <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">
+        <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" className="text-teal-800 hover:underline">
           @BotFather
         </a>
         , save the token below, then click <strong>Register Webhook</strong> to receive messages.
@@ -660,7 +660,7 @@ function TelegramConfig() {
           <p className="mb-2 text-sm font-medium text-zinc-700">Connection status</p>
           {webhookStatus.ok ? (
             <div className="space-y-1 text-sm">
-              <p className="text-emerald-600 font-medium">Connected</p>
+              <p className="text-teal-800 font-medium">Connected</p>
               {webhookStatus.url && (
                 <p className="text-zinc-500 truncate" title={webhookStatus.url}>
                   Webhook: {webhookStatus.url}
@@ -697,7 +697,7 @@ function TelegramConfig() {
         <button
           onClick={handleSave}
           disabled={saving || !active}
-          className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
+          className="rounded-xl bg-teal-800 px-4 py-2 text-sm font-medium text-white transition hover:bg-teal-900 disabled:opacity-50"
         >
           {saving ? "Saving..." : "Save Telegram"}
         </button>
@@ -848,10 +848,10 @@ function WhatsAppConfig() {
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h2 className="text-lg font-semibold text-zinc-900">WhatsApp Business</h2>
-          <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Cloud API</span>
+          <span className="rounded-full bg-teal-100 px-2 py-0.5 text-xs font-medium text-teal-900">Cloud API</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className={`text-xs font-medium ${active ? "text-emerald-600" : "text-zinc-400"}`}>
+          <span className={`text-xs font-medium ${active ? "text-teal-800" : "text-zinc-400"}`}>
             {active ? "Active" : "Disabled"}
           </span>
           <ChannelToggle channelType="WhatsApp" active={active} onToggle={handleToggle} toggling={toggling} />
@@ -859,7 +859,7 @@ function WhatsAppConfig() {
       </div>
       <p className="mb-4 text-sm text-zinc-500">
         Use{" "}
-        <a href="https://developers.facebook.com/docs/whatsapp/cloud-api/get-started" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">
+        <a href="https://developers.facebook.com/docs/whatsapp/cloud-api/get-started" target="_blank" rel="noopener noreferrer" className="text-teal-800 hover:underline">
           WhatsApp Cloud API
         </a>
         . Add WhatsApp to your Meta app, get Phone Number ID and Access Token, then configure webhook in Meta Developer Console.
@@ -870,7 +870,7 @@ function WhatsAppConfig() {
           <p className="mb-2 text-sm font-medium text-zinc-700">Connection status</p>
           {webhookStatus.ok ? (
             <div className="space-y-1 text-sm">
-              <p className="text-emerald-600 font-medium">Connected</p>
+              <p className="text-teal-800 font-medium">Connected</p>
               {webhookStatus.phoneNumber && (
                 <p className="text-zinc-500">Phone: {webhookStatus.phoneNumber}</p>
               )}
@@ -921,7 +921,7 @@ function WhatsAppConfig() {
         <button
           onClick={handleSave}
           disabled={saving || !active}
-          className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
+          className="rounded-xl bg-teal-800 px-4 py-2 text-sm font-medium text-white transition hover:bg-teal-900 disabled:opacity-50"
         >
           {saving ? "Saving..." : "Save WhatsApp"}
         </button>
@@ -947,7 +947,7 @@ function WhatsAppConfig() {
               value={testPhone}
               onChange={(e) => setTestPhone(e.target.value)}
               placeholder="e.g. 995555123456 or +1 555 123 4567"
-              className="w-48 rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-48 rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
             />
             <button
               onClick={handleCreateTestConversation}
@@ -1172,7 +1172,7 @@ function CannedResponsesTab() {
                 onChange={(e) => setFormContent(e.target.value)}
                 placeholder="Hello {clientName}, how can I help you today?"
                 rows={3}
-                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
               />
               <p className="mt-1 text-xs text-zinc-400">Use {"{clientName}"} as a placeholder for the client&apos;s name.</p>
             </div>
@@ -1181,7 +1181,7 @@ function CannedResponsesTab() {
               <select
                 value={formChannelType}
                 onChange={(e) => setFormChannelType(e.target.value)}
-                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
               >
                 {CHANNEL_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
@@ -1194,7 +1194,7 @@ function CannedResponsesTab() {
                   type="checkbox"
                   checked={formIsGlobal}
                   onChange={(e) => setFormIsGlobal(e.target.checked)}
-                  className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+                  className="h-4 w-4 rounded border-zinc-300 text-teal-800 focus:ring-teal-500"
                 />
                 Global (visible to all agents)
               </label>
@@ -1204,7 +1204,7 @@ function CannedResponsesTab() {
             <button
               onClick={handleSave}
               disabled={saving || !formTitle.trim() || !formContent.trim()}
-              className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
+              className="rounded-xl bg-teal-800 px-4 py-2 text-sm font-medium text-white transition hover:bg-teal-900 disabled:opacity-50"
             >
               {saving ? "Saving..." : editing ? "Update" : "Create"}
             </button>
@@ -1224,7 +1224,7 @@ function CannedResponsesTab() {
           {!showForm && (
             <button
               onClick={startCreate}
-              className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700"
+              className="rounded-xl bg-teal-800 px-4 py-2 text-sm font-medium text-white transition hover:bg-teal-900"
             >
               Add New
             </button>
@@ -1267,7 +1267,7 @@ function CannedResponsesTab() {
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => startEdit(r)}
-                          className="rounded-lg px-2.5 py-1 text-xs font-medium text-emerald-600 transition hover:bg-emerald-50"
+                          className="rounded-lg px-2.5 py-1 text-xs font-medium text-teal-800 transition hover:bg-teal-50"
                         >
                           Edit
                         </button>

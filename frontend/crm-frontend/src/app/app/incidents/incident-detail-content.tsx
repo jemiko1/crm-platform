@@ -5,7 +5,7 @@ import { API_BASE } from "@/lib/api";
 import { usePermissions } from "@/lib/use-permissions";
 import { useModalContext } from "../modal-manager";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type IncidentDetail = {
   id: string;
@@ -46,7 +46,7 @@ function getStatusBadge(status: IncidentDetail["status"]) {
   const styles = {
     CREATED: "bg-blue-50 text-blue-700 ring-blue-200",
     IN_PROGRESS: "bg-amber-50 text-amber-700 ring-amber-200",
-    COMPLETED: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+    COMPLETED: "bg-teal-50 text-teal-800 ring-teal-200",
     WORK_ORDER_INITIATED: "bg-purple-50 text-purple-700 ring-purple-200",
   };
   return styles[status];
@@ -323,7 +323,7 @@ export default function IncidentDetailContent({
                   type="button"
                   onClick={() => updateStatus("COMPLETED")}
                   disabled={updating}
-                  className="rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                  className="rounded-2xl bg-teal-800 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-900 disabled:opacity-50"
                 >
                   Mark Completed
                 </button>
@@ -343,7 +343,7 @@ export default function IncidentDetailContent({
           )}
 
           {incident.status === "COMPLETED" && (
-            <div className="text-sm text-emerald-700">
+            <div className="text-sm text-teal-900">
               ✓ This incident has been marked as completed.
             </div>
           )}

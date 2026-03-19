@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { API_BASE } from "@/lib/api";
 
-const BRAND_GREEN = "rgb(8,117,56)";
+const BRAND_TEAL = "rgb(0, 86, 83)";
 
 type UserInfo = {
   email: string;
@@ -214,13 +214,13 @@ export default function ProfileMenu() {
             className="h-full w-full object-cover"
           />
         ) : (
-          <div className="h-full w-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-sm font-semibold">
+          <div className="h-full w-full bg-gradient-to-br from-teal-700 to-teal-900 flex items-center justify-center text-white text-sm font-semibold">
             {initialsOf(me.firstName, me.lastName)}
           </div>
         )}
         <span
           className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full ring-2 ring-white"
-          style={{ backgroundColor: BRAND_GREEN }}
+          style={{ backgroundColor: BRAND_TEAL }}
         />
       </button>
 
@@ -253,8 +253,8 @@ export default function ProfileMenu() {
                     <div className="mt-1 text-xs text-zinc-600">{me.email}</div>
 
                     <div className="mt-2 flex flex-wrap gap-2">
-                      <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                      <div className="inline-flex items-center gap-2 rounded-full bg-teal-50 px-3 py-1 text-xs font-medium text-teal-900 ring-1 ring-teal-200">
+                        <span className="h-1.5 w-1.5 rounded-full bg-teal-700" />
                         {roleLabel}
                       </div>
                       {me.department && (
@@ -276,7 +276,7 @@ export default function ProfileMenu() {
                       type="button"
                       onClick={logout}
                       className="w-full rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95 active:scale-[0.99]"
-                      style={{ backgroundColor: BRAND_GREEN }}
+                      style={{ backgroundColor: BRAND_TEAL }}
                     >
                       Logout
                     </button>
@@ -295,7 +295,7 @@ function MenuLink({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className="block rounded-2xl px-4 py-2.5 text-sm text-zinc-800 hover:bg-emerald-50 hover:text-zinc-900 transition"
+      className="block rounded-2xl px-4 py-2.5 text-sm text-zinc-800 hover:bg-teal-50 hover:text-zinc-900 transition"
     >
       {label}
     </Link>

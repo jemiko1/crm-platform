@@ -9,7 +9,7 @@ import AssignEmployeesModal from "../work-orders/[id]/assign-employees-modal";
 import { PermissionGuard } from "@/lib/permission-guard";
 import { getStatusLabel, getStatusBadge, resolveDisplayStatus } from "@/lib/work-order-status";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type WorkOrderTask = {
   id: string;
@@ -297,7 +297,7 @@ export default function TasksPage() {
             onClick={() => { setActiveTab("open"); setTaskFilter("all"); }}
             className={`relative px-4 py-3 text-sm font-semibold transition-colors ${
               activeTab === "open"
-                ? "text-emerald-700"
+                ? "text-teal-900"
                 : "text-zinc-500 hover:text-zinc-700"
             }`}
           >
@@ -306,7 +306,7 @@ export default function TasksPage() {
               <span
                 className={`inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-xs font-bold ${
                   activeTab === "open"
-                    ? "bg-emerald-100 text-emerald-700"
+                    ? "bg-teal-100 text-teal-900"
                     : "bg-zinc-100 text-zinc-600"
                 }`}
               >
@@ -325,7 +325,7 @@ export default function TasksPage() {
             onClick={() => { setActiveTab("closed"); setTaskFilter("all"); }}
             className={`relative px-4 py-3 text-sm font-semibold transition-colors ${
               activeTab === "closed"
-                ? "text-emerald-700"
+                ? "text-teal-900"
                 : "text-zinc-500 hover:text-zinc-700"
             }`}
           >
@@ -334,7 +334,7 @@ export default function TasksPage() {
               <span
                 className={`inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-xs font-bold ${
                   activeTab === "closed"
-                    ? "bg-emerald-100 text-emerald-700"
+                    ? "bg-teal-100 text-teal-900"
                     : "bg-zinc-100 text-zinc-600"
                 }`}
               >

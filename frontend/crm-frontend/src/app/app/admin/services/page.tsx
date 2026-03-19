@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { apiGet, apiPost, apiPatch, apiDelete, ApiError } from "@/lib/api";
 import { PermissionGuard } from "@/lib/permission-guard";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type SalesService = {
   id: string;
@@ -170,7 +170,7 @@ export default function ServicesAdminPage() {
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal-500 border-t-transparent" />
       </div>
     );
   }
@@ -208,7 +208,7 @@ export default function ServicesAdminPage() {
             type="checkbox"
             checked={showInactive}
             onChange={(e) => setShowInactive(e.target.checked)}
-            className="h-4 w-4 rounded border-zinc-300 text-emerald-600"
+            className="h-4 w-4 rounded border-zinc-300 text-teal-800"
           />
           Show inactive services
         </label>
@@ -362,7 +362,7 @@ export default function ServicesAdminPage() {
                       <span
                         className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${
                           service.isActive
-                            ? "bg-emerald-100 text-emerald-700"
+                            ? "bg-teal-100 text-teal-900"
                             : "bg-zinc-100 text-zinc-600"
                         }`}
                       >
@@ -385,7 +385,7 @@ export default function ServicesAdminPage() {
                           className={`rounded p-1.5 ${
                             service.isActive
                               ? "text-amber-600 hover:bg-amber-50"
-                              : "text-emerald-600 hover:bg-emerald-50"
+                              : "text-teal-800 hover:bg-teal-50"
                           }`}
                           title={service.isActive ? "Deactivate" : "Activate"}
                         >

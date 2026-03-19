@@ -13,7 +13,7 @@ type SortDir = "asc" | "desc";
 
 const COLS: { key: SortField; header: string; fmt: (v: unknown) => string; color?: (v: unknown) => string }[] = [
   { key: "displayName", header: "Agent", fmt: (v) => String(v ?? "—") },
-  { key: "answeredCalls", header: "Answered", fmt: (v) => String(v ?? 0), color: () => "text-emerald-700" },
+  { key: "answeredCalls", header: "Answered", fmt: (v) => String(v ?? 0), color: () => "text-teal-900" },
   { key: "noAnswerCalls", header: "No Answer", fmt: (v) => String(v ?? 0), color: (v) => (Number(v) > 0 ? "text-red-600" : "") },
   { key: "busyCalls", header: "Busy", fmt: (v) => String(v ?? 0) },
   { key: "totalCallsDurationMin", header: "Total Duration", fmt: (v) => v != null ? `${Number(v).toFixed(1)} min` : "—" },

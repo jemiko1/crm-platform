@@ -40,7 +40,7 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
             <div className="lg:col-span-6">
               <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-zinc-600">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                <span className="h-2 w-2 rounded-full bg-teal-700" />
                 Enterprise-ready CRM foundation
               </div>
 

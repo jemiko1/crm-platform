@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { apiGet } from "@/lib/api";
 import { PermissionGuard } from "@/lib/permission-guard";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type Role = {
   id: string;
@@ -97,7 +97,7 @@ export default function RolesPage() {
           placeholder="Search roles..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+          className="w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
         />
       </div>
 
@@ -174,14 +174,14 @@ export default function RolesPage() {
                     {role._count.employees}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-sm text-zinc-900">
-                    <span className="font-semibold text-emerald-600">
+                    <span className="font-semibold text-teal-800">
                       {role._count.permissions}
                     </span>
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
                     <button
                       onClick={() => alert(`View/Edit Role: ${role.name} - coming soon`)}
-                      className="font-semibold text-emerald-600 hover:text-emerald-700"
+                      className="font-semibold text-teal-800 hover:text-teal-900"
                     >
                       View
                     </button>

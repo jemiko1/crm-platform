@@ -335,7 +335,7 @@ export default function ConversationPanel({ conversationId, onDeleted }: Convers
           <button
             onClick={handleJoinConversation}
             disabled={joining}
-            className="w-full px-6 py-3 text-sm font-semibold rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50"
+            className="w-full px-6 py-3 text-sm font-semibold rounded-xl bg-teal-800 text-white hover:bg-teal-900 transition-colors shadow-sm disabled:opacity-50"
           >
             {joining ? "Joining..." : "Join Conversation"}
           </button>

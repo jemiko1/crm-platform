@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { apiGet, apiPatch } from "@/lib/api";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type Employee = {
   id: string;
@@ -223,7 +223,7 @@ export default function EditEmployeeModal({
                     required
                     value={formData.firstName}
                     onChange={handleChange}
-                    className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   />
                 </div>
 
@@ -237,7 +237,7 @@ export default function EditEmployeeModal({
                     required
                     value={formData.lastName}
                     onChange={handleChange}
-                    className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   />
                 </div>
 
@@ -251,7 +251,7 @@ export default function EditEmployeeModal({
                     required
                     value={formData.email}
                     onChange={handleChange}
-                    className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   />
                 </div>
 
@@ -262,7 +262,7 @@ export default function EditEmployeeModal({
                     name="phone"
                     value={formData.phone}
                     onChange={handleChange}
-                    className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   />
                 </div>
 
@@ -274,7 +274,7 @@ export default function EditEmployeeModal({
                     value={formData.extensionNumber}
                     onChange={handleChange}
                     placeholder="1234"
-                    className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   />
                 </div>
 
@@ -285,7 +285,7 @@ export default function EditEmployeeModal({
                     name="birthday"
                     value={formData.birthday}
                     onChange={handleChange}
-                    className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   />
                 </div>
 
@@ -295,7 +295,7 @@ export default function EditEmployeeModal({
                     name="status"
                     value={formData.status}
                     onChange={handleChange}
-                    className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   >
                     <option value="ACTIVE">Active</option>
                     <option value="INACTIVE">Inactive</option>
@@ -335,7 +335,7 @@ export default function EditEmployeeModal({
                       name="departmentId"
                       value={formData.departmentId}
                       onChange={handleChange}
-                      className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                      className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                     >
                       <option value="">No department</option>
                       {departments.map((dept) => (
@@ -358,7 +358,7 @@ export default function EditEmployeeModal({
                       name="positionId"
                       value={formData.positionId}
                       onChange={handleChange}
-                      className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                      className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                     >
                       <option value="">No position</option>
                       {availablePositions.map((pos) => (
@@ -383,7 +383,7 @@ export default function EditEmployeeModal({
                     name="address"
                     value={formData.address}
                     onChange={handleChange}
-                    className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   />
                 </div>
 
@@ -394,7 +394,7 @@ export default function EditEmployeeModal({
                     name="city"
                     value={formData.city}
                     onChange={handleChange}
-                    className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   />
                 </div>
 
@@ -405,7 +405,7 @@ export default function EditEmployeeModal({
                     name="country"
                     value={formData.country}
                     onChange={handleChange}
-                    className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   />
                 </div>
 
@@ -416,7 +416,7 @@ export default function EditEmployeeModal({
                     name="emergencyContact"
                     value={formData.emergencyContact}
                     onChange={handleChange}
-                    className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   />
                 </div>
 
@@ -427,7 +427,7 @@ export default function EditEmployeeModal({
                     name="emergencyPhone"
                     value={formData.emergencyPhone}
                     onChange={handleChange}
-                    className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   />
                 </div>
               </div>

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { apiGet } from "@/lib/api";
 import { PermissionGuard } from "@/lib/permission-guard";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type ListCategory = {
   id: string;
@@ -88,11 +88,11 @@ export default function ListItemsPage() {
             <Link
               key={category.id}
               href={`/app/admin/list-items/${category.id}`}
-              className="group rounded-2xl border-2 border-zinc-200 bg-white p-6 transition hover:border-emerald-300 hover:shadow-lg"
+              className="group rounded-2xl border-2 border-zinc-200 bg-white p-6 transition hover:border-teal-300 hover:shadow-lg"
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h3 className="font-semibold text-zinc-900 group-hover:text-emerald-700">
+                  <h3 className="font-semibold text-zinc-900 group-hover:text-teal-900">
                     {category.name}
                   </h3>
                   {category.description && (
@@ -120,7 +120,7 @@ export default function ListItemsPage() {
                 )}
               </div>
 
-              <div className="mt-4 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700">
+              <div className="mt-4 rounded-xl bg-teal-50 px-3 py-2 text-xs font-medium text-teal-900">
                 ✏️ Editable
               </div>
             </Link>

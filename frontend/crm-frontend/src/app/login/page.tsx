@@ -104,14 +104,14 @@ function LoginPageContent() {
   return (
     <div className="min-h-screen px-4 flex items-center justify-center relative overflow-hidden">
       {/* Darker abstract background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-emerald-200 via-emerald-100 to-slate-200" />
+      <div className="absolute inset-0 bg-gradient-to-br from-teal-200 via-teal-100 to-slate-200" />
 
       {/* Slight dark overlay for better contrast */}
       <div className="absolute inset-0 bg-slate-900/15" />
 
       {/* Soft blobs (stronger) */}
-      <div className="absolute -top-24 -left-24 h-80 w-80 rounded-full bg-emerald-500/35 blur-3xl" />
-      <div className="absolute top-24 -right-24 h-96 w-96 rounded-full bg-emerald-600/30 blur-3xl" />
+      <div className="absolute -top-24 -left-24 h-80 w-80 rounded-full bg-teal-700/35 blur-3xl" />
+      <div className="absolute top-24 -right-24 h-96 w-96 rounded-full bg-teal-800/30 blur-3xl" />
       <div className="absolute -bottom-24 left-1/3 h-96 w-96 rounded-full bg-slate-600/25 blur-3xl" />
 
       {/* Subtle grid */}
@@ -143,7 +143,7 @@ function LoginPageContent() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-300 shadow-sm"
+                  className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-700 shadow-sm"
                   placeholder="admin@crm.local"
                   autoComplete="email"
                 />
@@ -158,7 +158,7 @@ function LoginPageContent() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-300 shadow-sm"
+                  className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-700 shadow-sm"
                   placeholder="••••••••"
                   autoComplete="current-password"
                 />
@@ -176,7 +176,7 @@ function LoginPageContent() {
                     type="checkbox"
                     checked={remember}
                     onChange={(e) => setRemember(e.target.checked)}
-                    className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-200"
+                    className="h-4 w-4 rounded border-zinc-300 text-teal-700 focus:ring-teal-200"
                   />
                   Remember me
                 </label>
@@ -228,7 +228,7 @@ function LoginPageContent() {
               <button
                 onClick={handleSwitchPhone}
                 disabled={switchingPhone}
-                className="flex-1 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
+                className="flex-1 px-4 py-2 rounded-xl bg-teal-800 text-white text-sm font-medium hover:bg-teal-900 disabled:opacity-50"
               >
                 {switchingPhone ? "Switching..." : "Switch Phone"}
               </button>

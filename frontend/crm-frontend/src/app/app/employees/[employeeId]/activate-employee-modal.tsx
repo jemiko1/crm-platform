@@ -82,7 +82,7 @@ export default function ActivateEmployeeModal({
         <div className="border-b border-zinc-200 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-100">
                 <IconActivate />
               </div>
               <div>
@@ -111,8 +111,8 @@ export default function ActivateEmployeeModal({
           )}
 
           {success && (
-            <div className="rounded-xl bg-emerald-50 p-3 ring-1 ring-emerald-200">
-              <div className="text-sm text-emerald-700">
+            <div className="rounded-xl bg-teal-50 p-3 ring-1 ring-teal-200">
+              <div className="text-sm text-teal-900">
                 Employee has been successfully activated!
               </div>
             </div>
@@ -126,11 +126,11 @@ export default function ActivateEmployeeModal({
             </div>
           ) : !success && (
             <>
-              <div className="rounded-xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
-                <div className="text-sm text-emerald-700">
+              <div className="rounded-xl bg-teal-50 p-4 ring-1 ring-teal-200">
+                <div className="text-sm text-teal-900">
                   <strong>This action will:</strong>
                 </div>
-                <ul className="mt-2 list-disc list-inside text-sm text-emerald-700 space-y-1">
+                <ul className="mt-2 list-disc list-inside text-sm text-teal-900 space-y-1">
                   <li>Set the employee status to <strong>ACTIVE</strong></li>
                   {employee.user && (
                     <li>Reactivate their user account (allow login)</li>
@@ -168,7 +168,7 @@ export default function ActivateEmployeeModal({
                 type="button"
                 onClick={handleActivate}
                 disabled={loading}
-                className="rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50"
+                className="rounded-2xl bg-teal-800 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-teal-900 disabled:opacity-50"
               >
                 {loading ? "Activating..." : "Activate Employee"}
               </button>
@@ -196,7 +196,7 @@ function IconClose() {
 
 function IconActivate() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-emerald-600">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-teal-800">
       <path
         d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
         stroke="currentColor"

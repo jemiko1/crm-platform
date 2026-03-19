@@ -118,7 +118,7 @@ export default function LeadServicesSection({
               loadAvailableServices();
               setShowAddForm(true);
             }}
-            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+            className="rounded-lg bg-teal-800 px-4 py-2 text-sm font-medium text-white hover:bg-teal-900"
           >
             Add Service
           </button>
@@ -172,7 +172,7 @@ export default function LeadServicesSection({
             <button
               type="submit"
               disabled={loading || !selectedServiceId}
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+              className="rounded-lg bg-teal-800 px-4 py-2 text-sm font-medium text-white hover:bg-teal-900 disabled:opacity-50"
             >
               {loading ? "Adding..." : "Add Service"}
             </button>
@@ -251,7 +251,7 @@ export default function LeadServicesSection({
                   <td colSpan={2} className="px-4 py-3 font-semibold text-zinc-900">
                     Total
                   </td>
-                  <td className="px-4 py-3 text-right font-semibold text-emerald-600">
+                  <td className="px-4 py-3 text-right font-semibold text-teal-800">
                     {totalMonthly.toFixed(2)} GEL/mo
                   </td>
                   <td className="px-4 py-3 text-right font-semibold text-blue-600">

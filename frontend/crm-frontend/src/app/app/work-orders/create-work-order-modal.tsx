@@ -6,7 +6,7 @@ import { apiGet, apiGetList, apiPost, ApiError } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
 import { useListItems } from "@/hooks/useListItems";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type Building = {
   coreId: number;
@@ -331,7 +331,7 @@ export default function CreateWorkOrderModal({
           onClick={(e) => e.stopPropagation()}
         >
           {/* Left Sidebar - Steps */}
-          <div className="w-full md:w-72 bg-gradient-to-b from-emerald-50 to-teal-50 p-4 sm:p-6 md:p-8 flex flex-col md:min-h-0">
+          <div className="w-full md:w-72 bg-gradient-to-b from-teal-50 to-teal-50 p-4 sm:p-6 md:p-8 flex flex-col md:min-h-0">
             <div className="mb-4 md:mb-8">
               <h2 className="text-xl sm:text-2xl font-bold text-zinc-800">Create Work Order</h2>
               <p className="text-xs sm:text-sm text-zinc-600 mt-1">Follow the steps to create a new work order</p>
@@ -349,7 +349,7 @@ export default function CreateWorkOrderModal({
                     {idx < STEPS.length - 1 && (
                       <div
                         className={`absolute left-[15px] top-8 w-0.5 h-8 ${
-                          isCompleted ? "bg-emerald-500" : "bg-zinc-300"
+                          isCompleted ? "bg-teal-500" : "bg-zinc-300"
                         }`}
                       />
                     )}
@@ -364,9 +364,9 @@ export default function CreateWorkOrderModal({
                       <div
                         className={`flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-semibold text-xs sm:text-sm transition-all ${
                           isCompleted
-                            ? "bg-emerald-500 text-white"
+                            ? "bg-teal-500 text-white"
                             : isCurrent
-                            ? "bg-emerald-600 text-white ring-4 ring-emerald-200"
+                            ? "bg-teal-800 text-white ring-4 ring-teal-200"
                             : "bg-white text-zinc-400 border-2 border-zinc-300"
                         }`}
                       >
@@ -442,11 +442,11 @@ export default function CreateWorkOrderModal({
                             }
                             className={`text-left p-3 sm:p-4 rounded-xl border-2 transition-all ${
                               isSelected
-                                ? "border-emerald-500 bg-emerald-50"
+                                ? "border-teal-500 bg-teal-50"
                                 : "border-zinc-200 hover:border-zinc-300 bg-white"
                             }`}
                           >
-                            <div className={`text-sm sm:text-base font-semibold ${isSelected ? "text-emerald-900" : "text-zinc-900"}`}>
+                            <div className={`text-sm sm:text-base font-semibold ${isSelected ? "text-teal-900" : "text-zinc-900"}`}>
                               {getWoTypeLabel(type.value, language)}
                             </div>
                           </button>
@@ -483,11 +483,11 @@ export default function CreateWorkOrderModal({
                             if (buildingSearch.trim().length > 0) setShowBuildingResults(true);
                           }}
                           placeholder="Search buildings by name, address, or ID..."
-                          className="w-full rounded-xl bg-white px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 border border-zinc-300 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200"
+                          className="w-full rounded-xl bg-white px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 border border-zinc-300 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-200"
                         />
 
                         {selectedBuilding && !showBuildingResults && (
-                          <div className="mt-3 flex items-center justify-between rounded-xl bg-emerald-50 p-3 border border-emerald-200">
+                          <div className="mt-3 flex items-center justify-between rounded-xl bg-teal-50 p-3 border border-teal-200">
                             <div>
                               <div className="font-medium text-zinc-900">{selectedBuilding.name}</div>
                               <div className="text-xs text-zinc-500">#{selectedBuilding.coreId}</div>
@@ -541,7 +541,7 @@ export default function CreateWorkOrderModal({
                           Select Devices <span className="text-red-500">*</span>
                         </label>
                         {selectedAssets.length > 0 && (
-                          <span className="text-xs text-emerald-600 font-semibold bg-emerald-100 px-2 py-1 rounded-lg">
+                          <span className="text-xs text-teal-800 font-semibold bg-teal-100 px-2 py-1 rounded-lg">
                             {selectedAssets.length} selected
                           </span>
                         )}
@@ -557,7 +557,7 @@ export default function CreateWorkOrderModal({
                                 <label
                                   key={asset.coreId}
                                   className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${
-                                    isSelected ? "bg-emerald-50" : "hover:bg-zinc-50"
+                                    isSelected ? "bg-teal-50" : "hover:bg-zinc-50"
                                   }`}
                                 >
                                   <input
@@ -578,7 +578,7 @@ export default function CreateWorkOrderModal({
                                         }));
                                       }
                                     }}
-                                    className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+                                    className="h-4 w-4 rounded border-zinc-300 text-teal-800 focus:ring-teal-500"
                                   />
                                   <div className="flex-1 min-w-0">
                                     <div className="text-sm font-medium text-zinc-900">{asset.name}</div>
@@ -608,7 +608,7 @@ export default function CreateWorkOrderModal({
                       onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
                       rows={5}
                       placeholder="Describe the work that needs to be done in detail..."
-                      className="w-full rounded-xl bg-white px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 border border-zinc-300 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 resize-none"
+                      className="w-full rounded-xl bg-white px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 border border-zinc-300 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-200 resize-none"
                     />
                   </div>
 
@@ -621,7 +621,7 @@ export default function CreateWorkOrderModal({
                         value={formData.contactNumber}
                         onChange={(e) => setFormData((prev) => ({ ...prev, contactNumber: e.target.value }))}
                         placeholder="+995 XXX XXX XXX"
-                        className="w-full rounded-xl bg-white px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 border border-zinc-300 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200"
+                        className="w-full rounded-xl bg-white px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 border border-zinc-300 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-200"
                       />
                     </div>
                     <div>
@@ -630,7 +630,7 @@ export default function CreateWorkOrderModal({
                         type="datetime-local"
                         value={formData.deadline}
                         onChange={(e) => setFormData((prev) => ({ ...prev, deadline: e.target.value }))}
-                        className="w-full rounded-xl bg-white px-4 py-3 text-sm text-zinc-900 border border-zinc-300 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200"
+                        className="w-full rounded-xl bg-white px-4 py-3 text-sm text-zinc-900 border border-zinc-300 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-200"
                       />
                     </div>
                   </div>
@@ -703,7 +703,7 @@ export default function CreateWorkOrderModal({
                         if (employeeSearch.trim().length > 0) setShowEmployeeResults(true);
                       }}
                       placeholder="Search employees to notify..."
-                      className="w-full rounded-xl bg-white px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 border border-zinc-300 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200"
+                      className="w-full rounded-xl bg-white px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 border border-zinc-300 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-200"
                     />
 
                     {selectedEmployees.length > 0 && (

@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { apiGet, apiDelete, apiPost } from "@/lib/api";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type ListItem = {
   id: string;
@@ -230,12 +230,12 @@ export default function DeleteItemModal({
                 <div className="text-sm text-zinc-500">Checking usage...</div>
               </div>
             ) : usageInfo && usageInfo.usageCount === 0 ? (
-              <div className="rounded-2xl border-2 border-emerald-200 bg-emerald-50 p-4">
+              <div className="rounded-2xl border-2 border-teal-200 bg-teal-50 p-4">
                 <div className="flex items-center gap-2">
                   <span className="text-lg">✅</span>
-                  <div className="font-semibold text-emerald-900">Safe to Delete</div>
+                  <div className="font-semibold text-teal-900">Safe to Delete</div>
                 </div>
-                <p className="mt-1 text-sm text-emerald-700">
+                <p className="mt-1 text-sm text-teal-900">
                   This value is not currently used anywhere in the system.
                 </p>
               </div>
@@ -267,11 +267,11 @@ export default function DeleteItemModal({
             {usageInfo && usageInfo.usageCount > 0 ? (
               <>
                 {/* OPTION 1: BULK REASSIGNMENT */}
-                <div className="rounded-2xl border-2 border-emerald-200 bg-emerald-50 p-4">
-                  <h4 className="font-semibold text-emerald-900">
+                <div className="rounded-2xl border-2 border-teal-200 bg-teal-50 p-4">
+                  <h4 className="font-semibold text-teal-900">
                     ✨ Option 1: Reassign to Another Value (Recommended)
                   </h4>
-                  <p className="mt-1 text-sm text-emerald-700">
+                  <p className="mt-1 text-sm text-teal-900">
                     Move all {usageInfo.usageCount} records to a different value, then delete this one.
                   </p>
 
@@ -282,7 +282,7 @@ export default function DeleteItemModal({
                     <select
                       value={reassignToItemId}
                       onChange={(e) => setReassignToItemId(e.target.value)}
-                      className="mt-2 w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                      className="mt-2 w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                     >
                       <option value="">-- Select a value --</option>
                       {availableItems.map((i) => (
@@ -309,7 +309,7 @@ export default function DeleteItemModal({
                   <button
                     onClick={handleReassignAndDelete}
                     disabled={!reassignToItemId || !confirmReassign || loading}
-                    className="mt-4 w-full rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="mt-4 w-full rounded-xl bg-teal-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-900 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? (
                       <span className="flex items-center justify-center gap-2">

@@ -8,7 +8,7 @@ import { usePermissions } from "@/lib/use-permissions";
 import { useModalContext } from "../modal-manager";
 import { useI18n } from "@/hooks/useI18n";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type ClientBuildingRef = {
   coreId: number;
@@ -184,7 +184,7 @@ function ClientsPageContent() {
                     setPage(1);
                   }}
                   placeholder={t("clients.searchPlaceholder", "Search by name, ID number, payment id, phone, building...")}
-                  className="w-full max-w-md rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-md ring-2 ring-emerald-500/40 border border-emerald-500/30 hover:ring-emerald-500/60 hover:border-emerald-500/50 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/70 focus:shadow-lg focus:border-emerald-500/60 transition-all"
+                  className="w-full max-w-md rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-md ring-2 ring-teal-500/40 border border-teal-500/30 hover:ring-teal-500/60 hover:border-teal-500/50 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-teal-500/70 focus:shadow-lg focus:border-teal-500/60 transition-all"
                 />
               </div>
 
@@ -236,7 +236,7 @@ function ClientsPageContent() {
                               style={{ cursor: "pointer" }}
                               className={[
                                 "group transition-all duration-200 ease-out",
-                                "hover:bg-emerald-50/60",
+                                "hover:bg-teal-50/60",
                                 "hover:shadow-lg hover:-translate-y-0.5 hover:z-10",
                                 !isLast && "border-b border-zinc-100",
                               ].join(" ")}
@@ -396,7 +396,7 @@ const BuildingsCell = React.memo(function BuildingsCell({ buildings }: { buildin
                 key={b.coreId}
                 type="button"
                 onClick={() => openModal("building", String(b.coreId))}
-                className="block w-full text-left rounded-xl bg-zinc-50 px-3 py-2 text-sm text-zinc-900 ring-1 ring-zinc-200 hover:bg-emerald-50 hover:ring-emerald-200 transition"
+                className="block w-full text-left rounded-xl bg-zinc-50 px-3 py-2 text-sm text-zinc-900 ring-1 ring-zinc-200 hover:bg-teal-50 hover:ring-teal-200 transition"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0 truncate font-semibold">{b.name}</div>

@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { apiGet, apiPatch, apiPost, apiDelete, ApiError } from "@/lib/api";
 import { PermissionGuard } from "@/lib/permission-guard";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type Position = {
   id: string;
@@ -250,7 +250,7 @@ export default function SalesConfigPage() {
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal-500 border-t-transparent" />
       </div>
     );
   }
@@ -285,7 +285,7 @@ export default function SalesConfigPage() {
               onClick={() => setActiveTab(tab.id as any)}
               className={`border-b-2 pb-4 text-sm font-medium transition ${
                 activeTab === tab.id
-                  ? "border-emerald-500 text-emerald-600"
+                  ? "border-teal-500 text-teal-800"
                   : "border-transparent text-zinc-500 hover:text-zinc-700"
               }`}
             >
@@ -365,7 +365,7 @@ export default function SalesConfigPage() {
                             >
                               👤 {ap.position.name}
                               {ap.isPrimaryAssignee && (
-                                <span className="text-emerald-600">★</span>
+                                <span className="text-teal-800">★</span>
                               )}
                             </span>
                           ))}
@@ -434,7 +434,7 @@ export default function SalesConfigPage() {
                     <span
                       className={`rounded-full px-3 py-1 text-xs font-medium ${
                         stage.isActive
-                          ? "bg-emerald-100 text-emerald-700"
+                          ? "bg-teal-100 text-teal-900"
                           : "bg-zinc-100 text-zinc-600"
                       }`}
                     >
@@ -446,7 +446,7 @@ export default function SalesConfigPage() {
                         className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
                           stage.isActive
                             ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
-                            : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                            : "bg-teal-100 text-teal-900 hover:bg-teal-200"
                         }`}
                       >
                         {stage.isActive ? "Deactivate" : "Activate"}
@@ -581,7 +581,7 @@ export default function SalesConfigPage() {
                     className={`rounded p-1.5 ${
                       source.isActive
                         ? "text-amber-600 hover:bg-amber-50"
-                        : "text-emerald-600 hover:bg-emerald-50"
+                        : "text-teal-800 hover:bg-teal-50"
                     }`}
                   >
                     {source.isActive ? (
@@ -632,13 +632,13 @@ export default function SalesConfigPage() {
                     onClick={() => togglePosition(position.id)}
                     className={`w-full flex items-center gap-3 p-3 rounded-2xl text-left transition ring-1 ${
                       isSelected
-                        ? "bg-emerald-50 ring-emerald-300"
+                        ? "bg-teal-50 ring-teal-300"
                         : "bg-zinc-50 ring-zinc-200 hover:bg-zinc-100"
                     }`}
                   >
                     <div
                       className={`flex h-5 w-5 items-center justify-center rounded-md ${
-                        isSelected ? "bg-emerald-600" : "bg-white ring-1 ring-zinc-300"
+                        isSelected ? "bg-teal-800" : "bg-white ring-1 ring-zinc-300"
                       }`}
                     >
                       {isSelected && (

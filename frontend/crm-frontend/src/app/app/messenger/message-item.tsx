@@ -45,10 +45,10 @@ function StatusIcon({ status }: { status?: MessageStatus }) {
   }
   return (
     <div className="flex -space-x-1.5">
-      <svg className="w-3.5 h-3.5 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
+      <svg className="w-3.5 h-3.5 text-teal-500" viewBox="0 0 20 20" fill="currentColor">
         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
       </svg>
-      <svg className="w-3.5 h-3.5 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
+      <svg className="w-3.5 h-3.5 text-teal-500" viewBox="0 0 20 20" fill="currentColor">
         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
       </svg>
     </div>
@@ -181,7 +181,7 @@ export default function MessageItem({
         className="w-7 h-7 rounded-full object-cover shrink-0"
       />
     ) : (
-      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-[10px] font-semibold shrink-0">
+      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white text-[10px] font-semibold shrink-0">
         {message.sender.firstName.charAt(0)}
         {message.sender.lastName.charAt(0)}
       </div>
@@ -211,7 +211,7 @@ export default function MessageItem({
             <div
               className={`text-[10px] px-2 py-1 rounded-lg mb-0.5 border-l-2 ${
                 isMine
-                  ? "bg-emerald-400/20 border-emerald-400 text-emerald-100"
+                  ? "bg-teal-400/20 border-teal-400 text-teal-100"
                   : "bg-zinc-100 border-zinc-300 text-zinc-500"
               }`}
             >
@@ -227,7 +227,7 @@ export default function MessageItem({
           <div
             className={`inline-block px-3 py-2 rounded-2xl text-sm leading-relaxed break-words ${
               isMine
-                ? "bg-emerald-500 text-white rounded-br-md"
+                ? "bg-teal-700 text-white rounded-br-md"
                 : "bg-zinc-100 text-zinc-900 rounded-bl-md"
             }`}
           >
@@ -243,7 +243,7 @@ export default function MessageItem({
                   onClick={() => handleReact(rg.emoji)}
                   className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs border transition-all ${
                     rg.employeeIds.includes(myEmployeeId ?? "")
-                      ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                      ? "bg-teal-50 border-teal-200 text-teal-900"
                       : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"
                   }`}
                   title={rg.employees.join(", ")}
@@ -311,7 +311,7 @@ export default function MessageItem({
                       className="w-3.5 h-3.5 rounded-full object-cover"
                     />
                   ) : (
-                    <div className="w-3.5 h-3.5 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-[6px] font-bold">
+                    <div className="w-3.5 h-3.5 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white text-[6px] font-bold">
                       {p.employee.firstName.charAt(0)}
                     </div>
                   )}

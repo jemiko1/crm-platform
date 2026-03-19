@@ -280,8 +280,8 @@ export default function ReplyBox({ conversationId, channelType, clientName, what
             <button
               key={r.id}
               onClick={() => insertResponse(r)}
-              className={`w-full text-left px-3 py-2 text-sm hover:bg-emerald-50 transition ${
-                i === selectedIdx ? "bg-emerald-50" : ""
+              className={`w-full text-left px-3 py-2 text-sm hover:bg-teal-50 transition ${
+                i === selectedIdx ? "bg-teal-50" : ""
               }`}
             >
               <span className="font-medium text-zinc-900">{r.title}</span>
@@ -315,7 +315,7 @@ export default function ReplyBox({ conversationId, channelType, clientName, what
                   <button
                     key={r.id}
                     onClick={() => insertResponse(r)}
-                    className="w-full text-left px-2 py-1.5 rounded-lg text-sm hover:bg-emerald-50 transition"
+                    className="w-full text-left px-2 py-1.5 rounded-lg text-sm hover:bg-teal-50 transition"
                   >
                     <span className="font-medium text-zinc-800">{r.title}</span>
                     <p className="text-xs text-zinc-500 truncate">{r.content}</p>
@@ -358,7 +358,7 @@ export default function ReplyBox({ conversationId, channelType, clientName, what
           <span className="text-xs text-amber-700">24-hour window closed. Use a template to re-engage.</span>
           <button
             onClick={() => { setShowTemplates(true); fetchTemplates(); }}
-            className="ml-auto text-xs font-medium text-emerald-600 hover:text-emerald-700"
+            className="ml-auto text-xs font-medium text-teal-800 hover:text-teal-900"
           >
             Send Template
           </button>
@@ -382,7 +382,7 @@ export default function ReplyBox({ conversationId, channelType, clientName, what
                 <button
                   key={`${t.name}-${t.language}`}
                   onClick={() => { setSelectedTemplate(t); setTemplateVars({}); }}
-                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-50 transition"
+                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-teal-50 transition"
                 >
                   <span className="text-sm font-medium text-zinc-800">{t.name}</span>
                   <span className="ml-2 text-xs text-zinc-400">{t.language}</span>
@@ -394,7 +394,7 @@ export default function ReplyBox({ conversationId, channelType, clientName, what
             </div>
           ) : (
             <div>
-              <button onClick={() => setSelectedTemplate(null)} className="text-xs text-emerald-600 mb-2">&larr; Back</button>
+              <button onClick={() => setSelectedTemplate(null)} className="text-xs text-teal-800 mb-2">&larr; Back</button>
               <p className="text-sm font-medium text-zinc-800 mb-1">{selectedTemplate.name}</p>
               <p className="text-xs text-zinc-500 mb-3 whitespace-pre-wrap">
                 {selectedTemplate.components?.find((c: any) => c.type === 'BODY')?.text || ''}
@@ -421,7 +421,7 @@ export default function ReplyBox({ conversationId, channelType, clientName, what
               <button
                 onClick={handleSendTemplate}
                 disabled={sendingTemplate}
-                className="w-full px-3 py-2 rounded-lg bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 disabled:opacity-40"
+                className="w-full px-3 py-2 rounded-lg bg-teal-800 text-white text-sm font-medium hover:bg-teal-800 disabled:opacity-40"
               >
                 {sendingTemplate ? 'Sending...' : 'Send Template'}
               </button>
@@ -439,12 +439,12 @@ export default function ReplyBox({ conversationId, channelType, clientName, what
           disabled={windowClosed}
           placeholder={windowClosed ? 'Window closed — send a template to re-open' : 'Type a reply... (start with "/" for quick replies)'}
           rows={2}
-          className="flex-1 resize-none border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white/80 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 resize-none border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 bg-white/80 disabled:opacity-50 disabled:cursor-not-allowed"
         />
         <button
           onClick={() => fileInputRef.current?.click()}
           title="Attach file"
-          className="p-2 rounded-xl border border-zinc-200 text-zinc-500 hover:bg-zinc-50 hover:text-emerald-600 transition"
+          className="p-2 rounded-xl border border-zinc-200 text-zinc-500 hover:bg-zinc-50 hover:text-teal-800 transition"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
@@ -453,7 +453,7 @@ export default function ReplyBox({ conversationId, channelType, clientName, what
         <button
           onClick={() => { setShowPicker(!showPicker); setShowSlash(false); }}
           title="Quick replies"
-          className="p-2 rounded-xl border border-zinc-200 text-zinc-500 hover:bg-zinc-50 hover:text-emerald-600 transition"
+          className="p-2 rounded-xl border border-zinc-200 text-zinc-500 hover:bg-zinc-50 hover:text-teal-800 transition"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
@@ -462,7 +462,7 @@ export default function ReplyBox({ conversationId, channelType, clientName, what
         <button
           onClick={handleSend}
           disabled={(!text.trim() && !file) || sending || windowClosed}
-          className="px-4 py-2 rounded-xl bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 disabled:opacity-40 transition-colors"
+          className="px-4 py-2 rounded-xl bg-teal-800 text-white text-sm font-medium hover:bg-teal-800 disabled:opacity-40 transition-colors"
         >
           {sending ? "..." : "Send"}
         </button>

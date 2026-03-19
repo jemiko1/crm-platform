@@ -193,7 +193,7 @@ function ConfigTab() {
             <p className="font-semibold text-zinc-900">Sender.ge Balance</p>
             {balance?.success ? (
               <div className="mt-1 flex items-baseline gap-4">
-                <span className="text-2xl font-bold text-emerald-600">{balance.balance?.toFixed(2)}</span>
+                <span className="text-2xl font-bold text-teal-800">{balance.balance?.toFixed(2)}</span>
                 <span className="text-sm text-zinc-500">Overdraft: {balance.overdraft?.toFixed(2)}</span>
               </div>
             ) : balance?.error ? (
@@ -220,7 +220,7 @@ function ConfigTab() {
         </div>
         <button
           onClick={() => update("isActive", !config?.isActive)}
-          className={`relative inline-flex h-7 w-12 items-center rounded-full transition ${config?.isActive ? "bg-emerald-500" : "bg-zinc-300"}`}
+          className={`relative inline-flex h-7 w-12 items-center rounded-full transition ${config?.isActive ? "bg-teal-800" : "bg-zinc-300"}`}
         >
           <span
             className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${config?.isActive ? "translate-x-6" : "translate-x-1"}`}
@@ -236,7 +236,7 @@ function ConfigTab() {
             href="https://sender.ge/docs/api.php"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-emerald-600 hover:underline"
+            className="text-xs text-teal-800 hover:underline"
           >
             API Docs
           </a>
@@ -249,7 +249,7 @@ function ConfigTab() {
             <select
               value={config?.smsNo ?? 2}
               onChange={(e) => update("smsNo", parseInt(e.target.value, 10))}
-              className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 transition focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 transition focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
             >
               <option value={1}>Advertising (with sender number)</option>
               <option value={2}>Informational (without sender number)</option>
@@ -333,18 +333,18 @@ function ConfigTab() {
               value={testNumber}
               onChange={(e) => setTestNumber(e.target.value)}
               placeholder="5XXXXXXXX"
-              className="flex-1 rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 transition focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="flex-1 rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 transition focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
             />
             <button
               onClick={handleTest}
               disabled={testing || !testNumber.trim()}
-              className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+              className="rounded-xl bg-teal-800 px-5 py-2 text-sm font-semibold text-white transition hover:bg-teal-900 disabled:opacity-50"
             >
               {testing ? "Sending..." : "Send"}
             </button>
           </div>
           {testResult && (
-            <div className={`mt-3 rounded-xl px-4 py-2.5 text-sm ${testResult.success ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+            <div className={`mt-3 rounded-xl px-4 py-2.5 text-sm ${testResult.success ? "bg-teal-50 text-teal-900" : "bg-red-50 text-red-700"}`}>
               {testResult.message}
             </div>
           )}
@@ -352,7 +352,7 @@ function ConfigTab() {
       )}
 
       {saveMsg && (
-        <p className={`text-sm font-medium ${saveMsg.startsWith("Error") ? "text-red-600" : "text-emerald-600"}`}>{saveMsg}</p>
+        <p className={`text-sm font-medium ${saveMsg.startsWith("Error") ? "text-red-600" : "text-teal-800"}`}>{saveMsg}</p>
       )}
 
       {/* Actions */}
@@ -360,7 +360,7 @@ function ConfigTab() {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="rounded-xl bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-emerald-700 disabled:opacity-50"
+          className="rounded-xl bg-teal-800 px-6 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-teal-900 disabled:opacity-50"
         >
           {saving ? "Saving..." : "Save Configuration"}
         </button>
@@ -450,7 +450,7 @@ function SmsLogsTab() {
               key={f}
               onClick={() => { setStatusFilter(f); setPage(1); }}
               className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
-                statusFilter === f ? "border-emerald-500 bg-emerald-50 text-emerald-700" : "border-zinc-200 text-zinc-500 hover:bg-zinc-50"
+                statusFilter === f ? "border-teal-500 bg-teal-50 text-teal-900" : "border-zinc-200 text-zinc-500 hover:bg-zinc-50"
               }`}
             >
               {f || "All"}
@@ -493,7 +493,7 @@ function SmsLogsTab() {
                   <p className="mt-0.5 line-clamp-2 text-sm text-zinc-500">{log.body}</p>
                   {log.errorMessage && <p className="mt-1 text-xs text-red-500">Error: {log.errorMessage}</p>}
                   {log.deliveredAt && (
-                    <p className="mt-1 text-xs text-emerald-600">Delivered: {new Date(log.deliveredAt).toLocaleString()}</p>
+                    <p className="mt-1 text-xs text-teal-700">Delivered: {new Date(log.deliveredAt).toLocaleString()}</p>
                   )}
                   {log.senderMessageId && (
                     <p className="mt-0.5 text-xs text-zinc-400">Message ID: {log.senderMessageId}</p>
@@ -543,7 +543,7 @@ function SmsLogsTab() {
 function Spinner() {
   return (
     <div className="flex h-32 items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal-500 border-t-transparent" />
     </div>
   );
 }
@@ -552,7 +552,7 @@ function StatCard({ label, value, color }: { label: string; value: number; color
   const colors: Record<string, string> = {
     zinc: "bg-zinc-50 text-zinc-700",
     blue: "bg-blue-50 text-blue-700",
-    emerald: "bg-emerald-50 text-emerald-700",
+    emerald: "bg-teal-50 text-teal-900",
     red: "bg-red-50 text-red-700",
     amber: "bg-amber-50 text-amber-700",
   };
@@ -567,7 +567,7 @@ function StatCard({ label, value, color }: { label: string; value: number; color
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
     SENT: "bg-blue-100 text-blue-700",
-    DELIVERED: "bg-emerald-100 text-emerald-700",
+    DELIVERED: "bg-teal-100 text-teal-900",
     FAILED: "bg-red-100 text-red-700",
     PENDING: "bg-amber-100 text-amber-700",
   };
@@ -576,7 +576,7 @@ function StatusBadge({ status }: { status: string }) {
 
 function DeliveryBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
-    DELIVERED: "bg-emerald-100 text-emerald-700",
+    DELIVERED: "bg-teal-100 text-teal-900",
     UNDELIVERED: "bg-red-100 text-red-700",
     PENDING: "bg-amber-100 text-amber-700",
   };
@@ -608,7 +608,7 @@ function Field({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 transition focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+        className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 transition focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
       />
     </div>
   );
@@ -641,7 +641,7 @@ function NumberField({
         }}
         min={min}
         max={max}
-        className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 transition focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+        className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 transition focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
       />
       {hint && <p className="mt-1 text-xs text-zinc-400">{hint}</p>}
     </div>

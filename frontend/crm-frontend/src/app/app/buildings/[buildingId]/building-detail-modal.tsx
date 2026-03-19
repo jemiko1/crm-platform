@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet } from "@/lib/api";
 import BuildingDetailContent from "./building-detail-content";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type Building = {
   coreId: number;
@@ -136,7 +136,7 @@ export default function BuildingDetailModal({ open, onClose, buildingId, onUpdat
           {/* Close button - integrated into popup, top left corner (desktop) */}
           <button
             onClick={handleClose}
-            className="hidden lg:flex absolute -left-12 top-6 z-[10000] h-12 w-12 bg-emerald-500 text-white shadow-lg hover:bg-emerald-600 transition-colors items-center justify-center"
+            className="hidden lg:flex absolute -left-12 top-6 z-[10000] h-12 w-12 bg-teal-800 text-white shadow-lg hover:bg-teal-900 transition-colors items-center justify-center"
             aria-label="Close"
             style={{ 
               borderRadius: "9999px 0 0 9999px",
@@ -151,7 +151,7 @@ export default function BuildingDetailModal({ open, onClose, buildingId, onUpdat
           {/* Mobile close button - inside popup, top right corner */}
           <button
             onClick={handleClose}
-            className="lg:hidden absolute top-4 right-4 z-[10000] h-10 w-10 bg-emerald-500 text-white shadow-lg hover:bg-emerald-600 transition-colors flex items-center justify-center rounded-full"
+            className="lg:hidden absolute top-4 right-4 z-[10000] h-10 w-10 bg-teal-800 text-white shadow-lg hover:bg-teal-900 transition-colors flex items-center justify-center rounded-full"
             aria-label="Close"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import ModalDialog from "../../modal-dialog";
 import { apiGet, API_BASE } from "@/lib/api";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type AddProductModalProps = {
   open: boolean;
@@ -156,7 +156,7 @@ export default function AddProductModal({ open, onClose, onSuccess }: AddProduct
               value={formData.sku}
               onChange={handleChange}
               placeholder="e.g., RTR-001"
-              className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
             />
           </div>
 
@@ -171,7 +171,7 @@ export default function AddProductModal({ open, onClose, onSuccess }: AddProduct
               value={formData.category}
               onChange={handleChange}
               disabled={loadingLists}
-              className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-50"
+              className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 disabled:opacity-50"
             >
               {loadingLists ? (
                 <option>Loading...</option>
@@ -198,7 +198,7 @@ export default function AddProductModal({ open, onClose, onSuccess }: AddProduct
             value={formData.name}
             onChange={handleChange}
             placeholder="e.g., TP-Link Router AC1200"
-            className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
           />
         </div>
 
@@ -211,7 +211,7 @@ export default function AddProductModal({ open, onClose, onSuccess }: AddProduct
             onChange={handleChange}
             rows={3}
             placeholder="Optional product description..."
-            className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
           />
         </div>
 
@@ -227,7 +227,7 @@ export default function AddProductModal({ open, onClose, onSuccess }: AddProduct
               value={formData.unit}
               onChange={handleChange}
               disabled={loadingLists}
-              className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-50"
+              className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 disabled:opacity-50"
             >
               {loadingLists ? (
                 <option>Loading...</option>
@@ -253,7 +253,7 @@ export default function AddProductModal({ open, onClose, onSuccess }: AddProduct
             value={formData.lowStockThreshold}
             onChange={handleChange}
             placeholder="10"
-            className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
           />
           <p className="mt-1 text-xs text-zinc-500">
             Alert when stock falls below this number

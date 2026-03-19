@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { apiGet, apiPost } from "@/lib/api";
 import { createPortal } from "react-dom";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type RoleGroup = {
   id: string;
@@ -185,7 +185,7 @@ export default function AddPositionModal({
                   value={formData.name}
                   onChange={handleChange}
                   required
-                  className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   placeholder="e.g., CEO, IT Manager"
                 />
               </div>
@@ -199,7 +199,7 @@ export default function AddPositionModal({
                   name="nameKa"
                   value={formData.nameKa}
                   onChange={handleChange}
-                  className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   placeholder="მაგ., დირექტორი, IT მენეჯერი"
                 />
               </div>
@@ -213,7 +213,7 @@ export default function AddPositionModal({
                   value={formData.description}
                   onChange={handleChange}
                   rows={2}
-                  className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   placeholder="Brief description of this position"
                 />
               </div>
@@ -230,7 +230,7 @@ export default function AddPositionModal({
                     onChange={handleChange}
                     min="1"
                     max="100"
-                    className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                     placeholder="1-100"
                   />
                 </div>
@@ -249,7 +249,7 @@ export default function AddPositionModal({
                       value={formData.roleGroupId}
                       onChange={handleChange}
                       required
-                      className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                      className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                     >
                       <option value="">Select role group...</option>
                       {roleGroups.map((rg) => (
@@ -264,10 +264,10 @@ export default function AddPositionModal({
 
             <div>
               <label className="mb-1.5 block text-sm font-medium text-zinc-700">
-                Department {defaultDepartmentId && <span className="text-emerald-600 text-xs">(locked)</span>}
+                Department {defaultDepartmentId && <span className="text-teal-800 text-xs">(locked)</span>}
               </label>
               {defaultDepartmentId ? (
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-700">
+                <div className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-2.5 text-sm text-teal-900">
                   {defaultDepartmentName || "Selected Department"}
                 </div>
               ) : loadingDepartments ? (
@@ -279,7 +279,7 @@ export default function AddPositionModal({
                   name="departmentId"
                   value={formData.departmentId}
                   onChange={handleChange}
-                  className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                 >
                   <option value="">No department</option>
                   {departments.map((dept) => (
@@ -298,7 +298,7 @@ export default function AddPositionModal({
                   id="isActive"
                   checked={formData.isActive}
                   onChange={handleChange}
-                  className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+                  className="h-4 w-4 rounded border-zinc-300 text-teal-800 focus:ring-teal-500"
                 />
                 <label htmlFor="isActive" className="text-sm text-zinc-700">
                   Active

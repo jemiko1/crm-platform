@@ -9,7 +9,7 @@ import CreateUserAccountModal from "./create-user-account-modal";
 import ActivateEmployeeModal from "./activate-employee-modal";
 import DeleteEmployeeDialog from "./delete-employee-dialog";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type Employee = {
   id: string;
@@ -92,7 +92,7 @@ type Tab = "personal" | "employment" | "permissions" | "work-orders";
 
 function getStatusBadge(status: Employee["status"]) {
   const styles = {
-    ACTIVE: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+    ACTIVE: "bg-teal-50 text-teal-800 ring-teal-200",
     INACTIVE: "bg-zinc-50 text-zinc-700 ring-zinc-200",
     ON_LEAVE: "bg-amber-50 text-amber-700 ring-amber-200",
     TERMINATED: "bg-rose-50 text-rose-700 ring-rose-200",
@@ -168,7 +168,7 @@ export default function EmployeeDetailContent({ employee, employeeId, onUpdate }
   ];
 
   return (
-    <div className="p-6 bg-emerald-50/30 rounded-t-3xl lg:rounded-l-3xl lg:rounded-tr-none lg:rounded-br-none">
+    <div className="p-6 bg-teal-50/30 rounded-t-3xl lg:rounded-l-3xl lg:rounded-tr-none lg:rounded-br-none">
       {/* Header */}
       <div className="mb-6 flex items-start justify-between">
         <div className="flex items-center gap-4">
@@ -251,7 +251,7 @@ export default function EmployeeDetailContent({ employee, employeeId, onUpdate }
           {canActivate && employee.status === "TERMINATED" && (
             <button
               onClick={() => setShowActivateModal(true)}
-              className="rounded-2xl bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100"
+              className="rounded-2xl bg-teal-50 px-4 py-2 text-sm font-semibold text-teal-900 ring-1 ring-teal-200 hover:bg-teal-100"
             >
               Activate
             </button>
@@ -361,7 +361,7 @@ export default function EmployeeDetailContent({ employee, employeeId, onUpdate }
                   <div className="mt-1">
                     <a
                       href={`tel:${employee.extensionNumber}`}
-                      className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100"
+                      className="inline-flex items-center gap-1 rounded-lg bg-teal-50 px-3 py-1.5 text-sm font-semibold text-teal-900 ring-1 ring-teal-200 hover:bg-teal-100"
                     >
                       {employee.extensionNumber}
                     </a>
@@ -402,7 +402,7 @@ export default function EmployeeDetailContent({ employee, employeeId, onUpdate }
                 <label className="text-xs font-medium text-zinc-500">User Account</label>
                 <div className="mt-1 text-sm font-semibold text-zinc-900">
                   {employee.user ? (
-                    <span className={employee.user.isActive ? "text-emerald-600" : "text-zinc-400"}>
+                    <span className={employee.user.isActive ? "text-teal-800" : "text-zinc-400"}>
                       {employee.user.isActive ? "Active" : "Inactive"} ({employee.user.role})
                     </span>
                   ) : (
@@ -476,7 +476,7 @@ export default function EmployeeDetailContent({ employee, employeeId, onUpdate }
                       <span
                         className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ring-1 ${
                           assignment.workOrder?.status === "DONE"
-                            ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                            ? "bg-teal-50 text-teal-900 ring-teal-200"
                             : assignment.workOrder?.status === "IN_PROGRESS"
                             ? "bg-amber-50 text-amber-700 ring-amber-200"
                             : "bg-zinc-50 text-zinc-700 ring-zinc-200"

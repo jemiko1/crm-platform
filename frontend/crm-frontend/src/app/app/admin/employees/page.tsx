@@ -7,7 +7,7 @@ import AddEmployeeModal from "../../employees/add-employee-modal";
 import { PermissionGuard } from "@/lib/permission-guard";
 import { usePermissions } from "@/lib/use-permissions";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type Employee = {
   id: string;
@@ -73,7 +73,7 @@ export default function EmployeesPage() {
 
   function getStatusBadge(status: Employee["status"]) {
     const styles = {
-      ACTIVE: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+      ACTIVE: "bg-teal-50 text-teal-800 ring-teal-200",
       INACTIVE: "bg-zinc-50 text-zinc-700 ring-zinc-200",
       ON_LEAVE: "bg-amber-50 text-amber-700 ring-amber-200",
       TERMINATED: "bg-rose-50 text-rose-700 ring-rose-200",
@@ -130,7 +130,7 @@ export default function EmployeesPage() {
             placeholder="Search employees..."
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            className="w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            className="w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
           />
         </div>
 
@@ -141,7 +141,7 @@ export default function EmployeesPage() {
               onClick={() => setStatusFilter(status)}
               className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
                 statusFilter === status
-                  ? "bg-emerald-600 text-white"
+                  ? "bg-teal-800 text-white"
                   : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
               }`}
             >
@@ -160,7 +160,7 @@ export default function EmployeesPage() {
           {!q && statusFilter === "ALL" && hasPermission("employees.create") && (
             <button
               onClick={() => setShowAddModal(true)}
-              className="mt-4 text-sm font-semibold text-emerald-600 hover:text-emerald-700"
+              className="mt-4 text-sm font-semibold text-teal-800 hover:text-teal-900"
             >
               Add your first employee
             </button>
@@ -212,7 +212,7 @@ export default function EmployeesPage() {
                     {emp.extensionNumber ? (
                       <a
                         href={`tel:${emp.extensionNumber}`}
-                        className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100"
+                        className="inline-flex items-center gap-1 rounded-lg bg-teal-50 px-2 py-1 text-xs font-semibold text-teal-900 ring-1 ring-teal-200 hover:bg-teal-100"
                       >
                         Ext: {emp.extensionNumber}
                       </a>
@@ -235,7 +235,7 @@ export default function EmployeesPage() {
                   <td className="whitespace-nowrap px-4 sm:px-6 py-4 text-right text-sm">
                     <Link
                       href={`/app/employees?employee=${emp.id}`}
-                      className="font-semibold text-emerald-600 hover:text-emerald-700"
+                      className="font-semibold text-teal-800 hover:text-teal-900"
                     >
                       View
                     </Link>

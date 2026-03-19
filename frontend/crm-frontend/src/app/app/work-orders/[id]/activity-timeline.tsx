@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { apiGet } from "@/lib/api";
 import { STATUS_LABELS } from "@/lib/work-order-status";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 const RAW_STATUS_RE = /\b(CREATED|LINKED_TO_GROUP|IN_PROGRESS|COMPLETED|CANCELED)\b/g;
 
@@ -44,16 +44,16 @@ function getActionStyle(action: string) {
   const styles: Record<string, { icon: string; bgColor: string; textColor: string }> = {
     CREATED: { icon: "📝", bgColor: "bg-blue-100", textColor: "text-blue-700" },
     ASSIGNED: { icon: "👥", bgColor: "bg-purple-100", textColor: "text-purple-700" },
-    STARTED: { icon: "▶️", bgColor: "bg-emerald-100", textColor: "text-emerald-700" },
+    STARTED: { icon: "▶️", bgColor: "bg-teal-100", textColor: "text-teal-900" },
     SUBMITTED: { icon: "📤", bgColor: "bg-amber-100", textColor: "text-amber-700" },
-    APPROVED: { icon: "✅", bgColor: "bg-green-100", textColor: "text-green-700" },
+    APPROVED: { icon: "✅", bgColor: "bg-teal-100", textColor: "text-teal-900" },
     CANCELED: { icon: "❌", bgColor: "bg-red-100", textColor: "text-red-700" },
     STATUS_CHANGED: { icon: "🔄", bgColor: "bg-zinc-100", textColor: "text-zinc-700" },
     VIEWED: { icon: "👁️", bgColor: "bg-zinc-50", textColor: "text-zinc-500" },
     PRODUCTS_ADDED: { icon: "📦", bgColor: "bg-cyan-100", textColor: "text-cyan-700" },
     PRODUCTS_MODIFIED: { icon: "✏️", bgColor: "bg-amber-100", textColor: "text-amber-700" },
-    PRODUCTS_APPROVED: { icon: "✅", bgColor: "bg-green-100", textColor: "text-green-700" },
-    DEVICES_ADDED: { icon: "📱", bgColor: "bg-orange-100", textColor: "text-orange-700" },
+    PRODUCTS_APPROVED: { icon: "✅", bgColor: "bg-teal-100", textColor: "text-teal-900" },
+    DEVICES_ADDED: { icon: "📱", bgColor: "bg-teal-100", textColor: "text-teal-900" },
     COMMENT_ADDED: { icon: "💬", bgColor: "bg-zinc-50", textColor: "text-zinc-500" },
     DEADLINE_CHANGED: { icon: "📅", bgColor: "bg-zinc-50", textColor: "text-zinc-500" },
     EMPLOYEES_MODIFIED: { icon: "👤", bgColor: "bg-zinc-50", textColor: "text-zinc-500" },
@@ -268,7 +268,7 @@ export default function ActivityTimeline({ workOrderId }: Props) {
                             <span
                               className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                                 isMain
-                                  ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                                  ? "bg-teal-50 text-teal-900 ring-1 ring-teal-200"
                                   : "bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200"
                               }`}
                             >
@@ -333,7 +333,7 @@ export default function ActivityTimeline({ workOrderId }: Props) {
                                         key={i}
                                         className={`rounded-lg px-2 py-1.5 text-xs ring-1 ${
                                           product.action === 'added'
-                                            ? "bg-green-50 text-green-700 ring-green-200"
+                                            ? "bg-teal-50 text-teal-900 ring-teal-200"
                                             : product.action === 'removed'
                                             ? "bg-red-50 text-red-700 ring-red-200"
                                             : "bg-amber-50 text-amber-700 ring-amber-200"
@@ -379,7 +379,7 @@ export default function ActivityTimeline({ workOrderId }: Props) {
                                     {activity.metadata.products.map((product: any, i: number) => (
                                       <div
                                         key={i}
-                                        className="rounded-lg bg-green-50 px-2 py-1 text-xs text-green-700 ring-1 ring-green-200"
+                                        className="rounded-lg bg-teal-50 px-2 py-1 text-xs text-teal-900 ring-1 ring-teal-200"
                                       >
                                         {product.name} × {product.quantity}
                                         {product.sku && ` (SKU: ${product.sku})`}
@@ -395,7 +395,7 @@ export default function ActivityTimeline({ workOrderId }: Props) {
                                   {activity.metadata.productNames?.map((name: string, i: number) => (
                                     <div
                                       key={i}
-                                      className="rounded-lg bg-orange-50 px-2 py-1 text-xs text-orange-700 ring-1 ring-orange-200"
+                                      className="rounded-lg bg-teal-50 px-2 py-1 text-xs text-teal-900 ring-1 ring-teal-200"
                                     >
                                       {name} × {activity.metadata?.quantities?.[i] || 1}
                                     </div>

@@ -8,7 +8,7 @@ import type { CallbackRequest, CallbacksPaginated } from "../types";
 const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
   PENDING: { bg: "bg-amber-50", text: "text-amber-700" },
   IN_PROGRESS: { bg: "bg-blue-50", text: "text-blue-700" },
-  COMPLETED: { bg: "bg-emerald-50", text: "text-emerald-700" },
+  COMPLETED: { bg: "bg-teal-50", text: "text-teal-800" },
   EXPIRED: { bg: "bg-zinc-100", text: "text-zinc-500" },
   CANCELLED: { bg: "bg-zinc-100", text: "text-zinc-500" },
 };
@@ -81,7 +81,7 @@ export default function CallbacksPage() {
             className={[
               "rounded-xl px-3 py-1.5 text-xs font-medium transition-all",
               status === f.key
-                ? "bg-emerald-600 text-white shadow-sm"
+                ? "bg-teal-800 text-white shadow-sm"
                 : "bg-white text-zinc-600 ring-1 ring-zinc-200 hover:bg-zinc-50",
             ].join(" ")}
           >
@@ -124,7 +124,7 @@ export default function CallbacksPage() {
                     key={cb.id}
                     className={[
                       "group transition-all duration-200 ease-out",
-                      "hover:bg-emerald-50/60 hover:shadow-sm",
+                      "hover:bg-teal-50/60 hover:shadow-sm",
                       i < callbacks.length - 1 ? "border-b border-zinc-100" : "",
                     ].join(" ")}
                   >

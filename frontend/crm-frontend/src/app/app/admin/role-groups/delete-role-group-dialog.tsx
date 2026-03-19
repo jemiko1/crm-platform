@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { apiGet, apiDelete } from "@/lib/api";
 import { createPortal } from "react-dom";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type Position = {
   id: string;
@@ -189,7 +189,7 @@ export default function DeleteRoleGroupDialog({
                     <select
                       value={replacementId}
                       onChange={(e) => setReplacementId(e.target.value)}
-                      className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                      className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                     >
                       <option value="">Select a replacement role group...</option>
                       {allRoleGroups.map((rg) => (

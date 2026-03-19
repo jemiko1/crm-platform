@@ -252,10 +252,10 @@ function AnalyticsTab() {
       <div className="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
         <label className="text-sm font-medium text-zinc-600">From</label>
         <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
-          className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+          className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400" />
         <label className="text-sm font-medium text-zinc-600">To</label>
         <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
-          className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+          className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400" />
       </div>
 
       {loading ? SPINNER : (
@@ -274,7 +274,7 @@ function AnalyticsTab() {
                 {Object.entries(overview.byStatus).map(([status, count]) => (
                   <div key={status} className="flex items-center gap-2">
                     <span className={`inline-block h-3 w-3 rounded-full ${
-                      status === "LIVE" ? "bg-emerald-400" : status === "CLOSED" ? "bg-zinc-400" : "bg-gray-400"
+                      status === "LIVE" ? "bg-teal-400" : status === "CLOSED" ? "bg-zinc-400" : "bg-gray-400"
                     }`} />
                     <span className="text-sm text-zinc-700">{status}</span>
                     <span className="text-sm font-semibold text-zinc-900">{count}</span>
@@ -395,9 +395,9 @@ function OperatorsTab() {
                 <tr key={op.userId} className="border-b border-zinc-50 hover:bg-zinc-50/50">
                   <td className="py-2.5 px-3">
                     <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${
-                      op.isOnline ? "bg-emerald-50 text-emerald-700" : "bg-zinc-100 text-zinc-500"
+                      op.isOnline ? "bg-teal-50 text-teal-800" : "bg-zinc-100 text-zinc-500"
                     }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${op.isOnline ? "bg-emerald-500" : "bg-zinc-400"}`} />
+                      <span className={`w-1.5 h-1.5 rounded-full ${op.isOnline ? "bg-teal-500" : "bg-zinc-400"}`} />
                       {op.isOnline ? "Online" : "Offline"}
                     </span>
                   </td>
@@ -484,7 +484,7 @@ function LiveDashboardTab() {
             {data.activeOperators.map((op) => (
               <div key={op.userId} className="rounded-xl border border-zinc-100 bg-white p-3 shadow-sm">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${op.isOnline ? "bg-emerald-500" : "bg-zinc-300"}`} />
+                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${op.isOnline ? "bg-teal-500" : "bg-zinc-300"}`} />
                   <span className="text-sm font-medium text-zinc-800 truncate">{op.name}</span>
                 </div>
                 <div className="text-xs text-zinc-500">
@@ -554,7 +554,7 @@ function QueueHealthBar({ stats }: { stats: QueueStats }) {
       </div>
       <div className="flex h-3 rounded-full overflow-hidden bg-zinc-100">
         {healthy > 0 && (
-          <div className="bg-emerald-500 transition-all" style={{ width: `${(healthy / total) * 100}%` }} />
+          <div className="bg-teal-500 transition-all" style={{ width: `${(healthy / total) * 100}%` }} />
         )}
         {pastSLA > 0 && (
           <div className="bg-red-500 animate-pulse transition-all" style={{ width: `${(pastSLA / total) * 100}%` }} />
@@ -565,7 +565,7 @@ function QueueHealthBar({ stats }: { stats: QueueStats }) {
       </div>
       <div className="flex gap-4 mt-2 text-xs text-zinc-500">
         <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+          <span className="w-2.5 h-2.5 rounded-full bg-teal-500" />
           Healthy ({healthy})
         </span>
         <span className="flex items-center gap-1.5">

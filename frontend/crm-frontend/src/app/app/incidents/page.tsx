@@ -10,7 +10,7 @@ import { usePermissions } from "@/lib/use-permissions";
 import { useModalContext } from "../modal-manager";
 import { useI18n } from "@/hooks/useI18n";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type Incident = {
   id: string;
@@ -35,7 +35,7 @@ function getStatusBadge(status: Incident["status"]) {
   const styles = {
     CREATED: "bg-blue-50 text-blue-700 ring-blue-200",
     IN_PROGRESS: "bg-amber-50 text-amber-700 ring-amber-200",
-    COMPLETED: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+    COMPLETED: "bg-teal-50 text-teal-800 ring-teal-200",
     WORK_ORDER_INITIATED: "bg-purple-50 text-purple-700 ring-purple-200",
   };
   return styles[status];
@@ -369,7 +369,7 @@ export default function IncidentsPage() {
                     setPage(1);
                   }}
                   placeholder={t("incidents.searchPlaceholder", "Search incidents by number, client, building, description...")}
-                  className="w-full max-w-md rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-md ring-2 ring-emerald-500/40 border border-emerald-500/30 hover:ring-emerald-500/60 hover:border-emerald-500/50 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/70 focus:shadow-lg focus:border-emerald-500/60 transition-all"
+                  className="w-full max-w-md rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-md ring-2 ring-teal-500/40 border border-teal-500/30 hover:ring-teal-500/60 hover:border-teal-500/50 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-teal-500/70 focus:shadow-lg focus:border-teal-500/60 transition-all"
                 />
 
                 {hasPermission("incidents.create") && (
@@ -566,7 +566,7 @@ export default function IncidentsPage() {
                               key={incident.id}
                               className={[
                                 "group transition-all duration-200 ease-out cursor-pointer",
-                                "hover:bg-emerald-50/60",
+                                "hover:bg-teal-50/60",
                                 "hover:shadow-lg hover:-translate-y-0.5 hover:z-10",
                                 !isLast && "border-b border-zinc-100",
                               ].join(" ")}
@@ -668,7 +668,7 @@ export default function IncidentsPage() {
                                 {incident.reportedByEmployeeId ? (
                                   <Link
                                     href={`/app/employees?employee=${incident.reportedByEmployeeId}`}
-                                    className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100 hover:ring-emerald-300 transition-all"
+                                    className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-900 ring-1 ring-teal-200 hover:bg-teal-100 hover:ring-teal-300 transition-all"
                                     onClick={(e) => e.stopPropagation()}
                                   >
                                     <svg
@@ -783,8 +783,8 @@ const FilterPill = React.memo(function FilterPill({
       ? "bg-amber-50 text-amber-700 ring-amber-200"
       : "bg-white text-zinc-700 ring-zinc-200 hover:bg-amber-50/60",
     emerald: active
-      ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-      : "bg-white text-zinc-700 ring-zinc-200 hover:bg-emerald-50/60",
+      ? "bg-teal-50 text-teal-900 ring-teal-200"
+      : "bg-white text-zinc-700 ring-zinc-200 hover:bg-teal-50/60",
     purple: active
       ? "bg-purple-50 text-purple-700 ring-purple-200"
       : "bg-white text-zinc-700 ring-zinc-200 hover:bg-purple-50/60",

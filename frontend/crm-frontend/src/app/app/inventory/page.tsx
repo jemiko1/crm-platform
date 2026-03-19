@@ -10,7 +10,7 @@ import { PermissionGuard } from "@/lib/permission-guard";
 import { usePermissions } from "@/lib/use-permissions";
 import { useI18n } from "@/hooks/useI18n";
 
-const BRAND = "rgb(8, 117, 56)";
+const BRAND = "rgb(0, 86, 83)";
 
 type Tab = "products" | "purchase-orders" | "transactions" | "deactivated-devices";
 
@@ -323,7 +323,7 @@ function ProductsTab({
     const styles: Record<string, string> = {
       ROUTER: "bg-blue-50 text-blue-700 ring-blue-200",
       CONTROLLER: "bg-purple-50 text-purple-700 ring-purple-200",
-      SENSOR: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+      SENSOR: "bg-teal-50 text-teal-900 ring-teal-200",
       CABLE: "bg-amber-50 text-amber-700 ring-amber-200",
       ACCESSORY: "bg-zinc-50 text-zinc-700 ring-zinc-200",
       HARDWARE: "bg-slate-50 text-slate-700 ring-slate-200",
@@ -340,7 +340,7 @@ function ProductsTab({
     if (product.currentStock <= product.lowStockThreshold) {
       return { label: "Low Stock", class: "bg-amber-50 text-amber-700 ring-amber-200" };
     }
-    return { label: "In Stock", class: "bg-emerald-50 text-emerald-700 ring-emerald-200" };
+    return { label: "In Stock", class: "bg-teal-50 text-teal-900 ring-teal-200" };
   }
 
   if (products.length === 0) {
@@ -414,7 +414,7 @@ function ProductsTab({
               return (
                 <tr
                   key={product.id}
-                  className="group border-b border-zinc-100 transition hover:bg-emerald-50/30"
+                  className="group border-b border-zinc-100 transition hover:bg-teal-50/30"
                 >
                   <td className="py-4">
                     <div className="text-sm font-semibold text-zinc-900">{product.sku}</div>
@@ -452,7 +452,7 @@ function ProductsTab({
                   <td className="py-4">
                     <button
                       onClick={() => onEditClick(product)}
-                      className="rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                      className="rounded-lg bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-900 transition hover:bg-teal-100"
                     >
                       Edit
                     </button>
@@ -485,7 +485,7 @@ function PurchaseOrdersTab({
       DRAFT: "bg-zinc-50 text-zinc-700 ring-zinc-200",
       ORDERED: "bg-blue-50 text-blue-700 ring-blue-200",
       SHIPPED: "bg-purple-50 text-purple-700 ring-purple-200",
-      RECEIVED: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+      RECEIVED: "bg-teal-50 text-teal-900 ring-teal-200",
       CANCELLED: "bg-rose-50 text-rose-700 ring-rose-200",
     };
     return styles[status] || styles.DRAFT;
@@ -540,7 +540,7 @@ function PurchaseOrdersTab({
         {purchaseOrders.map((po) => (
           <div
             key={po.id}
-            className="rounded-3xl bg-white p-5 ring-1 ring-zinc-200 transition hover:bg-emerald-50/50 hover:ring-emerald-300"
+            className="rounded-3xl bg-white p-5 ring-1 ring-zinc-200 transition hover:bg-teal-50/50 hover:ring-teal-300"
           >
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div className="min-w-0 flex-1">
@@ -603,7 +603,7 @@ function PurchaseOrdersTab({
                           alert("❌ Failed to receive PO: " + (err as Error).message);
                         }
                       }}
-                      className="rounded-full bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700"
+                      className="rounded-full bg-teal-800 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-teal-900"
                     >
                       Mark as Received
                     </button>
@@ -652,7 +652,7 @@ function TransactionsTab({ transactions }: { transactions: StockTransaction[] })
   const { t } = useI18n();
   function getTypeBadge(type: string) {
     const styles: Record<string, string> = {
-      PURCHASE_IN: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+      PURCHASE_IN: "bg-teal-50 text-teal-900 ring-teal-200",
       WORK_ORDER_OUT: "bg-blue-50 text-blue-700 ring-blue-200",
       ADJUSTMENT_IN: "bg-purple-50 text-purple-700 ring-purple-200",
       ADJUSTMENT_OUT: "bg-amber-50 text-amber-700 ring-amber-200",
@@ -825,7 +825,7 @@ function DeactivatedDevicesTab() {
                 <div className="mt-1 text-xs text-zinc-500">
                   Quantity: {device.quantity}
                   {device.isWorkingCondition && (
-                    <span className="ml-2 text-emerald-600">✓ Working Condition</span>
+                    <span className="ml-2 text-teal-800">✓ Working Condition</span>
                   )}
                   {device.transferredToStock && (
                     <span className="ml-2 text-blue-600">✓ Transferred to Stock</span>

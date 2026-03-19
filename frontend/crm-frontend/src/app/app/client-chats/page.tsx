@@ -26,7 +26,7 @@ function ClientChatsContent() {
             onClick={() => setView("inbox")}
             className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${
               view === "inbox"
-                ? "bg-emerald-100 text-emerald-700"
+                ? "bg-teal-100 text-teal-900"
                 : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
             }`}
           >
@@ -36,7 +36,7 @@ function ClientChatsContent() {
             onClick={() => setView("dashboard")}
             className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${
               view === "dashboard"
-                ? "bg-emerald-100 text-emerald-700"
+                ? "bg-teal-100 text-teal-900"
                 : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
             }`}
           >
