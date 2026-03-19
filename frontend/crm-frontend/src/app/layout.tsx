@@ -16,6 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "CRM Platform",
   description: "Modern CRM for buildings, assets, work orders, and inventory.",
+  manifest: "/site.webmanifest",
 };
 
 export default function RootLayout({
