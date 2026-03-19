@@ -181,7 +181,7 @@ export default function HeaderSettings() {
                   </div>
                 ) : (
                   <a
-                    href="https://github.com/jemiko1/crm-platform/releases/download/v1.5.4/CRM28-Phone-Setup-1.5.4.exe"
+                    href="https://github.com/jemiko1/crm-platform/releases/download/v1.5.5/CRM28-Phone-Setup-1.5.5.exe"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-zinc-700 hover:bg-zinc-50 transition-colors"
