@@ -17,6 +17,8 @@ export class ClientChatsEventService {
     const assignedId = conversation.assignedUserId as string | undefined;
     if (assignedId) {
       this.server.to(`agent:${assignedId}`).emit('conversation:new', conversation);
+    } else {
+      this.server.to('queue').emit('conversation:new', conversation);
     }
   }
 
@@ -31,6 +33,8 @@ export class ClientChatsEventService {
       this.server
         .to(`agent:${assignedId}`)
         .emit('conversation:updated', conversation);
+    } else {
+      this.server.to('queue').emit('conversation:updated', conversation);
     }
     if (previousAssignedUserId && previousAssignedUserId !== assignedId) {
       this.server
@@ -49,6 +53,8 @@ export class ClientChatsEventService {
     this.server.to('managers').emit('message:new', payload);
     if (assignedUserId) {
       this.server.to(`agent:${assignedUserId}`).emit('message:new', payload);
+    } else {
+      this.server.to('queue').emit('message:new', payload);
     }
   }
 

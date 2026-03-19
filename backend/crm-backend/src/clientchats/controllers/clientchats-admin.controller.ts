@@ -13,7 +13,6 @@ import { PositionPermissionGuard } from '../../common/guards/position-permission
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { ClientChatsObservabilityService } from '../services/clientchats-observability.service';
 import { ClientChatsCoreService } from '../services/clientchats-core.service';
-import { AssignmentService } from '../services/assignment.service';
 import { ClientChatsAnalyticsService } from '../services/clientchats-analytics.service';
 import { TelegramWebhookService } from '../services/telegram-webhook.service';
 import { ViberWebhookService } from '../services/viber-webhook.service';
@@ -29,7 +28,6 @@ export class ClientChatsAdminController {
   constructor(
     private readonly observability: ClientChatsObservabilityService,
     private readonly core: ClientChatsCoreService,
-    private readonly assignment: AssignmentService,
     private readonly analytics: ClientChatsAnalyticsService,
     private readonly telegramWebhook: TelegramWebhookService,
     private readonly viberWebhook: ViberWebhookService,
@@ -149,27 +147,6 @@ export class ClientChatsAdminController {
     @Body() dto: CreateTestWhatsAppConversationDto,
   ) {
     return this.core.createTestWhatsAppConversation(dto.phoneNumber);
-  }
-
-  // ── Assignment Config ─────────────────────────────────
-  @Get('assignment-config')
-  @UseGuards(PositionPermissionGuard)
-  @RequirePermission('client_chats_config.access')
-  getAssignmentConfigs() {
-    return this.assignment.getAllConfigs();
-  }
-
-  @Put('assignment-config')
-  @UseGuards(PositionPermissionGuard)
-  @RequirePermission('client_chats_config.access')
-  upsertAssignmentConfig(
-    @Body() dto: { channelType?: string | null; strategy: string; assignableUsers: string[] },
-  ) {
-    return this.assignment.upsertConfig({
-      channelType: (dto.channelType as ClientChatChannelType) || null,
-      strategy: dto.strategy,
-      assignableUsers: dto.assignableUsers,
-    });
   }
 
   // ── Analytics ─────────────────────────────────────────

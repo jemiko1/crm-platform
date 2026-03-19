@@ -11,6 +11,7 @@ import { Server, Socket } from 'socket.io';
 import * as cookie from 'cookie';
 import { PrismaService } from '../prisma/prisma.service';
 import { ClientChatsEventService } from './services/clientchats-event.service';
+import { QueueScheduleService } from './services/queue-schedule.service';
 
 @WebSocketGateway({
   namespace: '/ws/clientchats',
@@ -33,6 +34,7 @@ export class ClientChatsGateway
     private readonly events: ClientChatsEventService,
     private readonly jwt: JwtService,
     private readonly prisma: PrismaService,
+    private readonly queueSchedule: QueueScheduleService,
   ) {}
 
   afterInit(server: Server) {
@@ -68,6 +70,12 @@ export class ClientChatsGateway
         this.logger.log(`Manager connected: ${userId} (${client.id})`);
       } else {
         this.logger.log(`Agent connected: ${userId} (${client.id})`);
+      }
+
+      const queuePool = await this.queueSchedule.getActiveOperatorsToday();
+      if (queuePool.includes(userId)) {
+        client.join('queue');
+        this.logger.debug(`Agent ${userId} joined queue room`);
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

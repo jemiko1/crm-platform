@@ -15,6 +15,11 @@ export class ConversationQueryDto {
   @IsString()
   assignedUserId?: string;
 
+  /** Show conversations assigned to this user OR unassigned (for queue members) */
+  @IsOptional()
+  @IsString()
+  assignedUserIdOrUnassigned?: string;
+
   @IsOptional()
   @IsString()
   search?: string;

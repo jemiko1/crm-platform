@@ -317,9 +317,13 @@ export default function InboxSidebar({ selectedId, onSelect, isManager, notify, 
                     {lastMsg.text}
                   </p>
                 )}
-                {assignedName && (
+                {assignedName ? (
                   <p className="text-xs text-gray-400 mt-0.5 truncate">
                     Assigned to: {assignedName}
+                  </p>
+                ) : (
+                  <p className="text-xs text-amber-600 mt-0.5 font-medium">
+                    Unassigned
                   </p>
                 )}
               </button>
