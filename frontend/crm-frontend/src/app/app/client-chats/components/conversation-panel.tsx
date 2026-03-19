@@ -29,6 +29,9 @@ export default function ConversationPanel({ conversationId, onDeleted }: Convers
   const [showInactivityAlert, setShowInactivityAlert] = useState(false);
   const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Join conversation state (must be declared before early returns)
+  const [joining, setJoining] = useState(false);
+
   // Previous conversation history
   const [prevMessages, setPrevMessages] = useState<ChatMessage[]>([]);
   const [prevLoading, setPrevLoading] = useState(false);
@@ -218,8 +221,6 @@ export default function ConversationPanel({ conversationId, onDeleted }: Convers
   const hasPreviousConv = !!conversation.previousConversationId;
   const isUnassigned = !conversation.assignedUserId;
   const showJoinButton = isUnassigned && !isManager;
-
-  const [joining, setJoining] = useState(false);
 
   async function handleJoinConversation() {
     setJoining(true);
