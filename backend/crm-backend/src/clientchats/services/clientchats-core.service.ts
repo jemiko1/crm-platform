@@ -673,7 +673,14 @@ export class ClientChatsCoreService {
     const skip = (page - 1) * limit;
 
     const where: Record<string, unknown> = {};
-    if (query.channelType) where.channelType = query.channelType;
+    if (query.channelType) {
+      const channels = query.channelType.split(',').filter(Boolean);
+      if (channels.length === 1) {
+        where.channelType = channels[0];
+      } else if (channels.length > 1) {
+        where.channelType = { in: channels };
+      }
+    }
     if (query.status) where.status = query.status;
     if (query.assignedUserIdOrUnassigned) {
       where.OR = [
@@ -682,6 +689,13 @@ export class ClientChatsCoreService {
       ];
     } else if (query.assignedUserId) {
       where.assignedUserId = query.assignedUserId;
+    }
+    if (query.filterAssignedTo) {
+      if (query.filterAssignedTo === '__unassigned__') {
+        where.assignedUserId = null;
+      } else {
+        where.assignedUserId = query.filterAssignedTo;
+      }
     }
     if (query.search) {
       const searchCondition = {

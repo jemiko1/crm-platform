@@ -23,6 +23,7 @@ export class ClientChatsAnalyticsService {
       statusCounts,
       responseTimeData,
       resolutionTimeData,
+      pickupTimeData,
     ] = await Promise.all([
       this.prisma.clientChatConversation.count({
         where: { createdAt: { gte: fromDate, lte: toDate } },
@@ -50,8 +51,17 @@ export class ClientChatsAnalyticsService {
         where: {
           createdAt: { gte: fromDate, lte: toDate },
           resolvedAt: { not: null },
+          joinedAt: { not: null },
         },
-        select: { createdAt: true, resolvedAt: true },
+        select: { joinedAt: true, resolvedAt: true },
+      }),
+
+      this.prisma.clientChatConversation.findMany({
+        where: {
+          createdAt: { gte: fromDate, lte: toDate },
+          joinedAt: { not: null },
+        },
+        select: { createdAt: true, joinedAt: true },
       }),
     ]);
 
@@ -63,10 +73,18 @@ export class ClientChatsAnalyticsService {
       avgFirstResponseMinutes = Math.round(totalMs / responseTimeData.length / 60000);
     }
 
+    let avgPickupTimeMinutes: number | null = null;
+    if (pickupTimeData.length > 0) {
+      const totalMs = pickupTimeData.reduce((sum, c) => {
+        return sum + (c.joinedAt!.getTime() - c.createdAt.getTime());
+      }, 0);
+      avgPickupTimeMinutes = +(totalMs / pickupTimeData.length / 60000).toFixed(1);
+    }
+
     let avgResolutionMinutes: number | null = null;
     if (resolutionTimeData.length > 0) {
       const totalMs = resolutionTimeData.reduce((sum, c) => {
-        return sum + (c.resolvedAt!.getTime() - c.createdAt.getTime());
+        return sum + (c.resolvedAt!.getTime() - c.joinedAt!.getTime());
       }, 0);
       avgResolutionMinutes = Math.round(totalMs / resolutionTimeData.length / 60000);
     }
@@ -76,12 +94,22 @@ export class ClientChatsAnalyticsService {
       byStatus[row.status] = row._count;
     }
 
+    const unassignedCount = await this.prisma.clientChatConversation.count({
+      where: {
+        createdAt: { gte: fromDate, lte: toDate },
+        assignedUserId: null,
+        status: 'LIVE',
+      },
+    });
+
     return {
       totalConversations,
       totalMessages,
       avgFirstResponseMinutes,
+      avgPickupTimeMinutes,
       avgResolutionMinutes,
       byStatus,
+      unassignedCount,
     };
   }
 
@@ -160,10 +188,39 @@ export class ClientChatsAnalyticsService {
       GROUP BY "assignedUserId"
     `;
 
+    const pickupTimeByAgent = await this.prisma.$queryRaw<
+      { assignedUserId: string; avgMs: number }[]
+    >`
+      SELECT "assignedUserId",
+             AVG(EXTRACT(EPOCH FROM ("joinedAt" - "createdAt")) * 1000)::float as "avgMs"
+      FROM "ClientChatConversation"
+      WHERE "createdAt" >= ${fromDate}
+        AND "createdAt" <= ${toDate}
+        AND "assignedUserId" IS NOT NULL
+        AND "joinedAt" IS NOT NULL
+      GROUP BY "assignedUserId"
+    `;
+
+    const resolutionTimeByAgent = await this.prisma.$queryRaw<
+      { assignedUserId: string; avgMs: number }[]
+    >`
+      SELECT "assignedUserId",
+             AVG(EXTRACT(EPOCH FROM ("resolvedAt" - "joinedAt")) * 1000)::float as "avgMs"
+      FROM "ClientChatConversation"
+      WHERE "createdAt" >= ${fromDate}
+        AND "createdAt" <= ${toDate}
+        AND "assignedUserId" IS NOT NULL
+        AND "joinedAt" IS NOT NULL
+        AND "resolvedAt" IS NOT NULL
+      GROUP BY "assignedUserId"
+    `;
+
     const allUserIds = new Set<string>();
     const convMap: Record<string, number> = {};
     const msgMap: Record<string, number> = {};
     const respMap: Record<string, number> = {};
+    const pickupMap: Record<string, number> = {};
+    const resolMap: Record<string, number> = {};
 
     for (const row of agentConversations) {
       if (row.assignedUserId) {
@@ -179,6 +236,12 @@ export class ClientChatsAnalyticsService {
     }
     for (const row of responseTimeByAgent) {
       respMap[row.assignedUserId] = Math.round(row.avgMs / 60000);
+    }
+    for (const row of pickupTimeByAgent) {
+      pickupMap[row.assignedUserId] = +(row.avgMs / 60000).toFixed(1);
+    }
+    for (const row of resolutionTimeByAgent) {
+      resolMap[row.assignedUserId] = Math.round(row.avgMs / 60000);
     }
 
     const userIds = [...allUserIds];
@@ -210,6 +273,8 @@ export class ClientChatsAnalyticsService {
         conversationsHandled: convMap[uid] || 0,
         messagesSent: msgMap[uid] || 0,
         avgFirstResponseMinutes: respMap[uid] ?? null,
+        avgPickupTimeMinutes: pickupMap[uid] ?? null,
+        avgResolutionMinutes: resolMap[uid] ?? null,
       };
     });
   }

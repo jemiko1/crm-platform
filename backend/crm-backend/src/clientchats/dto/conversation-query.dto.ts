@@ -1,11 +1,11 @@
 import { IsOptional, IsString, IsEnum, IsInt, Min } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { ClientChatChannelType, ClientChatStatus } from '@prisma/client';
 
 export class ConversationQueryDto {
   @IsOptional()
-  @IsEnum(ClientChatChannelType)
-  channelType?: ClientChatChannelType;
+  @IsString()
+  channelType?: string;
 
   @IsOptional()
   @IsEnum(ClientChatStatus)
@@ -19,6 +19,11 @@ export class ConversationQueryDto {
   @IsOptional()
   @IsString()
   assignedUserIdOrUnassigned?: string;
+
+  /** Filter by assigned operator (for managers filtering by specific agent) */
+  @IsOptional()
+  @IsString()
+  filterAssignedTo?: string;
 
   @IsOptional()
   @IsString()

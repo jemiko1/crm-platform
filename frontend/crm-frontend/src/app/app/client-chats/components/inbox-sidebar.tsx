@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { apiGet } from "@/lib/api";
-import type { ConversationSummary, PaginatedResponse, ChannelType, ConversationStatus } from "../types";
+import { apiGet, apiGetList } from "@/lib/api";
+import type { ConversationSummary, PaginatedResponse, ChannelType, ConversationStatus, AgentOption } from "../types";
 import { useClientChatSocket } from "../hooks/useClientChatSocket";
 import FilterBar from "./filter-bar";
 import ChannelBadge from "./channel-badge";
@@ -31,8 +31,10 @@ export default function InboxSidebar({ selectedId, onSelect, isManager, notify, 
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [channelFilter, setChannelFilter] = useState<ChannelType | "">("");
+  const [channelFilter, setChannelFilter] = useState<ChannelType[]>([]);
+  const [assignedFilter, setAssignedFilter] = useState("");
   const [activeTab, setActiveTab] = useState<ConversationStatus>("LIVE");
+  const [agents, setAgents] = useState<AgentOption[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [unreadMap, setUnreadMap] = useState<Record<string, number>>({});
@@ -53,7 +55,20 @@ export default function InboxSidebar({ selectedId, onSelect, isManager, notify, 
         if (user?.id) setCurrentUserId(user.id);
       })
       .catch(() => {});
-  }, []);
+    if (isManager) {
+      apiGetList<{ userId: string; user: { id: string; email: string }; firstName?: string; lastName?: string }>(
+        "/v1/employees?limit=200",
+      ).then((emps) => {
+        setAgents(
+          emps.map((e) => ({
+            id: e.user?.id ?? e.userId,
+            email: e.user?.email ?? "",
+            name: [e.firstName, e.lastName].filter(Boolean).join(" ") || undefined,
+          })),
+        );
+      }).catch(() => {});
+    }
+  }, [isManager]);
 
   const fetchConversations = useCallback(async () => {
     if (isInitialLoad.current) setLoading(true);
@@ -63,7 +78,8 @@ export default function InboxSidebar({ selectedId, onSelect, isManager, notify, 
       params.set("limit", "25");
       params.set("status", activeTab);
       if (search) params.set("search", search);
-      if (channelFilter) params.set("channelType", channelFilter);
+      if (channelFilter.length > 0) params.set("channelType", channelFilter.join(","));
+      if (assignedFilter) params.set("filterAssignedTo", assignedFilter);
 
       const res = await apiGet<PaginatedResponse<ConversationSummary>>(
         `/v1/clientchats/conversations?${params}`,
@@ -111,7 +127,7 @@ export default function InboxSidebar({ selectedId, onSelect, isManager, notify, 
       setLoading(false);
       isInitialLoad.current = false;
     }
-  }, [page, search, channelFilter, activeTab]);
+  }, [page, search, channelFilter, assignedFilter, activeTab]);
 
   useEffect(() => { fetchConversations(); }, [fetchConversations]);
 
@@ -121,25 +137,44 @@ export default function InboxSidebar({ selectedId, onSelect, isManager, notify, 
     return () => clearInterval(interval);
   }, [fetchConversations, pollInterval]);
 
-  useEffect(() => { setPage(1); }, [search, channelFilter, activeTab]);
+  useEffect(() => { setPage(1); }, [search, channelFilter, assignedFilter, activeTab]);
 
   useEffect(() => {
-    const handleNewConversation = () => {
+    const handleNewConversation = (conv: any) => {
       fetchConversations();
+      if (notify && conv?.id !== selectedId) {
+        const name = conv?.client
+          ? [conv.client.firstName, conv.client.lastName].filter(Boolean).join(" ") || "New customer"
+          : conv?.externalConversationId?.slice(0, 16) || "New conversation";
+        notify(name, "New conversation started");
+      }
     };
 
     const handleConversationUpdated = (conv: any) => {
       setConversations((prev) => {
+        const existsInList = prev.some((c) => c.id === conv.id);
+        if (!existsInList) {
+          fetchConversations();
+          return prev;
+        }
+
         if (
           !isManager &&
           currentUserId &&
+          conv.assignedUserId &&
           conv.assignedUserId !== currentUserId
         ) {
           return prev.filter((c) => c.id !== conv.id);
         }
         return prev.map((c) =>
           c.id === conv.id
-            ? { ...c, status: conv.status ?? c.status, assignedUserId: conv.assignedUserId ?? c.assignedUserId, lastMessageAt: conv.lastMessageAt ?? c.lastMessageAt }
+            ? {
+                ...c,
+                status: conv.status ?? c.status,
+                assignedUserId: conv.assignedUserId !== undefined ? conv.assignedUserId : c.assignedUserId,
+                assignedUser: conv.assignedUser !== undefined ? conv.assignedUser : c.assignedUser,
+                lastMessageAt: conv.lastMessageAt ?? c.lastMessageAt,
+              }
             : c,
         );
       });
@@ -150,6 +185,10 @@ export default function InboxSidebar({ selectedId, onSelect, isManager, notify, 
         const idx = prev.findIndex((c) => c.id === data.conversationId);
         if (idx === -1) {
           fetchConversations();
+          if (data.message.direction === "IN" && notify) {
+            const wsName = data.message.participant?.displayName ?? "New message";
+            notify(wsName, data.message.text ?? "");
+          }
           return prev;
         }
         const updated = [...prev];
@@ -267,6 +306,10 @@ export default function InboxSidebar({ selectedId, onSelect, isManager, notify, 
         onSearchChange={setSearch}
         channelFilter={channelFilter}
         onChannelChange={setChannelFilter}
+        assignedFilter={assignedFilter}
+        onAssignedChange={setAssignedFilter}
+        agents={agents}
+        isManager={isManager}
       />
 
       <div className="flex-1 overflow-y-auto">
