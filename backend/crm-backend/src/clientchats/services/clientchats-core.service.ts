@@ -18,7 +18,6 @@ import { ParsedInboundMessage } from '../interfaces/channel-adapter.interface';
 import { TelegramAdapter } from '../adapters/telegram.adapter';
 import { ClientChatsMatchingService } from './clientchats-matching.service';
 import { ClientChatsEventService } from './clientchats-event.service';
-import { AssignmentService } from './assignment.service';
 import { ConversationQueryDto } from '../dto/conversation-query.dto';
 
 @Injectable()
@@ -30,7 +29,6 @@ export class ClientChatsCoreService {
     private readonly adapterRegistry: AdapterRegistryService,
     private readonly matching: ClientChatsMatchingService,
     private readonly events: ClientChatsEventService,
-    private readonly assignment: AssignmentService,
   ) {}
 
   // ── Inbound pipeline ──────────────────────────────────
@@ -64,17 +62,7 @@ export class ClientChatsCoreService {
         participant.id,
       );
 
-    let conversation = upsertedConv;
-
-    if (isNewConversation || !conversation.assignedUserId) {
-      const assignedUserId = await this.assignment.autoAssign(channelType);
-      if (assignedUserId) {
-        conversation = await this.prisma.clientChatConversation.update({
-          where: { id: conversation.id },
-          data: { assignedUserId, lastOperatorActivityAt: null },
-        });
-      }
-    }
+    const conversation = upsertedConv;
 
     const message = await this.saveMessage({
       conversationId: conversation.id,
@@ -583,20 +571,6 @@ export class ClientChatsCoreService {
     }
     this.events.emitConversationUpdated(updated as any);
 
-    if (!keepOperator) {
-      const assignedUserId = await this.assignment.autoAssign(
-        conversation.channelType,
-      );
-      if (assignedUserId) {
-        const reassigned = await this.prisma.clientChatConversation.update({
-          where: { id: conversationId },
-          data: { assignedUserId, lastOperatorActivityAt: null },
-        });
-        this.events.emitConversationUpdated(reassigned as any);
-        return reassigned;
-      }
-    }
-
     return updated;
   }
 
@@ -701,16 +675,31 @@ export class ClientChatsCoreService {
     const where: Record<string, unknown> = {};
     if (query.channelType) where.channelType = query.channelType;
     if (query.status) where.status = query.status;
-    if (query.assignedUserId) where.assignedUserId = query.assignedUserId;
-    if (query.search) {
+    if (query.assignedUserIdOrUnassigned) {
       where.OR = [
-        {
-          messages: {
-            some: { text: { contains: query.search, mode: 'insensitive' } },
-          },
-        },
-        { externalConversationId: { contains: query.search, mode: 'insensitive' } },
+        { assignedUserId: query.assignedUserIdOrUnassigned },
+        { assignedUserId: null },
       ];
+    } else if (query.assignedUserId) {
+      where.assignedUserId = query.assignedUserId;
+    }
+    if (query.search) {
+      const searchCondition = {
+        OR: [
+          {
+            messages: {
+              some: { text: { contains: query.search, mode: 'insensitive' } },
+            },
+          },
+          { externalConversationId: { contains: query.search, mode: 'insensitive' } },
+        ],
+      };
+      if (where.OR) {
+        where.AND = [{ OR: where.OR as any }, searchCondition];
+        delete where.OR;
+      } else {
+        where.OR = searchCondition.OR;
+      }
     }
 
     const [data, total] = await Promise.all([

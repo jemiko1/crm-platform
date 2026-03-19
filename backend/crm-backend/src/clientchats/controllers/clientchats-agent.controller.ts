@@ -23,6 +23,7 @@ import { PositionPermissionGuard } from '../../common/guards/position-permission
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { ClientChatsCoreService } from '../services/clientchats-core.service';
 import { CannedResponsesService } from '../services/canned-responses.service';
+import { AssignmentService } from '../services/assignment.service';
 import { ConversationQueryDto } from '../dto/conversation-query.dto';
 import { AssignConversationDto } from '../dto/assign-conversation.dto';
 import { ChangeStatusDto } from '../dto/change-status.dto';
@@ -36,16 +37,22 @@ export class ClientChatsAgentController {
   constructor(
     private readonly core: ClientChatsCoreService,
     private readonly cannedResponses: CannedResponsesService,
+    private readonly assignment: AssignmentService,
   ) {}
 
   @Get('conversations')
   @RequirePermission('client_chats.menu')
-  listConversations(@Query() query: ConversationQueryDto, @Req() req: any) {
+  async listConversations(@Query() query: ConversationQueryDto, @Req() req: any) {
     const isManager =
       req.user.isSuperAdmin ||
       req.user.permissions?.includes('client_chats.manage');
     if (!isManager) {
-      query.assignedUserId = req.user.id;
+      const inQueue = await this.assignment.isInTodayQueue(req.user.id);
+      if (inQueue) {
+        query.assignedUserIdOrUnassigned = req.user.id;
+      } else {
+        query.assignedUserId = req.user.id;
+      }
     }
     return this.core.listConversations(query);
   }
@@ -120,6 +127,12 @@ export class ClientChatsAgentController {
           }
         : undefined,
     );
+  }
+
+  @Post('conversations/:id/join')
+  @RequirePermission('client_chats.menu')
+  joinConversation(@Param('id') id: string, @Req() req: any) {
+    return this.assignment.joinConversation(id, req.user.id);
   }
 
   @Patch('conversations/:id/assign')

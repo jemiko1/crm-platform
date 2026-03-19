@@ -1,7 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { ClientChatChannelType, ClientChatStatus } from '@prisma/client';
 import { QueueScheduleService } from './queue-schedule.service';
+import { ClientChatsEventService } from './clientchats-event.service';
 
 @Injectable()
 export class AssignmentService {
@@ -10,111 +15,53 @@ export class AssignmentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly queueSchedule: QueueScheduleService,
+    private readonly events: ClientChatsEventService,
   ) {}
 
-  async getConfig(channelType: ClientChatChannelType) {
-    const specific = await this.prisma.clientChatAssignmentConfig.findUnique({
-      where: { channelType },
-    });
-    if (specific) return specific;
-
-    return this.prisma.clientChatAssignmentConfig.findFirst({
-      where: { channelType: null },
-    });
+  async getActiveOperatorsToday(): Promise<string[]> {
+    return this.queueSchedule.getActiveOperatorsToday();
   }
 
-  async getAllConfigs() {
-    return this.prisma.clientChatAssignmentConfig.findMany({
-      orderBy: { createdAt: 'asc' },
-    });
+  async isInTodayQueue(userId: string): Promise<boolean> {
+    const pool = await this.queueSchedule.getActiveOperatorsToday();
+    return pool.includes(userId);
   }
 
-  async upsertConfig(data: {
-    channelType: ClientChatChannelType | null;
-    strategy: string;
-    assignableUsers: string[];
-  }) {
-    return this.prisma.clientChatAssignmentConfig.upsert({
-      where: { channelType: data.channelType ?? undefined },
-      create: {
-        channelType: data.channelType,
-        strategy: data.strategy,
-        assignableUsers: data.assignableUsers,
-      },
-      update: {
-        strategy: data.strategy,
-        assignableUsers: data.assignableUsers,
-      },
+  /**
+   * Operator explicitly joins an unassigned conversation.
+   * Uses optimistic locking: the UPDATE only succeeds if assignedUserId is still null.
+   */
+  async joinConversation(conversationId: string, userId: string) {
+    const conversation = await this.prisma.clientChatConversation.findUnique({
+      where: { id: conversationId },
     });
-  }
+    if (!conversation) throw new NotFoundException('Conversation not found');
 
-  async autoAssign(channelType: ClientChatChannelType): Promise<string | null> {
-    const config = await this.getConfig(channelType);
-    if (
-      !config ||
-      config.strategy !== 'round_robin' ||
-      config.assignableUsers.length === 0
-    ) {
-      return null;
+    if (conversation.assignedUserId) {
+      throw new ConflictException('Conversation already assigned to another operator');
     }
 
-    const todayPool = await this.queueSchedule.getActiveOperatorsToday();
-
-    let effectivePool: string[];
-    if (todayPool.length > 0) {
-      effectivePool = config.assignableUsers.filter((u) =>
-        todayPool.includes(u),
+    try {
+      const updated = await this.prisma.$queryRawUnsafe<any[]>(
+        `UPDATE "ClientChatConversation"
+         SET "assignedUserId" = $1, "lastOperatorActivityAt" = NULL
+         WHERE "id" = $2 AND "assignedUserId" IS NULL
+         RETURNING *`,
+        userId,
+        conversationId,
       );
-      if (effectivePool.length === 0) {
-        effectivePool = todayPool;
+
+      if (!updated || updated.length === 0) {
+        throw new ConflictException('Conversation was already taken by another operator');
       }
-    } else {
-      effectivePool = config.assignableUsers;
+
+      const result = updated[0];
+      this.events.emitConversationUpdated(result);
+      this.logger.log(`Operator ${userId} joined conversation ${conversationId}`);
+      return result;
+    } catch (err) {
+      if (err instanceof ConflictException) throw err;
+      throw new ConflictException('Conversation was already taken by another operator');
     }
-
-    if (effectivePool.length === 0) return null;
-
-    const workloads = await this.prisma.clientChatConversation.groupBy({
-      by: ['assignedUserId'],
-      where: {
-        assignedUserId: { in: effectivePool },
-        status: ClientChatStatus.LIVE,
-      },
-      _count: true,
-    });
-    const loadMap = new Map(
-      workloads.map((w) => [w.assignedUserId, w._count]),
-    );
-
-    let minLoad = Infinity;
-    for (const uid of effectivePool) {
-      const load = loadMap.get(uid) ?? 0;
-      if (load < minLoad) minLoad = load;
-    }
-
-    const candidates = effectivePool.filter(
-      (uid) => (loadMap.get(uid) ?? 0) === minLoad,
-    );
-
-    let nextUserId: string;
-    if (candidates.length === 1) {
-      nextUserId = candidates[0];
-    } else {
-      const lastIdx = config.lastAssignedTo
-        ? candidates.indexOf(config.lastAssignedTo)
-        : -1;
-      const nextIdx = (lastIdx + 1) % candidates.length;
-      nextUserId = candidates[nextIdx];
-    }
-
-    await this.prisma.clientChatAssignmentConfig.update({
-      where: { id: config.id },
-      data: { lastAssignedTo: nextUserId },
-    });
-
-    this.logger.log(
-      `Auto-assigned to ${nextUserId} (pool=${effectivePool.length}, load=${loadMap.get(nextUserId) ?? 0})`,
-    );
-    return nextUserId;
   }
 }

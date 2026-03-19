@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ClientChatStatus } from '@prisma/client';
-import { AssignmentService } from './assignment.service';
 import { ClientChatsEventService } from './clientchats-event.service';
 
 @Injectable()
@@ -11,7 +10,6 @@ export class EscalationService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly assignment: AssignmentService,
     private readonly events: ClientChatsEventService,
   ) {}
 
@@ -154,32 +152,28 @@ export class EscalationService {
     if (existing) return;
 
     const previousUserId = conv.assignedUserId;
-    const nextUserId = await this.assignment.autoAssign(
-      conv.channelType as any,
-    );
-
-    if (!nextUserId || nextUserId === previousUserId) return;
+    if (!previousUserId) return;
 
     await this.prisma.clientChatConversation.update({
       where: { id: conv.id },
       data: {
-        assignedUserId: nextUserId,
+        assignedUserId: null,
         lastOperatorActivityAt: null,
       },
     });
 
-    const event = await this.prisma.clientChatEscalationEvent.create({
+    await this.prisma.clientChatEscalationEvent.create({
       data: {
         conversationId: conv.id,
         type: 'AUTO_REASSIGN',
         fromUserId: previousUserId,
-        toUserId: nextUserId,
-        metadata: { reason: 'Reassign after timeout' },
+        toUserId: null,
+        metadata: { reason: 'Unassigned after timeout — returned to queue' },
       },
     });
 
     this.logger.warn(
-      `Auto-reassigned conversation ${conv.id}: ${previousUserId} → ${nextUserId}`,
+      `Unassigned conversation ${conv.id} from ${previousUserId} after timeout — returned to queue`,
     );
 
     const updated = await this.prisma.clientChatConversation.findUnique({
@@ -196,9 +190,8 @@ export class EscalationService {
       this.events.emitToManagers('escalation:reassign', {
         conversationId: conv.id,
         fromUserId: previousUserId,
-        toUserId: nextUserId,
+        toUserId: null,
         type: 'AUTO_REASSIGN',
-        event,
       });
 
       await this.prisma.clientChatEscalationEvent.create({
@@ -206,9 +199,8 @@ export class EscalationService {
           conversationId: conv.id,
           type: 'MANAGER_NOTIFIED',
           metadata: {
-            reason: 'Auto-reassignment notification',
+            reason: 'Operator timeout — conversation returned to queue',
             fromUserId: previousUserId,
-            toUserId: nextUserId,
           },
         },
       });

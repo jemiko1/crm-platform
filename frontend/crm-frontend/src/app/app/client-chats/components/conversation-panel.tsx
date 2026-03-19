@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { apiGet, apiPatch } from "@/lib/api";
+import { apiGet, apiPatch, apiPost } from "@/lib/api";
 import { usePermissions } from "@/lib/use-permissions";
 import type { ConversationDetail, ChatMessage, PaginatedResponse } from "../types";
 import { useClientChatSocket } from "../hooks/useClientChatSocket";
@@ -216,6 +216,28 @@ export default function ConversationPanel({ conversationId, onDeleted }: Convers
 
   const imPaused = conversation.pausedOperatorId === currentUserId;
   const hasPreviousConv = !!conversation.previousConversationId;
+  const isUnassigned = !conversation.assignedUserId;
+  const showJoinButton = isUnassigned && !isManager;
+
+  const [joining, setJoining] = useState(false);
+
+  async function handleJoinConversation() {
+    setJoining(true);
+    try {
+      await apiPost(`/v1/clientchats/conversations/${conversationId}/join`, {});
+      await loadAll();
+    } catch (err: any) {
+      const msg = err?.message || err?.body?.message || "Failed to join";
+      if (msg.includes("already") || err?.status === 409) {
+        alert("This conversation was already taken by another operator.");
+        await loadAll();
+      } else {
+        alert(msg);
+      }
+    } finally {
+      setJoining(false);
+    }
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -307,26 +329,41 @@ export default function ConversationPanel({ conversationId, onDeleted }: Convers
         </div>
       )}
 
-      <ReplyBox
-        conversationId={conversationId}
-        channelType={conversation.channelType}
-        clientName={
-          conversation.client
-            ? [conversation.client.firstName, conversation.client.lastName].filter(Boolean).join(" ")
-            : undefined
-        }
-        whatsappWindowOpen={conversation.whatsappWindowOpen}
-        isManager={isManager}
-        disabled={imPaused || conversation.status === "CLOSED"}
-        disabledReason={
-          imPaused
-            ? "Manager has taken over this conversation"
-            : conversation.status === "CLOSED"
-              ? "This conversation is closed"
+      {showJoinButton ? (
+        <div className="px-4 py-4 border-t border-gray-200 bg-white/70 backdrop-blur-sm">
+          <button
+            onClick={handleJoinConversation}
+            disabled={joining}
+            className="w-full px-6 py-3 text-sm font-semibold rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50"
+          >
+            {joining ? "Joining..." : "Join Conversation"}
+          </button>
+          <p className="text-xs text-gray-400 text-center mt-2">
+            Join this conversation to start replying
+          </p>
+        </div>
+      ) : (
+        <ReplyBox
+          conversationId={conversationId}
+          channelType={conversation.channelType}
+          clientName={
+            conversation.client
+              ? [conversation.client.firstName, conversation.client.lastName].filter(Boolean).join(" ")
               : undefined
-        }
-        onSent={fetchMessages}
-      />
+          }
+          whatsappWindowOpen={conversation.whatsappWindowOpen}
+          isManager={isManager}
+          disabled={imPaused || conversation.status === "CLOSED"}
+          disabledReason={
+            imPaused
+              ? "Manager has taken over this conversation"
+              : conversation.status === "CLOSED"
+                ? "This conversation is closed"
+                : undefined
+          }
+          onSent={fetchMessages}
+        />
+      )}
     </div>
   );
 }
