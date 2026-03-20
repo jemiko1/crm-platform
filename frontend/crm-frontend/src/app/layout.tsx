@@ -23,6 +23,7 @@ export const metadata: Metadata = {
   title: "CRM Platform",
   description: "Modern CRM for buildings, assets, work orders, and inventory.",
   manifest: "/site.webmanifest",
+  // Next.js App Router automatically detects favicon.ico, icon.svg, and apple-icon.png in the app directory
 };
 
 export default function RootLayout({
