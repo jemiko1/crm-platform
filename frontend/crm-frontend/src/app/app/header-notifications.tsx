@@ -65,14 +65,14 @@ export default function HeaderNotifications() {
       <button
         ref={btnRef}
         onClick={() => setOpen(!open)}
-        className={`relative w-10 h-10 flex items-center justify-center rounded-full transition-colors ${
+        className={`relative w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full transition-colors ${
           open
             ? "bg-teal-100 text-teal-800"
             : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
         }`}
         title="Notifications"
       >
-        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+        <svg className="w-5 h-5 sm:w-6 sm:h-6" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 2a7 7 0 0 0-7 7v3.528a1 1 0 0 1-.105.447l-1.717 3.433A1 1 0 0 0 4.073 18h15.854a1 1 0 0 0 .894-1.447l-.053-.105-1.664-3.329A1 1 0 0 1 19 12.672V9a7 7 0 0 0-7-7Zm0 20a3 3 0 0 1-2.83-2h5.66A3 3 0 0 1 12 22Z" />
         </svg>
         {unreadCount > 0 && (
