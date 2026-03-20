@@ -49,12 +49,12 @@ export default function AppHeader() {
   return (
     <>
       <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-[0_4px_16px_-2px_rgba(0,0,0,0.15)]">
-        <div className="flex items-center h-[52px] px-4">
+        <div className="flex items-center h-[52px] px-2 sm:px-4 overflow-hidden">
           {/* Hamburger - visible below lg */}
           <button
             ref={btnRef}
             onClick={() => setMenuOpen(!menuOpen)}
-            className="lg:hidden relative w-10 h-10 flex items-center justify-center rounded-full bg-zinc-100 hover:bg-zinc-200 transition-colors mr-2 shrink-0"
+            className="lg:hidden relative w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-zinc-100 hover:bg-zinc-200 transition-colors mr-1.5 sm:mr-2 shrink-0"
             aria-label="Toggle menu"
           >
             <div className="w-5 h-4 flex flex-col justify-between">
@@ -76,12 +76,45 @@ export default function AppHeader() {
             </div>
           </button>
 
-          {/* Logo - on desktop centered above sidebar, on mobile next to hamburger */}
+          {/* Logo - smaller on mobile, full on desktop */}
           <a href="/app/dashboard" className="shrink-0 lg:w-[108px] lg:flex lg:justify-center" title="CRM Platform" aria-label="CRM28 Home">
+            {/* Mobile: Just the "28" square */}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="124 0 72 72"
+              className="lg:hidden h-7 w-7 sm:h-8 sm:w-8"
+              aria-label="CRM28"
+            >
+              <defs>
+                <linearGradient id="logoGradientMobile" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#007a75" />
+                  <stop offset="100%" stopColor="#003e3c" />
+                </linearGradient>
+                <clipPath id="logoClipMobile">
+                  <rect x="0" y="0" width="72" height="72" rx="15.5" ry="15.5" />
+                </clipPath>
+              </defs>
+              <rect x="0" y="0" width="72" height="72" rx="15.5" ry="15.5" fill="url(#logoGradientMobile)" />
+              <rect x="0" y="0" width="72" height="36" rx="15.5" ry="15.5" fill="white" fillOpacity="0.07" clipPath="url(#logoClipMobile)" />
+              <text
+                x="36"
+                y="47"
+                textAnchor="middle"
+                dominantBaseline="auto"
+                fontFamily="Georgia, 'Times New Roman', serif"
+                fontWeight="700"
+                fontSize="46"
+                letterSpacing="-1"
+                fill="rgba(255,255,255,0.97)"
+              >
+                28
+              </text>
+            </svg>
+            {/* Desktop: Full logo */}
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 196 72"
-              className="h-9"
+              className="hidden lg:block h-9"
               style={{ maxWidth: '98px' }}
               aria-label="CRM28"
             >
@@ -136,15 +169,15 @@ export default function AppHeader() {
           </div>
 
           {/* Flexible spacer */}
-          <div className="flex-1" />
+          <div className="flex-1 min-w-0" />
 
           {/* Mobile search icon only (below sm) */}
-          <div className="sm:hidden">
+          <div className="sm:hidden shrink-0">
             <HeaderSearch />
           </div>
 
           {/* Right side - Action icons + Profile */}
-          <div className="flex items-center gap-1 sm:gap-2">
+          <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2 shrink-0">
             <HeaderSettings />
             <HeaderMessengerIcon />
             <HeaderNotifications />

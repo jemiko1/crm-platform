@@ -203,7 +203,7 @@ export default function ProfileMenu() {
         ref={btnRef}
         type="button"
         onClick={() => (open ? closeMenu() : openMenu())}
-        className="relative w-10 h-10 rounded-full overflow-hidden ring-1 ring-zinc-200 hover:ring-zinc-300 transition-all shrink-0"
+        className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden ring-1 ring-zinc-200 hover:ring-zinc-300 transition-all shrink-0"
         title={displayName}
       >
         {me.avatarUrl ? (
