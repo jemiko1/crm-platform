@@ -12,9 +12,11 @@ import ReplyBox from "./reply-box";
 interface ConversationPanelProps {
   conversationId: string;
   onDeleted?: () => void;
+  /** Mobile: back to conversation list (same pattern as internal messenger) */
+  onBack?: () => void;
 }
 
-export default function ConversationPanel({ conversationId, onDeleted }: ConversationPanelProps) {
+export default function ConversationPanel({ conversationId, onDeleted, onBack }: ConversationPanelProps) {
   const [conversation, setConversation] = useState<ConversationDetail | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -242,7 +244,13 @@ export default function ConversationPanel({ conversationId, onDeleted }: Convers
 
   return (
     <div className="flex flex-col h-full">
-      <ConversationHeader conversation={conversation} currentUserId={currentUserId} onUpdate={loadAll} onDeleted={onDeleted} />
+      <ConversationHeader
+        conversation={conversation}
+        currentUserId={currentUserId}
+        onUpdate={loadAll}
+        onDeleted={onDeleted}
+        onBack={onBack}
+      />
 
       {/* Pause banner for the paused operator */}
       {imPaused && (

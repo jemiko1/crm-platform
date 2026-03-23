@@ -45,10 +45,10 @@ function StatBox({
   const isClickable = !!onClick && !loading;
 
   const bottomBorderStyles = {
-    primary: "border-b-4 border-teal-500",
-    change: "border-b-4 border-sky-500",
-    average: "border-b-4 border-violet-500",
-    total: "border-b-4 border-amber-500",
+    primary: "border-b-2 border-teal-500 md:border-b-4",
+    change: "border-b-2 border-sky-500 md:border-b-4",
+    average: "border-b-2 border-violet-500 md:border-b-4",
+    total: "border-b-2 border-amber-500 md:border-b-4",
   };
 
   const iconContainerStyles = {
@@ -66,12 +66,12 @@ function StatBox({
   };
 
   const content = (
-    <div className="flex flex-col gap-0.5 sm:gap-1">
-      <div className="flex items-start justify-between gap-1 sm:gap-2">
-        <div className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wider text-zinc-500">{title}</div>
+    <div className="flex flex-col gap-0.5 md:gap-1">
+      <div className="flex items-start justify-between gap-1 md:gap-2">
+        <div className="text-[10px] font-medium uppercase tracking-wider text-zinc-500 md:text-[10px]">{title}</div>
         <div
           className={[
-            "shrink-0 w-5 h-5 sm:w-7 sm:h-7 flex items-center justify-center rounded-md",
+            "hidden shrink-0 w-5 h-5 md:flex md:w-7 md:h-7 items-center justify-center rounded-md",
             iconContainerStyles[variant],
             iconColorStyles[variant],
           ].join(" ")}
@@ -79,18 +79,18 @@ function StatBox({
           {icon}
         </div>
       </div>
-      <div className="text-base sm:text-2xl font-bold tabular-nums text-zinc-900 leading-tight text-center">
+      <div className="text-lg font-bold tabular-nums leading-tight text-zinc-900 md:text-center md:text-2xl">
         {loading ? "..." : value}
       </div>
-      {subtitle && <div className="hidden sm:block text-[11px] text-zinc-500">{subtitle}</div>}
+      {subtitle && <div className="hidden text-[11px] text-zinc-500 md:block">{subtitle}</div>}
       {clickHint && isClickable && (
-        <div className="hidden sm:inline-flex items-center gap-1 rounded-md bg-teal-100 px-1.5 py-0.5 text-[10px] font-semibold text-teal-900 ring-1 ring-teal-300/60 w-fit">
+        <div className="hidden items-center gap-1 rounded-md bg-teal-100 px-1.5 py-0.5 text-[10px] font-semibold text-teal-900 ring-1 ring-teal-300/60 md:inline-flex w-fit">
           <IconExternalLink />
           <span>{clickHint}</span>
         </div>
       )}
       {hasChange && !loading && (
-        <div className="hidden sm:flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px]">
+        <div className="hidden flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] md:flex">
           <div className="flex items-center gap-1.5">
             {isPositive && (
               <>
@@ -121,9 +121,12 @@ function StatBox({
   );
 
   const baseClasses = [
-    "relative rounded-xl bg-white p-2 sm:p-3 text-left",
+    "relative min-w-[148px] shrink-0 snap-start text-left",
+    "rounded-none border-0 bg-zinc-50/90 p-2",
+    "shadow-none",
     "transition-all duration-300 ease-out",
-    "shadow-[0_6px_24px_rgba(0,0,0,0.1)]",
+    "md:min-w-0 md:snap-none md:shrink md:rounded-xl md:bg-white md:p-3",
+    "md:shadow-[0_6px_24px_rgba(0,0,0,0.1)]",
     bottomBorderStyles[variant],
     loading ? "opacity-60" : "",
   ];
@@ -135,7 +138,7 @@ function StatBox({
         onClick={onClick}
         className={[
           ...baseClasses,
-          "hover:shadow-[0_12px_40px_rgba(0,0,0,0.15)] hover:-translate-y-2 cursor-pointer",
+          "cursor-pointer md:hover:shadow-[0_12px_40px_rgba(0,0,0,0.15)] md:hover:-translate-y-2",
         ].join(" ")}
       >
         {content}
@@ -320,7 +323,7 @@ export default function BuildingStatistics({
   if (error) {
     return (
       <div
-        className="mb-6 rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200"
+        className="mb-4 rounded-lg bg-amber-50 p-3 ring-1 ring-amber-200 md:mb-6 md:rounded-2xl md:p-4"
         data-testid="building-statistics"
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -344,7 +347,10 @@ export default function BuildingStatistics({
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-2 mb-6 sm:grid-cols-2 sm:gap-5 md:grid-cols-4" data-testid="building-statistics">
+      <div
+        className="-mx-2 mb-4 flex snap-x snap-mandatory gap-2 overflow-x-auto overflow-y-hidden px-2 pb-1 [-webkit-overflow-scrolling:touch] md:mx-0 md:mb-6 md:grid md:max-w-none md:grid-cols-2 md:gap-5 md:overflow-visible md:px-0 md:pb-0 lg:grid-cols-4"
+        data-testid="building-statistics"
+      >
         {/* Total Buildings */}
         <StatBox
           title="Total Buildings"
@@ -415,7 +421,7 @@ export default function BuildingStatistics({
 /* --- Icons --- */
 function IconBuildingStack() {
   return (
-    <svg className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="none">
+    <svg className="h-4 w-4 md:h-5 md:w-5" viewBox="0 0 24 24" fill="none">
       <path
         d="M4 21v-6h16v6M4 15V9l8-4 8 4v6"
         stroke="currentColor"
@@ -434,7 +440,7 @@ function IconBuildingStack() {
 
 function IconBuilding() {
   return (
-    <svg className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="none">
+    <svg className="h-4 w-4 md:h-5 md:w-5" viewBox="0 0 24 24" fill="none">
       <path
         d="M6 21V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17"
         stroke="currentColor"
@@ -454,7 +460,7 @@ function IconBuilding() {
 
 function IconTrend() {
   return (
-    <svg className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="none">
+    <svg className="h-4 w-4 md:h-5 md:w-5" viewBox="0 0 24 24" fill="none">
       <path
         d="M3 17l6-6 4 4 8-12"
         stroke="currentColor"
@@ -475,7 +481,7 @@ function IconTrend() {
 
 function IconChart() {
   return (
-    <svg className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="none">
+    <svg className="h-4 w-4 md:h-5 md:w-5" viewBox="0 0 24 24" fill="none">
       <path
         d="M3 3v18h18"
         stroke="currentColor"

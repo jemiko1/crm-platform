@@ -11,9 +11,11 @@ interface ConversationHeaderProps {
   currentUserId: string | null;
   onUpdate: () => void;
   onDeleted?: () => void;
+  /** Shown below lg — return to inbox list */
+  onBack?: () => void;
 }
 
-export default function ConversationHeader({ conversation, currentUserId, onUpdate, onDeleted }: ConversationHeaderProps) {
+export default function ConversationHeader({ conversation, currentUserId, onUpdate, onDeleted, onBack }: ConversationHeaderProps) {
   const [showAssign, setShowAssign] = useState(false);
   const [showLink, setShowLink] = useState(false);
   const [showReopenModal, setShowReopenModal] = useState(false);
@@ -142,7 +144,19 @@ export default function ConversationHeader({ conversation, currentUserId, onUpda
     <div className="border-b border-gray-200 bg-white/70 backdrop-blur-sm px-4 py-3">
       {/* Row 1: Name + Channel + Close button */}
       <div className="flex items-center justify-between gap-2 mb-2">
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-2 min-w-0 sm:gap-3">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="lg:hidden shrink-0 p-1.5 -ml-1.5 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+              aria-label="Back to conversations"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          )}
           <ChannelBadge channel={conversation.channelType} />
           <span className="text-sm font-semibold text-gray-800 truncate">{displayName}</span>
           {isPaused && (

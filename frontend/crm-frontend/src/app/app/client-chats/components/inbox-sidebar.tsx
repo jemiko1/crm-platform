@@ -337,9 +337,9 @@ export default function InboxSidebar({ selectedId, onSelect, isManager, notify, 
                   selectedId === conv.id ? "bg-teal-50 border-l-2 border-l-emerald-500" : ""
                 }`}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-800 truncate max-w-[140px]">
+                <div className="flex items-center justify-between gap-2 mb-1 min-w-0">
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <span className="min-w-0 flex-1 text-sm font-medium text-gray-800 truncate">
                       {displayName}
                     </span>
                     {unread > 0 && (

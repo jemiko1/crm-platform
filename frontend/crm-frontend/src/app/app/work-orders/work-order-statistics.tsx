@@ -51,10 +51,10 @@ function StatBox({
   const isClickable = !!onClick && !loading;
 
   const bottomBorderStyles = {
-    primary: "border-b-4 border-teal-500",
-    change: "border-b-4 border-sky-500",
-    average: "border-b-4 border-violet-500",
-    total: "border-b-4 border-amber-500",
+    primary: "border-b-2 border-teal-500 md:border-b-4",
+    change: "border-b-2 border-sky-500 md:border-b-4",
+    average: "border-b-2 border-violet-500 md:border-b-4",
+    total: "border-b-2 border-amber-500 md:border-b-4",
   };
 
   const iconContainerStyles = {
@@ -72,12 +72,12 @@ function StatBox({
   };
 
   const content = (
-    <div className="flex flex-col gap-0.5 sm:gap-1">
-      <div className="flex items-start justify-between gap-1 sm:gap-2">
-        <div className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wider text-zinc-500">{title}</div>
+    <div className="flex flex-col gap-0.5 md:gap-1">
+      <div className="flex items-start justify-between gap-1 md:gap-2">
+        <div className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">{title}</div>
         <div
           className={[
-            "shrink-0 w-5 h-5 sm:w-7 sm:h-7 flex items-center justify-center rounded-md",
+            "hidden h-5 w-5 shrink-0 items-center justify-center rounded-md md:flex md:h-7 md:w-7",
             iconContainerStyles[variant],
             iconColorStyles[variant],
           ].join(" ")}
@@ -85,18 +85,18 @@ function StatBox({
           {icon}
         </div>
       </div>
-      <div className="text-base sm:text-2xl font-bold tabular-nums text-zinc-900 leading-tight text-center">
+      <div className="text-lg font-bold tabular-nums leading-tight text-zinc-900 md:text-center md:text-2xl">
         {loading ? "..." : value}
       </div>
-      {subtitle && <div className="hidden sm:block text-[11px] text-zinc-500">{subtitle}</div>}
+      {subtitle && <div className="hidden text-[11px] text-zinc-500 md:block">{subtitle}</div>}
       {clickHint && isClickable && (
-        <div className="hidden sm:inline-flex items-center gap-1 rounded-md bg-teal-100 px-1.5 py-0.5 text-[10px] font-semibold text-teal-900 ring-1 ring-teal-300/60 w-fit">
+        <div className="hidden w-fit items-center gap-1 rounded-md bg-teal-100 px-1.5 py-0.5 text-[10px] font-semibold text-teal-900 ring-1 ring-teal-300/60 md:inline-flex">
           <IconExternalLink />
           <span>{clickHint}</span>
         </div>
       )}
       {hasChange && !loading && (
-        <div className="hidden sm:flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px]">
+        <div className="hidden flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] md:flex">
           <div className="flex items-center gap-1.5">
             {isPositive && (
               <>
@@ -127,9 +127,11 @@ function StatBox({
   );
 
   const baseClasses = [
-    "relative rounded-xl bg-white p-2 sm:p-3 text-left",
+    "relative min-w-[148px] shrink-0 snap-start text-left",
+    "rounded-none border-0 bg-zinc-50/90 p-2 shadow-none",
     "transition-all duration-300 ease-out",
-    "shadow-[0_6px_24px_rgba(0,0,0,0.1)]",
+    "md:min-w-0 md:snap-none md:shrink md:rounded-xl md:bg-white md:p-3",
+    "md:shadow-[0_6px_24px_rgba(0,0,0,0.1)]",
     bottomBorderStyles[variant],
     loading ? "opacity-60" : "",
   ];
@@ -141,7 +143,7 @@ function StatBox({
         onClick={onClick}
         className={[
           ...baseClasses,
-          "hover:shadow-[0_12px_40px_rgba(0,0,0,0.15)] hover:-translate-y-2 cursor-pointer",
+          "cursor-pointer md:hover:shadow-[0_12px_40px_rgba(0,0,0,0.15)] md:hover:-translate-y-2",
         ].join(" ")}
       >
         {content}
@@ -316,7 +318,7 @@ export default function WorkOrderStatistics({
 
   if (error) {
     return (
-      <div className="mb-6 rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200" data-testid="work-order-statistics">
+      <div className="mb-4 rounded-lg bg-amber-50 p-3 ring-1 ring-amber-200 md:mb-6 md:rounded-2xl md:p-4" data-testid="work-order-statistics">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="text-sm font-semibold text-amber-900">Statistics unavailable</div>
@@ -338,7 +340,10 @@ export default function WorkOrderStatistics({
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-2 mb-6 sm:grid-cols-2 sm:gap-5 md:grid-cols-4" data-testid="work-order-statistics">
+      <div
+        className="-mx-2 mb-4 flex snap-x snap-mandatory gap-2 overflow-x-auto overflow-y-hidden px-2 pb-1 [-webkit-overflow-scrolling:touch] md:mx-0 md:mb-6 md:grid md:max-w-none md:grid-cols-2 md:gap-5 md:overflow-visible md:px-0 md:pb-0 lg:grid-cols-4"
+        data-testid="work-order-statistics"
+      >
         {/* Open / Total */}
         <StatBox
           title="Open / Total Work Orders"
@@ -409,7 +414,7 @@ export default function WorkOrderStatistics({
 
 function IconClipboard() {
   return (
-    <svg className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="none">
+    <svg className="h-4 w-4 md:h-5 md:w-5" viewBox="0 0 24 24" fill="none">
       <path
         d="M9 4h6l1 2h3v15a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6h3l1-2Z"
         stroke="currentColor"
@@ -428,7 +433,7 @@ function IconClipboard() {
 
 function IconDocument() {
   return (
-    <svg className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="none">
+    <svg className="h-4 w-4 md:h-5 md:w-5" viewBox="0 0 24 24" fill="none">
       <path
         d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
         stroke="currentColor"
@@ -443,7 +448,7 @@ function IconDocument() {
 
 function IconChart() {
   return (
-    <svg className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="none">
+    <svg className="h-4 w-4 md:h-5 md:w-5" viewBox="0 0 24 24" fill="none">
       <path
         d="M3 3v18h18"
         stroke="currentColor"
@@ -464,7 +469,7 @@ function IconChart() {
 
 function IconAlert() {
   return (
-    <svg className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="none">
+    <svg className="h-4 w-4 md:h-5 md:w-5" viewBox="0 0 24 24" fill="none">
       <path
         d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
         stroke="currentColor"

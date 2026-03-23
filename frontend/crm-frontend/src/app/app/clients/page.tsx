@@ -133,26 +133,26 @@ function ClientsPageContent() {
   return (
     <PermissionGuard permission="clients.menu">
       <div className="w-full">
-      <div className="mx-auto w-full px-4 py-6 md:px-6 md:py-8">
+      <div className="mx-auto w-full px-2 py-4 md:px-6 md:py-8">
         {/* Header */}
-        <div className="mb-6 flex flex-col gap-3 md:mb-8">
+        <div className="mb-3 flex flex-col gap-2 md:mb-8 md:gap-3">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs text-zinc-700 shadow-sm ring-1 ring-zinc-200">
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: BRAND }} />
               {t("clients.subtitle", "Clients")}
             </div>
 
-            <h1 className="mt-3 text-2xl font-semibold tracking-tight text-zinc-900 md:text-3xl">
+            <h1 className="mt-2 text-xl font-semibold tracking-tight text-zinc-900 md:mt-3 md:text-3xl">
               {t("clients.title", "Clients Directory")}
             </h1>
-            <p className="mt-1 text-sm text-zinc-600">
+            <p className="mt-0.5 text-xs leading-snug text-zinc-600 md:mt-1 md:text-sm md:leading-normal">
               {t("clients.description", "Central client list across buildings. Assignment is mapped by building coreId.")}
             </p>
           </div>
         </div>
 
         {/* Main Card */}
-        <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-zinc-200 md:p-6">
+        <div className="rounded-none bg-transparent p-0 shadow-none ring-0 md:rounded-3xl md:bg-white md:p-6 md:shadow-sm md:ring-1 md:ring-zinc-200">
           {/* Loading / Error */}
           {loading && (
             <div className="py-12 text-center text-sm text-zinc-600">Loading clients from API...</div>
@@ -176,7 +176,7 @@ function ClientsPageContent() {
           {!loading && !error && (
             <>
               {/* Search Input - EXACT like Buildings */}
-              <div className="mb-4">
+              <div className="mb-3 md:mb-4">
                 <input
                   value={q}
                   onChange={(e) => {
@@ -184,11 +184,11 @@ function ClientsPageContent() {
                     setPage(1);
                   }}
                   placeholder={t("clients.searchPlaceholder", "Search by name, ID number, payment id, phone, building...")}
-                  className="w-full max-w-md rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-md ring-2 ring-teal-500/40 border border-teal-500/30 hover:ring-teal-500/60 hover:border-teal-500/50 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-teal-500/70 focus:shadow-lg focus:border-teal-500/60 transition-all"
+                  className="w-full rounded-lg bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-sm ring-2 ring-teal-500/40 border border-teal-500/30 hover:ring-teal-500/60 hover:border-teal-500/50 focus:outline-none focus:ring-2 focus:ring-teal-500/70 focus:border-teal-500/60 transition-all md:max-w-md md:rounded-2xl md:px-4 md:py-2.5 md:shadow-md"
                 />
               </div>
 
-              <div className="rounded-2xl ring-1 ring-zinc-200 overflow-clip">
+              <div className="overflow-x-auto overflow-y-visible rounded-none ring-0 md:overflow-clip md:rounded-2xl md:ring-1 md:ring-zinc-200">
                 <div>
                   <table className="min-w-[1220px] w-full border-separate border-spacing-0">
                     <colgroup>
@@ -201,17 +201,17 @@ function ClientsPageContent() {
                       <col style={{ width: "120px" }} />
                     </colgroup>
 
-                    <thead className="bg-zinc-50 sticky top-[52px] z-20 shadow-[0_1px_0_rgba(0,0,0,0.08)]">
-                      <tr className="text-left text-xs text-zinc-600">
-                        <th className="px-5 py-3 font-medium bg-zinc-50">Client</th>
-                        <th className="px-4 py-3 font-medium border-l border-zinc-200 bg-zinc-50">
+                    <thead className="bg-zinc-50 relative z-10 shadow-[0_1px_0_rgba(0,0,0,0.08)] md:sticky md:top-[52px] md:z-20">
+                      <tr className="text-left text-[11px] text-zinc-600 md:text-xs">
+                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-5 md:py-3">Client</th>
+                        <th className="px-2 py-2 font-medium border-l border-zinc-200 bg-zinc-50 md:px-4 md:py-3">
                           ID Number
                         </th>
-                        <th className="px-4 py-3 font-medium bg-zinc-50">Payment ID</th>
-                        <th className="px-4 py-3 font-medium bg-zinc-50">Primary Phone</th>
-                        <th className="px-4 py-3 font-medium bg-zinc-50">Secondary Phone</th>
-                        <th className="px-4 py-3 font-medium bg-zinc-50">Buildings</th>
-                        <th className="px-4 py-3 font-medium text-right bg-zinc-50">Client ID</th>
+                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">Payment ID</th>
+                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">Primary Phone</th>
+                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">Secondary Phone</th>
+                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">Buildings</th>
+                        <th className="px-2 py-2 font-medium text-right bg-zinc-50 md:px-4 md:py-3">Client ID</th>
                       </tr>
                     </thead>
 
@@ -235,20 +235,20 @@ function ClientsPageContent() {
                               onClick={() => openClientModal(c.coreId)}
                               style={{ cursor: "pointer" }}
                               className={[
-                                "group transition-all duration-200 ease-out",
+                                "group transition-colors duration-200 ease-out",
                                 "hover:bg-teal-50/60",
-                                "hover:shadow-lg hover:-translate-y-0.5 hover:z-10",
+                                "md:hover:shadow-lg md:hover:-translate-y-0.5 md:hover:z-10",
                                 !isLast && "border-b border-zinc-100",
                               ].join(" ")}
                             >
                               {/* Client */}
-                              <td className="px-5 py-4 align-middle">
-                                <div className="flex items-center justify-between gap-3">
+                              <td className="px-2 py-2 align-middle md:px-5 md:py-4">
+                                <div className="flex items-center justify-between gap-2 md:gap-3">
                                   <div className="min-w-0">
-                                    <div className="text-[15px] font-semibold text-zinc-900 underline-offset-2 group-hover:underline truncate">
+                                    <div className="truncate text-sm font-semibold leading-snug text-zinc-900 underline-offset-2 group-hover:underline md:text-[15px]">
                                       {name}
                                     </div>
-                                    <div className="mt-1 text-xs text-zinc-500 truncate">
+                                    <div className="mt-0.5 truncate text-[12px] leading-snug text-zinc-500 md:mt-1 md:text-xs">
                                       {safePhone(c.primaryPhone)} • {safeText(c.paymentId)}
                                     </div>
                                   </div>
@@ -260,37 +260,37 @@ function ClientsPageContent() {
                               </td>
 
                               {/* ID Number */}
-                              <td className="px-4 py-4 align-middle border-l border-zinc-200">
-                                <span className="inline-flex items-center rounded-2xl bg-white px-3 py-2 text-sm text-zinc-900 ring-1 ring-zinc-200">
+                              <td className="px-2 py-2 align-middle border-l border-zinc-200 md:px-4 md:py-4">
+                                <span className="inline-flex items-center rounded-lg bg-white px-2 py-1.5 text-sm text-zinc-900 ring-1 ring-zinc-200 md:rounded-2xl md:px-3 md:py-2">
                                   <span className="tabular-nums">{safeText(c.idNumber)}</span>
                                 </span>
                               </td>
 
                               {/* Payment ID */}
-                              <td className="px-4 py-4 align-middle">
-                                <span className="inline-flex items-center rounded-2xl bg-zinc-50 px-3 py-2 text-sm text-zinc-900 ring-1 ring-zinc-200">
+                              <td className="px-2 py-2 align-middle md:px-4 md:py-4">
+                                <span className="inline-flex items-center rounded-lg bg-zinc-50 px-2 py-1.5 text-sm text-zinc-900 ring-1 ring-zinc-200 md:rounded-2xl md:px-3 md:py-2">
                                   <span className="tabular-nums">{safeText(c.paymentId)}</span>
                                 </span>
                               </td>
 
                               {/* Primary Phone */}
-                              <td className="px-4 py-4 align-middle text-sm text-zinc-700">
+                              <td className="px-2 py-2 align-middle text-sm text-zinc-700 md:px-4 md:py-4">
                                 {safePhone(c.primaryPhone)}
                               </td>
 
                               {/* Secondary Phone */}
-                              <td className="px-4 py-4 align-middle text-sm text-zinc-700">
+                              <td className="px-2 py-2 align-middle text-sm text-zinc-700 md:px-4 md:py-4">
                                 {safePhone(c.secondaryPhone)}
                               </td>
 
                               {/* Buildings */}
-                              <td className="px-4 py-4 align-middle">
+                              <td className="px-2 py-2 align-middle md:px-4 md:py-4">
                                 <BuildingsCell buildings={c.buildings ?? []} />
                               </td>
 
                               {/* Client ID */}
-                              <td className="px-4 py-4 align-middle text-right">
-                                <span className="inline-flex items-center rounded-2xl bg-white px-3 py-2 text-sm text-zinc-900 ring-1 ring-zinc-200">
+                              <td className="px-2 py-2 align-middle text-right md:px-4 md:py-4">
+                                <span className="inline-flex items-center rounded-lg bg-white px-2 py-1.5 text-sm text-zinc-900 ring-1 ring-zinc-200 md:rounded-2xl md:px-3 md:py-2">
                                   <span className="tabular-nums">{c.coreId}</span>
                                 </span>
                               </td>
@@ -305,16 +305,16 @@ function ClientsPageContent() {
 
               {/* Pagination */}
               {filtered.length > 0 && (
-                <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="text-xs text-zinc-600">
+                <div className="mt-3 flex flex-col gap-2 pb-1 md:mt-5 md:flex-row md:items-center md:justify-between md:gap-3">
+                  <div className="text-[11px] text-zinc-600 md:text-xs">
                     {t("common.page", "Page")} <span className="font-semibold text-zinc-900">{safePage}</span> {t("common.of", "of")}{" "}
                     <span className="font-semibold text-zinc-900">{totalPages}</span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 md:gap-2">
                     <button
                       type="button"
-                      className="rounded-2xl bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm ring-1 ring-zinc-200 hover:bg-zinc-50 disabled:opacity-40"
+                      className="rounded-lg bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50 disabled:opacity-40 md:rounded-2xl md:px-3 md:py-2 md:text-sm md:shadow-sm"
                       disabled={safePage <= 1}
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                     >
@@ -323,7 +323,7 @@ function ClientsPageContent() {
 
                     <button
                       type="button"
-                      className="rounded-2xl bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm ring-1 ring-zinc-200 hover:bg-zinc-50 disabled:opacity-40"
+                      className="rounded-lg bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50 disabled:opacity-40 md:rounded-2xl md:px-3 md:py-2 md:text-sm md:shadow-sm"
                       disabled={safePage >= totalPages}
                       onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     >

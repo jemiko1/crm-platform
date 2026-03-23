@@ -184,7 +184,7 @@ function EmployeesPageContent() {
       ) : (
         <div className="rounded-2xl bg-white shadow ring-1 ring-zinc-200 overflow-x-auto lg:overflow-clip -mx-4 sm:mx-0">
           <table className="min-w-[900px] w-full divide-y divide-zinc-200">
-            <thead className="bg-zinc-50 sticky top-[52px] z-20 shadow-[0_1px_0_rgba(0,0,0,0.08)]">
+            <thead className="bg-zinc-50 relative z-10 shadow-[0_1px_0_rgba(0,0,0,0.08)] md:sticky md:top-[52px] md:z-20">
               <tr>
                 <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-zinc-900 bg-zinc-50">
                   {t("employees.columns.employee", "Employee")}
