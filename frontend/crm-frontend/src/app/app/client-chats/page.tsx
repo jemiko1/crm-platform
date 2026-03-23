@@ -19,9 +19,15 @@ function ClientChatsContent() {
   const { showBanner, soundEnabled, requestPermission, dismissBanner, toggleSound, notify } = useNotifications();
 
   return (
-    <div className="flex flex-col h-[calc(100vh-80px)]">
+    <div
+      className={`flex w-full min-w-0 flex-col min-h-0 ${
+        isManager
+          ? "h-[calc(100dvh-52px-11rem)] max-h-[calc(100dvh-52px-11rem)]"
+          : "h-[calc(100dvh-52px-9rem)] max-h-[calc(100dvh-52px-9rem)]"
+      }`}
+    >
       {isManager && (
-        <div className="flex items-center gap-1 px-4 py-2 border-b border-gray-200 bg-white/80 backdrop-blur-sm flex-shrink-0">
+        <div className="flex flex-shrink-0 flex-wrap items-center gap-1 border-b border-gray-200 bg-white/80 px-4 py-2 backdrop-blur-sm">
           <button
             onClick={() => setView("inbox")}
             className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${
@@ -46,9 +52,9 @@ function ClientChatsContent() {
       )}
 
       {showBanner && view === "inbox" && (
-        <div className="flex items-center justify-between px-4 py-2 bg-amber-50 border-b border-amber-200 text-sm text-amber-800 flex-shrink-0">
-          <span>Enable notifications to get alerted about new messages</span>
-          <div className="flex items-center gap-2">
+        <div className="flex flex-shrink-0 flex-col gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800 sm:flex-row sm:items-center sm:justify-between">
+          <span className="min-w-0">Enable notifications to get alerted about new messages</span>
+          <div className="flex shrink-0 items-center gap-2">
             <button onClick={requestPermission} className="px-3 py-1 bg-amber-500 text-white rounded-lg text-xs font-medium hover:bg-amber-600">Allow</button>
             <button onClick={dismissBanner} className="px-2 py-1 text-amber-600 hover:text-amber-800 text-xs">Dismiss</button>
           </div>
@@ -57,7 +63,12 @@ function ClientChatsContent() {
 
       {view === "inbox" ? (
         <div className="flex flex-1 min-h-0 bg-white/40 backdrop-blur-sm rounded-2xl shadow-sm border border-white/60 overflow-hidden">
-          <div className="w-[350px] min-w-[280px] border-r border-gray-200 flex-shrink-0 bg-white/50">
+          {/* List: full width on small screens; hidden when a chat is open (same pattern as internal messenger) */}
+          <div
+            className={`w-full shrink-0 flex flex-col min-h-0 border-gray-200 bg-white/50 lg:w-[350px] lg:min-w-[280px] lg:border-r ${
+              selectedId ? "hidden lg:flex" : "flex"
+            }`}
+          >
             <InboxSidebar selectedId={selectedId} onSelect={setSelectedId} isManager={isManager} notify={notify} soundToggle={
               <button
                 onClick={toggleSound}
@@ -76,16 +87,28 @@ function ClientChatsContent() {
               </button>
             } />
           </div>
-          <div className="flex-1 min-w-0">
+          {/* Conversation: full width on mobile when selected; empty state only on lg+ when nothing selected */}
+          <div
+            className={`min-h-0 min-w-0 flex-1 flex-col ${
+              selectedId ? "flex" : "hidden lg:flex"
+            }`}
+          >
             {selectedId ? (
-              <ConversationPanel key={selectedId} conversationId={selectedId} onDeleted={() => setSelectedId(null)} />
+              <ConversationPanel
+                key={selectedId}
+                conversationId={selectedId}
+                onDeleted={() => setSelectedId(null)}
+                onBack={() => setSelectedId(null)}
+              />
             ) : (
               <EmptyState />
             )}
           </div>
         </div>
       ) : (
-        <ManagerDashboard visible={view === "dashboard"} />
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/60 bg-white/40 shadow-sm backdrop-blur-sm">
+          <ManagerDashboard visible={view === "dashboard"} />
+        </div>
       )}
     </div>
   );

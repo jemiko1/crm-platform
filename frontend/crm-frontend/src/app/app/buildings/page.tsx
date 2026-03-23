@@ -91,17 +91,16 @@ const ProductIcons = React.memo(function ProductIcons({ p }: { p: BuildingProduc
   ];
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex max-w-full flex-wrap items-center gap-1 md:gap-2">
       {items.map((it) => {
         const muted = it.count === 0;
         return (
           <span
             key={it.key}
             className={[
-              "inline-flex items-center gap-2 rounded-2xl px-2.5 py-1.5",
+              "inline-flex h-7 items-center gap-1 rounded-lg px-1.5 py-1 md:h-9 md:gap-2 md:rounded-2xl md:px-2.5 md:py-1.5",
               "ring-1 ring-zinc-200 bg-zinc-50",
-              "text-xs text-zinc-700",
-              "h-9",
+              "text-[11px] text-zinc-700 md:text-xs",
               muted ? "opacity-60" : "opacity-100",
             ].join(" ")}
             title={`${it.label}: ${it.count}`}
@@ -224,18 +223,18 @@ function BuildingsPageContent() {
   return (
     <PermissionGuard permission="buildings.menu">
       <div className="w-full">
-      <div className="mx-auto w-full px-4 py-6 md:px-6 md:py-8">
+      <div className="mx-auto w-full px-2 py-4 md:px-6 md:py-8">
         {/* Header */}
-        <div className="mb-6 flex flex-col gap-4 md:mb-8 md:flex-row md:items-end md:justify-between">
+        <div className="mb-3 flex flex-col gap-2 md:mb-8 md:flex-row md:items-end md:justify-between md:gap-4">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs text-zinc-700 shadow-sm ring-1 ring-zinc-200">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs text-zinc-700 shadow-sm ring-1 ring-zinc-200 md:shadow-sm">
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: BRAND }} />
               {t("buildings.subtitle", "Buildings")}
             </div>
-            <h1 className="mt-3 text-2xl font-semibold tracking-tight text-zinc-900 md:text-3xl">
+            <h1 className="mt-2 text-xl font-semibold tracking-tight text-zinc-900 md:mt-3 md:text-3xl">
               {t("buildings.title", "Buildings Directory")}
             </h1>
-            <p className="mt-1 text-sm text-zinc-600">
+            <p className="mt-0.5 text-xs leading-snug text-zinc-600 md:mt-1 md:text-sm md:leading-normal">
               {t("buildings.description", "Synced from your core system via API. Buildings and devices are read-only in this CRM.")}
             </p>
           </div>
@@ -251,7 +250,7 @@ function BuildingsPageContent() {
         />
 
         {/* Main Card */}
-        <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-zinc-200 md:p-6">
+        <div className="rounded-none bg-transparent p-0 shadow-none ring-0 md:rounded-3xl md:bg-white md:p-6 md:shadow-sm md:ring-1 md:ring-zinc-200">
           {/* Loading State */}
           {loading && (
             <div className="py-12 text-center text-sm text-zinc-600">
@@ -278,7 +277,7 @@ function BuildingsPageContent() {
           {!loading && !error && (
             <>
               {/* Search + Add Building - above table */}
-              <div className="mb-4 flex flex-row flex-wrap items-center justify-between gap-3 sm:gap-4">
+              <div className="mb-3 flex flex-col gap-2 md:mb-4 md:flex-row md:flex-wrap md:items-center md:justify-between md:gap-4">
                 <input
                   value={q}
                   onChange={(e) => {
@@ -286,13 +285,13 @@ function BuildingsPageContent() {
                     setPage(1);
                   }}
                   placeholder={t("buildings.searchPlaceholder", "Search by ID, name, address, city...")}
-                  className="min-w-0 flex-1 rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-md ring-2 ring-teal-500/40 border border-teal-500/30 hover:ring-teal-500/60 hover:border-teal-500/50 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-teal-500/70 focus:shadow-lg focus:border-teal-500/60 transition-all sm:max-w-md"
+                  className="min-w-0 w-full rounded-lg bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-sm ring-2 ring-teal-500/40 border border-teal-500/30 hover:ring-teal-500/60 hover:border-teal-500/50 focus:outline-none focus:ring-2 focus:ring-teal-500/70 focus:border-teal-500/60 transition-all md:max-w-md md:flex-1 md:rounded-2xl md:px-4 md:py-2.5 md:shadow-md"
                 />
                 {hasPermission("buildings.create") && (
                   <button
                     type="button"
                     onClick={() => setShowAddModal(true)}
-                    className="shrink-0 ml-auto rounded-2xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95 whitespace-nowrap"
+                    className="w-full shrink-0 rounded-lg px-3 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95 whitespace-nowrap md:ml-auto md:w-auto md:rounded-2xl md:px-4 md:py-2.5"
                     style={{ backgroundColor: BRAND }}
                   >
                     + {t("buildings.addBuilding", "Add Building")}
@@ -300,16 +299,16 @@ function BuildingsPageContent() {
                 )}
               </div>
 
-              <div className="rounded-2xl ring-1 ring-zinc-200 overflow-clip">
+              <div className="overflow-x-auto overflow-y-visible rounded-none ring-0 md:overflow-clip md:rounded-2xl md:ring-1 md:ring-zinc-200">
                 <div>
                   <table className="min-w-[980px] w-full border-separate border-spacing-0">
-                    <thead className="bg-zinc-50 sticky top-[52px] z-20 shadow-[0_1px_0_rgba(0,0,0,0.08)]">
-                      <tr className="text-left text-xs text-zinc-600">
-                        <th className="px-4 py-3 font-medium bg-zinc-50">{t("buildings.columns.building", "Building")}</th>
-                        <th className="px-4 py-3 font-medium bg-zinc-50">{t("buildings.columns.clients", "Clients")}</th>
-                        <th className="px-4 py-3 font-medium bg-zinc-50">{t("buildings.columns.devices", "Devices")}</th>
-                        <th className="px-4 py-3 font-medium bg-zinc-50">{t("buildings.columns.workOrders", "Work Orders")}</th>
-                        <th className="px-4 py-3 font-medium bg-zinc-50">{t("buildings.columns.lastUpdate", "Last Update")}</th>
+                    <thead className="bg-zinc-50 relative z-10 shadow-[0_1px_0_rgba(0,0,0,0.08)] md:sticky md:top-[52px] md:z-20">
+                      <tr className="text-left text-[11px] text-zinc-600 md:text-xs">
+                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.building", "Building")}</th>
+                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.clients", "Clients")}</th>
+                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.devices", "Devices")}</th>
+                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.workOrders", "Work Orders")}</th>
+                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.lastUpdate", "Last Update")}</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white">
@@ -329,14 +328,14 @@ function BuildingsPageContent() {
                             <tr
                               key={b.coreId}
                               className={[
-                                "group transition-all duration-200 ease-out",
+                                "group transition-colors duration-200 ease-out",
                                 "hover:bg-teal-50/60",
-                                "hover:shadow-lg hover:-translate-y-0.5 hover:z-10",
+                                "md:hover:shadow-lg md:hover:-translate-y-0.5 md:hover:z-10",
                                 !isLast && "border-b border-zinc-100",
                               ].join(" ")}
                             >
                               {/* Building */}
-                              <td className="px-4 py-4 align-middle">
+                              <td className="px-2 py-2 align-middle md:px-4 md:py-4">
                                 <button
                                   type="button"
                                   onClick={() => openBuildingModal(b.coreId)}
@@ -344,12 +343,12 @@ function BuildingsPageContent() {
                                 >
                                   <div className="min-w-0">
                                     <div className="flex items-center gap-2">
-                                      <span className="text-sm font-semibold text-zinc-900 underline-offset-2 group-hover:underline">
+                                      <span className="text-sm font-semibold leading-snug text-zinc-900 underline-offset-2 group-hover:underline">
                                         {b.name}
                                       </span>
                                       <span className="text-zinc-400">ΓåÆ</span>
                                     </div>
-                                    <div className="mt-1 text-xs text-zinc-500">
+                                    <div className="mt-0.5 text-[12px] leading-snug text-zinc-500 md:mt-1 md:text-xs">
                                       ID {b.coreId} ΓÇó {b.city ?? "ΓÇö"}
                                     </div>
                                   </div>
@@ -357,7 +356,7 @@ function BuildingsPageContent() {
                               </td>
 
                               {/* Clients */}
-                              <td className="px-4 py-4 align-middle">
+                              <td className="px-2 py-2 align-middle md:px-4 md:py-4">
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -366,7 +365,7 @@ function BuildingsPageContent() {
                                     params.set("tab", "clients");
                                     router.push(`${window.location.pathname}?${params.toString()}`);
                                   }}
-                                  className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-sm text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50"
+                                  className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2 py-1.5 text-sm text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50 md:gap-2 md:rounded-2xl md:px-3 md:py-2"
                                   title={t("buildings.openClients", "Open clients list")}
                                 >
                                   <span className="text-zinc-500">
@@ -377,7 +376,7 @@ function BuildingsPageContent() {
                               </td>
 
                               {/* Devices */}
-                              <td className="px-4 py-4 align-middle">
+                              <td className="px-2 py-2 align-middle md:px-4 md:py-4">
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -396,7 +395,7 @@ function BuildingsPageContent() {
                               </td>
 
                               {/* Work Orders */}
-                              <td className="px-4 py-4 align-middle">
+                              <td className="px-2 py-2 align-middle md:px-4 md:py-4">
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -405,7 +404,7 @@ function BuildingsPageContent() {
                                     params.set("tab", "work-orders");
                                     router.push(`${window.location.pathname}?${params.toString()}`);
                                   }}
-                                  className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-sm text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50"
+                                  className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2 py-1.5 text-sm text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50 md:gap-2 md:rounded-2xl md:px-3 md:py-2"
                                   title={t("buildings.openWorkOrders", "Open work orders")}
                                 >
                                   <span className="text-zinc-500">
@@ -418,19 +417,19 @@ function BuildingsPageContent() {
                               </td>
 
                               {/* Last Update */}
-                              <td className="px-4 py-4 align-middle">
+                              <td className="px-2 py-2 align-middle md:px-4 md:py-4">
                                 <button
                                   type="button"
                                   onClick={() => openBuildingModal(b.coreId)}
                                   className="block w-full text-left"
                                   title={t("buildings.openBuilding", "Open building")}
                                 >
-                                  <div className="text-sm text-zinc-900">
+                                  <div className="text-sm leading-snug text-zinc-900">
                                     {hasMounted
                                       ? new Date(b.updatedAt).toLocaleString()
                                       : formatUtcCompact(b.updatedAt)}
                                   </div>
-                                  <div className="mt-1 text-xs text-zinc-500">{t("buildings.latestSync", "latest core sync")}</div>
+                                  <div className="mt-0.5 text-[12px] leading-snug text-zinc-500 md:mt-1 md:text-xs">{t("buildings.latestSync", "latest core sync")}</div>
                                 </button>
                               </td>
                             </tr>
@@ -444,15 +443,15 @@ function BuildingsPageContent() {
 
               {/* Pagination */}
               {filtered.length > 0 && (
-                <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="text-xs text-zinc-600">
+                <div className="mt-3 flex flex-col gap-2 pb-1 md:mt-5 md:flex-row md:items-center md:justify-between md:gap-3">
+                  <div className="text-[11px] text-zinc-600 md:text-xs">
                     {t("common.page", "Page")} <span className="font-semibold text-zinc-900">{safePage}</span> {t("common.of", "of")}{" "}
                     <span className="font-semibold text-zinc-900">{totalPages}</span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 md:gap-2">
                     <button
                       type="button"
-                      className="rounded-2xl bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm ring-1 ring-zinc-200 hover:bg-zinc-50 disabled:opacity-40"
+                      className="rounded-lg bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50 disabled:opacity-40 md:rounded-2xl md:px-3 md:py-2 md:text-sm md:shadow-sm"
                       disabled={safePage <= 1}
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                     >
@@ -460,7 +459,7 @@ function BuildingsPageContent() {
                     </button>
                     <button
                       type="button"
-                      className="rounded-2xl bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm ring-1 ring-zinc-200 hover:bg-zinc-50 disabled:opacity-40"
+                      className="rounded-lg bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50 disabled:opacity-40 md:rounded-2xl md:px-3 md:py-2 md:text-sm md:shadow-sm"
                       disabled={safePage >= totalPages}
                       onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     >

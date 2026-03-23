@@ -323,24 +323,24 @@ export default function IncidentsPage() {
   return (
     <PermissionGuard permission="incidents.menu">
       <div className="w-full">
-      <div className="mx-auto w-full px-4 py-6 md:px-6 md:py-8">
-        <div className="mb-6 flex flex-col gap-3 md:mb-8">
+      <div className="mx-auto w-full px-2 py-4 md:px-6 md:py-8">
+        <div className="mb-3 flex flex-col gap-2 md:mb-8 md:gap-3">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs text-zinc-700 shadow-sm ring-1 ring-zinc-200">
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: BRAND }} />
               {t("incidents.badge", "Incidents")}
             </div>
 
-            <h1 className="mt-3 text-2xl font-semibold tracking-tight text-zinc-900 md:text-3xl">
+            <h1 className="mt-2 text-xl font-semibold tracking-tight text-zinc-900 md:mt-3 md:text-3xl">
               {t("incidents.title", "Incident Management")}
             </h1>
-            <p className="mt-1 text-sm text-zinc-600">
+            <p className="mt-0.5 text-xs leading-snug text-zinc-600 md:mt-1 md:text-sm md:leading-normal">
               {t("incidents.description", "Track and manage customer-reported incidents across all buildings.")}
             </p>
           </div>
         </div>
 
-        <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-zinc-200 md:p-6">
+        <div className="rounded-none bg-transparent p-0 shadow-none ring-0 md:rounded-3xl md:bg-white md:p-6 md:shadow-sm md:ring-1 md:ring-zinc-200">
           {loading && (
             <div className="py-12 text-center text-sm text-zinc-600">{t("incidents.loading", "Loading incidents from API...")}</div>
           )}
@@ -361,7 +361,7 @@ export default function IncidentsPage() {
 
           {!loading && !error && (
             <>
-              <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="mb-3 flex flex-col gap-2 md:mb-4 md:flex-row md:items-center md:justify-between md:gap-3">
                 <input
                   value={q}
                   onChange={(e) => {
@@ -369,13 +369,13 @@ export default function IncidentsPage() {
                     setPage(1);
                   }}
                   placeholder={t("incidents.searchPlaceholder", "Search incidents by number, client, building, description...")}
-                  className="w-full max-w-md rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-md ring-2 ring-teal-500/40 border border-teal-500/30 hover:ring-teal-500/60 hover:border-teal-500/50 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-teal-500/70 focus:shadow-lg focus:border-teal-500/60 transition-all"
+                  className="w-full rounded-lg bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-sm ring-2 ring-teal-500/40 border border-teal-500/30 hover:ring-teal-500/60 hover:border-teal-500/50 focus:outline-none focus:ring-2 focus:ring-teal-500/70 focus:border-teal-500/60 transition-all md:max-w-md md:rounded-2xl md:px-4 md:py-2.5 md:shadow-md"
                 />
 
                 {hasPermission("incidents.create") && (
                   <button
                     type="button"
-                    className="rounded-2xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+                    className="w-full rounded-lg px-3 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95 md:w-auto md:rounded-2xl md:px-4 md:py-2.5"
                     style={{ backgroundColor: BRAND }}
                     onClick={() => setShowReportModal(true)}
                   >
@@ -384,7 +384,7 @@ export default function IncidentsPage() {
                 )}
               </div>
 
-              <div className="mb-4 flex flex-wrap items-center gap-2">
+              <div className="-mx-2 mb-3 flex flex-nowrap items-center gap-2 overflow-x-auto overflow-y-hidden px-2 pb-1 [-webkit-overflow-scrolling:touch] md:mx-0 md:mb-4 md:flex-wrap md:overflow-visible md:px-0 md:pb-0">
                 <FilterPill
                   label={t("incidents.statusFilters.all", "All Status")}
                   count={incidents.length}
@@ -480,7 +480,7 @@ export default function IncidentsPage() {
                 />
               </div>
 
-              <div className="mb-4 text-xs text-zinc-600">
+              <div className="mb-3 text-[11px] text-zinc-600 md:mb-4 md:text-xs">
                 {t("incidents.showing", "Showing")}{" "}
                 <span className="font-semibold text-zinc-900 tabular-nums">{filtered.length}</span>{" "}
                 {t("incidents.of", "of")}{" "}
@@ -528,7 +528,7 @@ export default function IncidentsPage() {
                   </button>
                 </div>
               ) : (
-                <div className="rounded-2xl ring-1 ring-zinc-200 overflow-clip">
+                <div className="overflow-x-auto overflow-y-visible rounded-none ring-0 md:overflow-clip md:rounded-2xl md:ring-1 md:ring-zinc-200">
                   <div>
                     <table className="min-w-[1600px] w-full border-separate border-spacing-0">
                       <colgroup>
@@ -543,17 +543,17 @@ export default function IncidentsPage() {
                         <col style={{ width: "100px" }} />
                       </colgroup>
 
-                      <thead className="bg-zinc-50 sticky top-[52px] z-20 shadow-[0_1px_0_rgba(0,0,0,0.08)]">
-                        <tr className="text-left text-xs text-zinc-600">
-                          <th className="px-5 py-3 font-medium bg-zinc-50">{t("incidents.columns.incidentNumber", "Incident #")}</th>
-                          <th className="px-4 py-3 font-medium border-l border-zinc-200 bg-zinc-50">{t("incidents.columns.status", "Status")}</th>
-                          <th className="px-4 py-3 font-medium bg-zinc-50">{t("incidents.columns.productsAffected", "Products Affected")}</th>
-                          <th className="px-4 py-3 font-medium bg-zinc-50">{t("incidents.columns.building", "Building")}</th>
-                          <th className="px-4 py-3 font-medium bg-zinc-50">{t("incidents.columns.client", "Client")}</th>
-                          <th className="px-4 py-3 font-medium bg-zinc-50">{t("incidents.columns.createdOn", "Created On")}</th>
-                          <th className="px-4 py-3 font-medium bg-zinc-50">{t("incidents.columns.priority", "Priority")}</th>
-                          <th className="px-4 py-3 font-medium bg-zinc-50">{t("incidents.columns.createdBy", "Created By")}</th>
-                          <th className="px-4 py-3 font-medium text-right bg-zinc-50">{t("incidents.columns.actions", "Actions")}</th>
+                      <thead className="bg-zinc-50 relative z-10 shadow-[0_1px_0_rgba(0,0,0,0.08)] md:sticky md:top-[52px] md:z-20">
+                        <tr className="text-left text-[11px] text-zinc-600 md:text-xs">
+                          <th className="px-2 py-2 font-medium bg-zinc-50 md:px-5 md:py-3">{t("incidents.columns.incidentNumber", "Incident #")}</th>
+                          <th className="px-2 py-2 font-medium border-l border-zinc-200 bg-zinc-50 md:px-4 md:py-3">{t("incidents.columns.status", "Status")}</th>
+                          <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("incidents.columns.productsAffected", "Products Affected")}</th>
+                          <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("incidents.columns.building", "Building")}</th>
+                          <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("incidents.columns.client", "Client")}</th>
+                          <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("incidents.columns.createdOn", "Created On")}</th>
+                          <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("incidents.columns.priority", "Priority")}</th>
+                          <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("incidents.columns.createdBy", "Created By")}</th>
+                          <th className="px-2 py-2 font-medium text-right bg-zinc-50 md:px-4 md:py-3">{t("incidents.columns.actions", "Actions")}</th>
                         </tr>
                       </thead>
 
@@ -565,21 +565,21 @@ export default function IncidentsPage() {
                             <tr
                               key={incident.id}
                               className={[
-                                "group transition-all duration-200 ease-out cursor-pointer",
+                                "group cursor-pointer transition-colors duration-200 ease-out",
                                 "hover:bg-teal-50/60",
-                                "hover:shadow-lg hover:-translate-y-0.5 hover:z-10",
+                                "md:hover:shadow-lg md:hover:-translate-y-0.5 md:hover:z-10",
                                 !isLast && "border-b border-zinc-100",
                               ].join(" ")}
                               onClick={() => openIncidentModal(incident.id)}
                             >
                               {/* Incident # */}
-                              <td className="px-5 py-4 align-middle">
-                                <div className="flex items-center justify-between gap-3">
+                              <td className="px-2 py-2 align-middle md:px-5 md:py-4">
+                                <div className="flex items-center justify-between gap-2 md:gap-3">
                                   <div className="min-w-0">
-                                    <div className="text-[15px] font-semibold text-zinc-900 underline-offset-2 group-hover:underline">
+                                    <div className="text-sm font-semibold leading-snug text-zinc-900 underline-offset-2 group-hover:underline md:text-[15px]">
                                       #{incident.incidentNumber}
                                     </div>
-                                    <div className="mt-1 text-xs text-zinc-500 truncate">
+                                    <div className="mt-0.5 truncate text-[12px] leading-snug text-zinc-500 md:mt-1 md:text-xs">
                                       {incident.incidentType}
                                     </div>
                                   </div>
@@ -590,12 +590,12 @@ export default function IncidentsPage() {
                               </td>
 
                               {/* Status - Progress Bar */}
-                              <td className="px-4 py-4 align-middle border-l border-zinc-200">
+                              <td className="px-2 py-2 align-middle border-l border-zinc-200 md:px-4 md:py-4">
                                 <StatusProgressBar status={incident.status} t={t} />
                               </td>
 
                               {/* Products Affected */}
-                              <td className="px-4 py-4 align-middle">
+                              <td className="px-2 py-2 align-middle md:px-4 md:py-4">
                                 <div className="flex flex-wrap gap-1">
                                   {(incident.productsAffected ?? []).slice(0, 2).map((prod, i) => (
                                     <span
@@ -614,7 +614,7 @@ export default function IncidentsPage() {
                               </td>
 
                               {/* Building */}
-                              <td className="px-4 py-4 align-middle">
+                              <td className="px-2 py-2 align-middle md:px-4 md:py-4">
                                 <Link
                                   href={`/app/buildings?building=${incident.buildingId}`}
                                   className="block group/building"
@@ -630,7 +630,7 @@ export default function IncidentsPage() {
                               </td>
 
                               {/* Client */}
-                              <td className="px-4 py-4 align-middle">
+                              <td className="px-2 py-2 align-middle md:px-4 md:py-4">
                                 <Link
                                   href={`/app/clients?client=${incident.clientId}`}
                                   className="block group/client"
@@ -645,7 +645,7 @@ export default function IncidentsPage() {
                                 </Link>
                               </td>
 
-                              <td className="px-4 py-4 align-middle">
+                              <td className="px-2 py-2 align-middle md:px-4 md:py-4">
                                 <span
                                   className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ${getPriorityBadge(
                                     incident.priority
@@ -660,11 +660,11 @@ export default function IncidentsPage() {
                                 </span>
                               </td>
 
-                              <td className="px-4 py-4 align-middle text-sm text-zinc-700">
+                              <td className="px-2 py-2 align-middle text-sm text-zinc-700 md:px-4 md:py-4">
                                 <div className="text-xs">{formatDate(incident.createdAt)}</div>
                               </td>
 
-                              <td className="px-4 py-4 align-middle">
+                              <td className="px-2 py-2 align-middle md:px-4 md:py-4">
                                 {incident.reportedByEmployeeId ? (
                                   <Link
                                     href={`/app/employees?employee=${incident.reportedByEmployeeId}`}
@@ -693,7 +693,7 @@ export default function IncidentsPage() {
                                 )}
                               </td>
 
-                              <td className="px-4 py-4 align-middle text-right">
+                              <td className="px-2 py-2 align-middle text-right md:px-4 md:py-4">
                                 <button
                                   type="button"
                                   onClick={(e) => {
@@ -716,16 +716,16 @@ export default function IncidentsPage() {
               )}
 
               {filtered.length > 0 && (
-                <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="text-xs text-zinc-600">
+                <div className="mt-3 flex flex-col gap-2 pb-1 md:mt-5 md:flex-row md:items-center md:justify-between md:gap-3">
+                  <div className="text-[11px] text-zinc-600 md:text-xs">
                     {t("incidents.page", "Page")} <span className="font-semibold text-zinc-900">{safePage}</span> {t("incidents.of", "of")}{" "}
                     <span className="font-semibold text-zinc-900">{totalPages}</span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 md:gap-2">
                     <button
                       type="button"
-                      className="rounded-2xl bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm ring-1 ring-zinc-200 hover:bg-zinc-50 disabled:opacity-40"
+                      className="rounded-lg bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50 disabled:opacity-40 md:rounded-2xl md:px-3 md:py-2 md:text-sm md:shadow-sm"
                       disabled={safePage <= 1}
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                     >
@@ -734,7 +734,7 @@ export default function IncidentsPage() {
 
                     <button
                       type="button"
-                      className="rounded-2xl bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm ring-1 ring-zinc-200 hover:bg-zinc-50 disabled:opacity-40"
+                      className="rounded-lg bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50 disabled:opacity-40 md:rounded-2xl md:px-3 md:py-2 md:text-sm md:shadow-sm"
                       disabled={safePage >= totalPages}
                       onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     >
@@ -797,7 +797,7 @@ const FilterPill = React.memo(function FilterPill({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-semibold ring-1 shadow-sm transition ${styles[tone]}`}
+      className={`inline-flex shrink-0 items-center gap-2 rounded-xl px-2.5 py-1.5 text-[11px] font-semibold ring-1 shadow-sm transition md:rounded-2xl md:px-3 md:py-2 md:text-xs ${styles[tone]}`}
     >
       {label}
       <span className="ml-1 rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-semibold text-zinc-800 ring-1 ring-zinc-200 tabular-nums">

@@ -216,18 +216,18 @@ function WorkOrdersPageContent() {
   return (
     <PermissionGuard permission="work_orders.menu">
       <div className="w-full">
-        <div className="mx-auto w-full px-4 py-6 md:px-6 md:py-8">
+        <div className="mx-auto w-full px-2 py-4 md:px-6 md:py-8">
         {/* Header */}
-        <div className="mb-6 flex flex-col gap-4 md:mb-8 md:flex-row md:items-end md:justify-between">
+        <div className="mb-3 flex flex-col gap-2 md:mb-8 md:flex-row md:items-end md:justify-between md:gap-4">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs text-zinc-700 shadow-sm ring-1 ring-zinc-200">
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: BRAND }} />
               {t("workOrders.title", "Work Orders")}
             </div>
-            <h1 className="mt-3 text-2xl font-semibold tracking-tight text-zinc-900 md:text-3xl">
+            <h1 className="mt-2 text-xl font-semibold tracking-tight text-zinc-900 md:mt-3 md:text-3xl">
               {t("workOrders.titleDirectory", "Work Orders Directory")}
             </h1>
-            <p className="mt-1 text-sm text-zinc-600">
+            <p className="mt-0.5 text-xs leading-snug text-zinc-600 md:mt-1 md:text-sm md:leading-normal">
               {t("workOrders.description", "Manage installation, diagnostic, and repair work orders across buildings.")}
             </p>
           </div>
@@ -242,7 +242,7 @@ function WorkOrdersPageContent() {
         />
 
         {/* Main Card */}
-        <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-zinc-200 md:p-6">
+        <div className="rounded-none bg-transparent p-0 shadow-none ring-0 md:rounded-3xl md:bg-white md:p-6 md:shadow-sm md:ring-1 md:ring-zinc-200">
           {/* Loading State */}
           {loading && (
             <div className="py-12 text-center text-sm text-zinc-600">
@@ -269,7 +269,7 @@ function WorkOrdersPageContent() {
           {!loading && !error && (
             <>
               {/* Search + Add Work Order - above table, same layout as buildings */}
-              <div className="mb-4 flex flex-row flex-wrap items-center justify-between gap-3 sm:gap-4">
+              <div className="mb-3 flex flex-col gap-2 md:mb-4 md:flex-row md:flex-wrap md:items-center md:justify-between md:gap-4">
                 <input
                   value={q}
                   onChange={(e) => {
@@ -277,13 +277,13 @@ function WorkOrdersPageContent() {
                     setPage(1);
                   }}
                   placeholder={t("workOrders.searchPlaceholder", "Search by title, building, asset, status, type...")}
-                  className="min-w-0 flex-1 rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-md ring-2 ring-teal-500/40 border border-teal-500/30 hover:ring-teal-500/60 hover:border-teal-500/50 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-teal-500/70 focus:shadow-lg focus:border-teal-500/60 transition-all sm:max-w-md"
+                  className="min-w-0 w-full rounded-lg bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-sm ring-2 ring-teal-500/40 border border-teal-500/30 hover:ring-teal-500/60 hover:border-teal-500/50 focus:outline-none focus:ring-2 focus:ring-teal-500/70 focus:border-teal-500/60 transition-all md:max-w-md md:flex-1 md:rounded-2xl md:px-4 md:py-2.5 md:shadow-md"
                 />
                 {hasPermission("work_orders.create") && (
                   <button
                     type="button"
                     onClick={() => setShowCreateModal(true)}
-                    className="shrink-0 ml-auto rounded-2xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95 whitespace-nowrap"
+                    className="w-full shrink-0 rounded-lg px-3 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95 whitespace-nowrap md:ml-auto md:w-auto md:rounded-2xl md:px-4 md:py-2.5"
                     style={{ backgroundColor: BRAND }}
                   >
                     + {t("workOrders.actions.create", "Create Work Order")}
@@ -292,7 +292,7 @@ function WorkOrdersPageContent() {
               </div>
 
               {canDelete && selectedIds.size > 0 && (
-                <div className="mb-4 flex items-center gap-3 rounded-2xl bg-red-50 px-4 py-3 ring-1 ring-red-200">
+                <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-red-50 px-3 py-2 ring-1 ring-red-200 md:mb-4 md:gap-3 md:rounded-2xl md:px-4 md:py-3">
                   <span className="text-sm font-semibold text-red-700">
                     {selectedIds.size} {t("common.selected", "selected")}
                   </span>
@@ -314,13 +314,13 @@ function WorkOrdersPageContent() {
                 </div>
               )}
 
-              <div className="rounded-2xl ring-1 ring-zinc-200 overflow-clip">
+              <div className="overflow-x-auto overflow-y-visible rounded-none ring-0 md:overflow-clip md:rounded-2xl md:ring-1 md:ring-zinc-200">
                 <div>
                   <table className="min-w-[980px] w-full border-separate border-spacing-0">
-                    <thead className="bg-zinc-50 sticky top-[52px] z-20 shadow-[0_1px_0_rgba(0,0,0,0.08)]">
-                      <tr className="text-left text-xs text-zinc-600">
+                    <thead className="bg-zinc-50 relative z-10 shadow-[0_1px_0_rgba(0,0,0,0.08)] md:sticky md:top-[52px] md:z-20">
+                      <tr className="text-left text-[11px] text-zinc-600 md:text-xs">
                         {canDelete && (
-                          <th className="w-10 px-3 py-3 bg-zinc-50">
+                          <th className="w-10 px-2 py-2 bg-zinc-50 md:px-3 md:py-3">
                             <input
                               type="checkbox"
                               checked={allFilteredSelected}
@@ -330,12 +330,12 @@ function WorkOrdersPageContent() {
                             />
                           </th>
                         )}
-                        <th className="px-4 py-3 font-medium bg-zinc-50">{t("workOrders.columns.workOrder", "Work Order")}</th>
-                        <th className="px-4 py-3 font-medium bg-zinc-50">{t("workOrders.columns.building", "Building")}</th>
-                        <th className="px-4 py-3 font-medium bg-zinc-50">{t("workOrders.columns.asset", "Asset")}</th>
-                        <th className="px-4 py-3 font-medium bg-zinc-50">{t("workOrders.columns.type", "Type")}</th>
-                        <th className="px-4 py-3 font-medium bg-zinc-50">{t("workOrders.columns.status", "Status")}</th>
-                        <th className="px-4 py-3 font-medium bg-zinc-50">{t("workOrders.columns.created", "Created")}</th>
+                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("workOrders.columns.workOrder", "Work Order")}</th>
+                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("workOrders.columns.building", "Building")}</th>
+                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("workOrders.columns.asset", "Asset")}</th>
+                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("workOrders.columns.type", "Type")}</th>
+                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("workOrders.columns.status", "Status")}</th>
+                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("workOrders.columns.created", "Created")}</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white">
@@ -355,14 +355,14 @@ function WorkOrdersPageContent() {
                             <tr
                               key={wo.id}
                               className={[
-                                "group transition-all duration-200 ease-out",
+                                "group transition-colors duration-200 ease-out",
                                 isSelected ? "bg-teal-50/40" : "hover:bg-teal-50/60",
-                                "hover:shadow-lg hover:-translate-y-0.5 hover:z-10",
+                                "md:hover:shadow-lg md:hover:-translate-y-0.5 md:hover:z-10",
                                 !isLast && "border-b border-zinc-100",
                               ].join(" ")}
                             >
                               {canDelete && (
-                                <td className="w-10 px-3 py-4 align-middle">
+                                <td className="w-10 px-2 py-2 align-middle md:px-3 md:py-4">
                                   <input
                                     type="checkbox"
                                     checked={isSelected}
@@ -372,7 +372,7 @@ function WorkOrdersPageContent() {
                                 </td>
                               )}
                               {/* Work Order */}
-                              <td className="px-4 py-4 align-middle">
+                              <td className="px-2 py-2 align-middle md:px-4 md:py-4">
                                 <button
                                   type="button"
                                   onClick={() => openWorkOrderModal(wo.workOrderNumber)}
@@ -380,13 +380,13 @@ function WorkOrdersPageContent() {
                                 >
                                   <div className="min-w-0">
                                     <div className="flex items-center gap-2">
-                                      <span className="text-sm font-semibold text-zinc-900 underline-offset-2 group-hover:underline">
+                                      <span className="text-sm font-semibold leading-snug text-zinc-900 underline-offset-2 group-hover:underline">
                                         {wo.title}
                                       </span>
                                       <span className="text-zinc-400">→</span>
                                     </div>
                                     {wo.notes && (
-                                      <div className="mt-1 text-xs text-zinc-500 line-clamp-1">
+                                      <div className="mt-0.5 text-[12px] leading-snug text-zinc-500 line-clamp-1 md:mt-1 md:text-xs">
                                         {wo.notes}
                                       </div>
                                     )}
@@ -395,11 +395,11 @@ function WorkOrdersPageContent() {
                               </td>
 
                               {/* Building */}
-                              <td className="px-4 py-4 align-middle">
+                              <td className="px-2 py-2 align-middle md:px-4 md:py-4">
                                 <button
                                   type="button"
                                   onClick={() => openModal("building", String(wo.building.coreId))}
-                                  className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-sm text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50"
+                                  className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2 py-1.5 text-sm text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50 md:gap-2 md:rounded-2xl md:px-3 md:py-2"
                                   title={t("workOrders.openBuilding", "Open building")}
                                 >
                                   <span className="font-semibold">{wo.building.name}</span>
@@ -408,9 +408,9 @@ function WorkOrdersPageContent() {
                               </td>
 
                               {/* Asset */}
-                              <td className="px-4 py-4 align-middle">
+                              <td className="px-2 py-2 align-middle md:px-4 md:py-4">
                                 {wo.asset ? (
-                                  <span className="inline-flex items-center rounded-2xl bg-zinc-50 px-3 py-2 text-sm text-zinc-700 ring-1 ring-zinc-200">
+                                  <span className="inline-flex items-center rounded-lg bg-zinc-50 px-2 py-1.5 text-sm text-zinc-700 ring-1 ring-zinc-200 md:rounded-2xl md:px-3 md:py-2">
                                     {wo.asset.name} ({wo.asset.type})
                                   </span>
                                 ) : (
@@ -419,19 +419,19 @@ function WorkOrdersPageContent() {
                               </td>
 
                               {/* Type */}
-                              <td className="px-4 py-4 align-middle">
-                                <span className="inline-flex items-center rounded-full bg-white px-3 py-1 text-xs font-semibold text-zinc-700 ring-1 ring-zinc-200">
+                              <td className="px-2 py-2 align-middle md:px-4 md:py-4">
+                                <span className="inline-flex items-center rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-zinc-700 ring-1 ring-zinc-200 md:px-3 md:py-1 md:text-xs">
                                   {getWoTypeLabel(wo.type, language)}
                                 </span>
                               </td>
 
                               {/* Status */}
-                              <td className="px-4 py-4 align-middle">
+                              <td className="px-2 py-2 align-middle md:px-4 md:py-4">
                                 {(() => {
                                   const ds = resolveDisplayStatus(wo.status, wo.techEmployeeComment);
                                   return (
                                     <span
-                                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ${getStatusBadge(ds)}`}
+                                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 md:gap-1.5 md:px-3 md:py-1 md:text-xs ${getStatusBadge(ds)}`}
                                     >
                                       {getStatusLabel(ds, t)}
                                     </span>
@@ -440,16 +440,16 @@ function WorkOrdersPageContent() {
                               </td>
 
                               {/* Created */}
-                              <td className="px-4 py-4 align-middle">
+                              <td className="px-2 py-2 align-middle md:px-4 md:py-4">
                                 <button
                                   onClick={() => openWorkOrderModal(wo.workOrderNumber)}
-                                  className="block text-left hover:bg-zinc-50 rounded-lg transition-colors w-full"
+                                  className="block w-full rounded-md text-left transition-colors hover:bg-zinc-50 md:rounded-lg"
                                   title={t("workOrders.openWorkOrder", "Open work order")}
                                 >
-                                  <div className="text-sm text-zinc-900">
+                                  <div className="text-sm leading-snug text-zinc-900">
                                     {new Date(wo.createdAt).toLocaleDateString()}
                                   </div>
-                                  <div className="mt-1 text-xs text-zinc-500">
+                                  <div className="mt-0.5 text-[12px] leading-snug text-zinc-500 md:mt-1 md:text-xs">
                                     {new Date(wo.createdAt).toLocaleTimeString()}
                                   </div>
                                 </button>
@@ -465,17 +465,17 @@ function WorkOrdersPageContent() {
 
               {/* Pagination */}
               {meta && filtered.length > 0 && (
-                <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="text-xs text-zinc-600">
+                <div className="mt-3 flex flex-col gap-2 pb-1 md:mt-5 md:flex-row md:items-center md:justify-between md:gap-3">
+                  <div className="text-[11px] text-zinc-600 md:text-xs">
                     {t("common.page", "Page")} <span className="font-semibold text-zinc-900">{meta.page}</span> {t("common.of", "of")}{" "}
                     <span className="font-semibold text-zinc-900">{meta.totalPages}</span>
                     <span className="mx-2 text-zinc-300">•</span>
                     <span className="font-semibold text-zinc-900">{meta.total}</span> {t("common.total", "total")}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 md:gap-2">
                     <button
                       type="button"
-                      className="rounded-2xl bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm ring-1 ring-zinc-200 hover:bg-zinc-50 disabled:opacity-40"
+                      className="rounded-lg bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50 disabled:opacity-40 md:rounded-2xl md:px-3 md:py-2 md:text-sm md:shadow-sm"
                       disabled={meta.page <= 1}
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                     >
@@ -483,7 +483,7 @@ function WorkOrdersPageContent() {
                     </button>
                     <button
                       type="button"
-                      className="rounded-2xl bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm ring-1 ring-zinc-200 hover:bg-zinc-50 disabled:opacity-40"
+                      className="rounded-lg bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50 disabled:opacity-40 md:rounded-2xl md:px-3 md:py-2 md:text-sm md:shadow-sm"
                       disabled={meta.page >= meta.totalPages}
                       onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
                     >
