@@ -13,6 +13,15 @@ Complete frontend route documentation for CRM Platform.
 
 ---
 
+## `/app/feed`
+
+**Files**: `app/feed/page.tsx` and `app/feed/components/*` (composer, stream, sidebar, cards)  
+**API Calls**: None (mock data)  
+**Status**: ⚠️ **Mock / internal preview**  
+**Notes**: Company-style feed UI with tabs and post types; data from `mock-data.ts` until backend exists.
+
+---
+
 ## `/app/buildings`
 
 **Files**: `buildings/page.tsx`, `buildings/add-building-modal.tsx`  

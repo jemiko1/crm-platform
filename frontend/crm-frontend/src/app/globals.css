@@ -41,3 +41,12 @@ body {
     background-color: #f4f4f5;
   }
 }
+
+/*
+ * Next.js dev-only: <nextjs-portal> (dev indicators / tooling UI).
+ * Not rendered in production builds. Offsets match devtools preview tweaks.
+ */
+nextjs-portal {
+  left: 1px;
+  top: 2px;
+}

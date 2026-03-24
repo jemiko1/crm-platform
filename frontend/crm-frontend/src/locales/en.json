@@ -41,6 +41,7 @@
   },
   "sidebar": {
     "dashboard": "Dashboard",
+    "feed": "Feed",
     "buildings": "Buildings",
     "clients": "Clients",
     "incidents": "Incidents",
