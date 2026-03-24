@@ -225,7 +225,13 @@
       "waitingForApproval": "Waiting For Approval",
       "completed": "Completed",
       "canceled": "Canceled",
-      "completedOrCanceled": "Completed or Canceled"
+      "completedOrCanceled": "Completed or Canceled",
+      "workflowLabel": "Workflow",
+      "stepProgressTitle": "Current step out of five workflow stages",
+      "stepProgressAria": "Step {n} of 5",
+      "assignedShort": "Assigned",
+      "approvalShort": "Approval",
+      "closedShort": "Closed"
     },
     "fields": {
       "building": "Building",

@@ -721,6 +721,239 @@ function getCurrentStage(wo: WorkOrderDetail | null): number {
   return 1;
 }
 
+function StageIconCreated({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2Z" />
+      <path d="M14 2v6h6" />
+      <path d="M12 18v-6" />
+      <path d="M9 15h6" />
+    </svg>
+  );
+}
+
+function StageIconAssigned({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
+
+function StageIconWorking({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+    </svg>
+  );
+}
+
+function StageIconApproval({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+      <path d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  );
+}
+
+function StageIconClosed({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <path d="M9 22V12h6v10" />
+    </svg>
+  );
+}
+
+const STAGE_ICONS = [StageIconCreated, StageIconAssigned, StageIconWorking, StageIconApproval, StageIconClosed] as const;
+
+const NODE_BOX = "h-10 w-10"; /* fixed size so connector line stays one pixel row across all columns */
+const TRACK_H = "h-10"; /* matches node; lines vertically centered via items-center */
+
+/** Horizontal stepper: outline icon above node + connector + label (reference-style, CRM brand for active). */
+function WorkOrderStageStepper({
+  currentStage,
+  workOrderStatus,
+  t,
+}: {
+  currentStage: number;
+  workOrderStatus: WorkOrderDetail["status"];
+  t: (key: string, fallback: string) => string;
+}) {
+  const stages: { label: string; labelShort: string }[] = [
+    { label: t("workOrders.stages.created", "Created"), labelShort: t("workOrders.stages.created", "Created") },
+    {
+      label: t("workOrders.stages.techniciansAssigned", "Technicians Assigned"),
+      labelShort: t("workOrders.stages.assignedShort", "Assigned"),
+    },
+    { label: t("workOrders.stages.working", "Working"), labelShort: t("workOrders.stages.working", "Working") },
+    {
+      label: t("workOrders.stages.waitingForApproval", "Waiting For Approval"),
+      labelShort: t("workOrders.stages.approvalShort", "Approval"),
+    },
+    {
+      label: t("workOrders.stages.completedOrCanceled", "Completed or Canceled"),
+      labelShort: t("workOrders.stages.closedShort", "Closed"),
+    },
+  ];
+
+  /** Segment to the right of node at column index `idx` (between step idx+1 and idx+2). */
+  const lineAfter = (idx: number) => {
+    const step = idx + 1;
+    if (currentStage > step) return "full" as const;
+    if (currentStage === step) return "toActive" as const;
+    return "empty" as const;
+  };
+
+  return (
+    <div className="rounded-2xl border border-zinc-200/90 bg-white px-3 py-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:px-5 sm:py-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+          {t("workOrders.stages.workflowLabel", "Workflow")}
+        </span>
+        <span
+          className="rounded-full bg-[rgba(0,86,83,0.08)] px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-[rgb(0,86,83)] ring-1 ring-[rgba(0,86,83,0.2)]"
+          title={t("workOrders.stages.stepProgressTitle", "Current step out of five workflow stages")}
+          aria-label={t("workOrders.stages.stepProgressAria", "Step {n} of 5").replace("{n}", String(currentStage))}
+        >
+          <span className="font-bold">{currentStage}</span>
+          <span className="mx-0.5 font-normal text-[rgb(0,86,83)]/60">/</span>
+          <span>5</span>
+        </span>
+      </div>
+
+      <div className="overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:thin]">
+        <div
+          className="flex min-w-[520px] w-full sm:min-w-0"
+          role="list"
+          aria-label={t("workOrders.stages.workflowLabel", "Workflow progress")}
+        >
+          {stages.map((meta, idx) => {
+            const step = idx + 1;
+            const isPast = currentStage > step;
+            const isActive = currentStage === step;
+            const isTerminalStep = step === 5 && (workOrderStatus === "COMPLETED" || workOrderStatus === "CANCELED");
+            const isCompletedOk = workOrderStatus === "COMPLETED" && step === 5;
+            const isCanceled = workOrderStatus === "CANCELED" && step === 5;
+            const showSpinner = isActive && !isTerminalStep;
+            const Icon = STAGE_ICONS[idx];
+            const segRight = lineAfter(idx);
+            /* Left bar of column idx is the same inter-node segment as right bar of column idx-1; mirror toActive gradient. */
+            const segLeft = idx === 0 ? ("empty" as const) : lineAfter(idx - 1);
+
+            const iconClass = [
+              "h-7 w-7 shrink-0 transition-colors duration-200",
+              isPast
+                ? "text-zinc-600"
+                : isTerminalStep
+                  ? isCompletedOk
+                    ? "text-emerald-600"
+                    : "text-red-600"
+                  : isActive
+                    ? "text-[rgb(0,86,83)]"
+                    : "text-zinc-300",
+            ].join(" ");
+
+            const nodeClasses = [
+              "relative z-[1] flex shrink-0 items-center justify-center rounded-full transition-[box-shadow,background-color,border-color] duration-200",
+              NODE_BOX,
+              isPast
+                ? "bg-zinc-600 text-white shadow-sm"
+                : isTerminalStep
+                  ? isCompletedOk
+                    ? "bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-600/25"
+                    : "bg-red-600 text-white shadow-sm ring-2 ring-red-600/25"
+                  : isActive
+                    ? "bg-[rgb(0,86,83)] text-white shadow-md ring-2 ring-[rgba(0,86,83,0.2)]"
+                    : "border-2 border-zinc-300 bg-white text-zinc-300",
+            ].join(" ");
+
+            const labelClass = [
+              "mt-3 max-w-[6.5rem] px-0.5 text-center text-[10px] font-semibold leading-snug sm:max-w-[9rem] sm:text-[11px]",
+              isPast
+                ? "text-zinc-800"
+                : isTerminalStep
+                  ? isCompletedOk
+                    ? "text-emerald-700"
+                    : "text-red-700"
+                  : isActive
+                    ? "text-[rgb(0,86,83)]"
+                    : "text-zinc-400",
+            ].join(" ");
+
+            return (
+              <div key={step} className="flex min-w-0 flex-1 flex-col items-stretch" role="listitem">
+                <div className="mb-3 flex h-7 items-center justify-center">
+                  <Icon className={iconClass} />
+                </div>
+
+                {/* Symmetric [line | node | line] every column so first/last nodes center under icons */}
+                <div className={`flex w-full min-w-0 items-center ${TRACK_H}`}>
+                  <div className="h-[3px] min-w-0 flex-1 self-center overflow-hidden rounded-full bg-zinc-200">
+                    {segLeft === "full" && <div className="h-full w-full rounded-full bg-zinc-600" />}
+                    {segLeft === "toActive" && (
+                      <div
+                        className="h-full w-full rounded-full"
+                        style={{
+                          background: `linear-gradient(90deg, rgb(228 228 231) 0%, ${BRAND} 100%)`,
+                        }}
+                      />
+                    )}
+                  </div>
+
+                  <div className={nodeClasses} aria-current={isActive ? "step" : undefined}>
+                    {isPast && (
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                    {isTerminalStep && isCompletedOk && (
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                    {isTerminalStep && isCanceled && (
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M18 6 6 18M6 6l12 12" />
+                      </svg>
+                    )}
+                    {showSpinner && (
+                      <div className="flex h-5 w-5 items-center justify-center" aria-hidden>
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/35 border-t-white" />
+                      </div>
+                    )}
+                    {!isPast && !isActive && <span className="h-1.5 w-1.5 rounded-full bg-zinc-300" aria-hidden />}
+                  </div>
+
+                  <div className="h-[3px] min-w-0 flex-1 self-center overflow-hidden rounded-full bg-zinc-200">
+                    {segRight === "full" && <div className="h-full w-full rounded-full bg-zinc-600" />}
+                    {segRight === "toActive" && (
+                      <div
+                        className="h-full w-full rounded-full"
+                        style={{ background: `linear-gradient(90deg, ${BRAND} 0%, rgb(228 228 231) 55%)` }}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <p className={labelClass}>
+                  <span className="sm:hidden">{meta.labelShort}</span>
+                  <span className="hidden sm:inline">{meta.label}</span>
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpdate, zIndex = 10001 }: Props) {
   const { t, language } = useI18n();
   const router = useRouter();
@@ -992,62 +1225,13 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
             )}
           </div>
           
-          {/* Progress Bar - Minimized */}
           {workOrder && (
             <div className="mb-3">
-              <div className="flex items-center justify-center gap-1 sm:gap-2">
-                {[1, 2, 3, 4, 5].map((stage) => {
-                  const isActive = currentStage === stage;
-                  const isCompleted = currentStage > stage;
-                  const stageNames = [
-                    t("workOrders.stages.created", "Created"),
-                    t("workOrders.stages.techniciansAssigned", "Technicians Assigned"),
-                    t("workOrders.stages.working", "Working"),
-                    t("workOrders.stages.waitingForApproval", "Waiting For Approval"),
-                    t("workOrders.stages.completedOrCanceled", "Completed or Canceled"),
-                  ];
-
-                  return (
-                    <React.Fragment key={stage}>
-                      <div className="flex flex-col items-center">
-                        <div
-                          className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${
-                            isCompleted
-                              ? "bg-gradient-to-br from-teal-500 to-teal-600 text-white"
-                              : isActive
-                              ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white scale-110"
-                              : "bg-zinc-200 text-zinc-600"
-                          }`}
-                        >
-                          {isCompleted ? (
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : (
-                            stage
-                          )}
-                        </div>
-                        <span className={`text-[9px] font-medium mt-0.5 whitespace-nowrap ${
-                          isActive ? "text-blue-600" : isCompleted ? "text-teal-800" : "text-zinc-400"
-                        }`}>
-                          {stageNames[stage - 1]}
-                        </span>
-                      </div>
-                      {stage < 5 && (
-                        <div
-                          className={`h-0.5 w-6 sm:w-8 transition-all ${
-                            isCompleted
-                              ? "bg-gradient-to-r from-teal-500 to-teal-600"
-                              : isActive
-                              ? "bg-gradient-to-r from-blue-500 to-blue-600"
-                              : "bg-zinc-200"
-                          }`}
-                        />
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </div>
+              <WorkOrderStageStepper
+                currentStage={currentStage}
+                workOrderStatus={workOrder?.status ?? "CREATED"}
+                t={t}
+              />
             </div>
           )}
 
