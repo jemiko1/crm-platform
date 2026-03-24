@@ -5,30 +5,95 @@
 
 ---
 
-## Quick Start
+## Session Start Protocol
 
+**Every time you start a new session, do these steps FIRST before any work:**
 ```bash
-# Database (Docker PostgreSQL on port 5433)
-docker start crm-prod-db   # or: docker run -d --name crm-prod-db -e POSTGRES_PASSWORD=147852asg -e POSTGRES_DB=crm_db -p 5433:5432 postgres:16
+git checkout master
+git pull origin master
+```
 
-# Backend (port 3000)
-cd backend/crm-backend
+Then read this file. Then ask what I want to work on.
+
+**Before starting any feature:**
+```bash
+git checkout master
+git pull origin master
+git checkout -b feature/descriptive-name
+```
+
+This ensures your local files always match the latest production code before you start changing anything.
+
+---
+
+## Quick Start (Local Development)
+```powershell
+# Database (Docker PostgreSQL on port 5433)
+docker start crm-prod-db
+
+# Backend (port 3000) — Terminal 1
+cd C:\CRM-Platform\backend\crm-backend
+npm run start:dev
+
+# Frontend (port 4002) — Terminal 2
+cd C:\CRM-Platform\frontend\crm-frontend
+pnpm dev --port 4002
+```
+
+**Backend: port 3000. Frontend: port 4002. NEVER use port 4000.**
+
+### First-time setup only
+```powershell
+cd backend\crm-backend
 pnpm install
 pnpm prisma generate
 npx prisma migrate dev
-npx tsx prisma/seed-permissions.ts    # seeds ~100 RBAC permissions
-npx tsx prisma/seed-system-lists.ts   # seeds dropdown data
+npx tsx prisma/seed-permissions.ts
+npx tsx prisma/seed-system-lists.ts
 npx tsx prisma/seed-workflow-steps.ts
-npx tsx prisma/seed-sales.ts          # seeds pipeline stages/sources
-npm run start:dev
-
-# Frontend (port 3002)
-cd frontend/crm-frontend
-pnpm install
-pnpm dev --port 3002
+npx tsx prisma/seed-sales.ts
 ```
 
-**Backend runs on port 3000. Frontend runs on port 3002. NEVER use port 4000.**
+---
+
+## Workflow Rules
+
+### Git Branch Rules
+
+- **NEVER commit directly to `master`** — master is production
+- **Always create feature branches FROM `master`**: `git checkout -b feature/descriptive-name master`
+- **PRs target `master` directly** — there is NO dev branch and NO staging branch
+- **Jemiko merges PRs manually** after testing on localhost
+- After PR is merged, always pull master before starting next task
+
+### Feature Development Flow
+
+git checkout master ; git pull origin master
+git checkout -b feature/my-feature
+Build the feature (commit with conventional format)
+Push branch: git push origin feature/my-feature
+Create PR targeting master: gh pr create --base master --title "feat(scope): description"
+Tell Jemiko: "Ready to test on localhost"
+Jemiko tests → merges PR → Railway auto-deploys to production
+
+
+### Before Completing Any Task
+
+1. Walk me through what you'll change BEFORE changing it — wait for my approval
+2. After building, tell me it's ready so I can test on localhost
+3. Do NOT merge to master — I do that manually
+4. Update CLAUDE.md if you added features, routes, or schema changes
+
+### Commit Format
+
+`feat(scope):`, `fix(scope):`, `refactor(scope):`, `test(scope):`, `docs(scope):`, `chore(scope):`
+
+### Stop Conditions — ASK Before Doing These
+
+1. **Database schema breaking changes** — dropping columns, renaming without migration path
+2. **API contract changes** — removing endpoints, incompatible request/response changes
+3. **Asterisk/telephony config changes** — anything touching pjsip, manager, or ARI config
+4. **Deleting files or large refactors** — always confirm scope first
 
 ---
 
@@ -47,13 +112,12 @@ pnpm dev --port 3002
 - **Email/SMS**: Nodemailer + IMAPFlow / sender.ge API
 - **Charts**: Recharts 3, **Dates**: date-fns 4
 - **CI/CD**: GitHub Actions → Railway (auto-deploy from `master`)
-- **Package Manager**: pnpm 9
+- **Package Manager**: pnpm 9 (both frontend and backend)
+- **OS**: Windows (PowerShell) — use `;` not `&&` to chain commands, no heredoc syntax
 
 ---
 
 ## Project Structure
-
-```
 backend/crm-backend/
 ├── prisma/schema.prisma          # 70+ models, 40+ enums
 ├── prisma/migrations/            # 28 migrations
@@ -86,7 +150,6 @@ backend/crm-backend/
 ├── src/common/                   # Guards, filters, decorators, id-generator
 ├── src/v1/                       # Versioned controllers (public, admin-manual)
 └── src/prisma/                   # PrismaService
-
 frontend/crm-frontend/
 ├── src/app/layout.tsx            # Root layout (fonts, metadata)
 ├── src/app/login/page.tsx        # Login page
@@ -99,20 +162,19 @@ frontend/crm-frontend/
 │   ├── inventory/, tasks/, sales/, call-center/, client-chats/
 │   ├── messenger/                # Chat bubbles, full messenger, context
 │   └── admin/                    # 15+ admin config pages
-├── src/hooks/useListItems.ts     # Dynamic dropdown hook (ALWAYS use this for dropdowns)
-├── src/lib/api.ts                # Centralized API client (ALWAYS use apiGet/apiPost/etc.)
+├── src/hooks/useListItems.ts     # Dynamic dropdown hook (ALWAYS use this)
+├── src/lib/api.ts                # Centralized API client (ALWAYS use apiGet/apiPost)
 ├── src/lib/use-permissions.ts    # RBAC permission hook
 └── src/locales/{en,ka}.json      # i18n translations
-
 ami-bridge/                       # Asterisk AMI event relay (runs on VM)
 crm-phone/                        # Electron + SIP.js desktop softphone
-```
 
 ---
 
 ## Database Schema
 
 **Full schema**: `backend/crm-backend/prisma/schema.prisma`
+**Detailed reference**: `DATABASE_SCHEMA.md`
 
 ### Core Models
 
@@ -125,40 +187,19 @@ crm-phone/                        # Electron + SIP.js desktop softphone
 | WorkOrder | Service requests (status lifecycle, type, parent/child, workOrderNumber autoincrement) |
 | WorkOrderAssignment | Employee ↔ WorkOrder |
 | WorkOrderProductUsage | Products consumed (with batch tracking, approval flow) |
-| WorkOrderActivityLog | Full audit trail (action, category, metadata JSON) |
-| DeactivatedDevice | Removed devices during work orders |
 | Incident | Reported problems (incidentNumber, building required, client optional) |
 | InventoryProduct | Warehouse products (SKU, category, currentStock, lowStockThreshold) |
 | PurchaseOrder / PurchaseOrderItem | Restocking orders |
-| StockBatch | Batch tracking per purchase |
-| StockTransaction | All stock movements (type: PURCHASE_IN, WORK_ORDER_OUT, ADJUSTMENT_*, etc.) |
+| StockBatch / StockTransaction | Batch tracking and all stock movements |
 
 ### HR & RBAC
 
-| Model | Purpose |
-|-------|---------|
-| User | Login account (email, passwordHash, isSuperAdmin) |
-| Employee | Person (may lack User account; employeeId EMP-###, status lifecycle) |
-| Department | Hierarchy (self-ref parentId, headId) |
-| Position | Job role (linked to RoleGroup and Department) |
-| RoleGroup | Named permission set |
-| Permission | Granular: `resource.action` (e.g., `work_orders.approve`) |
-| RoleGroupPermission | M:N join |
-| EmployeePermission | Per-employee GRANT/DENY override |
-
-**Permission chain**: User → Employee → Position → RoleGroup → Permissions. Superadmin bypasses all checks.
+User → Employee → Position → RoleGroup → Permissions. Superadmin bypasses all checks.
+Employee IDs (EMP-###) NEVER reused. Permanent deletion requires delegating active leads/work orders.
 
 ### Sales
 
-| Model | Purpose |
-|-------|---------|
-| LeadStage | Pipeline stages (8: NEW → CONTACT → MEETING → PROPOSAL → NEGOTIATION → APPROVED → WON → LOST) |
-| Lead | Sales lead (leadNumber autoincrement, pricing, approval workflow, isLocked) |
-| SalesService / SalesServiceCategory | Service catalog with pricing |
-| LeadService | Services attached to lead (quantity, prices) |
-| LeadNote / LeadReminder / LeadAppointment / LeadProposal | Sub-resources |
-| LeadStageHistory / LeadActivity | Audit trail |
-| SalesPlan / SalesPlanTarget | Revenue targets per employee |
+LeadStage (8 stages: NEW → CONTACT → MEETING → PROPOSAL → NEGOTIATION → APPROVED → WON → LOST), Lead, SalesService, LeadService, LeadNote, LeadReminder, SalesPlan/SalesPlanTarget
 
 ### Messenger (Internal)
 
@@ -166,116 +207,56 @@ Conversation (DIRECT/GROUP) → ConversationParticipant → Message → MessageR
 
 ### Telephony
 
-TelephonyExtension, TelephonyQueue, CallSession, CallLeg, CallEvent, CallMetrics, MissedCall, CallbackRequest, Recording, QualityReview, QualityRubric
+TelephonyExtension, TelephonyQueue, CallSession, CallLeg, CallEvent, CallMetrics, MissedCall, CallbackRequest, Recording, QualityReview
 
 ### Client Chats (Unified Inbox)
 
-ClientChatChannelAccount → ClientChatConversation → ClientChatMessage. Plus: ClientChatParticipant, CannedResponse, AssignmentConfig, EscalationConfig, QueueSchedule/Override, WebhookFailure
-
-### System
-
-SystemListCategory/SystemListItem (dynamic dropdowns), Translation, ExternalIdCounter, SyncEvent, AuditLog, EmailConfig, SmsConfig, NotificationTemplate/NotificationLog, WorkflowStep/Trigger/Action
+ClientChatChannelAccount → ClientChatConversation → ClientChatMessage. Plus: ClientChatParticipant, CannedResponse, AssignmentConfig, EscalationConfig, QueueSchedule/Override
 
 ### Key Relationships
-
-```
 User 1:1 Employee → N:1 Position → N:1 RoleGroup → M:N Permission
 Client M:N Building (via ClientBuilding)
 WorkOrder N:1 Building, optional N:1 Asset, M:N Employee (via Assignment)
-WorkOrder 1:N WorkOrderProductUsage N:1 InventoryProduct
 Lead N:1 LeadStage, N:1 Employee (responsible), 1:N LeadService N:1 SalesService
-Conversation 1:N ConversationParticipant N:1 Employee, 1:N Message
 ClientChatConversation N:1 ClientChatChannelAccount, N:1 User (assigned agent)
 CallSession N:1 TelephonyQueue, N:1 User, 1:N CallLeg, 1:1 CallMetrics
-```
 
 ---
 
 ## API Routes
 
 **Base**: `http://localhost:3000`. Auth via JWT cookie on most `/v1/*` endpoints.
+**Detailed reference**: `API_ROUTE_MAP.md`
 
-### Auth (`/auth`)
-- `POST /auth/login` → sets httpOnly cookie. `GET /auth/me` → user + employee + permissions. `POST /auth/logout`
-- `POST /auth/app-login` → desktop app JWT login
-
-### Buildings (`/v1/buildings`, `/v1/admin/buildings`)
-- `GET /v1/buildings`, `GET /v1/buildings/:coreId` — public reads
-- `GET /v1/buildings/:coreId/clients`, `/assets` — sub-resources
-- `POST/PATCH /v1/admin/buildings` — admin CRUD (JWT + Admin, creates audit logs)
-- `POST /v1/admin/buildings/:coreId/clients`, `/assets` — create sub-resources
-
-### Clients — `GET /v1/clients` (global directory, public)
-
-### Incidents (`/v1/incidents`)
-- `GET /v1/incidents` (filters: q, status, priority, buildingId, clientId, page, pageSize)
-- `POST /v1/incidents` (JWT + `incidents.create` permission)
-- `GET /v1/incidents/:id`, `PATCH /v1/incidents/:id/status`
-
-### Work Orders (`/v1/work-orders`) — all JWT
-- CRUD: `POST`, `GET` (list), `GET /:id`, `PATCH /:id`, `DELETE /:id?revertInventory=`
-- Workflow: `POST /:id/assign`, `PATCH /:id/start`, `POST /:id/complete`, `POST /:id/approve`, `POST /:id/cancel`
-- Products: `POST /:id/products`, `POST /:id/deactivated-devices`
-- `GET /:id/activity`, `GET /my-tasks` (workspace)
-
-### Employees (`/v1/employees`) — all JWT
-- CRUD + lifecycle: `POST`, `GET`, `GET /:id`, `PATCH /:id`
-- `POST /:id/dismiss`, `POST /:id/activate`, `DELETE /:id/hard-delete`
-- `POST /:id/create-user`, `POST /:id/reset-password`
-- `GET /:id/deletion-constraints`, `POST /:id/delegate-items`
-
-### Inventory (`/v1/inventory`) — all JWT
-- Products CRUD, Purchase Orders CRUD, Stock adjustments
-- `GET /reports/low-stock`, `GET /reports/inventory-value`
-
-### Sales (`/v1/sales`) — all JWT
-- Leads: CRUD + `POST /:id/change-stage`, `POST /:id/submit-for-approval`, `POST /:id/approve`, `POST /:id/reject`, `POST /:id/mark-lost`
-- Sub-resources: `/:id/services`, `/:id/notes`, `/:id/reminders`, `/:id/appointments`
-- Services catalog, Config (stages, sources, pipeline positions/permissions), Plans
-
-### Messenger (`/v1/messenger`) — all JWT
-- Conversations CRUD, messages (cursor-based pagination), reactions, read status, search, unread-count
-- WebSocket `/messenger`: `message:new`, `typing`, `conversation:updated`, `message:read`, `message:reaction`
-
-### Telephony (`/v1/telephony`)
-- `POST /events` (secret-protected, AMI Bridge ingest)
-- `GET /calls`, `GET /lookup?phone=`, `GET /stats/overview`, `GET /queues/live`, `GET /agents/live`
-- `POST /actions/originate` (click-to-call)
-- WebSocket `/telephony`: real-time call/queue/agent events
-
-### Client Chats
-- Public (no auth): `POST /public/clientchats/start`, `/message`, webhooks for Viber/Facebook/Telegram
-- Agent (JWT): `GET/POST /v1/clientchats/conversations`, `/:id/reply`, `/:id/assign`, `/:id/status`, `/:id/link-client`
-
-### Admin
-- Positions, RoleGroups, Departments, Roles (legacy), Permissions, SystemLists, Workflow, Translations, Notifications (email/SMS config + templates), Telephony Extensions, Client Chats Config, Sales Config
+- Auth: `/auth/login`, `/auth/me`, `/auth/logout`
+- Buildings: `/v1/buildings` (public reads) + `/v1/admin/buildings` (admin CRUD)
+- Clients: `GET /v1/clients`
+- Incidents: `/v1/incidents` (CRUD + status transitions)
+- Work Orders: `/v1/work-orders` (CRUD + workflow: assign, start, complete, approve, cancel + products + activity)
+- Employees: `/v1/employees` (CRUD + lifecycle: dismiss, activate, hard-delete + user account management)
+- Inventory: `/v1/inventory` (products, purchase orders, stock, reports)
+- Sales: `/v1/sales` (leads pipeline + services + config + plans)
+- Messenger: `/v1/messenger` (conversations, messages, reactions) + WebSocket `/messenger`
+- Telephony: `/v1/telephony` (events, calls, stats, queues, agents) + WebSocket `/telephony`
+- Client Chats: public webhooks + agent endpoints + manager queue/schedule
+- Admin: positions, role-groups, departments, permissions, system-lists, workflow, translations, notifications, telephony, client-chats config, sales config
 
 ---
 
 ## Frontend
 
-### Key Pages (47 total, all under `/app/*`)
+**Detailed reference**: `FRONTEND_ROUTE_MAP.md`
 
-**Working**: Buildings (list + detail), Clients (list + detail), Employees (list + detail + lifecycle), Work Orders (list + detail + workflow), Incidents (list + report), Inventory (products + POs), Tasks/My Workspace, Sales (leads pipeline + detail + plans), Call Center (live + logs + agents + statistics + quality + callbacks), Client Chats (inbox + analytics), Admin (15+ config pages)
+**Working** (47 pages): Buildings, Clients, Employees, Work Orders, Incidents, Inventory, Tasks, Sales, Call Center, Client Chats, Messenger, Admin (15+ pages)
 
-**Placeholders**: Dashboard (static, no API), Admin Users, Admin Roles (read-only legacy), Assets (empty)
+**Placeholders**: Dashboard (static), Admin Users, Admin Roles (legacy), Assets (empty)
 
-### State Management
-- **Local**: `useState`/`useEffect`/`useMemo`/`useCallback` — NO Redux/Zustand
-- **Global contexts**: `MessengerContext` (Socket.IO + chat state), `I18nContext`, `ModalStackContext`
-- **URL-driven**: Entity detail modals via query params (`?building=1`, `?client=5`, `?workOrder=123`)
-- **Module-level cache**: Permissions cache in `use-permissions.ts`
-
-### Modal System
-- **Detail modals**: Stacked LIFO panels rendered by `ModalManager`, z-index 10000, opened via `openModal("building", id)`
-- **Action modals**: Centered overlays (add/edit/delete forms), z-index 50000+, use `createPortal(content, document.body)`
-- **Navigation**: `router.back()` closes modals. Browser back button works naturally.
-- **SSR safety**: Always check `mounted` state before rendering portal
-
-### Auth Flow
-1. `GET /auth/me` → 401 → redirect to `/login?expired=1&next=<path>`
-2. Login → `POST /auth/login` → cookie set → redirect to dashboard
-3. Dismissed users see "account dismissed" message
+### State & Patterns
+- Local state only (NO Redux/Zustand). Global: MessengerContext, I18nContext, ModalStackContext
+- URL-driven detail modals: `?building=1`, `?client=5`, `?workOrder=123`
+- Detail modals: z-index 10000, opened via `openModal(type, id)`
+- Action modals: z-index 50000+, `createPortal(content, document.body)`
+- `router.back()` closes modals
 
 ---
 
@@ -284,69 +265,46 @@ CallSession N:1 TelephonyQueue, N:1 User, 1:N CallLeg, 1:1 CallMetrics
 ### Work Order Lifecycle
 `CREATED → LINKED_TO_GROUP → IN_PROGRESS → COMPLETED/CANCELED`
 - Types: INSTALLATION, DIAGNOSTIC, RESEARCH, DEACTIVATE, REPAIR_CHANGE, ACTIVATE
-- Approval: technician submits → head of technical reviews products → approves (inventory deducted) or cancels
-- Sub-work orders: diagnostic can spawn repair child order
+- Approval: technician submits → head reviews products → approves (inventory deducted) or cancels
 
 ### Incident Lifecycle
 `CREATED → IN_PROGRESS → COMPLETED/WORK_ORDER_INITIATED`
-- Priorities: LOW, MEDIUM, HIGH, CRITICAL (with colors)
 - Building required, client optional. Auto-numbered INC-YYYY-####.
 
 ### Sales Pipeline
-Stages: NEW → CONTACT → MEETING → PROPOSAL → NEGOTIATION → APPROVED → WON/LOST
-- Approval: employee submits → lead locks → Head of Sales/CEO approves → WON, or rejects → unlocks
-- Each lead has services with quantity × pricing → totalOneTimePrice + totalMonthlyPrice
+NEW → CONTACT → MEETING → PROPOSAL → NEGOTIATION → APPROVED → WON/LOST
+- Approval: employee submits → lead locks → approver reviews → WON or rejects → unlocks
 
 ### RBAC
-- Chain: User → Employee → Position → RoleGroup → [Permissions]
-- ~100 permissions across 12 categories (BUILDINGS, CLIENTS, INCIDENTS, WORK_ORDERS, INVENTORY, EMPLOYEES, SALES, MESSENGER, TELEPHONY, CLIENT_CHATS, ADMIN, GENERAL)
-- Sidebar visibility controlled by `*.menu` permissions
+- ~100 permissions across 12 categories
 - Backend: `@UseGuards(JwtAuthGuard, PositionPermissionGuard)` + `@RequirePermission('resource.action')`
 - Frontend: `usePermissions()` hook, `<PermissionButton>`, `<PermissionGuard>`
-- Superadmin (`user.isSuperAdmin`) bypasses all checks
 
-### Employee Lifecycle
-`(create) → ACTIVE → TERMINATED (dismiss) → ACTIVE (reactivate) or DELETED (permanent)`
-- Employees can exist WITHOUT login accounts
-- Employee IDs (EMP-001, EMP-002...) NEVER reused after deletion
-- Permanent deletion requires delegating active leads/work orders
-- Historical records preserve cached employee names (`onDelete: SetNull`)
-
-### Client Chats
-- Adapter pattern: each channel implements `ChannelAdapter` (verifyWebhook, parseInbound, sendMessage)
-- Assignment: manual or round-robin with weekly schedule + date overrides
-- Escalation: auto-escalate on first-response timeout, auto-reassign on inactivity
+### Client Chats Safety Rules
+- NEVER overwrite real customer names with fallback/generic names
+- NEVER replace optimistic concurrency SQL in `joinConversation()` with plain Prisma update
+- Maintain `processInbound()` pipeline order: dedup → upsertParticipant → upsertConversation → saveMessage → autoMatch → emit events
+- WebSocket namespace is `/ws/clientchats` — never change it
+- React hooks MUST be declared BEFORE any conditional returns
 
 ---
 
 ## Current State
 
-### What Works
-Buildings, Clients, Incidents, Work Orders (full workflow), Inventory, Employees (full lifecycle), Sales (pipeline + approval), Internal Messenger (real-time), Call Center (live monitoring + analytics + quality), Client Chats (Viber, Facebook, Telegram, Web), Admin panels, Notifications (email + SMS), i18n (EN + KA), CRM28 Phone desktop app
-
 ### Known Bugs
-- **Incident without client**: Null constraint violation when creating incident without clientId (Prisma sync issue)
-- **Health module**: Not imported in AppModule — `/health` endpoint doesn't respond
+- Incident without client: null constraint violation when creating without clientId
+- Health module: not imported in AppModule
 
 ### Incomplete Features
 - Dashboard: static placeholder (no API)
 - WhatsApp adapter: schema ready, adapter not built
 - Work order/report export: permissions exist, no UI
-- Frontend auth middleware: `proxy.ts` exists but no `middleware.ts`
 - Web chat widget: backend ready, no embeddable JS widget
-- Quality rubrics admin UI, Call recording playback UI, CDR import UI
 
 ### Technical Debt
 - Some frontend pages use raw `fetch()` instead of `apiGet`/`apiPost`
-- Legacy role system (Role, RolePermission) exists alongside Position-based RBAC
+- Legacy role system exists alongside Position-based RBAC
 - Single 2125-line Prisma schema file
-- `dist/` files showing in git status (gitignore issue)
-
-### Security Notes
-- SIP passwords stored as plaintext in TelephonyExtension table
-- Global rate limit (60/min) may be too permissive for login endpoint
-- No CSRF tokens (mitigated by `sameSite: 'lax'` cookies)
-- Webhook endpoints use channel-specific signature verification
 
 ---
 
@@ -354,101 +312,68 @@ Buildings, Clients, Incidents, Work Orders (full workflow), Inventory, Employees
 
 ### Backend (`backend/crm-backend/.env`)
 
-| Variable | Description |
-|----------|-------------|
-| `DATABASE_URL` | PostgreSQL connection (e.g., `postgresql://postgres:pass@localhost:5433/crm_db`) |
-| `JWT_SECRET` | JWT signing secret |
-| `JWT_EXPIRES_IN` | Token expiry (e.g., `24h`) |
-| `PORT` | Backend port (default 3000) |
-| `COOKIE_NAME` | Auth cookie name (default `access_token`) |
-| `COOKIE_SECURE` | `true` in production |
-| `CORS_ORIGINS` | Comma-separated allowed origins |
-| `VIBER_BOT_TOKEN` | Viber bot token |
-| `FB_PAGE_ACCESS_TOKEN` | Facebook page token |
-| `FB_APP_SECRET` | Facebook app secret |
-| `FB_VERIFY_TOKEN` | Facebook webhook verify token |
-| `TELEGRAM_BOT_TOKEN` | Telegram bot token |
-| `WA_ACCESS_TOKEN` | WhatsApp Cloud API token |
-| `WA_PHONE_NUMBER_ID` | WhatsApp phone number ID |
-| `WA_VERIFY_TOKEN` / `WA_APP_SECRET` | WhatsApp webhook verification |
-| `CLIENTCHATS_WEBHOOK_BASE_URL` | Public backend URL for webhook registration |
-| `TELEPHONY_INGEST_SECRET` | Shared secret for call event ingestion |
-| `AMI_ENABLED`, `AMI_HOST`, `AMI_PORT`, `AMI_USER`, `AMI_SECRET` | Asterisk AMI connection |
-| `ARI_ENABLED`, `ARI_BASE_URL`, `ARI_USER`, `ARI_PASSWORD` | Asterisk ARI connection |
-| `OPENAI_API_KEY`, `QUALITY_AI_ENABLED`, `QUALITY_AI_MODEL` | OpenAI quality reviews |
+DATABASE_URL, JWT_SECRET, JWT_EXPIRES_IN, PORT, CORS_ORIGINS, VIBER_BOT_TOKEN, FB_PAGE_ACCESS_TOKEN, FB_APP_SECRET, FB_VERIFY_TOKEN, TELEGRAM_BOT_TOKEN, WA_ACCESS_TOKEN, WA_PHONE_NUMBER_ID, CLIENTCHATS_WEBHOOK_BASE_URL, TELEPHONY_INGEST_SECRET, AMI_ENABLED/HOST/PORT/USER/SECRET, ARI_ENABLED/BASE_URL/USER/PASSWORD, OPENAI_API_KEY
 
 ### Frontend (`frontend/crm-frontend/.env.local`)
 
-| Variable | Description |
-|----------|-------------|
-| `NEXT_PUBLIC_API_BASE` | Backend URL (default `http://localhost:3000`) |
-| `API_BACKEND_URL` | Backend URL for Next.js rewrites |
+NEXT_PUBLIC_API_BASE (default `http://localhost:3000`), API_BACKEND_URL
 
 ---
 
-## Important Patterns
+## NEVER Do These
 
-### NEVER Do These
-1. **NEVER hardcode dropdown values** — always use `useListItems(categoryCode)` from `@/hooks/useListItems`
+1. **NEVER hardcode dropdown values** — always use `useListItems(categoryCode)`
 2. **NEVER use raw `fetch()`** — always use `apiGet`, `apiPost`, `apiPatch`, `apiDelete` from `@/lib/api`
-3. **NEVER use port 4000** — backend is 3000, frontend is 3002
-4. **NEVER commit to `master` or `staging`** — work on `dev` or `feature/*` branches
+3. **NEVER use port 4000** — backend is 3000, frontend is 4002
+4. **NEVER commit directly to `master`** — always work on `feature/*` branches
 5. **NEVER hardcode API URLs** — use the centralized API client
 6. **NEVER render modals inline** — use `createPortal(content, document.body)`
-7. **NEVER use `router.push()` for detail modals** — use `openModal(type, id)` from `useModalContext`
+7. **NEVER use `router.push()` for detail modals** — use `openModal(type, id)`
+8. **NEVER overwrite customer display names** with fallback names in client chats
+9. **NEVER use `&&` in shell commands** — Windows PowerShell uses `;`
+10. **NEVER start work without pulling master first** — always `git checkout master ; git pull origin master` before creating a feature branch
 
-### Coding Conventions
-- **Commit format**: `feat(scope):`, `fix(scope):`, `refactor(scope):`, `chore(scope):`
-- **Branch flow**: `feature/* → dev → staging → master`
-- **Terminology**: "Devices" = building assets (elevators, intercoms). "Products" = inventory items (routers, sensors).
-- **Auto-generated codes**: Department, Position, RoleGroup codes auto-generated from name (never manually set)
-- **Employee IDs**: EMP-### format, never reused, stored in ExternalIdCounter table
-- **Dynamic lists**: Categories: `ASSET_TYPE`, `CONTACT_METHOD`, `INCIDENT_TYPE`, `INCIDENT_PRIORITY`, `PRODUCT_CATEGORY`, `PRODUCT_UNIT`, `WORK_ORDER_TYPE` (user-editable). System-managed: `WORK_ORDER_STATUS`, `INCIDENT_STATUS`, `DEVICE_STATUS`, `PURCHASE_ORDER_STATUS`, `STOCK_TRANSACTION_TYPE`
+## Coding Conventions
 
-### Backend Patterns
-- NestJS module per domain: controller + service + DTOs + module
-- Prisma as sole DB access layer via injectable `PrismaService`
-- DTOs with `class-validator` decorators for validation
-- `@UseGuards(JwtAuthGuard, PositionPermissionGuard)` + `@RequirePermission('resource.action')` for protected endpoints
-- Parallel queries with `Promise.all()` for independent data fetches
-- `groupBy` aggregations instead of N+1 queries
-- Idempotency via unique constraints (SyncEvent.eventId, CallEvent.idempotencyKey, ClientChatMessage.externalMessageId)
-- Safe deletion pattern: check relationships → require replacement/delegation → delete
+- **Backend**: NestJS module per domain (controller + service + DTOs + module)
+- **Frontend**: All authenticated pages are `"use client"` components
+- **Terminology**: "Devices" = building assets. "Products" = inventory items.
+- **Auto-generated codes**: Department, Position, RoleGroup codes from name
+- **Employee IDs**: EMP-### format, never reused
+- **Prisma**: Sole DB access via `PrismaService`
+- **Validation**: DTOs with `class-validator`
+- **Guards**: `@UseGuards(JwtAuthGuard, PositionPermissionGuard)` + `@RequirePermission()`
+- **Performance**: `Promise.all()` for independent queries, `groupBy` not N+1, indexes on WHERE/ORDER BY
+- **Frontend API**: Same-origin rewrites in `next.config.ts`
+- **Modals**: `createPortal` + `mounted` check + z-index layers
+- **Pagination**: Cursor-based for messenger, page-based for everything else
 
-### Frontend Patterns
-- All authenticated pages are client components (`"use client"`)
-- API calls via same-origin rewrites (`next.config.ts` rewrites `/auth/*`, `/v1/*`, `/public/*` to backend)
-- Modals: `createPortal` + `mounted` state check + z-index layers (detail: 10000, action: 50000+)
-- Permission checks: `const { hasPermission } = usePermissions()` then conditionally render
-- Forms: `useState` for form data, `useEffect` for loading, submit via `apiPost`/`apiPatch`
-- Dependent dropdowns: department → position (filter by departmentId with `useMemo`)
-- Cursor-based pagination for messenger, page-based for everything else
+## Key Files Reference
 
-### Key Files Reference
 | Purpose | Path |
 |---------|------|
 | Prisma schema | `backend/crm-backend/prisma/schema.prisma` |
 | Backend entry | `backend/crm-backend/src/main.ts` |
 | Root module | `backend/crm-backend/src/app.module.ts` |
-| Auth controller | `backend/crm-backend/src/auth/auth.controller.ts` |
-| Permissions seed | `backend/crm-backend/prisma/seed-permissions.ts` |
 | API client | `frontend/crm-frontend/src/lib/api.ts` |
 | Dynamic lists hook | `frontend/crm-frontend/src/hooks/useListItems.ts` |
 | Permissions hook | `frontend/crm-frontend/src/lib/use-permissions.ts` |
 | Modal manager | `frontend/crm-frontend/src/app/app/modal-manager.tsx` |
 | Modal stack | `frontend/crm-frontend/src/app/app/modal-stack-context.tsx` |
-| App header | `frontend/crm-frontend/src/app/app/app-header.tsx` |
 | Messenger context | `frontend/crm-frontend/src/app/app/messenger/messenger-context.tsx` |
-| Client chats doc | `docs/CLIENTCHATS.md` |
-| Telephony doc | `docs/TELEPHONY_INTEGRATION.md` |
 
-### Deeper Documentation
-For detailed information beyond this file, see:
-- `PROJECT_OVERVIEW.md` — full tech stack, directory tree, architecture
+## Deeper Documentation
+
 - `DATABASE_SCHEMA.md` — every table, relationship, index, migration, enum
-- `API_ROUTES.md` — every endpoint with method, auth, request/response, DB tables
-- `FRONTEND_MAP.md` — all 47 pages, components, forms, state management
-- `BUSINESS_LOGIC.md` — all business rules, workflows, permissions, integrations
-- `TODO_AND_ISSUES.md` — bugs, incomplete features, tech debt, security concerns
-- `DEPENDENCIES_AND_CONFIG.md` — all dependencies, config files, CI/CD, deployment
-- `DEVELOPMENT_GUIDELINES.md` — coding patterns with examples
+- `API_ROUTE_MAP.md` — every endpoint with method, auth, request/response
+- `FRONTEND_ROUTE_MAP.md` — all 47 pages, components, status
+- `DEVELOPMENT_GUIDELINES.md` — coding patterns with concrete examples
+- `docs/TESTING.md` — test setup and how to run tests
+- `docs/DESIGN_SYSTEM.md` — UI design tokens and patterns
+- `docs/TELEPHONY_INTEGRATION.md` — full telephony architecture
+
+## Production
+
+- **Domain**: crm28.asg.ge
+- **Hosting**: Railway (auto-deploys from `master`)
+- **Deploy flow**: Merge PR to master → Railway auto-deploys backend + frontend
