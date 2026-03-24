@@ -225,7 +225,13 @@
       "waitingForApproval": "ელოდება დადასტურებას",
       "completed": "დასრულებულია",
       "canceled": "გაუქმებულია",
-      "completedOrCanceled": "დასრულებულია / გაუქმებულია"
+      "completedOrCanceled": "დასრულებულია / გაუქმებულია",
+      "workflowLabel": "სამუშაო ნაკადი",
+      "stepProgressTitle": "მიმდინარე ეტაპი (სულ ხუთი)",
+      "stepProgressAria": "ეტაპი {n} ხუთიდან",
+      "assignedShort": "მიბმა",
+      "approvalShort": "დადასტურება",
+      "closedShort": "დასრულება"
     },
     "fields": {
       "building": "შენობა",
