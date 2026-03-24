@@ -20,6 +20,7 @@ type NavItemDef = {
 
 const ALL_ITEMS: NavItemDef[] = [
   { href: "/app/dashboard", label: "Dashboard", labelKey: "sidebar.dashboard", iconKey: "dashboard" },
+  { href: "/app/feed", label: "Feed", labelKey: "sidebar.feed", iconKey: "feed" },
   { href: "/app/buildings", label: "Buildings", labelKey: "sidebar.buildings", iconKey: "building", requiredPermission: "buildings.menu" },
   { href: "/app/clients", label: "Clients", labelKey: "sidebar.clients", iconKey: "clients", requiredPermission: "clients.menu" },
   { href: "/app/incidents", label: "Incidents", labelKey: "sidebar.incidents", iconKey: "incident", requiredPermission: "incidents.menu" },
@@ -35,6 +36,7 @@ const ALL_ITEMS: NavItemDef[] = [
 
 const ICON_MAP: Record<string, React.ReactNode> = {
   dashboard: <IconDashboard />,
+  feed: <IconFeed />,
   building: <IconBuilding />,
   clients: <IconClients />,
   incident: <IconIncident />,
@@ -434,6 +436,26 @@ function IconDashboard() {
         d="M4 13.5V20a1 1 0 0 0 1 1h5.5v-7.5H4Zm9.5 0V21H19a1 1 0 0 0 1-1v-6.5h-6.5ZM4 4v7.5h7.5V4H5a1 1 0 0 0-1 1Zm9.5 0v7.5H20V5a1 1 0 0 0-1-1h-5.5Z"
         stroke="currentColor"
         strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function IconFeed() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M4 6.5h10M4 11h16M4 15.5h12"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <path
+        d="M18.5 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM19 17.5l2 2"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
         strokeLinejoin="round"
       />
     </svg>
