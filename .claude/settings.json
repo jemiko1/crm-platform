@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "bash(git checkout:*)",
+      "bash(git pull:*)",
+      "bash(git push:*)",
+      "bash(git branch:*)",
+      "bash(git add:*)",
+      "bash(git commit:*)",
+      "bash(git log:*)",
+      "bash(git status:*)",
+      "bash(git diff:*)",
+      "bash(git stash:*)",
+      "bash(npm run:*)",
+      "bash(pnpm:*)",
+      "bash(npx prisma:*)",
+      "bash(npx tsx:*)",
+      "bash(npx tsc:*)",
+      "bash(npx jest:*)",
+      "bash(docker:*)",
+      "bash(gh pr:*)",
+      "bash(gh run:*)",
+      "bash(railway:*)",
+      "bash(ssh asterisk:*)",
+      "bash(cat:*)",
+      "bash(ls:*)",
+      "bash(find:*)",
+      "bash(grep:*)",
+      "bash(head:*)",
+      "bash(tail:*)",
+      "bash(mkdir:*)"
+    ],
+    "deny": [
+      "bash(rm -rf /*)",
+      "bash(git push origin master --force*)",
+      "bash(git push --force*)",
+      "bash(npx prisma migrate reset*)",
+      "bash(ssh asterisk*rm -rf*)"
+    ]
+  }
+}

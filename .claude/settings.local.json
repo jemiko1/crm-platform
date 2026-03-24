@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la /c/CRM-Platform/*.md)",
+      "Bash(find /c/CRM-Platform/backend/crm-backend/src -type f -name *.entity.ts)",
+      "Bash(xargs grep:*)",
+      "Bash(gh pr:*)",
+      "Bash(find /c/CRM-Platform/backend/crm-backend/src -type f -path */entities/* -name *.ts)",
+      "Bash(grep -r \"Role\\\\|Permission\\\\|client_chats\" /c/CRM-Platform/backend/crm-backend/src/auth/ --include=*.ts)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(netstat -ano)",
+      "Bash(pnpm dev:*)"
+    ]
+  }
+}
