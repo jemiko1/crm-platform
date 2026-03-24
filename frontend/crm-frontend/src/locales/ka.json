@@ -41,6 +41,7 @@
   },
   "sidebar": {
     "dashboard": "მთავარი",
+    "feed": "ლენტა",
     "buildings": "შენობები",
     "clients": "კლიენტები",
     "incidents": "ინციდენტები",
