@@ -37,5 +37,18 @@
       "bash(npx prisma migrate reset*)",
       "bash(ssh asterisk*rm -rf*)"
     ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/protect-master.sh"
+          }
+        ]
+      }
+    ]
   }
 }
