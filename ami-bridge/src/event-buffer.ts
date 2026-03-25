@@ -3,6 +3,8 @@ import { createLogger } from "./logger";
 
 const log = createLogger("Buffer");
 
+const MAX_QUEUE_LIMIT = 5000;
+
 export class EventBuffer {
   private queue: CrmEvent[] = [];
   private timer: ReturnType<typeof setInterval> | null = null;
@@ -11,6 +13,7 @@ export class EventBuffer {
     private readonly maxSize: number,
     private readonly flushIntervalMs: number,
     private readonly onFlush: (events: CrmEvent[]) => Promise<void>,
+    private readonly maxQueueSize: number = MAX_QUEUE_LIMIT,
   ) {}
 
   start(): void {
@@ -30,6 +33,13 @@ export class EventBuffer {
 
   push(events: CrmEvent[]): void {
     this.queue.push(...events);
+
+    if (this.queue.length > this.maxQueueSize) {
+      const evicted = this.queue.length - this.maxQueueSize;
+      this.queue = this.queue.slice(evicted);
+      log.warn(`Queue overflow: evicted ${evicted} oldest event(s) to stay within ${this.maxQueueSize} limit`);
+    }
+
     log.debug(`Buffered ${events.length} event(s), total=${this.queue.length}`);
 
     if (this.queue.length >= this.maxSize) {

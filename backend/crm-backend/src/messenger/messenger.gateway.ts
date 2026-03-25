@@ -299,7 +299,7 @@ export class MessengerGateway
           cookies[process.env.COOKIE_NAME ?? 'access_token'];
         if (token) {
           return this.jwtService.verify(token, {
-            secret: process.env.JWT_SECRET || 'dev-secret',
+            secret: process.env.JWT_SECRET!,
           }) as any;
         }
       }
@@ -309,7 +309,7 @@ export class MessengerGateway
       if (authHeader?.startsWith('Bearer ')) {
         const token = authHeader.slice(7);
         return this.jwtService.verify(token, {
-          secret: process.env.JWT_SECRET || 'dev-secret',
+          secret: process.env.JWT_SECRET!,
         }) as any;
       }
 

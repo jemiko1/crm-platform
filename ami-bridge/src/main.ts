@@ -58,13 +58,21 @@ async function main(): Promise<void> {
     log.warn("AMI disconnected — will reconnect automatically");
   });
 
-  // Status report every 60 seconds
+  const STALE_INGEST_THRESHOLD_MINS = 5;
+
   const statusInterval = setInterval(() => {
     const stats = poster.getStats();
     log.info(
       `Status: connected=${ami.isConnected()}, activeCalls=${mapper.getActiveCallCount()}, ` +
-        `buffered=${buffer.size}, posted=${stats.totalPosted}, errors=${stats.totalErrors}`,
+        `buffered=${buffer.size}, posted=${stats.totalPosted}, errors=${stats.totalErrors}, ` +
+        `lastSuccess=${stats.lastSuccessAt?.toISOString() ?? 'never'}`,
     );
+    if (stats.minutesSinceSuccess !== null && stats.minutesSinceSuccess >= STALE_INGEST_THRESHOLD_MINS) {
+      log.warn(
+        `ALERT: No successful CRM ingest for ${stats.minutesSinceSuccess} minute(s). ` +
+          `Check CRM backend health or TELEPHONY_INGEST_SECRET mismatch.`,
+      );
+    }
   }, 60_000);
 
   // Graceful shutdown

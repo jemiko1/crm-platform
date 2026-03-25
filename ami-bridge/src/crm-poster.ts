@@ -21,6 +21,7 @@ export class CrmPoster {
   private readonly url: string;
   private totalPosted = 0;
   private totalErrors = 0;
+  private lastSuccessAt: Date | null = null;
 
   constructor(private readonly opts: CrmPosterOptions) {
     this.url = `${opts.baseUrl}/v1/telephony/events`;
@@ -59,6 +60,7 @@ export class CrmPoster {
 
         this.totalPosted += result.processed;
         this.totalErrors += result.errors.length;
+        this.lastSuccessAt = new Date();
 
         log.info(
           `POST OK: processed=${result.processed}, skipped=${result.skipped}, errors=${result.errors.length}`,
@@ -88,8 +90,11 @@ export class CrmPoster {
     throw lastError ?? new Error("POST failed");
   }
 
-  getStats(): { totalPosted: number; totalErrors: number } {
-    return { totalPosted: this.totalPosted, totalErrors: this.totalErrors };
+  getStats(): { totalPosted: number; totalErrors: number; lastSuccessAt: Date | null; minutesSinceSuccess: number | null } {
+    const minutesSinceSuccess = this.lastSuccessAt
+      ? Math.round((Date.now() - this.lastSuccessAt.getTime()) / 60_000)
+      : null;
+    return { totalPosted: this.totalPosted, totalErrors: this.totalErrors, lastSuccessAt: this.lastSuccessAt, minutesSinceSuccess };
   }
 
   private sleep(ms: number): Promise<void> {

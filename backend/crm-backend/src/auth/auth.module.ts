@@ -13,7 +13,7 @@ import { PermissionsModule } from "../permissions/permissions.module";
     PassportModule,
     PermissionsModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET || "dev-secret",
+      secret: process.env.JWT_SECRET!,
       signOptions: {
         expiresIn: (process.env.JWT_EXPIRES_IN ?? "24h") as any,
       },
