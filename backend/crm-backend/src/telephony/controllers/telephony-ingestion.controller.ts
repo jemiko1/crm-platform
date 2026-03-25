@@ -1,9 +1,11 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { ApiTags } from '@nestjs/swagger';
 import { TelephonyIngestGuard } from '../guards/telephony-ingest.guard';
 import { TelephonyIngestionService } from '../services/telephony-ingestion.service';
 import { IngestEventsDto } from '../dto/ingest-event.dto';
 
+@SkipThrottle()
 @ApiTags('Telephony')
 @Controller('v1/telephony')
 export class TelephonyIngestionController {

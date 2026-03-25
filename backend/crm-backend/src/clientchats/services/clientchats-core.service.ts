@@ -303,25 +303,39 @@ export class ClientChatsCoreService {
     attachments?: unknown;
     rawPayload?: unknown;
   }) {
-    return this.prisma.clientChatMessage.create({
-      data: {
-        conversationId: data.conversationId,
-        participantId: data.participantId,
-        senderUserId: data.senderUserId,
-        direction: data.direction,
-        externalMessageId: data.externalMessageId,
-        text: data.text,
-        attachments: data.attachments as any,
-        sentAt: new Date(),
-        rawPayload: data.rawPayload as any,
+    const include = {
+      participant: {
+        select: { id: true, displayName: true, externalUserId: true },
       },
-      include: {
-        participant: {
-          select: { id: true, displayName: true, externalUserId: true },
+      senderUser: { select: { id: true, email: true } },
+    };
+
+    try {
+      return await this.prisma.clientChatMessage.create({
+        data: {
+          conversationId: data.conversationId,
+          participantId: data.participantId,
+          senderUserId: data.senderUserId,
+          direction: data.direction,
+          externalMessageId: data.externalMessageId,
+          text: data.text,
+          attachments: data.attachments as any,
+          sentAt: new Date(),
+          rawPayload: data.rawPayload as any,
         },
-        senderUser: { select: { id: true, email: true } },
-      },
-    });
+        include,
+      });
+    } catch (err: any) {
+      if (err.code === 'P2002' && err.meta?.target?.includes('externalMessageId')) {
+        this.logger.debug(`Duplicate insert caught: ${data.externalMessageId}`);
+        const existing = await this.prisma.clientChatMessage.findUnique({
+          where: { externalMessageId: data.externalMessageId },
+          include,
+        });
+        if (existing) return existing;
+      }
+      throw err;
+    }
   }
 
   // ── Agent reply ────────────────────────────────────────

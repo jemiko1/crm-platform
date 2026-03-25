@@ -208,7 +208,7 @@ export class TelephonyGateway
       const cookies = client.handshake.headers.cookie;
       if (cookies) {
         const parsed = cookie.parse(cookies);
-        const token = parsed['access_token'];
+        const token = parsed[process.env.COOKIE_NAME ?? 'access_token'];
         if (token) {
           const payload = this.jwtService.verify(token);
           if (payload?.id) return payload as { id: string; email: string };

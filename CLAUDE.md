@@ -40,12 +40,9 @@ cd backend\crm-backend
 pnpm install
 pnpm prisma generate
 npx prisma migrate dev
-npx tsx prisma/seed-permissions.ts
-npx tsx prisma/seed-system-lists.ts
-npx tsx prisma/seed-workflow-steps.ts
-npx tsx prisma/seed-sales.ts
+pnpm seed:all
 ```
-Seed order matters: permissions first, then the rest. `seed-permissions.ts` is the canonical seed (not `seed-rbac.ts`).
+`seed:all` runs all 8 seed scripts in the correct dependency order (permissions first). `seed-permissions.ts` is the canonical seed (not `seed-rbac.ts`).
 
 ---
 
@@ -88,7 +85,7 @@ Seed order matters: permissions first, then the rest. `seed-permissions.ts` is t
 - **Database**: PostgreSQL 16 (Docker `crm-prod-db`, port 5433)
 - **ORM**: Prisma 7 — schema at `backend/crm-backend/prisma/schema.prisma` (2125 lines, single file)
 - **CSS**: Tailwind CSS v4 (PostCSS plugin, theme in globals.css, NO tailwind.config file — it gets ignored)
-- **Auth**: JWT in httpOnly cookie (`access_token`), Passport, 24h expiry. Falls back to "dev-secret" if JWT_SECRET unset — security risk.
+- **Auth**: JWT in httpOnly cookie (`access_token`), Passport, 24h expiry. App crashes on startup if JWT_SECRET is not set.
 - **Real-time**: Socket.IO — namespaces: `/messenger`, `/telephony`, `/ws/clientchats` (note the inconsistency)
 - **Telephony**: Asterisk/FreePBX 16 + AMI Bridge (ami-bridge/) + Electron softphone (crm-phone/)
 - **AI**: OpenAI GPT-4o + Whisper (call quality reviews)
@@ -96,10 +93,10 @@ Seed order matters: permissions first, then the rest. `seed-permissions.ts` is t
 - **Email/SMS**: Nodemailer + IMAPFlow / sender.ge API
 - **Charts**: Recharts 3, **Dates**: date-fns 4
 - **CI/CD**: GitHub Actions → Railway (auto-deploy from master)
-- **Package Manager**: pnpm (local: v10, CI: v9)
-- **Node**: local v24, CI v20 — version mismatch exists
+- **Package Manager**: pnpm 10 (local and CI)
+- **Node**: v24 (local and CI)
 - **OS**: Windows 10 (PowerShell) — use `;` not `&&`, no heredoc, no `wc -l`
-- **Rate Limiting**: Global ThrottlerGuard — 60 req/60s per IP. Applies to ALL routes including webhooks. No @SkipThrottle() anywhere.
+- **Rate Limiting**: Global ThrottlerGuard — 60 req/60s per IP. Webhooks, health, and telephony ingestion endpoints have @SkipThrottle().
 
 ---
 
@@ -136,11 +133,11 @@ OpenVPN is always-on (TAP adapter). If Asterisk SSH times out, VPN may have disc
 backend/crm-backend/
 ├── prisma/schema.prisma          # 70+ models, 40+ enums (single 2125-line file)
 ├── prisma/migrations/            # 28 migrations — NEVER edit applied migrations
-├── prisma/seed-*.ts              # 8 seed scripts (run independently, not chained)
+├── prisma/seed-*.ts              # 8 seed scripts + seed-all.ts orchestrator
 ├── prisma.config.ts              # Fallback DB URL for CI builds (build:build@localhost)
 ├── src/main.ts                   # Bootstrap: Helmet, CORS, cookies, Swagger, rawBody: true
 ├── src/app.module.ts             # Root module — imports all feature modules + ThrottlerGuard
-├── src/auth/                     # JWT login, /me, logout. Falls back to "dev-secret"
+├── src/auth/                     # JWT login, /me, logout. Requires JWT_SECRET env var
 ├── src/prisma/                   # PrismaService — extends PrismaClient + manages pg.Pool
 ├── src/buildings/                # Building CRUD
 ├── src/clients/                  # Client service (accessed via v1/ controllers)
@@ -165,7 +162,7 @@ backend/crm-backend/
 ├── src/audit/                    # Audit log
 ├── src/common/                   # Guards, filters, decorators
 ├── src/v1/                       # Versioned controllers
-└── src/health/                   # Health module (EXISTS but NOT imported in AppModule)
+└── src/health/                   # Health module — /health endpoint with DB + memory checks
 
 frontend/crm-frontend/
 ├── src/app/layout.tsx            # Root layout
@@ -197,7 +194,7 @@ crm-phone/                        # Electron + SIP.js softphone
 ### After Deploying
 - Check: `railway logs` — look for "Nest application successfully started"
 - Verify: `https://crm28.asg.ge/auth/login` loads
-- Note: `/health` endpoint does NOT work (module not imported)
+- Health: `https://crm28.asg.ge/health` — returns DB + memory status
 
 ### Rollback
 - Railway dashboard → Deployments → Rollback to previous
@@ -276,7 +273,7 @@ When making ANY changes to Asterisk via SSH/CLI (queues, extensions, SIP config,
 5. Production migrations run automatically on deploy via `prisma migrate deploy`
 
 ### Secret Safety
-1. JWT_SECRET falls back to "dev-secret" silently — NEVER deploy without it set
+1. JWT_SECRET is required — app crashes on startup if missing (no silent fallback)
 2. TELEPHONY_INGEST_SECRET must match between Railway backend and AMI Bridge VM
 3. Never commit .env files — only .env.example
 4. All channel tokens (Viber, FB, Telegram) are in backend .env — rotating one requires Railway env update too
@@ -286,12 +283,12 @@ When making ANY changes to Asterisk via SSH/CLI (queues, extensions, SIP config,
 2. `api.ts` returns a never-resolving Promise on 401 — don't await it expecting an error
 3. Both `bcrypt` AND `bcryptjs` are installed — check which is actually imported before changing auth
 4. `rawBody: true` is enabled globally for all requests, not just webhooks — performance consideration
-5. ThrottlerGuard (60/min) applies to ALL routes including webhooks — high webhook traffic may get rate-limited
-6. Telephony gateway hardcodes cookie name `access_token` — won't respect COOKIE_NAME env var
-7. Messenger gateway uses `JWT_SECRET || "dev-secret"` — silent fallback
+5. ThrottlerGuard (60/min) applies to most routes. Webhooks, health, and telephony ingestion have @SkipThrottle()
+6. All gateways (telephony + messenger) use COOKIE_NAME env var for cookie extraction
+7. JWT_SECRET has no fallback — app crashes if missing
 8. PrismaService must call BOTH `$disconnect()` AND `pool.end()` on shutdown
 9. `frontend/package.json` start script uses bash `${PORT:-3000}` — doesn't work in PowerShell directly
-10. Quality AI pipeline cron can overlap if processing is slow — watch for duplicate reviews
+10. Escalation and quality AI pipeline crons have overlap guards (processing flag)
 
 ### Fragile Code — Extra Caution Required
 1. `modal-stack-context.tsx` — syncs with browser history via pushState/popstate with RAF timing. Any change can break back button across entire app
@@ -423,10 +420,10 @@ ACTIVE → TERMINATED (dismiss) → ACTIVE (reactivate) or DELETED (permanent)
 ## Cron Jobs (Background Tasks)
 | Service | Schedule | What it does | Concern |
 |---------|----------|-------------|---------|
-| escalation.service.ts | Every 1 min | Check chat SLA rules | DB query on every tick |
+| escalation.service.ts | Every 1 min | Check chat SLA rules | Overlap-guarded |
 | cdr-import.service.ts | Every 5 min | Import CDR from Asterisk | — |
 | asterisk-sync.service.ts | Every 5 min | Sync extension/queue state | — |
-| quality-pipeline.service.ts | Every 2 min | OpenAI call reviews | Can overlap if slow, expensive |
+| quality-pipeline.service.ts | Every 2 min | OpenAI call reviews | Overlap-guarded |
 
 ---
 
@@ -434,7 +431,6 @@ ACTIVE → TERMINATED (dismiss) → ACTIVE (reactivate) or DELETED (permanent)
 
 ### Bugs
 - Incident without client: null constraint violation
-- Health module: NOT imported in AppModule — /health doesn't respond
 
 ### Incomplete
 - Dashboard: static placeholder (no API)
@@ -444,9 +440,10 @@ ACTIVE → TERMINATED (dismiss) → ACTIVE (reactivate) or DELETED (permanent)
 
 ### Technical Debt
 - Some pages use raw fetch() instead of apiGet/apiPost
-- Legacy Role system alongside Position RBAC (both imported)
+- Legacy RolesModule alongside Position RBAC (both imported — eventual cleanup needed)
 - Single 2125-line Prisma schema
 - dist/ files in git status (gitignore issue)
+- rawBody: true enabled globally (only needed for webhook HMAC)
 
 ---
 
