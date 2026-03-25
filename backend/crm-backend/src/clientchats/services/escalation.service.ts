@@ -7,6 +7,7 @@ import { ClientChatsEventService } from './clientchats-event.service';
 @Injectable()
 export class EscalationService {
   private readonly logger = new Logger(EscalationService.name);
+  private processing = false;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -54,6 +55,17 @@ export class EscalationService {
 
   @Cron('*/1 * * * *')
   async checkEscalations() {
+    if (this.processing) return;
+    this.processing = true;
+
+    try {
+      await this.runEscalationCheck();
+    } finally {
+      this.processing = false;
+    }
+  }
+
+  private async runEscalationCheck() {
     const config = await this.prisma.clientChatEscalationConfig.findFirst();
     if (!config) return;
 

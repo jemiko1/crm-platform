@@ -9,6 +9,7 @@ import {
   Logger,
   HttpCode,
 } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { JwtService } from '@nestjs/jwt';
 import type { Request, Response } from 'express';
 import { ClientChatChannelType } from '@prisma/client';
@@ -31,6 +32,7 @@ import { SendWidgetMessageDto } from '../dto/send-widget-message.dto';
 import { ConversationTokenPayload } from '../guards/conversation-token.guard';
 import { randomUUID } from 'crypto';
 
+@SkipThrottle()
 @Controller('public/clientchats')
 export class ClientChatsPublicController {
   private readonly logger = new Logger(ClientChatsPublicController.name);

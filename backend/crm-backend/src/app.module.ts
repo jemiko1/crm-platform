@@ -7,6 +7,7 @@ import { AppService } from "./app.service";
 
 import { PrismaModule } from "./prisma/prisma.module";
 import { AuthModule } from "./auth/auth.module";
+import { HealthModule } from "./health/health.module";
 
 import { IdGeneratorModule } from "./common/id-generator/id-generator.module";
 import { AuditModule } from "./audit/audit.module";
@@ -65,6 +66,7 @@ import { V1Module } from "./v1/v1.module";
     ThrottlerModule.forRoot({ throttlers: [{ ttl: 60_000, limit: 60 }] }),
     PrismaModule,
     AuthModule,
+    HealthModule,
 
     // Core building blocks
     IdGeneratorModule,
