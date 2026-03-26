@@ -545,6 +545,38 @@ export class ClientChatsCoreService {
     return updated;
   }
 
+  async getUnreadCount(userId: string): Promise<{ count: number }> {
+    const conversations = await this.prisma.clientChatConversation.findMany({
+      where: {
+        assignedUserId: userId,
+        status: ClientChatStatus.LIVE,
+      },
+      select: { id: true },
+    });
+
+    if (conversations.length === 0) return { count: 0 };
+
+    const convIds = conversations.map((c) => c.id);
+
+    const result = await this.prisma.$queryRawUnsafe<{ cnt: bigint }[]>(`
+      SELECT COUNT(*) AS cnt
+      FROM "ClientChatConversation" c
+      WHERE c.id = ANY($1::uuid[])
+        AND EXISTS (
+          SELECT 1 FROM "ClientChatMessage" m
+          WHERE m."conversationId" = c.id
+            AND m.direction = 'IN'
+            AND m."createdAt" > COALESCE(
+              (SELECT MAX(m2."createdAt") FROM "ClientChatMessage" m2
+               WHERE m2."conversationId" = c.id AND m2.direction = 'OUT'),
+              '1970-01-01'::timestamp
+            )
+        )
+    `, convIds);
+
+    return { count: Number(result[0]?.cnt ?? 0) };
+  }
+
   async requestReopen(conversationId: string, userId: string) {
     const conversation = await this.prisma.clientChatConversation.findUnique({
       where: { id: conversationId },
