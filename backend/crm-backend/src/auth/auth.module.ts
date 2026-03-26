@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { PassportModule } from "@nestjs/passport";
 import { AuthService } from "./auth.service";
+import { LoginThrottleService } from "./login-throttle.service";
 import { AuthController } from "./auth.controller";
 import { PrismaModule } from "../prisma/prisma.module";
 import { JwtStrategy } from "./jwt.strategy";
@@ -19,7 +20,7 @@ import { PermissionsModule } from "../permissions/permissions.module";
       },
     }),
   ],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, LoginThrottleService, JwtStrategy],
   controllers: [AuthController],
 })
 export class AuthModule {}

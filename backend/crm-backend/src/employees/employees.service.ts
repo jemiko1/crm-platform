@@ -504,7 +504,6 @@ export class EmployeesService {
 
   async dismiss(id: string, delegateToEmployeeId?: string) {
     const employee = await this.findOne(id);
-
     const constraints = await this.checkDeletionConstraints(id);
 
     if (!constraints.canDelete && !delegateToEmployeeId) {
@@ -518,8 +517,8 @@ export class EmployeesService {
     }
 
     if (delegateToEmployeeId) {
-      const delegateEmployee = await this.findOne(delegateToEmployeeId);
-      if (delegateEmployee.status === 'TERMINATED') {
+      const delegate = await this.findOne(delegateToEmployeeId);
+      if (delegate.status === 'TERMINATED') {
         throw new BadRequestException('Cannot delegate to a terminated employee');
       }
     }

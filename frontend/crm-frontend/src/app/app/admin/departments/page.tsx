@@ -6,6 +6,7 @@ import AddDepartmentModal from "./add-department-modal";
 import EditDepartmentModal from "./edit-department-modal";
 import AddPositionModal from "../positions/add-position-modal";
 import EmployeePopup from "./employee-popup";
+import Link from "next/link";
 import { PermissionGuard } from "@/lib/permission-guard";
 
 const BRAND = "rgb(0, 86, 83)";
@@ -383,6 +384,12 @@ export default function DepartmentsPage() {
       <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
         <div>
+          <Link
+            href="/app/admin"
+            className="mb-2 inline-flex items-center text-sm text-zinc-600 hover:text-zinc-900"
+          >
+            ← Back to Admin Panel
+          </Link>
           <h1 className="text-2xl font-bold text-zinc-900">Company Structure</h1>
           <p className="mt-1 text-sm text-zinc-600">
             Build departments, define positions, and assign employees

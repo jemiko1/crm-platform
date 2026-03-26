@@ -95,7 +95,7 @@ export default function DeleteEmployeeDialog({
           setConstraints(constraintsData);
           // Filter out the current employee and terminated employees
           setAllEmployees(
-            employees.filter((emp) => emp.id !== employee.id && emp.status === "ACTIVE")
+            employees.filter((emp) => emp.id !== employee.id && emp.status === "ACTIVE" && emp.user)
           );
           setLoadingDetails(false);
         })
