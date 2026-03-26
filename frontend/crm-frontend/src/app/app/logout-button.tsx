@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { apiPost } from "@/lib/api";
+import { clearPermissionsCache } from "@/lib/use-permissions";
 
 export default function LogoutButton() {
   const router = useRouter();
@@ -14,6 +15,7 @@ export default function LogoutButton() {
       await apiPost("/auth/logout", {});
     } finally {
       setLoading(false);
+      clearPermissionsCache();
       router.push("/login");
       router.refresh();
     }
