@@ -667,12 +667,17 @@ export class WorkOrdersService {
 
   // ===== UPDATE WORK ORDER =====
   async update(idOrNumber: string, dto: UpdateWorkOrderDto) {
-    const workOrder = await this.findOne(idOrNumber); // Throws NotFoundException if not found
+    const workOrder = await this.findOne(idOrNumber);
+
+    if (dto.status) {
+      throw new BadRequestException(
+        'Status cannot be changed via generic update. Use dedicated lifecycle endpoints (startWork, submitCompletion, approveWorkOrder, cancelWorkOrder).',
+      );
+    }
 
     return this.prisma.workOrder.update({
       where: { id: workOrder.id },
       data: {
-        ...(dto.status && { status: dto.status }),
         ...(dto.title && { title: dto.title }),
         ...(dto.notes !== undefined && { notes: dto.notes }),
         ...(dto.techEmployeeComment !== undefined && {
