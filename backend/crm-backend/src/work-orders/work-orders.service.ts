@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
@@ -18,10 +19,11 @@ import { InventoryService } from "../inventory/inventory.service";
 import { WorkOrderActivityService } from "./work-order-activity.service";
 import { WorkflowService } from "../workflow/workflow.service";
 import { WorkflowTriggerEngine } from "../workflow/workflow-trigger-engine.service";
-import { WorkOrderStatus, WorkOrderType } from "@prisma/client";
 
 @Injectable()
 export class WorkOrdersService {
+  private readonly logger = new Logger(WorkOrdersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly buildings: BuildingsService,
@@ -105,7 +107,7 @@ export class WorkOrdersService {
       
       if (!shouldNotify) {
         // Work order type doesn't match filter, don't notify anyone from workflow
-        console.log(`[WorkOrder Create] Work order type ${dto.type} does not match step filter for ASSIGN_EMPLOYEES`);
+        this.logger.debug(`Work order type ${dto.type} does not match step filter for ASSIGN_EMPLOYEES`);
       } else {
         // Check if any positions are assigned to this step
         const positions = await this.workflowService.getPositionsForStep("ASSIGN_EMPLOYEES");
@@ -235,7 +237,7 @@ export class WorkOrdersService {
           select: { displayName: true },
         });
         if (listItem) typeLabel = listItem.displayName;
-      } catch {}
+      } catch { /* listItem lookup is best-effort */ }
       const generatedTitle = `ID-${workOrder.workOrderNumber} - ${building.name} - ${typeLabel}`;
       await this.prisma.workOrder.update({
         where: { id: workOrder.id },
@@ -665,12 +667,17 @@ export class WorkOrdersService {
 
   // ===== UPDATE WORK ORDER =====
   async update(idOrNumber: string, dto: UpdateWorkOrderDto) {
-    const workOrder = await this.findOne(idOrNumber); // Throws NotFoundException if not found
+    const workOrder = await this.findOne(idOrNumber);
+
+    if (dto.status) {
+      throw new BadRequestException(
+        'Status cannot be changed via generic update. Use dedicated lifecycle endpoints (startWork, submitCompletion, approveWorkOrder, cancelWorkOrder).',
+      );
+    }
 
     return this.prisma.workOrder.update({
       where: { id: workOrder.id },
       data: {
-        ...(dto.status && { status: dto.status }),
         ...(dto.title && { title: dto.title }),
         ...(dto.notes !== undefined && { notes: dto.notes }),
         ...(dto.techEmployeeComment !== undefined && {
@@ -1273,7 +1280,7 @@ export class WorkOrdersService {
           })),
           skipDuplicates: true,
         });
-        console.log(`[WorkOrder Submit] Created notifications for ${approvalEmployeeIds.length} FINAL_APPROVAL employees`);
+        this.logger.debug(`Created notifications for ${approvalEmployeeIds.length} FINAL_APPROVAL employees`);
       }
     } catch (error) {
       console.warn("[WorkOrder Submit] Failed to create notifications for FINAL_APPROVAL step:", error);
@@ -1490,7 +1497,7 @@ export class WorkOrdersService {
       }
 
       return { data: [], meta: { page: 1, pageSize: 0, total: 0, totalPages: 0 } };
-    } catch (error) {
+    } catch {
       // Fallback to legacy behavior if workflow is not configured
       const setting = await this.prisma.positionSetting.findUnique({
         where: { key: "HEAD_OF_TECHNICAL_DEPARTMENT" },
@@ -1538,7 +1545,7 @@ export class WorkOrdersService {
       // Check Step 5 (FINAL_APPROVAL) positions
       const step5Positions = await this.workflowService.getPositionsForStep("FINAL_APPROVAL");
       isFinalApprovalPosition = step5Positions.some((p) => p.id === employee.positionId);
-    } catch (error) {
+    } catch {
       // Fallback to legacy behavior if workflow is not configured
       const headOfTechSetting = await this.prisma.positionSetting.findUnique({
         where: { key: "HEAD_OF_TECHNICAL_DEPARTMENT" },

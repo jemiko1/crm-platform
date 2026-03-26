@@ -178,7 +178,7 @@ export function MessengerProvider({
     setSocketState(socket);
 
     socket.on("connect", () => {
-      console.log("[Messenger] Socket connected, id:", socket.id);
+      
       setIsConnected(true);
 
       for (const chat of activeChatsRef.current) {
@@ -199,13 +199,13 @@ export function MessengerProvider({
     });
 
     socket.on("disconnect", (reason) => {
-      console.log("[Messenger] Socket disconnected:", reason);
+      
       setIsConnected(false);
     });
 
     // Global message:new listener — broadcasts to subscribed MessageList components
     socket.on("message:new", (msg: Message) => {
-      console.log("[Messenger] WS message:new", msg?.id?.slice(0, 8), "conv:", msg?.conversationId?.slice(0, 8));
+      
       broadcastMessage(msg);
     });
 

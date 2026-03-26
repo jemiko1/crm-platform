@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import { API_BASE } from "@/lib/api";
+import { apiGet } from "@/lib/api";
 import type { TimelineEntry, TimelineResponse } from "./types";
 
 const PAGE_SIZE = 20;
@@ -43,12 +43,7 @@ export default function ActivityTimeline({ clientCoreId }: Props) {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(
-        `${API_BASE}/v1/client-intelligence/${clientCoreId}/timeline?limit=200`,
-        { credentials: "include" },
-      );
-      if (!res.ok) throw new Error(`API ${res.status}`);
-      const data: TimelineResponse = await res.json();
+      const data = await apiGet<TimelineResponse>(`/v1/client-intelligence/${clientCoreId}/timeline?limit=200`);
       setEntries(data.entries);
       setTotal(data.total);
     } catch (e) {

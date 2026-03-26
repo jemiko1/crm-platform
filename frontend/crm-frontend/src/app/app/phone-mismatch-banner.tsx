@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { apiGet } from "@/lib/api";
 import { useDesktopPhone } from "@/hooks/useDesktopPhone";
 
 export default function PhoneMismatchBanner() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/auth/me", { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : null))
+    apiGet<any>("/auth/me")
       .then((data) => {
         if (data?.user?.id) setCurrentUserId(data.user.id);
       })

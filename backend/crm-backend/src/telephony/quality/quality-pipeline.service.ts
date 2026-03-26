@@ -40,6 +40,16 @@ export class QualityPipelineService {
     this.processing = true;
 
     try {
+      // Recover stuck reviews: reset PROCESSING reviews older than 10 minutes back to PENDING
+      const stuckThreshold = new Date(Date.now() - 10 * 60_000);
+      const { count: recovered } = await this.prisma.qualityReview.updateMany({
+        where: { status: 'PROCESSING', updatedAt: { lt: stuckThreshold } },
+        data: { status: 'PENDING' },
+      });
+      if (recovered > 0) {
+        this.logger.warn(`Recovered ${recovered} stuck PROCESSING review(s) back to PENDING`);
+      }
+
       const pending = await this.prisma.qualityReview.findMany({
         where: { status: 'PENDING' },
         take: 5,

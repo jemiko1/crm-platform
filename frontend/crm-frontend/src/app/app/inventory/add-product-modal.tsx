@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import ModalDialog from "../../modal-dialog";
-import { apiGet, API_BASE } from "@/lib/api";
+import { apiGet, apiPost } from "@/lib/api";
 
 const BRAND = "rgb(0, 86, 83)";
 
@@ -95,24 +95,14 @@ export default function AddProductModal({ open, onClose, onSuccess }: AddProduct
     setError(null);
 
     try {
-      const res = await fetch(`${API_BASE}/v1/inventory/products`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          sku: formData.sku,
-          name: formData.name,
-          description: formData.description || undefined,
-          category: formData.category,
-          unit: formData.unit,
-          lowStockThreshold: parseInt(formData.lowStockThreshold),
-        }),
+      await apiPost("/v1/inventory/products", {
+        sku: formData.sku,
+        name: formData.name,
+        description: formData.description || undefined,
+        category: formData.category,
+        unit: formData.unit,
+        lowStockThreshold: parseInt(formData.lowStockThreshold),
       });
-
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.message || "Failed to create product");
-      }
 
       // Reset form
       setFormData({

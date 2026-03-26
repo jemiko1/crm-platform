@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import { apiGet, apiGetList, apiPost, API_BASE } from "@/lib/api";
+import { apiGet, apiGetList, apiPost, apiPut } from "@/lib/api";
 import AddProductModal from "./add-product-modal";
 import EditProductModal from "./edit-product-modal";
 import CreatePurchaseOrderModal from "./create-purchase-order-modal";
@@ -582,20 +582,10 @@ function PurchaseOrdersTab({
                         if (!confirm(`Mark PO ${po.poNumber} as RECEIVED?`)) return;
 
                         try {
-                          const res = await fetch(
-                            `${API_BASE}/v1/inventory/purchase-orders/${po.id}/status`,
-                            {
-                              method: "PUT",
-                              headers: { "Content-Type": "application/json" },
-                              credentials: "include",
-                              body: JSON.stringify({
-                                status: "RECEIVED",
-                                receivedDate: new Date().toISOString().split("T")[0],
-                              }),
-                            }
-                          );
-
-                          if (!res.ok) throw new Error("Failed to update PO");
+                          await apiPut(`/v1/inventory/purchase-orders/${po.id}/status`, {
+                            status: "RECEIVED",
+                            receivedDate: new Date().toISOString().split("T")[0],
+                          });
 
                           alert("✅ PO marked as received! Stock batches created.");
                           onRefresh();
@@ -612,19 +602,9 @@ function PurchaseOrdersTab({
                         if (!confirm(`Cancel PO ${po.poNumber}? This action cannot be undone.`)) return;
 
                         try {
-                          const res = await fetch(
-                            `${API_BASE}/v1/inventory/purchase-orders/${po.id}/status`,
-                            {
-                              method: "PUT",
-                              headers: { "Content-Type": "application/json" },
-                              credentials: "include",
-                              body: JSON.stringify({
-                                status: "CANCELLED",
-                              }),
-                            }
-                          );
-
-                          if (!res.ok) throw new Error("Failed to cancel PO");
+                          await apiPut(`/v1/inventory/purchase-orders/${po.id}/status`, {
+                            status: "CANCELLED",
+                          });
 
                           alert("✅ PO cancelled successfully.");
                           onRefresh();

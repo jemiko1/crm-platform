@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { apiGet, apiGetList, apiPost, apiPatch, apiDelete } from "@/lib/api";
 import { PermissionGuard } from "@/lib/permission-guard";
@@ -200,6 +201,8 @@ function TemplateModal({
   const [isActive, setIsActive] = useState(template?.isActive ?? true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -220,7 +223,8 @@ function TemplateModal({
     }
   }
 
-  return (
+  if (!mounted) return null;
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <form
         onClick={(e) => e.stopPropagation()}
@@ -278,7 +282,8 @@ function TemplateModal({
           </button>
         </div>
       </form>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

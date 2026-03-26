@@ -73,7 +73,7 @@ export class EscalationService {
     const warningThreshold = new Date(
       now.getTime() - config.firstResponseTimeoutMins * 60_000,
     );
-    const reassignThreshold = new Date(
+    const _reassignThreshold = new Date(
       now.getTime() - config.reassignAfterMins * 60_000,
     );
 
@@ -96,16 +96,22 @@ export class EscalationService {
     );
 
     for (const conv of staleConversations) {
-      const lastInbound = conv.messages[0];
-      if (!lastInbound) continue;
+      try {
+        const lastInbound = conv.messages[0];
+        if (!lastInbound) continue;
 
-      const elapsedMs = now.getTime() - new Date(lastInbound.sentAt).getTime();
-      const elapsedMins = elapsedMs / 60_000;
+        const elapsedMs = now.getTime() - new Date(lastInbound.sentAt).getTime();
+        const elapsedMins = elapsedMs / 60_000;
 
-      if (elapsedMins >= config.reassignAfterMins) {
-        await this.handleReassign(conv, config);
-      } else if (elapsedMins >= config.firstResponseTimeoutMins) {
-        await this.handleWarning(conv, config);
+        if (elapsedMins >= config.reassignAfterMins) {
+          await this.handleReassign(conv, config);
+        } else if (elapsedMins >= config.firstResponseTimeoutMins) {
+          await this.handleWarning(conv, config);
+        }
+      } catch (err: any) {
+        this.logger.error(
+          `Escalation check failed for conversation ${conv.id}: ${err.message}`,
+        );
       }
     }
   }

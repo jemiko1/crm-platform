@@ -474,10 +474,6 @@ export class WorkOrderActivityService {
       ? `${approver.firstName} ${approver.lastName} (${approver.employeeId})`
       : 'Unknown';
 
-    const productSummary = products
-      .map((p) => `${p.name} (×${p.quantity})`)
-      .join(', ');
-
     const totalQuantity = products.reduce((sum, p) => sum + p.quantity, 0);
 
     return this.logActivity({

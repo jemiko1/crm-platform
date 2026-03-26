@@ -27,6 +27,7 @@ export class CdrImportService {
   private readonly cdrDbUrl: string | null;
   private lastImportTimestamp: Date;
   private pgClient: any = null;
+  private processing = false;
 
   constructor(private readonly ingestionService: TelephonyIngestionService) {
     this.enabled = process.env.CDR_IMPORT_ENABLED === 'true';
@@ -36,7 +37,8 @@ export class CdrImportService {
 
   @Cron('0 */5 * * * *')
   async importCdr(): Promise<void> {
-    if (!this.enabled || !this.cdrDbUrl) return;
+    if (!this.enabled || !this.cdrDbUrl || this.processing) return;
+    this.processing = true;
 
     try {
       const rows = await this.fetchCdrRows();
@@ -59,6 +61,8 @@ export class CdrImportService {
       this.lastImportTimestamp = latestEnd;
     } catch (err: any) {
       this.logger.error(`CDR import failed: ${err.message}`);
+    } finally {
+      this.processing = false;
     }
   }
 

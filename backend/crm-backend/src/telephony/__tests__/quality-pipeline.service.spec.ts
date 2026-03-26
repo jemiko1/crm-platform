@@ -12,6 +12,7 @@ describe('QualityPipelineService', () => {
       qualityReview: {
         findMany: jest.fn().mockResolvedValue([]),
         update: jest.fn().mockResolvedValue({}),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
       qualityRubric: {
         findMany: jest.fn().mockResolvedValue([]),

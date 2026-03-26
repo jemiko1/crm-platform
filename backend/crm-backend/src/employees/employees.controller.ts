@@ -36,6 +36,13 @@ class DelegateItemsDto {
   toEmployeeId!: string;
 }
 
+class DismissDto {
+  @IsString()
+  @IsUUID('4')
+  @IsOptional()
+  delegateToEmployeeId?: string;
+}
+
 class HardDeleteDto {
   @IsString()
   @IsUUID('4')
@@ -94,8 +101,8 @@ export class EmployeesController {
   @Post(':id/dismiss')
   @UseGuards(PositionPermissionGuard)
   @RequirePermission('employee.dismiss')
-  dismiss(@Param('id') id: string) {
-    return this.employeesService.dismiss(id);
+  dismiss(@Param('id') id: string, @Body() dto?: DismissDto) {
+    return this.employeesService.dismiss(id, dto?.delegateToEmployeeId);
   }
 
   @Post(':id/activate')

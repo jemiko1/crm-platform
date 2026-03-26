@@ -13,8 +13,8 @@ import { ChangeStageDto } from './dto/change-stage.dto';
 import { ApprovalActionDto, ApprovalAction, SubmitForApprovalDto } from './dto/approval-action.dto';
 import { AddLeadServiceDto, UpdateLeadServiceDto } from './dto/lead-service.dto';
 import { CreateLeadNoteDto, UpdateLeadNoteDto } from './dto/lead-note.dto';
-import { CreateLeadReminderDto, UpdateLeadReminderDto } from './dto/lead-reminder.dto';
-import { CreateLeadAppointmentDto, UpdateLeadAppointmentDto, CompleteAppointmentDto } from './dto/lead-appointment.dto';
+import { CreateLeadReminderDto } from './dto/lead-reminder.dto';
+import { CreateLeadAppointmentDto, CompleteAppointmentDto } from './dto/lead-appointment.dto';
 import { LeadActivityType, LeadStatus, Prisma, ReminderStatus, AppointmentStatus } from '@prisma/client';
 
 @Injectable()
@@ -333,6 +333,21 @@ export class LeadsService {
     }
 
     const previousStage = lead.stage;
+
+    // Block skipping stages: only allow moving forward by one step or backward freely
+    if (newStage.sortOrder > previousStage.sortOrder + 1) {
+      throw new BadRequestException(
+        `Cannot skip stages. Move from "${previousStage.name}" to the next stage first.`,
+      );
+    }
+
+    // Terminal stages (WON/LOST) and APPROVAL require dedicated workflows
+    const protectedCodes = ['APPROVAL', 'WON', 'LOST'];
+    if (protectedCodes.includes(newStage.code)) {
+      throw new BadRequestException(
+        `Stage "${newStage.name}" can only be reached through the approval workflow`,
+      );
+    }
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const result = await tx.lead.update({

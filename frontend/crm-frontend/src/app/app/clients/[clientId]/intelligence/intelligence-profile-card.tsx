@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import { API_BASE } from "@/lib/api";
+import { apiGet } from "@/lib/api";
 import type { ClientLabel, IntelligenceInsight, IntelligenceProfile } from "./types";
 
 const LABEL_CONFIG: Record<
@@ -37,12 +37,8 @@ export default function IntelligenceProfileCard({ clientCoreId }: Props) {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(
-        `${API_BASE}/v1/client-intelligence/${clientCoreId}/profile`,
-        { credentials: "include" },
-      );
-      if (!res.ok) throw new Error(`API ${res.status}`);
-      setProfile(await res.json());
+      const data = await apiGet<IntelligenceProfile>(`/v1/client-intelligence/${clientCoreId}/profile`);
+      setProfile(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load profile");
     } finally {

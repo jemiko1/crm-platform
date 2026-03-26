@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { apiGet, apiGetList, API_BASE } from "@/lib/api";
+import { apiGet, apiGetList } from "@/lib/api";
 
 const BRAND = "rgb(0, 86, 83)";
 
@@ -36,11 +36,7 @@ export default function TasksIcon() {
 
     async function loadEmployee() {
       try {
-        const res = await fetch(`${API_BASE}/auth/me`, {
-          credentials: "include",
-        });
-        if (!res.ok) return;
-        const data = await res.json();
+        const data = await apiGet<any>("/auth/me");
         const userData = data?.user || data;
 
         if (!cancelled && userData.email) {

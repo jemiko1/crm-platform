@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import ModalDialog from "../../modal-dialog";
-import { API_BASE } from "@/lib/api";
+import { apiPut } from "@/lib/api";
 
 const BRAND = "rgb(0, 86, 83)";
 
@@ -56,20 +56,10 @@ export default function EditProductModal({ open, onClose, onSuccess, product }: 
     setError(null);
 
     try {
-      const res = await fetch(`${API_BASE}/v1/inventory/products/${product.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          name: formData.name,
-          description: formData.description || undefined,
-        }),
+      await apiPut(`/v1/inventory/products/${product.id}`, {
+        name: formData.name,
+        description: formData.description || undefined,
       });
-
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.message || "Failed to update product");
-      }
 
       onSuccess();
       onClose();

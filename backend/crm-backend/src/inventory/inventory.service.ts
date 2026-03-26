@@ -10,7 +10,7 @@ import {
   CreateStockAdjustmentDto,
   DeductStockForWorkOrderDto,
 } from './inventory.dto';
-import { Prisma, StockTransactionType } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class InventoryService {
