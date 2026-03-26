@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { apiGet, apiPost } from "@/lib/api";
+import { clearPermissionsCache } from "@/lib/use-permissions";
 
 const BRAND_TEAL = "rgb(0, 86, 83)";
 
@@ -184,6 +185,7 @@ export default function ProfileMenu() {
       // ignore
     } finally {
       closeMenu();
+      clearPermissionsCache();
       router.push("/login");
       router.refresh();
     }
