@@ -105,6 +105,7 @@ export default function SidebarNav() {
   const [userId, setUserId] = useState<string | null>(null);
   const [savedOrder, setSavedOrder] = useState<string[] | null>(null);
   const [draftOrder, setDraftOrder] = useState<NavItemDef[]>([]);
+  const [chatUnread, setChatUnread] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -116,6 +117,22 @@ export default function SidebarNav() {
     return () => { cancelled = true; };
   }, []);
 
+  const canPollClientChatsUnread = !loading && hasPermission("client_chats.menu");
+  useEffect(() => {
+    if (!canPollClientChatsUnread) {
+      setChatUnread(0);
+      return;
+    }
+    let cancelled = false;
+    const poll = () => {
+      apiGet<{ count: number }>("/v1/clientchats/unread-count")
+        .then((r) => { if (!cancelled) setChatUnread(r?.count ?? 0); })
+        .catch(() => {});
+    };
+    poll();
+    const id = setInterval(poll, 30_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [canPollClientChatsUnread]);
   const visibleItems = loading
     ? ALL_ITEMS.filter((item) => !item.requiredPermission)
     : ALL_ITEMS.filter((item) => !item.requiredPermission || hasPermission(item.requiredPermission));
@@ -179,6 +196,8 @@ export default function SidebarNav() {
       <div className="space-y-2">
         {orderedItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+          const badge =
+            item.href === "/app/client-chats" && chatUnread > 0 ? chatUnread : undefined;
           return (
             <RailItem
               key={item.href}
@@ -186,6 +205,7 @@ export default function SidebarNav() {
               label={t(item.labelKey, item.label)}
               icon={ICON_MAP[item.iconKey]}
               isActive={isActive}
+              badge={badge}
             />
           );
         })}
@@ -349,11 +369,13 @@ function RailItem({
   label,
   icon,
   isActive,
+  badge,
 }: {
   href: string;
   label: string;
   icon: React.ReactNode;
   isActive: boolean;
+  badge?: number;
 }) {
   return (
     <Link
@@ -374,24 +396,34 @@ function RailItem({
         style={{ backgroundColor: BRAND_TEAL }}
       />
 
-      <span
-        className={[
-          "grid place-items-center rounded-2xl border transition",
-          "h-12 w-12",
-          isActive
-            ? "bg-white border-zinc-200 shadow-sm"
-            : "bg-white/80 border-white/70",
-        ].join(" ")}
-      >
+      <span className="relative">
         <span
           className={[
-            "transition-opacity",
-            isActive ? "opacity-100" : "opacity-80 group-hover:opacity-100",
+            "grid place-items-center rounded-2xl border transition",
+            "h-12 w-12",
+            isActive
+              ? "bg-white border-zinc-200 shadow-sm"
+              : "bg-white/80 border-white/70",
           ].join(" ")}
-          style={isActive ? { color: BRAND_TEAL } : undefined}
         >
-          {icon}
+          <span
+            className={[
+              "transition-opacity",
+              isActive ? "opacity-100" : "opacity-80 group-hover:opacity-100",
+            ].join(" ")}
+            style={isActive ? { color: BRAND_TEAL } : undefined}
+          >
+            {icon}
+          </span>
         </span>
+        {badge != null && badge > 0 && (
+          <span
+            className="absolute -top-1.5 -right-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white ring-2 ring-white"
+            aria-label={`${badge} unread`}
+          >
+            {badge > 99 ? "99+" : badge}
+          </span>
+        )}
       </span>
 
       <span
