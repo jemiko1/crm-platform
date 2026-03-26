@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import ModalDialog from "../../modal-dialog";
-import { API_BASE } from "@/lib/api";
+import { apiPost } from "@/lib/api";
 
 const BRAND = "rgb(0, 86, 83)";
 
@@ -96,24 +96,14 @@ export default function CreatePurchaseOrderModal({
         throw new Error("Please add at least one product");
       }
 
-      const res = await fetch(`${API_BASE}/v1/inventory/purchase-orders`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          supplierName: formData.supplierName,
-          supplierEmail: formData.supplierEmail || undefined,
-          orderDate: formData.orderDate,
-          expectedDate: formData.expectedDate || undefined,
-          notes: formData.notes || undefined,
-          items: validItems,
-        }),
+      await apiPost("/v1/inventory/purchase-orders", {
+        supplierName: formData.supplierName,
+        supplierEmail: formData.supplierEmail || undefined,
+        orderDate: formData.orderDate,
+        expectedDate: formData.expectedDate || undefined,
+        notes: formData.notes || undefined,
+        items: validItems,
       });
-
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.message || "Failed to create purchase order");
-      }
 
       // Reset form
       setFormData({

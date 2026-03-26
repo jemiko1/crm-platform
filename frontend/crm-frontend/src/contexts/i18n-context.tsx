@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { API_BASE } from "@/lib/api";
+import { apiGet } from "@/lib/api";
 import enTranslations from "@/locales/en.json";
 import kaTranslations from "@/locales/ka.json";
 
@@ -71,12 +71,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     async function loadFromApi() {
       try {
-        const res = await fetch(`${API_BASE}/v1/translations/map`, {
-          credentials: "include",
-        });
-        if (!res.ok) return;
-        const data: { en: Record<string, string>; ka: Record<string, string> } =
-          await res.json();
+        const data = await apiGet<{ en: Record<string, string>; ka: Record<string, string> }>("/v1/translations/map");
         if (data.en && Object.keys(data.en).length > 0) {
           setTranslations((prev) => ({
             en: { ...prev.en, ...data.en },

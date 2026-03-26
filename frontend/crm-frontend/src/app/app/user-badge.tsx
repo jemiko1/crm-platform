@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { API_BASE } from "@/lib/api";
+import { apiGet } from "@/lib/api";
 
 type MeResponse = {
   user: { id: string; email: string; role: string } | null;
@@ -16,15 +16,7 @@ export default function UserBadge() {
 
     async function load() {
       try {
-        const res = await fetch(`${API_BASE}/auth/me`, {
-          method: "GET",
-          credentials: "include", // IMPORTANT: sends httpOnly cookie
-          cache: "no-store",
-        });
-
-        if (!res.ok) throw new Error("Unauthorized");
-
-        const data = (await res.json()) as MeResponse;
+        const data = await apiGet<MeResponse>("/auth/me", { cache: "no-store" });
         if (alive) setUser(data.user ?? null);
       } catch {
         if (alive) setUser(null);

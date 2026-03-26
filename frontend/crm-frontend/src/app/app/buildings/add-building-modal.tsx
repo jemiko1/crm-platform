@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
-import { API_BASE } from "@/lib/api";
+import { apiPost } from "@/lib/api";
 
 const BRAND = "rgb(0, 86, 83)";
 
@@ -44,17 +44,7 @@ export default function AddBuildingModal({
     setError(null);
 
     try {
-      const res = await fetch(`${API_BASE}/v1/admin/buildings`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(formData),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => null);
-        throw new Error(errData?.message || `API error: ${res.status}`);
-      }
+      await apiPost("/v1/admin/buildings", formData);
 
       // Success
       setFormData({ name: "", city: "", address: "" });
