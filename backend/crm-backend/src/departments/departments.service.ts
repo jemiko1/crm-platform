@@ -8,7 +8,7 @@ export class DepartmentsService {
   constructor(private prisma: PrismaService) {}
 
   private generateCode(name: string): string {
-    let code = name
+    const code = name
       .toUpperCase()
       .replace(/[\s-]+/g, '_')
       .replace(/[^A-Z0-9_]/g, '')

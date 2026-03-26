@@ -13,8 +13,8 @@ import { ChangeStageDto } from './dto/change-stage.dto';
 import { ApprovalActionDto, ApprovalAction, SubmitForApprovalDto } from './dto/approval-action.dto';
 import { AddLeadServiceDto, UpdateLeadServiceDto } from './dto/lead-service.dto';
 import { CreateLeadNoteDto, UpdateLeadNoteDto } from './dto/lead-note.dto';
-import { CreateLeadReminderDto, UpdateLeadReminderDto } from './dto/lead-reminder.dto';
-import { CreateLeadAppointmentDto, UpdateLeadAppointmentDto, CompleteAppointmentDto } from './dto/lead-appointment.dto';
+import { CreateLeadReminderDto } from './dto/lead-reminder.dto';
+import { CreateLeadAppointmentDto, CompleteAppointmentDto } from './dto/lead-appointment.dto';
 import { LeadActivityType, LeadStatus, Prisma, ReminderStatus, AppointmentStatus } from '@prisma/client';
 
 @Injectable()

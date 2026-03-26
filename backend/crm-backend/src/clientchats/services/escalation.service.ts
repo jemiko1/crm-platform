@@ -73,7 +73,7 @@ export class EscalationService {
     const warningThreshold = new Date(
       now.getTime() - config.firstResponseTimeoutMins * 60_000,
     );
-    const reassignThreshold = new Date(
+    const _reassignThreshold = new Date(
       now.getTime() - config.reassignAfterMins * 60_000,
     );
 

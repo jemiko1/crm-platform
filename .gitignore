@@ -44,3 +44,18 @@ Thumbs.db
 tmpclaude-*/
 **/tmpclaude-*
 *.tmp
+
+# Cursor IDE
+.cursor/
+
+# Electron release builds (use GitHub Releases instead)
+crm-phone/release-*/
+
+# Design assets (not source code)
+CRM28 Logo Pack/
+
+# Test coverage
+coverage/
+
+# Patch files
+*.patch
