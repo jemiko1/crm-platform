@@ -874,7 +874,7 @@ function WorkOrderStageStepper({
             ].join(" ");
 
             const labelClass = [
-              "mt-3 max-w-[6.5rem] px-0.5 text-center text-[10px] font-semibold leading-snug sm:max-w-[9rem] sm:text-[11px]",
+              "max-w-[6.5rem] px-0.5 text-center text-[10px] font-semibold leading-snug sm:max-w-[9rem] sm:text-[11px]",
               isPast
                 ? "text-zinc-800"
                 : isTerminalStep
@@ -886,15 +886,22 @@ function WorkOrderStageStepper({
                     : "text-zinc-400",
             ].join(" ");
 
+            const isFirst = idx === 0;
+            const isLast = idx === stages.length - 1;
+            const leftTrackBg = isFirst ? "bg-transparent" : "bg-zinc-200";
+            const rightTrackBg = isLast && segRight === "empty" ? "bg-transparent" : "bg-zinc-200";
+
             return (
-              <div key={step} className="flex min-w-0 flex-1 flex-col items-stretch" role="listitem">
-                <div className="mb-3 flex h-7 items-center justify-center">
+              <div key={step} className="flex min-w-0 flex-1 flex-col items-center" role="listitem">
+                <div className="mb-3 flex h-7 w-full min-h-7 items-center justify-center">
                   <Icon className={iconClass} />
                 </div>
 
-                {/* Symmetric [line | node | line] every column so first/last nodes center under icons */}
+                {/* Symmetric [line | node | line]; transparent end caps so the bar does not extend past first/last nodes */}
                 <div className={`flex w-full min-w-0 items-center ${TRACK_H}`}>
-                  <div className="h-[3px] min-w-0 flex-1 self-center overflow-hidden rounded-full bg-zinc-200">
+                  <div
+                    className={`h-[3px] min-w-0 flex-1 self-center overflow-hidden rounded-full ${leftTrackBg}`}
+                  >
                     {segLeft === "full" && <div className="h-full w-full rounded-full bg-zinc-600" />}
                     {segLeft === "toActive" && (
                       <div
@@ -930,7 +937,9 @@ function WorkOrderStageStepper({
                     {!isPast && !isActive && <span className="h-1.5 w-1.5 rounded-full bg-zinc-300" aria-hidden />}
                   </div>
 
-                  <div className="h-[3px] min-w-0 flex-1 self-center overflow-hidden rounded-full bg-zinc-200">
+                  <div
+                    className={`h-[3px] min-w-0 flex-1 self-center overflow-hidden rounded-full ${rightTrackBg}`}
+                  >
                     {segRight === "full" && <div className="h-full w-full rounded-full bg-zinc-600" />}
                     {segRight === "toActive" && (
                       <div
@@ -941,10 +950,12 @@ function WorkOrderStageStepper({
                   </div>
                 </div>
 
-                <p className={labelClass}>
-                  <span className="sm:hidden">{meta.labelShort}</span>
-                  <span className="hidden sm:inline">{meta.label}</span>
-                </p>
+                <div className="mt-3 flex w-full justify-center">
+                  <p className={labelClass}>
+                    <span className="sm:hidden">{meta.labelShort}</span>
+                    <span className="hidden sm:inline">{meta.label}</span>
+                  </p>
+                </div>
               </div>
             );
           })}
