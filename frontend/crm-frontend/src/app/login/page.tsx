@@ -80,7 +80,10 @@ function LoginPageContent() {
         body: JSON.stringify({ email, password }),
       });
 
-      if (!res.ok) throw new Error("Invalid credentials");
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.message || "Invalid email or password");
+      }
 
       void remember; // UI-only for now
 
@@ -94,8 +97,10 @@ function LoginPageContent() {
         router.push(next);
         router.refresh();
       }
-    } catch {
-      setError("Invalid email or password");
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : "Invalid email or password";
+      setError(msg);
     } finally {
       setLoading(false);
     }
