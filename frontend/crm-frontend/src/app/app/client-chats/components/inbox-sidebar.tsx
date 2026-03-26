@@ -60,11 +60,13 @@ export default function InboxSidebar({ selectedId, onSelect, isManager, notify, 
         "/v1/employees?limit=200",
       ).then((emps) => {
         setAgents(
-          emps.map((e) => ({
-            id: e.user?.id ?? e.userId,
-            email: e.user?.email ?? "",
-            name: [e.firstName, e.lastName].filter(Boolean).join(" ") || undefined,
-          })),
+          emps
+            .filter((e) => e.user?.id || e.userId)
+            .map((e) => ({
+              id: e.user?.id ?? e.userId,
+              email: e.user?.email ?? "",
+              name: [e.firstName, e.lastName].filter(Boolean).join(" ") || undefined,
+            })),
         );
       }).catch(() => {});
     }

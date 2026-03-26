@@ -70,11 +70,13 @@ export default function ConversationHeader({ conversation, currentUserId, onUpda
     if (!showAssign) {
       try {
         const res = await apiGetList<{ userId: string; user: { id: string; email: string }; firstName: string; lastName: string }>("/v1/employees?limit=100");
-        setAgents(res.map((e) => ({
-          id: e.user?.id ?? e.userId,
-          email: e.user?.email ?? "---",
-          name: `${e.firstName ?? ""} ${e.lastName ?? ""}`.trim() || e.user?.email || "---",
-        })));
+        setAgents(res
+          .filter((e) => e.user?.id || e.userId)
+          .map((e) => ({
+            id: e.user?.id ?? e.userId,
+            email: e.user?.email ?? "---",
+            name: `${e.firstName ?? ""} ${e.lastName ?? ""}`.trim() || e.user?.email || "---",
+          })));
       } catch {
         setAgents([]);
       }
