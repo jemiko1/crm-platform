@@ -94,8 +94,8 @@ export class EmployeesController {
   @Post(':id/dismiss')
   @UseGuards(PositionPermissionGuard)
   @RequirePermission('employee.dismiss')
-  dismiss(@Param('id') id: string) {
-    return this.employeesService.dismiss(id);
+  dismiss(@Param('id') id: string, @Body() body?: { delegateToEmployeeId?: string }) {
+    return this.employeesService.dismiss(id, body?.delegateToEmployeeId);
   }
 
   @Post(':id/activate')
