@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { usePermissions } from "@/lib/use-permissions";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { API_BASE } from "@/lib/api";
+import { apiGet } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
 
 const BRAND_TEAL = "rgb(0, 86, 83)";
@@ -52,9 +52,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
 
 async function fetchUserId(): Promise<string | null> {
   try {
-    const res = await fetch(`${API_BASE}/auth/me`, { credentials: "include" });
-    if (!res.ok) return null;
-    const data = await res.json();
+    const data = await apiGet<any>("/auth/me");
     const user = data?.user || data;
     return user?.id || user?.sub || null;
   } catch {

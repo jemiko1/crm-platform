@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { API_BASE } from "@/lib/api";
+import { apiGet, apiPatch } from "@/lib/api";
 import { usePermissions } from "@/lib/use-permissions";
 import { useModalContext } from "../modal-manager";
 
@@ -109,17 +109,7 @@ export default function IncidentDetailContent({
       setLoading(true);
       setError(null);
 
-      const res = await fetch(`${API_BASE}/v1/incidents/${incidentId}`, {
-        method: "GET",
-        credentials: "include",
-        cache: "no-store",
-      });
-
-      if (!res.ok) {
-        throw new Error(`Failed to load incident: ${res.status}`);
-      }
-
-      const data = await res.json();
+      const data = await apiGet<IncidentDetail>(`/v1/incidents/${incidentId}`);
       setIncident(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load incident");
@@ -139,18 +129,7 @@ export default function IncidentDetailContent({
     try {
       setUpdating(true);
 
-      const res = await fetch(`${API_BASE}/v1/incidents/${incidentId}/status`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-
-      if (!res.ok) {
-        throw new Error(`Failed to update status: ${res.status}`);
-      }
-
-      const updated = await res.json();
+      const updated = await apiPatch<IncidentDetail>(`/v1/incidents/${incidentId}/status`, { status: newStatus });
       setIncident(updated);
       onStatusChange?.();
     } catch (e) {

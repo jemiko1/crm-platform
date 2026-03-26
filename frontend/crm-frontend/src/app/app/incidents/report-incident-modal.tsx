@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useListItems } from "@/hooks/useListItems";
-import { API_BASE } from "@/lib/api";
+import { apiGet, apiPost } from "@/lib/api";
 
 const BRAND = "rgb(0, 86, 83)";
 
@@ -177,13 +177,7 @@ export default function ReportIncidentModal({
 
     async function loadBuildings() {
       try {
-        const res = await fetch(`${API_BASE}/v1/buildings`, {
-          credentials: "include",
-          cache: "no-store",
-        });
-        if (!res.ok) throw new Error("Failed to fetch buildings");
-
-        const data = await res.json();
+        const data = await apiGet<Building[]>("/v1/buildings");
         const all: Building[] = Array.isArray(data) ? data : [];
 
         const filtered = hasBuildingRestriction
@@ -224,12 +218,7 @@ export default function ReportIncidentModal({
 
     async function loadClients() {
       try {
-        const res = await fetch(`${API_BASE}/v1/buildings/${b.coreId}/clients`, {
-          credentials: "include",
-          cache: "no-store",
-        });
-        if (!res.ok) throw new Error("Failed to fetch clients");
-        const data = await res.json();
+        const data = await apiGet<Client[]>(`/v1/buildings/${b.coreId}/clients`);
         if (!alive) return;
         setBuildingClients(Array.isArray(data) ? data : []);
       } catch (e) {
@@ -254,12 +243,7 @@ export default function ReportIncidentModal({
 
     async function loadAssets() {
       try {
-        const res = await fetch(`${API_BASE}/v1/buildings/${b.coreId}/assets`, {
-          credentials: "include",
-          cache: "no-store",
-        });
-        if (!res.ok) throw new Error("Failed to fetch assets");
-        const data = await res.json();
+        const data = await apiGet<Asset[]>(`/v1/buildings/${b.coreId}/assets`);
         if (!alive) return;
         setBuildingAssets(Array.isArray(data) ? data : []);
       } catch (e) {
@@ -357,17 +341,7 @@ export default function ReportIncidentModal({
         payload.clientId = formData.clientId;
       }
 
-      const res = await fetch(`${API_BASE}/v1/incidents`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ message: "Failed to create incident" }));
-        throw new Error(errorData.message || `API error: ${res.status}`);
-      }
+      await apiPost("/v1/incidents", payload);
 
       onSuccess();
       handleClose();

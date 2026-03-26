@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { apiGet, apiPatch, apiPost, apiDelete } from "@/lib/api";
 import { PermissionGuard } from "@/lib/permission-guard";
 
@@ -147,6 +148,8 @@ export default function WorkflowConfigPage() {
     customBody: "",
   });
   const [savingAction, setSavingAction] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   // ─── Data Loading ────────────────────────────────────
 
@@ -749,7 +752,7 @@ export default function WorkflowConfigPage() {
         )}
 
         {/* ── Edit Positions Modal ──────────────────────── */}
-        {selectedStep && (
+        {mounted && selectedStep && createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
             <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl mx-4">
               <h2 className="text-lg font-semibold text-zinc-900 mb-1">
@@ -809,11 +812,12 @@ export default function WorkflowConfigPage() {
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body,
         )}
 
         {/* ── Create/Edit Trigger Modal ─────────────────── */}
-        {showTriggerModal && (
+        {mounted && showTriggerModal && createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
             <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl mx-4 max-h-[90vh] overflow-y-auto">
               <h2 className="text-lg font-semibold text-zinc-900 mb-4">
@@ -993,11 +997,12 @@ export default function WorkflowConfigPage() {
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body,
         )}
 
         {/* ── Create/Edit Action Modal ──────────────────── */}
-        {showActionModal && (
+        {mounted && showActionModal && createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
             <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl mx-4 max-h-[90vh] overflow-y-auto">
               <h2 className="text-lg font-semibold text-zinc-900 mb-4">
@@ -1128,7 +1133,8 @@ export default function WorkflowConfigPage() {
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body,
         )}
       </div>
     </PermissionGuard>

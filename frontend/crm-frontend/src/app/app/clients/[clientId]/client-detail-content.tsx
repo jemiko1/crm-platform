@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import ReportIncidentModal from "../../incidents/report-incident-modal";
-import { apiGet, apiPatch, API_BASE } from "@/lib/api";
+import { apiGet, apiPatch } from "@/lib/api";
 import { usePermissions } from "@/lib/use-permissions";
 import { useModalContext } from "../../modal-manager";
 import IntelligenceProfileCard from "./intelligence/intelligence-profile-card";
@@ -208,25 +209,12 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
         setIncLoading(true);
         setIncError(null);
 
-        // Try /v1/clients/:clientId/incidents first
-        let res = await fetch(`${API_BASE}/v1/clients/${clientCoreId}/incidents`, {
-          method: "GET",
-          credentials: "include",
-          cache: "no-store",
-        });
-
-        // Fallback: /v1/incidents?clientId=...
-        if (!res.ok) {
-          res = await fetch(`${API_BASE}/v1/incidents?clientId=${encodeURIComponent(String(clientCoreId))}`, {
-            method: "GET",
-            credentials: "include",
-            cache: "no-store",
-          });
+        let data: unknown;
+        try {
+          data = await apiGet(`/v1/clients/${clientCoreId}/incidents`);
+        } catch {
+          data = await apiGet(`/v1/incidents?clientId=${encodeURIComponent(String(clientCoreId))}`);
         }
-
-        if (!res.ok) throw new Error(`API error: ${res.status}`);
-
-        const data = await res.json();
         const arr = extractArrayResponse(data);
 
         const normalized = arr
@@ -567,6 +555,8 @@ function EditClientModal({
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   function set(key: keyof typeof form, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -585,7 +575,8 @@ function EditClientModal({
     }
   }
 
-  return (
+  if (!mounted) return null;
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div
         className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl ring-1 ring-zinc-200"
@@ -623,7 +614,8 @@ function EditClientModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

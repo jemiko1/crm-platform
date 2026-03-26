@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { apiGet, apiPatch, apiDelete, apiPost, ApiError, API_BASE } from "@/lib/api";
+import { apiGet, apiPatch, apiDelete, apiPost, ApiError } from "@/lib/api";
 import EditWorkOrderModal from "./edit-work-order-modal";
 import ActivityTimeline from "./activity-timeline";
 import { useI18n } from "@/hooks/useI18n";
@@ -193,6 +194,8 @@ export default function WorkOrderDetailPage() {
   const [showSimpleDeleteConfirm, setShowSimpleDeleteConfirm] = useState(false);
   const [inventoryImpact, setInventoryImpact] = useState<any>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   // Fetch current user info
   useEffect(() => {
@@ -200,11 +203,7 @@ export default function WorkOrderDetailPage() {
 
     async function loadUser() {
       try {
-        const res = await fetch(`${API_BASE}/auth/me`, {
-          credentials: "include",
-        });
-        if (!res.ok) throw new Error("Failed /auth/me");
-        const data = await res.json();
+        const data = await apiGet<any>("/auth/me");
         const userData = data?.user || data;
 
         if (!cancelled) {
@@ -758,7 +757,7 @@ export default function WorkOrderDetailPage() {
       />
 
       {/* Delete Confirmation Dialog */}
-      {showDeleteConfirm && inventoryImpact && (
+      {mounted && showDeleteConfirm && inventoryImpact && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-xl rounded-3xl bg-white shadow-2xl overflow-hidden">
             {/* Header */}
@@ -1037,11 +1036,12 @@ export default function WorkOrderDetailPage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {/* Simple Delete Confirmation Dialog (No Inventory Impact) */}
-      {showSimpleDeleteConfirm && (
+      {mounted && showSimpleDeleteConfirm && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl overflow-hidden">
             {/* Header */}
@@ -1105,7 +1105,8 @@ export default function WorkOrderDetailPage() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
       </div>
     </PermissionGuard>
