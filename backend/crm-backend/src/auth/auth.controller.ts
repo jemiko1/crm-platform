@@ -1,6 +1,7 @@
-import { Body, Controller, Get, Post, Req, Res, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Post, Req, Res, UseGuards, Logger } from "@nestjs/common";
 import type { Response } from "express";
 import { IsEmail, IsString, MinLength } from "class-validator";
+import { Throttle } from "@nestjs/throttler";
 import { AuthService } from "./auth.service";
 import { JwtAuthGuard } from "./jwt-auth.guard";
 import { PrismaService } from "../prisma/prisma.service";
@@ -22,12 +23,16 @@ class ExchangeTokenDto {
 
 @Controller("auth")
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(
     private auth: AuthService,
     private prisma: PrismaService,
     private permissionsService: PermissionsService,
   ) {}
 
+  // 5 attempts per 5 minutes per IP (overrides global 60/min)
+  @Throttle({ default: { limit: 5, ttl: 300_000 } })
   @Post("login")
   async login(
     @Body() dto: LoginDto,
@@ -49,6 +54,7 @@ export class AuthController {
     return { user };
   }
 
+  @Throttle({ default: { limit: 5, ttl: 300_000 } })
   @Post("app-login")
   async appLogin(@Body() dto: LoginDto) {
     return this.auth.appLogin(dto.email, dto.password);
