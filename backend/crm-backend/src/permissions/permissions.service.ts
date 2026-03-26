@@ -169,11 +169,11 @@ export class PermissionsService implements OnModuleInit {
       select: { isSuperAdmin: true, role: true, email: true },
     });
 
-    console.log(`[Permissions] User check: email=${user?.email}, isSuperAdmin=${user?.isSuperAdmin}, role=${user?.role}`);
+    this.logger.debug(`User check: email=${user?.email}, isSuperAdmin=${user?.isSuperAdmin}, role=${user?.role}`);
 
     // SuperAdmin or legacy ADMIN role gets all permissions
     if (user?.isSuperAdmin || user?.role === UserRole.ADMIN) {
-      console.log(`[Permissions] User is admin, fetching all permissions`);
+      this.logger.debug(`User is admin, fetching all permissions`);
       // SuperAdmin/Admin has all permissions - return all available permissions
       const allPermissions = await this.findAll();
       if (allPermissions.length === 0) {

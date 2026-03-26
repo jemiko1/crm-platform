@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { WorkflowTriggerType } from "@prisma/client";
 import { CreateTriggerDto } from "./dto/create-trigger.dto";

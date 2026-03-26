@@ -9,7 +9,7 @@ export class RoleGroupsService {
   constructor(private prisma: PrismaService) {}
 
   private generateCode(name: string): string {
-    let code = name
+    const code = name
       .toUpperCase()
       .replace(/[\s-]+/g, '_')
       .replace(/[^A-Z0-9_]/g, '')
@@ -173,7 +173,7 @@ export class RoleGroupsService {
   }
 
   async remove(id: string, replacementRoleGroupId?: string) {
-    const roleGroup = await this.findOne(id);
+    const _roleGroup = await this.findOne(id);
 
     // Get all positions using this role group
     const positions = await this.prisma.position.findMany({

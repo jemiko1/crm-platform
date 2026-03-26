@@ -223,7 +223,7 @@ export class SalesConfigService {
   }
 
   async deleteSource(id: string) {
-    const source = await this.getSource(id);
+    const _source = await this.getSource(id);
 
     // Check if source is used
     const usageCount = await this.prisma.lead.count({

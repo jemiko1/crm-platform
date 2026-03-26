@@ -48,7 +48,7 @@ export class ClientChatsCoreService {
       return existing;
     }
 
-    let participant = await this.upsertParticipant(
+    const participant = await this.upsertParticipant(
       channelType,
       channelAccountId,
       parsed,

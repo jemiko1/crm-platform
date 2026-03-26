@@ -8,7 +8,7 @@ export class PositionsService {
   constructor(private prisma: PrismaService) {}
 
   private generateCode(name: string): string {
-    let code = name
+    const code = name
       .toUpperCase()
       .replace(/[\s-]+/g, '_')
       .replace(/[^A-Z0-9_]/g, '')
@@ -246,7 +246,7 @@ export class PositionsService {
   }
 
   async remove(id: string, replacementPositionId?: string) {
-    const position = await this.findOne(id);
+    const _position = await this.findOne(id);
 
     // Get all employees using this position (only active ones matter)
     const employees = await this.prisma.employee.findMany({

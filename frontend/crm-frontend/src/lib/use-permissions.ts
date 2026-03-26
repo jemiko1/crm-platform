@@ -48,7 +48,6 @@ export function usePermissions() {
         permissionsCache = Array.isArray(data) ? data : [];
         setPermissions(permissionsCache);
         setLoading(false);
-        console.log("Loaded permissions:", permissionsCache.length, "permissions");
         return permissionsCache;
       })
       .catch((err) => {
