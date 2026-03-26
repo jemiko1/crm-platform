@@ -502,10 +502,44 @@ export class EmployeesService {
     return { success: true, message: 'Password reset successfully' };
   }
 
-  async dismiss(id: string) {
+  async dismiss(id: string, delegateToEmployeeId?: string) {
     const employee = await this.findOne(id);
 
+    const constraints = await this.checkDeletionConstraints(id);
+
+    if (!constraints.canDelete && !delegateToEmployeeId) {
+      throw new BadRequestException({
+        message: 'Employee has active items that must be delegated before dismissal',
+        activeLeadsCount: constraints.activeLeadsCount,
+        openWorkOrdersCount: constraints.openWorkOrdersCount,
+        activeLeads: constraints.activeLeads,
+        openWorkOrders: constraints.openWorkOrders,
+      });
+    }
+
+    if (delegateToEmployeeId) {
+      const delegateEmployee = await this.findOne(delegateToEmployeeId);
+      if (delegateEmployee.status === 'TERMINATED') {
+        throw new BadRequestException('Cannot delegate to a terminated employee');
+      }
+    }
+
     return this.prisma.$transaction(async (tx) => {
+      if (!constraints.canDelete && delegateToEmployeeId) {
+        await tx.lead.updateMany({
+          where: { responsibleEmployeeId: id, status: 'ACTIVE' },
+          data: { responsibleEmployeeId: delegateToEmployeeId },
+        });
+
+        await tx.workOrderAssignment.updateMany({
+          where: {
+            employeeId: id,
+            workOrder: { status: { notIn: ['COMPLETED', 'CANCELED'] } },
+          },
+          data: { employeeId: delegateToEmployeeId },
+        });
+      }
+
       if (employee.userId) {
         await tx.user.update({
           where: { id: employee.userId },
