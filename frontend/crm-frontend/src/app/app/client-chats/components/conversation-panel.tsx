@@ -173,14 +173,18 @@ export default function ConversationPanel({ conversationId, onDeleted, onBack }:
       fetchMessages();
     };
 
-    const handlePaused = (data: { conversationId: string }) => {
+    const handlePaused = (data: { conversationId: string; pausedOperatorId?: string }) => {
       if (data.conversationId !== conversationId) return;
-      fetchConversation();
+      setConversation((prev) =>
+        prev ? { ...prev, pausedOperatorId: data.pausedOperatorId ?? prev.assignedUserId ?? null } : prev,
+      );
     };
 
     const handleUnpaused = (data: { conversationId: string }) => {
       if (data.conversationId !== conversationId) return;
-      fetchConversation();
+      setConversation((prev) =>
+        prev ? { ...prev, pausedOperatorId: null } : prev,
+      );
     };
 
     on("message:new", handleNewMessage);
