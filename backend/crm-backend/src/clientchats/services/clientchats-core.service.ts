@@ -520,6 +520,7 @@ export class ClientChatsCoreService {
     });
     this.events.emitToAgent(conversation.assignedUserId, 'operator:paused', {
       conversationId,
+      pausedOperatorId: updated.pausedOperatorId,
     });
     this.events.emitConversationUpdated(updated as any);
     return updated;
@@ -539,10 +540,35 @@ export class ClientChatsCoreService {
     if (pausedId) {
       this.events.emitToAgent(pausedId, 'operator:unpaused', {
         conversationId,
+        pausedOperatorId: null,
       });
     }
     this.events.emitConversationUpdated(updated as any);
     return updated;
+  }
+
+  /**
+   * LIVE conversations assigned to this user where the latest customer (IN) message
+   * is newer than the latest agent (OUT) reply — operator has not yet answered back.
+   */
+  async getUnreadCount(userId: string): Promise<{ count: number }> {
+    const result = await this.prisma.$queryRaw<{ cnt: bigint }[]>`
+      SELECT COUNT(DISTINCT c.id)::bigint AS cnt
+      FROM "ClientChatConversation" c
+      WHERE c."assignedUserId" = ${userId}
+        AND c.status = 'LIVE'
+        AND EXISTS (
+          SELECT 1 FROM "ClientChatMessage" m
+          WHERE m."conversationId" = c.id
+            AND m.direction = 'IN'
+            AND m."createdAt" > COALESCE(
+              (SELECT MAX(m2."createdAt") FROM "ClientChatMessage" m2
+               WHERE m2."conversationId" = c.id AND m2.direction = 'OUT'),
+              '1970-01-01'::timestamp
+            )
+        )
+    `;
+    return { count: Number(result[0]?.cnt ?? 0) };
   }
 
   async requestReopen(conversationId: string, userId: string) {

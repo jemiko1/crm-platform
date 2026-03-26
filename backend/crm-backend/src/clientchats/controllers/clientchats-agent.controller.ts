@@ -40,6 +40,12 @@ export class ClientChatsAgentController {
     private readonly assignment: AssignmentService,
   ) {}
 
+  @Get('unread-count')
+  @RequirePermission('client_chats.menu')
+  getUnreadCount(@Req() req: any) {
+    return this.core.getUnreadCount(req.user.id);
+  }
+
   @Get('conversations')
   @RequirePermission('client_chats.menu')
   async listConversations(@Query() query: ConversationQueryDto, @Req() req: any) {

@@ -19,15 +19,9 @@ function ClientChatsContent() {
   const { showBanner, soundEnabled, requestPermission, dismissBanner, toggleSound, notify } = useNotifications();
 
   return (
-    <div
-      className={`flex w-full min-w-0 flex-col min-h-0 ${
-        isManager
-          ? "h-[calc(100dvh-52px-11rem)] max-h-[calc(100dvh-52px-11rem)]"
-          : "h-[calc(100dvh-52px-9rem)] max-h-[calc(100dvh-52px-9rem)]"
-      }`}
-    >
+    <div className="-m-4 sm:-m-6 flex min-h-0 min-w-0 flex-col overflow-hidden bg-white h-[calc(100dvh-52px-16px-24px)] sm:h-[calc(100dvh-52px-16px-48px)] lg:h-[calc(100dvh-52px-16px-48px)] lg:rounded-l-3xl">
       {isManager && (
-        <div className="flex flex-shrink-0 flex-wrap items-center gap-1 border-b border-gray-200 bg-white/80 px-4 py-2 backdrop-blur-sm">
+        <div className="flex flex-shrink-0 flex-wrap items-center gap-1 border-b border-gray-200 bg-white px-4 py-2">
           <button
             onClick={() => setView("inbox")}
             className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${
@@ -62,10 +56,9 @@ function ClientChatsContent() {
       )}
 
       {view === "inbox" ? (
-        <div className="flex flex-1 min-h-0 bg-white/40 backdrop-blur-sm rounded-2xl shadow-sm border border-white/60 overflow-hidden">
-          {/* List: full width on small screens; hidden when a chat is open (same pattern as internal messenger) */}
+        <div className="flex min-h-0 flex-1 overflow-hidden bg-white">
           <div
-            className={`w-full shrink-0 flex flex-col min-h-0 border-gray-200 bg-white/50 lg:w-[350px] lg:min-w-[280px] lg:border-r ${
+            className={`flex w-full shrink-0 flex-col min-h-0 border-gray-200 bg-white lg:w-[350px] lg:min-w-[280px] lg:border-r ${
               selectedId ? "hidden lg:flex" : "flex"
             }`}
           >
@@ -81,15 +74,14 @@ function ClientChatsContent() {
                   </svg>
                 ) : (
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                    <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 0 1 1.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clipRule="evenodd" />
                   </svg>
                 )}
               </button>
             } />
           </div>
-          {/* Conversation: full width on mobile when selected; empty state only on lg+ when nothing selected */}
           <div
-            className={`min-h-0 min-w-0 flex-1 flex-col ${
+            className={`min-h-0 min-w-0 flex-1 flex-col bg-zinc-50/50 ${
               selectedId ? "flex" : "hidden lg:flex"
             }`}
           >
@@ -106,7 +98,7 @@ function ClientChatsContent() {
           </div>
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/60 bg-white/40 shadow-sm backdrop-blur-sm">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white">
           <ManagerDashboard visible={view === "dashboard"} />
         </div>
       )}
