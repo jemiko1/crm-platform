@@ -334,6 +334,21 @@ export class LeadsService {
 
     const previousStage = lead.stage;
 
+    // Block skipping stages: only allow moving forward by one step or backward freely
+    if (newStage.sortOrder > previousStage.sortOrder + 1) {
+      throw new BadRequestException(
+        `Cannot skip stages. Move from "${previousStage.name}" to the next stage first.`,
+      );
+    }
+
+    // Terminal stages (WON/LOST) and APPROVAL require dedicated workflows
+    const protectedCodes = ['APPROVAL', 'WON', 'LOST'];
+    if (protectedCodes.includes(newStage.code)) {
+      throw new BadRequestException(
+        `Stage "${newStage.name}" can only be reached through the approval workflow`,
+      );
+    }
+
     const updated = await this.prisma.$transaction(async (tx) => {
       const result = await tx.lead.update({
         where: { id },
