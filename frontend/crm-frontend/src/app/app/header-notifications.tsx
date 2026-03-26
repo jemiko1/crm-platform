@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { API_BASE } from "@/lib/api";
+import { apiGet } from "@/lib/api";
 
 interface Notification {
   id: string;
@@ -23,9 +23,7 @@ export default function HeaderNotifications() {
   useEffect(() => {
     async function fetchCount() {
       try {
-        const res = await fetch(`${API_BASE}/v1/work-orders/notifications`, { credentials: "include" });
-        if (!res.ok) return;
-        const data = await res.json();
+        const data = await apiGet<any>("/v1/work-orders/notifications");
         const arr = Array.isArray(data) ? data : (data?.data ?? data?.items ?? []);
         setNotifications(arr.slice(0, 10));
         setUnreadCount(arr.filter((n: Notification) => !n.readAt).length);

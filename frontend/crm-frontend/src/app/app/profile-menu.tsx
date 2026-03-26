@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
-import { API_BASE } from "@/lib/api";
+import { apiGet, apiPost } from "@/lib/api";
 
 const BRAND_TEAL = "rgb(0, 86, 83)";
 
@@ -84,13 +84,8 @@ export default function ProfileMenu() {
     async function load() {
       try {
         setLoadingMe(true);
-        const res = await fetch(`${API_BASE}/auth/me`, {
-          credentials: "include",
-        });
-        if (!res.ok) throw new Error("Failed /auth/me");
-        const data = await res.json();
+        const data = await apiGet<any>("/auth/me");
 
-        // Extract user data from response
         const userData = data?.user || data;
 
         const next: UserInfo = {
@@ -184,10 +179,7 @@ export default function ProfileMenu() {
 
   async function logout() {
     try {
-      await fetch(`${API_BASE}/auth/logout`, {
-        method: "POST",
-        credentials: "include",
-      });
+      await apiPost("/auth/logout", {});
     } catch {
       // ignore
     } finally {

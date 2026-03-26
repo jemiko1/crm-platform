@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { API_BASE } from "@/lib/api";
+import { apiPatch } from "@/lib/api";
 
 const BRAND = "rgb(0, 86, 83)";
 
@@ -60,22 +60,7 @@ export default function EditBuildingModal({
     setError(null);
 
     try {
-      // NOTE: You'll need to create a PATCH endpoint on your backend
-      // For now, this assumes: PATCH /v1/admin/buildings/:coreId
-      const res = await fetch(
-        `${API_BASE}/v1/admin/buildings/${building.coreId}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify(formData),
-        }
-      );
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => null);
-        throw new Error(errData?.message || `API error: ${res.status}`);
-      }
+      await apiPatch(`/v1/admin/buildings/${building.coreId}`, formData);
 
       // Success
       onSuccess();

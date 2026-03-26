@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import ModalDialog from "../../modal-dialog";
-import { API_BASE } from "@/lib/api";
+import { apiPut } from "@/lib/api";
 
 const BRAND = "rgb(0, 86, 83)";
 
@@ -128,29 +128,19 @@ export default function EditPurchaseOrderModal({
     setError(null);
 
     try {
-      const res = await fetch(`${API_BASE}/v1/inventory/purchase-orders/${purchaseOrder.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          supplierName: formData.supplierName,
-          supplierEmail: formData.supplierEmail || undefined,
-          orderDate: formData.orderDate || undefined,
-          expectedDate: formData.expectedDate || undefined,
-          notes: formData.notes || undefined,
-          items: items.map((item) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            purchasePrice: item.purchasePrice,
-            sellPrice: item.sellPrice,
-          })),
-        }),
+      await apiPut(`/v1/inventory/purchase-orders/${purchaseOrder.id}`, {
+        supplierName: formData.supplierName,
+        supplierEmail: formData.supplierEmail || undefined,
+        orderDate: formData.orderDate || undefined,
+        expectedDate: formData.expectedDate || undefined,
+        notes: formData.notes || undefined,
+        items: items.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          purchasePrice: item.purchasePrice,
+          sellPrice: item.sellPrice,
+        })),
       });
-
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.message || "Failed to update purchase order");
-      }
 
       onSuccess();
       onClose();
