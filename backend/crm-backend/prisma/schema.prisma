@@ -767,6 +767,7 @@ model StockTransaction {
   @@index([workOrderId])
   @@index([createdAt])
   @@index([productId, createdAt])
+  @@index([batchId])
 }
 
 model SystemListCategory {
@@ -1150,6 +1151,7 @@ model SalesPlan {
   @@index([type])
   @@index([year])
   @@index([status])
+  @@index([approvedById])
   @@index([createdById])
 }
 
@@ -1670,6 +1672,9 @@ model ClientChatConversation {
   @@index([channelType])
   @@index([createdAt])
   @@index([previousConversationId])
+  @@index([channelAccountId])
+  @@index([clientId])
+  @@index([participantId])
 }
 
 model ClientChatParticipant {
@@ -1690,6 +1695,7 @@ model ClientChatParticipant {
 
   @@index([channelType])
   @@index([mappedClientId])
+  @@index([channelAccountId])
 }
 
 model ClientChatMessage {
@@ -1711,6 +1717,8 @@ model ClientChatMessage {
 
   @@index([conversationId, sentAt(sort: Desc)])
   @@index([externalMessageId])
+  @@index([participantId])
+  @@index([senderUserId])
 }
 
 model ClientChatWebhookFailure {

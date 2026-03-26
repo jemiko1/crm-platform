@@ -10,7 +10,7 @@ import { SendMessageDto } from './dto/send-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import { ConversationQueryDto } from './dto/conversation-query.dto';
 import { MessageQueryDto } from './dto/message-query.dto';
-import { ConversationType } from '@prisma/client';
+import { ConversationType, Prisma } from '@prisma/client';
 
 @Injectable()
 export class MessengerService {
@@ -122,38 +122,40 @@ export class MessengerService {
       });
     }
 
-    // Enrich with unread counts
-    const enriched = await Promise.all(
-      filteredItems.map(async (conv) => {
-        const myParticipant = conv.participants.find(
-          (p) => p.employeeId === employee.id,
-        );
-        const lastReadAt = myParticipant?.lastReadAt;
+    // Batch unread counts in a single query (replaces N+1 per-conversation counts)
+    const convIds = filteredItems.map((c) => c.id);
+    const unreadCountMap = new Map<string, number>();
 
-        const unreadCount = lastReadAt
-          ? await this.prisma.message.count({
-              where: {
-                conversationId: conv.id,
-                createdAt: { gt: lastReadAt },
-                senderId: { not: employee.id },
-                isDeleted: false,
-              },
-            })
-          : await this.prisma.message.count({
-              where: {
-                conversationId: conv.id,
-                senderId: { not: employee.id },
-                isDeleted: false,
-              },
-            });
+    if (convIds.length > 0) {
+      const rows = await this.prisma.$queryRaw<
+        Array<{ conversationId: string; count: bigint }>
+      >(Prisma.sql`
+        SELECT m."conversationId", COUNT(*) as count
+        FROM "Message" m
+        INNER JOIN "ConversationParticipant" p
+          ON p."conversationId" = m."conversationId"
+          AND p."employeeId" = ${employee.id}
+        WHERE m."conversationId" IN (${Prisma.join(convIds)})
+          AND m."senderId" != ${employee.id}
+          AND m."isDeleted" = false
+          AND (p."lastReadAt" IS NULL OR m."createdAt" > p."lastReadAt")
+        GROUP BY m."conversationId"
+      `);
+      for (const row of rows) {
+        unreadCountMap.set(row.conversationId, Number(row.count));
+      }
+    }
 
-        return {
-          ...conv,
-          unreadCount,
-          myParticipant,
-        };
-      }),
-    );
+    const enriched = filteredItems.map((conv) => {
+      const myParticipant = conv.participants.find(
+        (p) => p.employeeId === employee.id,
+      );
+      return {
+        ...conv,
+        unreadCount: unreadCountMap.get(conv.id) ?? 0,
+        myParticipant,
+      };
+    });
 
     return {
       items: enriched,
@@ -644,33 +646,24 @@ export class MessengerService {
   async getUnreadCount(userId: string) {
     const employee = await this.getEmployeeByUserId(userId);
 
-    const participants = await this.prisma.conversationParticipant.findMany({
-      where: { employeeId: employee.id, isArchived: false },
-      select: { conversationId: true, lastReadAt: true },
-    });
+    // Single query replaces N+1 per-conversation counts
+    const result = await this.prisma.$queryRaw<Array<{ total: bigint }>>(
+      Prisma.sql`
+        SELECT COALESCE(SUM(cnt), 0) as total FROM (
+          SELECT COUNT(*) as cnt
+          FROM "Message" m
+          INNER JOIN "ConversationParticipant" p
+            ON p."conversationId" = m."conversationId"
+          WHERE p."employeeId" = ${employee.id}
+            AND p."isArchived" = false
+            AND m."senderId" != ${employee.id}
+            AND m."isDeleted" = false
+            AND (p."lastReadAt" IS NULL OR m."createdAt" > p."lastReadAt")
+        ) sub
+      `,
+    );
 
-    let total = 0;
-    for (const p of participants) {
-      const count = p.lastReadAt
-        ? await this.prisma.message.count({
-            where: {
-              conversationId: p.conversationId,
-              createdAt: { gt: p.lastReadAt },
-              senderId: { not: employee.id },
-              isDeleted: false,
-            },
-          })
-        : await this.prisma.message.count({
-            where: {
-              conversationId: p.conversationId,
-              senderId: { not: employee.id },
-              isDeleted: false,
-            },
-          });
-      total += count;
-    }
-
-    return { unreadCount: total };
+    return { unreadCount: Number(result[0]?.total ?? 0) };
   }
 
   // ── Reactions ──────────────────────────────────────────
