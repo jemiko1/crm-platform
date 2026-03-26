@@ -409,7 +409,7 @@ export class SalesPlansService {
     };
   }
 
-  private getPeriodFilter(year: number, month: number, quarter: number) {
+  private getPeriodFilter(year: number, month: number, _quarter: number) {
     const monthStart = new Date(year, month - 1, 1);
     const monthEnd = new Date(year, month, 0, 23, 59, 59);
 

@@ -1,6 +1,6 @@
 import { IsOptional, IsString, IsEnum, IsInt, Min } from 'class-validator';
-import { Type, Transform } from 'class-transformer';
-import { ClientChatChannelType, ClientChatStatus } from '@prisma/client';
+import { Type } from 'class-transformer';
+import { ClientChatStatus } from '@prisma/client';
 
 export class ConversationQueryDto {
   @IsOptional()
