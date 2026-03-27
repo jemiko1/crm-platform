@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, apiPost } from "@/lib/api";
 
 const BRIDGE_URL = "http://127.0.0.1:19876";
 
@@ -78,12 +78,7 @@ function LoginPageContent() {
   async function handleSwitchPhone() {
     setSwitchingPhone(true);
     try {
-      const tokenRes = await fetch(`${API_BASE}/auth/device-token`, {
-        method: "POST",
-        credentials: "include",
-      });
-      if (!tokenRes.ok) throw new Error("Failed to get token");
-      const { handshakeToken } = await tokenRes.json();
+      const { handshakeToken } = await apiPost<{ handshakeToken: string }>("/auth/device-token", {});
 
       await fetch(`${BRIDGE_URL}/switch-user`, {
         method: "POST",

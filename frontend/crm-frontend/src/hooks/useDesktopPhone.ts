@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { apiPost } from "@/lib/api";
 
 const BRIDGE_URL = "http://127.0.0.1:19876";
 const POLL_INTERVAL = 60_000;
@@ -65,12 +66,7 @@ export function useDesktopPhone(currentUserId: string | null): UseDesktopPhoneRe
     if (!currentUserId) return;
     setSwitchingUser(true);
     try {
-      const tokenRes = await fetch("/auth/device-token", {
-        method: "POST",
-        credentials: "include",
-      });
-      if (!tokenRes.ok) throw new Error("Failed to create device token");
-      const { handshakeToken } = await tokenRes.json();
+      const { handshakeToken } = await apiPost<{ handshakeToken: string }>("/auth/device-token", {});
 
       const switchRes = await fetch(`${BRIDGE_URL}/switch-user`, {
         method: "POST",
