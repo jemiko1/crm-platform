@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { apiGet, apiPost, ApiError } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
 
@@ -405,12 +406,19 @@ function AddProductModal({
   onAdd: (productId: string, quantity: number, batchId?: string) => void;
   onClose: () => void;
 }) {
+  const [mounted, setMounted] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState("");
   const [quantity, setQuantity] = useState(1);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const selectedProduct = products.find((p) => p.id === selectedProductId);
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <div className="fixed inset-0 z-[50000] flex items-center justify-center p-4">
       <div
         className="fixed inset-0 bg-black/40 backdrop-blur-sm"
@@ -478,6 +486,7 @@ function AddProductModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

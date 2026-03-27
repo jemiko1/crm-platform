@@ -753,7 +753,7 @@ export default function WorkflowConfigPage() {
 
         {/* ── Edit Positions Modal ──────────────────────── */}
         {mounted && selectedStep && createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="fixed inset-0 z-[50000] flex items-center justify-center bg-black/50">
             <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl mx-4">
               <h2 className="text-lg font-semibold text-zinc-900 mb-1">
                 Edit Positions: {selectedStep.stepName}
@@ -818,7 +818,7 @@ export default function WorkflowConfigPage() {
 
         {/* ── Create/Edit Trigger Modal ─────────────────── */}
         {mounted && showTriggerModal && createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="fixed inset-0 z-[50000] flex items-center justify-center bg-black/50">
             <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl mx-4 max-h-[90vh] overflow-y-auto">
               <h2 className="text-lg font-semibold text-zinc-900 mb-4">
                 {editingTrigger ? "Edit Trigger" : "New Trigger"}
@@ -1003,7 +1003,7 @@ export default function WorkflowConfigPage() {
 
         {/* ── Create/Edit Action Modal ──────────────────── */}
         {mounted && showActionModal && createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="fixed inset-0 z-[50000] flex items-center justify-center bg-black/50">
             <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl mx-4 max-h-[90vh] overflow-y-auto">
               <h2 className="text-lg font-semibold text-zinc-900 mb-4">
                 {editingAction ? "Edit Action" : "New Action"}

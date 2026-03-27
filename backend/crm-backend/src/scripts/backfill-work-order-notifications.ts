@@ -1,6 +1,9 @@
 import 'dotenv/config';
+import { Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+
+const logger = new Logger('BackfillWorkOrderNotifications');
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL!,
@@ -9,7 +12,7 @@ const adapter = new PrismaPg({
 const prisma = new PrismaClient({ adapter });
 
 async function backfillNotifications() {
-  console.log('🔧 Backfilling work order notifications...\n');
+  logger.log('🔧 Backfilling work order notifications...\n');
 
   // Get Head of Technical Department setting
   const setting = await prisma.positionSetting.findUnique({
@@ -26,12 +29,12 @@ async function backfillNotifications() {
   });
 
   if (!setting || !setting.positionId || !setting.position) {
-    console.log('❌ Head of Technical Department setting not found or not linked to a position');
+    logger.log('❌ Head of Technical Department setting not found or not linked to a position');
     return;
   }
 
   const headOfTechEmployeeIds = setting.position.employees.map((e) => e.id);
-  console.log(`Found ${headOfTechEmployeeIds.length} Head of Technical Department employee(s)\n`);
+  logger.log(`Found ${headOfTechEmployeeIds.length} Head of Technical Department employee(s)\n`);
 
   // Get all work orders in CREATED status
   const workOrders = await prisma.workOrder.findMany({
@@ -43,7 +46,7 @@ async function backfillNotifications() {
     },
   });
 
-  console.log(`Found ${workOrders.length} work order(s) in CREATED status\n`);
+  logger.log(`Found ${workOrders.length} work order(s) in CREATED status\n`);
 
   let created = 0;
   let skipped = 0;
@@ -59,7 +62,7 @@ async function backfillNotifications() {
             employeeId,
           },
         });
-        console.log(`✅ Created notification for work order "${wo.title}" → Employee ID: ${employeeId}`);
+        logger.log(`✅ Created notification for work order "${wo.title}" → Employee ID: ${employeeId}`);
         created++;
       } else {
         skipped++;
@@ -67,7 +70,7 @@ async function backfillNotifications() {
     }
   }
 
-  console.log(`\n✅ Done! Created ${created} notification(s), skipped ${skipped} existing`);
+  logger.log(`\n✅ Done! Created ${created} notification(s), skipped ${skipped} existing`);
 }
 
 backfillNotifications()

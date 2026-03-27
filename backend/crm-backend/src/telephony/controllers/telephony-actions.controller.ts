@@ -11,6 +11,7 @@ import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { AriClientService } from '../ari/ari-client.service';
 import { AmiClientService } from '../ami/ami-client.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { Doc } from '../../common/openapi/doc-endpoint.decorator';
 
 @ApiTags('Telephony')
 @Controller('v1/telephony/actions')
@@ -23,6 +24,11 @@ export class TelephonyActionsController {
   ) {}
 
   @Post('originate')
+  @Doc({
+    summary: 'Originate outbound call from user extension',
+    ok: 'ARI channel info or AMI async acknowledgment',
+    badRequest: true,
+  })
   async originate(
     @Req() req: any,
     @Body() body: { number: string; callerId?: string },
@@ -60,6 +66,11 @@ export class TelephonyActionsController {
   }
 
   @Post('transfer')
+  @Doc({
+    summary: 'Transfer active channel',
+    ok: 'Redirect initiated',
+    badRequest: true,
+  })
   async transfer(@Body() body: { channelId: string; target: string }) {
     if (!body.channelId || !body.target) {
       throw new BadRequestException('channelId and target are required');
@@ -81,6 +92,11 @@ export class TelephonyActionsController {
   }
 
   @Post('hangup')
+  @Doc({
+    summary: 'Hang up channel',
+    ok: 'Hangup sent',
+    badRequest: true,
+  })
   async hangup(@Body() body: { channelId: string }) {
     if (!body.channelId) {
       throw new BadRequestException('channelId is required');
@@ -99,6 +115,11 @@ export class TelephonyActionsController {
   }
 
   @Post('hold')
+  @Doc({
+    summary: 'Hold or resume channel (ARI only)',
+    ok: 'Hold state updated',
+    badRequest: true,
+  })
   async hold(@Body() body: { channelId: string; hold: boolean }) {
     if (!body.channelId) {
       throw new BadRequestException('channelId is required');
@@ -120,6 +141,11 @@ export class TelephonyActionsController {
   }
 
   @Post('queue-login')
+  @Doc({
+    summary: 'Add user extension to queue',
+    ok: 'QueueAdd sent',
+    badRequest: true,
+  })
   async queueLogin(
     @Req() req: any,
     @Body() body: { queue: string },
@@ -144,6 +170,11 @@ export class TelephonyActionsController {
   }
 
   @Post('queue-logout')
+  @Doc({
+    summary: 'Remove user extension from queue',
+    ok: 'QueueRemove sent',
+    badRequest: true,
+  })
   async queueLogout(
     @Req() req: any,
     @Body() body: { queue: string },
@@ -166,6 +197,11 @@ export class TelephonyActionsController {
   }
 
   @Post('queue-pause')
+  @Doc({
+    summary: 'Pause or unpause queue member',
+    ok: 'QueuePause sent',
+    badRequest: true,
+  })
   async queuePause(
     @Req() req: any,
     @Body() body: { queue?: string; paused: boolean; reason?: string },

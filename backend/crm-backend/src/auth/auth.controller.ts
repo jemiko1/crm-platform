@@ -3,27 +3,45 @@ import {
   HttpException, HttpStatus,
 } from "@nestjs/common";
 import type { Response } from "express";
+import { ApiProperty, ApiTags } from "@nestjs/swagger";
 import { IsEmail, IsString, MinLength } from "class-validator";
 import { AuthService } from "./auth.service";
 import { LoginThrottleService } from "./login-throttle.service";
 import { JwtAuthGuard } from "./jwt-auth.guard";
 import { PrismaService } from "../prisma/prisma.service";
 import { PermissionsService } from "../permissions/permissions.service";
+import { Doc } from "../common/openapi/doc-endpoint.decorator";
 
 class LoginDto {
+  @ApiProperty({ format: "email" })
   @IsEmail()
   email!: string;
 
+  @ApiProperty({ minLength: 6 })
   @IsString()
   @MinLength(6)
   password!: string;
 }
 
 class ExchangeTokenDto {
+  @ApiProperty()
   @IsString()
   handshakeToken!: string;
 }
 
+/**
+ * Browsers ignore Set-Cookie with Secure=true on http://. Non-production always
+ * uses Secure=false so local dev works even when COOKIE_SECURE=true is copied
+ * from production. Production still honors COOKIE_SECURE for HTTPS.
+ */
+function authSessionCookieSecure(): boolean {
+  if (process.env.NODE_ENV !== "production") {
+    return false;
+  }
+  return (process.env.COOKIE_SECURE ?? "false") === "true";
+}
+
+@ApiTags("Auth")
 @Controller("auth")
 export class AuthController {
   constructor(
@@ -34,6 +52,15 @@ export class AuthController {
   ) {}
 
   @Post("login")
+  @Doc({
+    summary: "Browser login — sets httpOnly session cookie",
+    ok: "User profile; JWT stored in cookie",
+    noAuth: true,
+    badRequest: true,
+    tooManyRequests: true,
+    bodyType: LoginDto,
+    status: 200,
+  })
   async login(
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) res: Response,
@@ -45,7 +72,7 @@ export class AuthController {
       this.throttle.recordSuccess(dto.email);
 
       const cookieName = process.env.COOKIE_NAME ?? "access_token";
-      const secure = (process.env.COOKIE_SECURE ?? "false") === "true";
+      const secure = authSessionCookieSecure();
 
       res.cookie(cookieName, accessToken, {
         httpOnly: true,
@@ -62,6 +89,15 @@ export class AuthController {
   }
 
   @Post("app-login")
+  @Doc({
+    summary: "Native/app login — returns access token in JSON body",
+    ok: "Access token and user payload for mobile or desktop clients",
+    noAuth: true,
+    badRequest: true,
+    tooManyRequests: true,
+    bodyType: LoginDto,
+    status: 200,
+  })
   async appLogin(@Body() dto: LoginDto) {
     this.assertNotLocked(dto.email);
 
@@ -125,18 +161,36 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Post("device-token")
+  @Doc({
+    summary: "Create short-lived device handshake token",
+    ok: "Handshake token for pairing another client",
+    status: 200,
+  })
   async createDeviceToken(@Req() req: any) {
     const token = await this.auth.createDeviceToken(req.user.id);
     return { handshakeToken: token };
   }
 
   @Post("exchange-token")
+  @Doc({
+    summary: "Exchange device handshake token for JWT",
+    ok: "Access credentials after successful handshake",
+    noAuth: true,
+    badRequest: true,
+    bodyType: ExchangeTokenDto,
+    status: 200,
+  })
   async exchangeToken(@Body() dto: ExchangeTokenDto) {
     return this.auth.exchangeDeviceToken(dto.handshakeToken);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get("me")
+  @Doc({
+    summary: "Current user profile, permissions, and telephony extension",
+    ok: "Aggregated session user with RBAC and telephony fields",
+    status: 200,
+  })
   async me(@Req() req: any) {
     const userId = req.user.id;
 
@@ -207,9 +261,15 @@ export class AuthController {
   }
 
   @Post("logout")
+  @Doc({
+    summary: "Clear session cookie",
+    ok: "{ ok: true } after cookie cleared",
+    noAuth: true,
+    status: 200,
+  })
   logout(@Res({ passthrough: true }) res: Response) {
     const cookieName = process.env.COOKIE_NAME ?? "access_token";
-    const secure = (process.env.COOKIE_SECURE ?? "false") === "true";
+    const secure = authSessionCookieSecure();
 
     res.clearCookie(cookieName, { path: "/", sameSite: secure ? "none" : "lax", secure });
     return { ok: true };

@@ -59,3 +59,23 @@ coverage/
 
 # Patch files
 *.patch
+
+# Local offline git backups (do not commit)
+backups/*.bundle
+
+# Local / generated audio
+*.wav
+
+# Local MCP config (may contain paths or secrets)
+.mcp.json
+
+# Local audit / analysis dumps (not source)
+AUDIT_REPORT.md
+SECURITY_MAP.md
+DATABASE_INTEGRITY.md
+FRONTEND_CONSISTENCY.md
+BUSINESS_LOGIC_TRACE.md
+PERFORMANCE_PROFILE.md
+DEPENDENCY_HEALTH.md
+TEST_PLANS.md
+ENV_DIFF_REPORT.md
