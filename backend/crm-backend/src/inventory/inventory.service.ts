@@ -98,7 +98,10 @@ export class InventoryService {
       const total = Number(countResult[0]?.count ?? 0);
 
       return {
-        data: products,
+        data: products.map((p: any) => ({
+          ...p,
+          availableStock: (p.currentStock ?? 0) - (p.reservedStock ?? 0),
+        })),
         meta: {
           page,
           pageSize,
@@ -120,7 +123,10 @@ export class InventoryService {
     ]);
 
     return {
-      data: products,
+      data: products.map((p) => ({
+        ...p,
+        availableStock: p.currentStock - p.reservedStock,
+      })),
       meta: {
         page,
         pageSize,
@@ -428,94 +434,223 @@ export class InventoryService {
   }
 
   // ===== WORK ORDER INTEGRATION =====
-  async deductStockForWorkOrder(dto: DeductStockForWorkOrderDto) {
-    return this.prisma.$transaction(async (tx) => {
-      const results: Array<{ productId: string; productName: string; deducted: number }> = [];
 
-      for (const item of dto.items) {
-        const product = await tx.inventoryProduct.findUnique({
-          where: { id: item.productId },
-          include: {
-            stockBatches: {
-              where: { remainingQuantity: { gt: 0 } },
-              orderBy: { receivedDate: 'asc' },
-            },
-            stockTransactions: {
-              take: 20,
-              orderBy: { createdAt: 'desc' },
-            },
-          },
-        });
+  /**
+   * FIFO stock deduction that participates in an existing transaction.
+   * Use this when you need atomic approval+deduction in the caller's tx.
+   */
+  async deductStockForWorkOrderTx(
+    tx: Prisma.TransactionClient,
+    dto: DeductStockForWorkOrderDto,
+  ) {
+    const results: Array<{ productId: string; productName: string; deducted: number }> = [];
 
-        if (!product) {
-          throw new NotFoundException(`Product with ID ${item.productId} not found`);
-        }
+    for (const item of dto.items) {
+      const product = await tx.inventoryProduct.findUnique({
+        where: { id: item.productId },
+      });
 
-        if (product.currentStock < item.quantity) {
-          throw new BadRequestException(
-            `Insufficient stock for ${product.name}. Available: ${product.currentStock}, Requested: ${item.quantity}`,
-          );
-        }
-
-        let remainingToDeduct = item.quantity;
-        const batches = await tx.stockBatch.findMany({
-          where: {
-            productId: item.productId,
-            remainingQuantity: { gt: 0 },
-          },
-          orderBy: { receivedDate: 'asc' },
-        });
-
-        let currentStock = product.currentStock;
-
-        for (const batch of batches) {
-          if (remainingToDeduct <= 0) break;
-
-          const deductFromBatch = Math.min(batch.remainingQuantity, remainingToDeduct);
-
-          await tx.stockBatch.update({
-            where: { id: batch.id },
-            data: {
-              remainingQuantity: batch.remainingQuantity - deductFromBatch,
-            },
-          });
-
-          remainingToDeduct -= deductFromBatch;
-
-          const balanceBefore = currentStock;
-          const balanceAfter = balanceBefore - deductFromBatch;
-
-          await tx.stockTransaction.create({
-            data: {
-              productId: item.productId,
-              batchId: batch.id,
-              type: 'WORK_ORDER_OUT',
-              quantity: -deductFromBatch,
-              workOrderId: dto.workOrderId,
-              balanceBefore,
-              balanceAfter,
-              performedBy: dto.performedBy,
-              notes: dto.notes || `Used for work order ${dto.workOrderId}`,
-            },
-          });
-
-          await tx.inventoryProduct.update({
-            where: { id: item.productId },
-            data: { currentStock: balanceAfter },
-          });
-
-          currentStock = balanceAfter;
-        }
-
-        results.push({
-          productId: item.productId,
-          productName: product.name,
-          deducted: item.quantity,
-        });
+      if (!product) {
+        throw new NotFoundException(`Product with ID ${item.productId} not found`);
       }
 
-      return results;
+      if (product.currentStock < item.quantity) {
+        throw new BadRequestException(
+          `Insufficient stock for ${product.name}. Available: ${product.currentStock}, Requested: ${item.quantity}`,
+        );
+      }
+
+      const batches = await tx.stockBatch.findMany({
+        where: {
+          productId: item.productId,
+          remainingQuantity: { gt: 0 },
+        },
+        orderBy: { receivedDate: 'asc' },
+      });
+
+      let remainingToDeduct = item.quantity;
+      let currentStock = product.currentStock;
+
+      for (const batch of batches) {
+        if (remainingToDeduct <= 0) break;
+
+        const deductFromBatch = Math.min(batch.remainingQuantity, remainingToDeduct);
+
+        await tx.stockBatch.update({
+          where: { id: batch.id },
+          data: {
+            remainingQuantity: batch.remainingQuantity - deductFromBatch,
+          },
+        });
+
+        remainingToDeduct -= deductFromBatch;
+
+        const balanceBefore = currentStock;
+        const balanceAfter = balanceBefore - deductFromBatch;
+
+        await tx.stockTransaction.create({
+          data: {
+            productId: item.productId,
+            batchId: batch.id,
+            type: 'WORK_ORDER_OUT',
+            quantity: -deductFromBatch,
+            workOrderId: dto.workOrderId,
+            balanceBefore,
+            balanceAfter,
+            performedBy: dto.performedBy,
+            notes: dto.notes || `Used for work order ${dto.workOrderId}`,
+          },
+        });
+
+        await tx.inventoryProduct.update({
+          where: { id: item.productId },
+          data: { currentStock: balanceAfter },
+        });
+
+        currentStock = balanceAfter;
+      }
+
+      results.push({
+        productId: item.productId,
+        productName: product.name,
+        deducted: item.quantity,
+      });
+    }
+
+    return results;
+  }
+
+  /** Standalone FIFO deduction (wraps in its own transaction). */
+  async deductStockForWorkOrder(dto: DeductStockForWorkOrderDto) {
+    return this.prisma.$transaction(
+      async (tx) => this.deductStockForWorkOrderTx(tx, dto),
+      { timeout: 15000 },
+    );
+  }
+
+  /**
+   * Reserve stock for submitted (unapproved) product usages.
+   * Validates availableStock (currentStock - reservedStock) >= quantity.
+   */
+  async reserveStockTx(
+    tx: Prisma.TransactionClient,
+    items: { productId: string; quantity: number }[],
+    workOrderId: string,
+  ) {
+    for (const item of items) {
+      const product = await tx.inventoryProduct.findUnique({
+        where: { id: item.productId },
+      });
+
+      if (!product) {
+        throw new NotFoundException(`Product with ID ${item.productId} not found`);
+      }
+
+      const available = product.currentStock - product.reservedStock;
+      if (available < item.quantity) {
+        throw new BadRequestException(
+          `Insufficient available stock for ${product.name}. Available: ${available}, Requested: ${item.quantity}`,
+        );
+      }
+
+      await tx.inventoryProduct.update({
+        where: { id: item.productId },
+        data: { reservedStock: { increment: item.quantity } },
+      });
+
+      await tx.stockTransaction.create({
+        data: {
+          productId: item.productId,
+          type: 'RESERVATION_HOLD',
+          quantity: item.quantity,
+          workOrderId,
+          balanceBefore: product.reservedStock,
+          balanceAfter: product.reservedStock + item.quantity,
+          performedBy: 'system',
+          notes: `Stock reserved for work order`,
+        },
+      });
+    }
+  }
+
+  /**
+   * Release previously reserved stock (on approval, cancel, resubmit, or delete).
+   */
+  async releaseReservationTx(
+    tx: Prisma.TransactionClient,
+    items: { productId: string; quantity: number }[],
+    workOrderId: string,
+  ) {
+    for (const item of items) {
+      const product = await tx.inventoryProduct.findUnique({
+        where: { id: item.productId },
+      });
+
+      if (!product) continue; // product may have been deleted
+
+      const releaseQty = Math.min(item.quantity, product.reservedStock);
+      if (releaseQty <= 0) continue;
+
+      await tx.inventoryProduct.update({
+        where: { id: item.productId },
+        data: { reservedStock: { decrement: releaseQty } },
+      });
+
+      await tx.stockTransaction.create({
+        data: {
+          productId: item.productId,
+          type: 'RESERVATION_RELEASE',
+          quantity: -releaseQty,
+          workOrderId,
+          balanceBefore: product.reservedStock,
+          balanceAfter: product.reservedStock - releaseQty,
+          performedBy: 'system',
+          notes: `Stock reservation released for work order`,
+        },
+      });
+    }
+  }
+
+  /**
+   * Revert stock deductions for approved work order product usages.
+   * Creates REVERSAL_IN transactions. Never deletes existing transactions.
+   */
+  async revertStockForWorkOrderTx(
+    tx: Prisma.TransactionClient,
+    workOrderId: string,
+  ) {
+    const approvedUsages = await tx.workOrderProductUsage.findMany({
+      where: { workOrderId, isApproved: true },
+      include: { product: true },
     });
+
+    for (const usage of approvedUsages) {
+      const product = await tx.inventoryProduct.findUnique({
+        where: { id: usage.productId },
+        select: { currentStock: true },
+      });
+
+      const balanceBefore = product?.currentStock || 0;
+      const balanceAfter = balanceBefore + usage.quantity;
+
+      await tx.inventoryProduct.update({
+        where: { id: usage.productId },
+        data: { currentStock: { increment: usage.quantity } },
+      });
+
+      await tx.stockTransaction.create({
+        data: {
+          productId: usage.productId,
+          type: 'REVERSAL_IN',
+          quantity: usage.quantity,
+          workOrderId,
+          balanceBefore,
+          balanceAfter,
+          performedBy: 'system',
+          notes: `Stock reversal for work order deletion/cancellation`,
+        },
+      });
+    }
   }
 
   // ===== TRANSACTIONS LOG =====

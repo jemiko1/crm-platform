@@ -27,6 +27,7 @@ type AssignEmployeesModalProps = {
   onSuccess: () => void;
   workOrderId: string;
   existingAssignments?: string[]; // Employee IDs already assigned
+  isReassign?: boolean; // When true, uses POST /reassign with reason
 };
 
 export default function AssignEmployeesModal({
@@ -35,6 +36,7 @@ export default function AssignEmployeesModal({
   onSuccess,
   workOrderId,
   existingAssignments = [],
+  isReassign = false,
 }: AssignEmployeesModalProps) {
   const { t } = useI18n();
   const [mounted, setMounted] = useState(false);
@@ -44,6 +46,7 @@ export default function AssignEmployeesModal({
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [employeeSearch, setEmployeeSearch] = useState("");
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
+  const [reassignReason, setReassignReason] = useState("");
 
   useEffect(() => {
     setMounted(true);
@@ -87,6 +90,7 @@ export default function AssignEmployeesModal({
 
     setEmployeeSearch("");
     setSelectedEmployees([]);
+    setReassignReason("");
     setError(null);
   }, [open]);
 
@@ -114,13 +118,25 @@ export default function AssignEmployeesModal({
       return;
     }
 
+    if (isReassign && reassignReason.length < 3) {
+      setError("Please provide a reason for reassignment (at least 3 characters)");
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
 
     try {
-      await apiPost(`/v1/work-orders/${workOrderId}/assign`, {
-        employeeIds: selectedEmployees,
-      });
+      if (isReassign) {
+        await apiPost(`/v1/work-orders/${workOrderId}/reassign`, {
+          employeeIds: selectedEmployees,
+          reason: reassignReason,
+        });
+      } else {
+        await apiPost(`/v1/work-orders/${workOrderId}/assign`, {
+          employeeIds: selectedEmployees,
+        });
+      }
 
       onSuccess();
       onClose();
@@ -128,7 +144,7 @@ export default function AssignEmployeesModal({
       if (err instanceof ApiError) {
         setError(err.message);
       } else {
-        setError(err instanceof Error ? err.message : "Failed to assign employees");
+        setError(err instanceof Error ? err.message : isReassign ? "Failed to reassign employees" : "Failed to assign employees");
       }
     } finally {
       setSubmitting(false);
@@ -157,10 +173,10 @@ export default function AssignEmployeesModal({
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-zinc-900">
-                  {t("workOrders.actions.assign", "Assign Employees")}
+                  {isReassign ? "Reassign Employees" : t("workOrders.actions.assign", "Assign Employees")}
                 </h2>
                 <p className="mt-1 text-xs text-zinc-600">
-                  Select employees to assign to this work order
+                  {isReassign ? "Select new employees and provide a reason" : "Select employees to assign to this work order"}
                 </p>
               </div>
               <button
@@ -277,6 +293,22 @@ export default function AssignEmployeesModal({
                 </div>
               )}
 
+              {/* Reason field (reassign only) */}
+              {isReassign && (
+                <div className="pt-4">
+                  <label className="mb-2 block text-sm font-medium text-zinc-900">
+                    Reason for reassignment <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={reassignReason}
+                    onChange={(e) => setReassignReason(e.target.value)}
+                    placeholder="Explain why employees are being reassigned..."
+                    rows={3}
+                    className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-700"
+                  />
+                </div>
+              )}
+
               {/* Actions */}
               <div className="flex items-center justify-end gap-3 pt-4">
                 <button
@@ -289,11 +321,11 @@ export default function AssignEmployeesModal({
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting || selectedEmployees.length === 0}
+                  disabled={submitting || selectedEmployees.length === 0 || (isReassign && reassignReason.length < 3)}
                   className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-50"
                   style={{ backgroundColor: BRAND }}
                 >
-                  {submitting ? "Assigning..." : "Assign Employees"}
+                  {submitting ? (isReassign ? "Reassigning..." : "Assigning...") : (isReassign ? "Reassign Employees" : "Assign Employees")}
                 </button>
               </div>
             </div>
