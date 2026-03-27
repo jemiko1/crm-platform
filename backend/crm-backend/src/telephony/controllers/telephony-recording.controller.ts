@@ -10,6 +10,7 @@ import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { RecordingAccessService } from '../recording/recording-access.service';
+import { Doc } from '../../common/openapi/doc-endpoint.decorator';
 
 @ApiTags('Telephony')
 @Controller('v1/telephony/recordings')
@@ -18,11 +19,23 @@ export class TelephonyRecordingController {
   constructor(private readonly recordingService: RecordingAccessService) {}
 
   @Get(':id')
+  @Doc({
+    summary: 'Recording metadata by ID',
+    ok: 'Recording URL or storage reference',
+    notFound: true,
+    params: [{ name: 'id', description: 'Recording UUID' }],
+  })
   async getRecording(@Param('id') id: string) {
     return this.recordingService.getRecordingById(id);
   }
 
   @Get(':id/audio')
+  @Doc({
+    summary: 'Stream or redirect recording audio',
+    ok: 'Binary audio stream or HTTP redirect',
+    notFound: true,
+    params: [{ name: 'id', description: 'Recording UUID' }],
+  })
   async streamAudio(@Param('id') id: string, @Res() res: Response) {
     const recording = await this.recordingService.getRecordingById(id);
 

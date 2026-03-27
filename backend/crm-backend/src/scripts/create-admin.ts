@@ -1,9 +1,11 @@
 import "dotenv/config";
+import { Logger } from "@nestjs/common";
 import * as bcrypt from "bcrypt";
 import { PrismaClient, UserRole } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 
+const logger = new Logger("CreateAdmin");
 
 async function main() {
   const pool = new Pool({
@@ -30,7 +32,7 @@ async function main() {
     },
   });
 
-  console.log("✅ Admin ready:", { email, password });
+  logger.log(`✅ Admin ready: ${email}`);
 
   await prisma.$disconnect();
   await pool.end();

@@ -338,7 +338,7 @@ export default function ConversationHeader({ conversation, currentUserId, onUpda
 
       {/* Reopen modal */}
       {mounted && showReopenModal && createPortal(
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={() => setShowReopenModal(false)}>
+        <div className="fixed inset-0 z-[50000] bg-black/30 flex items-center justify-center" onClick={() => setShowReopenModal(false)}>
           <div className="bg-white rounded-2xl shadow-xl p-6 w-80" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-sm font-semibold text-gray-800 mb-4">
               {hasReopenRequest ? "Approve Reopen Request" : "Reopen Conversation"}
@@ -375,7 +375,7 @@ export default function ConversationHeader({ conversation, currentUserId, onUpda
 
       {/* Delete confirmation modal */}
       {mounted && showDeleteConfirm && createPortal(
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={() => !deleting && setShowDeleteConfirm(false)}>
+        <div className="fixed inset-0 z-[50000] bg-black/30 flex items-center justify-center" onClick={() => !deleting && setShowDeleteConfirm(false)}>
           <div className="bg-white rounded-2xl shadow-xl p-6 w-80" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-sm font-semibold text-red-700 mb-2">Delete Conversation</h3>
             <p className="text-xs text-gray-600 mb-1">

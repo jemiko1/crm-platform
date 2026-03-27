@@ -1,8 +1,10 @@
-export default function AdminLoading() {
+export default function Loading() {
   return (
-    <div className="flex flex-col items-center justify-center py-32">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-zinc-200 border-t-teal-800" />
-      <p className="mt-4 text-sm text-zinc-500">Loading...</p>
+    <div className="flex items-center justify-center min-h-[400px]">
+      <div
+        className="animate-spin rounded-full h-8 w-8 border-2 border-zinc-200 border-b-teal-800 dark:border-zinc-600 dark:border-b-teal-600"
+        aria-label="Loading"
+      />
     </div>
   );
 }

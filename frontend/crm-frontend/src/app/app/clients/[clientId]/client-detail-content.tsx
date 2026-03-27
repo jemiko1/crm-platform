@@ -577,7 +577,7 @@ function EditClientModal({
 
   if (!mounted) return null;
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+    <div className="fixed inset-0 z-[50000] flex items-center justify-center bg-black/40" onClick={onClose}>
       <div
         className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl ring-1 ring-zinc-200"
         onClick={(e) => e.stopPropagation()}

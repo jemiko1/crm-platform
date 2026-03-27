@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGet, apiPost, apiPostFormData } from "@/lib/api";
 import type { ChannelType } from "../types";
 
 interface CannedResponse {
@@ -169,12 +169,7 @@ export default function ReplyBox({ conversationId, channelType, clientName, what
         if (text.trim()) formData.append('text', text.trim());
         formData.append('file', file);
 
-        const res = await fetch(`/v1/clientchats/conversations/${conversationId}/reply`, {
-          method: 'POST',
-          body: formData,
-          credentials: 'include',
-        });
-        if (!res.ok) throw new Error('Send failed');
+        await apiPostFormData(`/v1/clientchats/conversations/${conversationId}/reply`, formData);
       } else {
         await apiPost(`/v1/clientchats/conversations/${conversationId}/reply`, {
           text: text.trim(),
