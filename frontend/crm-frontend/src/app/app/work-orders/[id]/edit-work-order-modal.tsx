@@ -8,8 +8,6 @@ const BRAND = "rgb(0, 86, 83)";
 
 type WorkOrderDetail = {
   id: string;
-  type: "INSTALLATION" | "DIAGNOSTIC" | "RESEARCH" | "DEACTIVATE" | "REPAIR_CHANGE" | "ACTIVATE" | "INSTALL" | "REPAIR";
-  status: "CREATED" | "LINKED_TO_GROUP" | "IN_PROGRESS" | "COMPLETED" | "CANCELED";
   title: string;
   notes: string | null;
 };
@@ -32,7 +30,6 @@ export default function EditWorkOrderModal({
   const [mounted, setMounted] = useState(false);
 
   const [formData, setFormData] = useState({
-    status: workOrder.status,
     title: workOrder.title,
     notes: workOrder.notes || "",
   });
@@ -44,7 +41,6 @@ export default function EditWorkOrderModal({
   useEffect(() => {
     if (open) {
       setFormData({
-        status: workOrder.status,
         title: workOrder.title,
         notes: workOrder.notes || "",
       });
@@ -65,7 +61,6 @@ export default function EditWorkOrderModal({
 
     try {
       await apiPatch(`/v1/work-orders/${workOrder.id}`, {
-        status: formData.status,
         title: formData.title,
         notes: formData.notes || null,
       });
@@ -121,26 +116,6 @@ export default function EditWorkOrderModal({
           {/* Form */}
           <form onSubmit={handleSubmit} className="p-6">
             <div className="space-y-4">
-              {/* Status */}
-              <div>
-                <label className="mb-1 block text-xs font-medium text-zinc-700">
-                  Status <span className="text-red-600">*</span>
-                </label>
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleChange}
-                  required
-                  className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-teal-500/30"
-                >
-                  <option value="CREATED">Created</option>
-                  <option value="LINKED_TO_GROUP">Technicians Assigned</option>
-                  <option value="IN_PROGRESS">Working</option>
-                  <option value="COMPLETED">Completed</option>
-                  <option value="CANCELED">Canceled</option>
-                </select>
-              </div>
-
               {/* Title */}
               <div>
                 <label className="mb-1 block text-xs font-medium text-zinc-700">

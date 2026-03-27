@@ -1969,8 +1969,6 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
           onSuccess={handleEditSuccess}
           workOrder={{
             id: workOrder.id,
-            type: workOrder.type,
-            status: workOrder.status,
             title: workOrder.title,
             notes: workOrder.notes,
           }}

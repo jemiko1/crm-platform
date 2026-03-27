@@ -1,13 +1,6 @@
-import { IsString, IsOptional, IsEnum, IsArray, ValidateNested } from "class-validator";
-import { Type } from "class-transformer";
-import { WorkOrderStatus } from "@prisma/client";
-import { ProductUsageDto } from "./product-usage.dto";
+import { IsString, IsOptional } from "class-validator";
 
 export class UpdateWorkOrderDto {
-  @IsEnum(WorkOrderStatus)
-  @IsOptional()
-  status?: WorkOrderStatus;
-
   @IsString()
   @IsOptional()
   title?: string;
@@ -19,20 +12,13 @@ export class UpdateWorkOrderDto {
   // Workflow comments
   @IsString()
   @IsOptional()
-  techEmployeeComment?: string; // Comment from technical employee
+  techEmployeeComment?: string;
 
   @IsString()
   @IsOptional()
-  techHeadComment?: string; // Comment from head of technical department
+  techHeadComment?: string;
 
   @IsString()
   @IsOptional()
-  cancelReason?: string; // Reason if canceled
-
-  // Product usages for approval/modification (head can modify before approval)
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => ProductUsageDto)
-  @IsOptional()
-  productUsages?: ProductUsageDto[];
+  cancelReason?: string;
 }
