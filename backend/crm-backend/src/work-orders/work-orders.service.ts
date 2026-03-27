@@ -1352,17 +1352,37 @@ export class WorkOrdersService {
     // Get product details for logging
     const existingUsages = workOrder.productUsages.filter((pu) => !pu.isApproved);
     const existingProductIds = existingUsages.map((pu) => pu.productId);
-    
+
     // Fetch product names for logging
     const productDetails = await this.prisma.inventoryProduct.findMany({
       where: { id: { in: [...existingProductIds, ...(productUsages?.map(p => p.productId) || [])] } },
-      select: { id: true, name: true, sku: true },
+      select: { id: true, name: true, sku: true, currentStock: true },
     });
-    const productMap = new Map(productDetails.map(p => [p.id, { name: p.name, sku: p.sku }]));
+    const productMap = new Map(productDetails.map(p => [p.id, { name: p.name, sku: p.sku, currentStock: p.currentStock }]));
 
-    // Collect items to deduct after the product-usage transaction commits
+    // Determine what items will be deducted BEFORE writing anything
     let itemsToDeduct: { productId: string; quantity: number }[] = [];
 
+    if (productUsages && productUsages.length > 0) {
+      itemsToDeduct = productUsages.map((usage) => ({ productId: usage.productId, quantity: usage.quantity }));
+    } else if (workOrder.productUsages.length > 0) {
+      itemsToDeduct = existingUsages.map((pu) => ({ productId: pu.productId, quantity: pu.quantity }));
+    }
+
+    // Validate stock availability BEFORE committing any changes or logs
+    for (const item of itemsToDeduct) {
+      const product = productMap.get(item.productId);
+      if (!product) {
+        throw new NotFoundException(`Product with ID ${item.productId} not found`);
+      }
+      if (product.currentStock < item.quantity) {
+        throw new BadRequestException(
+          `Insufficient stock for ${product.name}. Available: ${product.currentStock}, Requested: ${item.quantity}`,
+        );
+      }
+    }
+
+    // Stock is validated — now safe to write product usages, logs, and deduct
     if (productUsages && productUsages.length > 0) {
       const modifications: { name: string; sku?: string; originalQuantity?: number; newQuantity: number; action: 'added' | 'modified' | 'removed' }[] = [];
 
@@ -1415,8 +1435,6 @@ export class WorkOrdersService {
         quantity: usage.quantity,
       }));
       await this.activityService.logProductsApproved(workOrder.id, headEmployeeId, approvedProducts);
-
-      itemsToDeduct = productUsages.map((usage) => ({ productId: usage.productId, quantity: usage.quantity }));
     } else if (workOrder.productUsages.length > 0) {
       await this.prisma.workOrderProductUsage.updateMany({
         where: { workOrderId: workOrder.id, isApproved: false },
@@ -1431,13 +1449,10 @@ export class WorkOrdersService {
       if (approvedProducts.length > 0) {
         await this.activityService.logProductsApproved(workOrder.id, headEmployeeId, approvedProducts);
       }
-
-      itemsToDeduct = workOrder.productUsages
-        .filter((pu) => !pu.isApproved)
-        .map((pu) => ({ productId: pu.productId, quantity: pu.quantity }));
     }
 
-    // Stock deduction runs in its own internal transaction
+    // Stock deduction — stock was pre-validated, but deductStockForWorkOrder
+    // still does its own check + FIFO batch deduction in a transaction
     if (itemsToDeduct.length > 0) {
       await this.inventory.deductStockForWorkOrder({
         workOrderId: workOrder.id,
