@@ -9,7 +9,7 @@ import {
   Query,
   UseGuards,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation } from "@nestjs/swagger";
+import { ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { WorkflowService } from "../workflow/workflow.service";
 import { WorkflowTriggerService } from "../workflow/workflow-trigger.service";
@@ -17,6 +17,7 @@ import { CreateTriggerDto } from "../workflow/dto/create-trigger.dto";
 import { UpdateTriggerDto } from "../workflow/dto/update-trigger.dto";
 import { CreateTriggerActionDto } from "../workflow/dto/create-trigger-action.dto";
 import { UpdateTriggerActionDto } from "../workflow/dto/update-trigger-action.dto";
+import { Doc } from "../common/openapi/doc-endpoint.decorator";
 
 @ApiTags("Workflow Configuration")
 @Controller("v1/workflow")
@@ -30,19 +31,29 @@ export class WorkflowController {
   // ===== WORKFLOW STEPS =====
 
   @Get("steps")
-  @ApiOperation({ summary: "Get all workflow steps" })
+  @Doc({ summary: "Get all workflow steps", ok: "List of workflow steps" })
   findAllSteps() {
     return this.workflowService.findAllSteps();
   }
 
   @Get("steps/:id")
-  @ApiOperation({ summary: "Get workflow step by ID" })
+  @Doc({
+    summary: "Get workflow step by ID",
+    ok: "Workflow step details",
+    notFound: true,
+    params: [{ name: "id", description: "Workflow step ID" }],
+  })
   findStepById(@Param("id") id: string) {
     return this.workflowService.findStepById(id);
   }
 
   @Patch("steps/:id")
-  @ApiOperation({ summary: "Update workflow step" })
+  @Doc({
+    summary: "Update workflow step",
+    ok: "Updated workflow step",
+    notFound: true,
+    params: [{ name: "id", description: "Workflow step ID" }],
+  })
   updateStep(
     @Param("id") id: string,
     @Body()
@@ -60,7 +71,11 @@ export class WorkflowController {
   // ===== POSITION ASSIGNMENTS =====
 
   @Post("steps/:stepId/positions")
-  @ApiOperation({ summary: "Assign position to workflow step" })
+  @Doc({
+    summary: "Assign position to workflow step",
+    ok: "Assignment created",
+    params: [{ name: "stepId", description: "Workflow step ID" }],
+  })
   assignPosition(
     @Param("stepId") stepId: string,
     @Body()
@@ -77,7 +92,14 @@ export class WorkflowController {
   }
 
   @Delete("steps/:stepId/positions/:positionId")
-  @ApiOperation({ summary: "Remove position from workflow step" })
+  @Doc({
+    summary: "Remove position from workflow step",
+    ok: "Position removed from step",
+    params: [
+      { name: "stepId", description: "Workflow step ID" },
+      { name: "positionId", description: "Position ID" },
+    ],
+  })
   removePosition(
     @Param("stepId") stepId: string,
     @Param("positionId") positionId: string,
@@ -86,7 +108,11 @@ export class WorkflowController {
   }
 
   @Patch("steps/:stepId/positions")
-  @ApiOperation({ summary: "Set all positions for a workflow step" })
+  @Doc({
+    summary: "Set all positions for a workflow step",
+    ok: "Step positions updated",
+    params: [{ name: "stepId", description: "Workflow step ID" }],
+  })
   setPositions(
     @Param("stepId") stepId: string,
     @Body()
@@ -105,13 +131,20 @@ export class WorkflowController {
   // ===== UTILITY =====
 
   @Get("positions")
-  @ApiOperation({ summary: "Get all positions for workflow assignment" })
+  @Doc({
+    summary: "Get all positions for workflow assignment",
+    ok: "Positions available for workflow assignment",
+  })
   getAllPositions() {
     return this.workflowService.getAllPositions();
   }
 
   @Get("steps/:stepKey/employees")
-  @ApiOperation({ summary: "Get employees assigned to a workflow step" })
+  @Doc({
+    summary: "Get employees assigned to a workflow step",
+    ok: "Employees for the step",
+    params: [{ name: "stepKey", description: "Workflow step key" }],
+  })
   getEmployeesForStep(@Param("stepKey") stepKey: string) {
     return this.workflowService.getEmployeesForStep(stepKey);
   }
@@ -119,37 +152,66 @@ export class WorkflowController {
   // ===== WORKFLOW TRIGGERS =====
 
   @Get("triggers")
-  @ApiOperation({ summary: "List all triggers (optional ?workOrderType= filter)" })
+  @Doc({
+    summary: "List all triggers (optional ?workOrderType= filter)",
+    ok: "Workflow triggers",
+    queries: [{ name: "workOrderType", description: "Filter by work order type" }],
+  })
   getTriggers(@Query("workOrderType") workOrderType?: string) {
     return this.triggerService.findAll(workOrderType);
   }
 
   @Get("triggers/overview")
-  @ApiOperation({ summary: "Get triggers overview grouped by type" })
+  @Doc({
+    summary: "Get triggers overview grouped by type",
+    ok: "Triggers overview",
+    queries: [{ name: "workOrderType", description: "Filter by work order type" }],
+  })
   getTriggersOverview(@Query("workOrderType") workOrderType?: string) {
     return this.triggerService.getOverview(workOrderType);
   }
 
   @Get("triggers/:id")
-  @ApiOperation({ summary: "Get a single trigger with actions" })
+  @Doc({
+    summary: "Get a single trigger with actions",
+    ok: "Trigger with actions",
+    notFound: true,
+    params: [{ name: "id", description: "Trigger ID" }],
+  })
   getTrigger(@Param("id") id: string) {
     return this.triggerService.findById(id);
   }
 
   @Post("triggers")
-  @ApiOperation({ summary: "Create a workflow trigger" })
+  @Doc({
+    summary: "Create a workflow trigger",
+    ok: "Created trigger",
+    status: 201,
+    bodyType: CreateTriggerDto,
+  })
   createTrigger(@Body() dto: CreateTriggerDto) {
     return this.triggerService.create(dto);
   }
 
   @Patch("triggers/:id")
-  @ApiOperation({ summary: "Update a workflow trigger" })
+  @Doc({
+    summary: "Update a workflow trigger",
+    ok: "Updated trigger",
+    notFound: true,
+    bodyType: UpdateTriggerDto,
+    params: [{ name: "id", description: "Trigger ID" }],
+  })
   updateTrigger(@Param("id") id: string, @Body() dto: UpdateTriggerDto) {
     return this.triggerService.update(id, dto);
   }
 
   @Delete("triggers/:id")
-  @ApiOperation({ summary: "Delete a workflow trigger" })
+  @Doc({
+    summary: "Delete a workflow trigger",
+    ok: "Trigger deleted",
+    notFound: true,
+    params: [{ name: "id", description: "Trigger ID" }],
+  })
   deleteTrigger(@Param("id") id: string) {
     return this.triggerService.delete(id);
   }
@@ -157,19 +219,35 @@ export class WorkflowController {
   // ===== TRIGGER ACTIONS =====
 
   @Post("triggers/:triggerId/actions")
-  @ApiOperation({ summary: "Add an action to a trigger" })
+  @Doc({
+    summary: "Add an action to a trigger",
+    ok: "Trigger action created",
+    bodyType: CreateTriggerActionDto,
+    params: [{ name: "triggerId", description: "Trigger ID" }],
+  })
   createTriggerAction(@Param("triggerId") triggerId: string, @Body() dto: CreateTriggerActionDto) {
     return this.triggerService.createAction(triggerId, dto);
   }
 
   @Patch("triggers/actions/:actionId")
-  @ApiOperation({ summary: "Update a trigger action" })
+  @Doc({
+    summary: "Update a trigger action",
+    ok: "Trigger action updated",
+    notFound: true,
+    bodyType: UpdateTriggerActionDto,
+    params: [{ name: "actionId", description: "Trigger action ID" }],
+  })
   updateTriggerAction(@Param("actionId") actionId: string, @Body() dto: UpdateTriggerActionDto) {
     return this.triggerService.updateAction(actionId, dto);
   }
 
   @Delete("triggers/actions/:actionId")
-  @ApiOperation({ summary: "Delete a trigger action" })
+  @Doc({
+    summary: "Delete a trigger action",
+    ok: "Trigger action deleted",
+    notFound: true,
+    params: [{ name: "actionId", description: "Trigger action ID" }],
+  })
   deleteTriggerAction(@Param("actionId") actionId: string) {
     return this.triggerService.deleteAction(actionId);
   }

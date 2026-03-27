@@ -8,6 +8,7 @@ import {
   Body,
   UseGuards,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { PositionPermissionGuard } from '../../common/guards/position-permission.guard';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
@@ -21,7 +22,9 @@ import { WhatsAppWebhookService } from '../services/whatsapp-webhook.service';
 import { ClientChatChannelType } from '@prisma/client';
 import { UpdateChannelAccountDto } from '../dto/update-channel-account.dto';
 import { CreateTestWhatsAppConversationDto } from '../dto/create-test-whatsapp-conversation.dto';
+import { Doc } from '../../common/openapi/doc-endpoint.decorator';
 
+@ApiTags('ClientChatsAdmin')
 @Controller('v1/clientchats')
 @UseGuards(JwtAuthGuard)
 export class ClientChatsAdminController {
@@ -36,6 +39,7 @@ export class ClientChatsAdminController {
   ) {}
 
   @Get('status')
+  @Doc({ summary: 'Client chats integration status', ok: 'Channel and webhook health snapshot' })
   getStatus() {
     return this.observability.getStatus();
   }
@@ -43,6 +47,15 @@ export class ClientChatsAdminController {
   @Get('webhook-failures')
   @UseGuards(PositionPermissionGuard)
   @RequirePermission('client_chats_config.access')
+  @Doc({
+    summary: 'Recent webhook processing failures',
+    ok: 'Failure log rows',
+    permission: true,
+    queries: [
+      { name: 'limit', description: 'Max rows' },
+      { name: 'channelType', description: 'Filter by channel enum' },
+    ],
+  })
   getWebhookFailures(
     @Query('limit') limit?: string,
     @Query('channelType') channelType?: ClientChatChannelType,
@@ -58,6 +71,11 @@ export class ClientChatsAdminController {
   @Get('channel-accounts')
   @UseGuards(PositionPermissionGuard)
   @RequirePermission('client_chats_config.access')
+  @Doc({
+    summary: 'Channel account configuration',
+    ok: 'All channel accounts and metadata',
+    permission: true,
+  })
   getChannelAccountsConfig() {
     return this.core.getChannelAccountsConfig();
   }
@@ -65,6 +83,14 @@ export class ClientChatsAdminController {
   @Put('channel-accounts/:channelType')
   @UseGuards(PositionPermissionGuard)
   @RequirePermission('client_chats_config.access')
+  @Doc({
+    summary: 'Update channel account config',
+    ok: 'Updated account',
+    permission: true,
+    notFound: true,
+    bodyType: UpdateChannelAccountDto,
+    params: [{ name: 'channelType', description: 'ClientChatChannelType enum value' }],
+  })
   updateChannelAccountConfig(
     @Param('channelType') channelType: ClientChatChannelType,
     @Body() dto: UpdateChannelAccountDto,
@@ -81,6 +107,7 @@ export class ClientChatsAdminController {
   @Get('telegram/webhook-status')
   @UseGuards(PositionPermissionGuard)
   @RequirePermission('client_chats_config.access')
+  @Doc({ summary: 'Telegram getWebhookInfo', ok: 'Telegram API webhook status', permission: true })
   getTelegramWebhookStatus() {
     return this.telegramWebhook.getWebhookInfo();
   }
@@ -88,6 +115,7 @@ export class ClientChatsAdminController {
   @Post('telegram/register-webhook')
   @UseGuards(PositionPermissionGuard)
   @RequirePermission('client_chats_config.access')
+  @Doc({ summary: 'Register Telegram webhook URL', ok: 'Telegram API result', permission: true })
   registerTelegramWebhook() {
     return this.telegramWebhook.registerWebhook();
   }
@@ -95,6 +123,7 @@ export class ClientChatsAdminController {
   @Post('telegram/delete-webhook')
   @UseGuards(PositionPermissionGuard)
   @RequirePermission('client_chats_config.access')
+  @Doc({ summary: 'Delete Telegram webhook', ok: 'Telegram API result', permission: true })
   deleteTelegramWebhook() {
     return this.telegramWebhook.deleteWebhook();
   }
@@ -104,6 +133,7 @@ export class ClientChatsAdminController {
   @Get('viber/webhook-status')
   @UseGuards(PositionPermissionGuard)
   @RequirePermission('client_chats_config.access')
+  @Doc({ summary: 'Viber webhook status', ok: 'Viber API info', permission: true })
   getViberWebhookStatus() {
     return this.viberWebhook.getWebhookInfo();
   }
@@ -111,6 +141,7 @@ export class ClientChatsAdminController {
   @Post('viber/register-webhook')
   @UseGuards(PositionPermissionGuard)
   @RequirePermission('client_chats_config.access')
+  @Doc({ summary: 'Register Viber webhook', ok: 'Viber API result', permission: true })
   registerViberWebhook() {
     return this.viberWebhook.registerWebhook();
   }
@@ -118,6 +149,7 @@ export class ClientChatsAdminController {
   @Post('viber/delete-webhook')
   @UseGuards(PositionPermissionGuard)
   @RequirePermission('client_chats_config.access')
+  @Doc({ summary: 'Delete Viber webhook', ok: 'Viber API result', permission: true })
   deleteViberWebhook() {
     return this.viberWebhook.deleteWebhook();
   }
@@ -127,6 +159,7 @@ export class ClientChatsAdminController {
   @Get('facebook/webhook-status')
   @UseGuards(PositionPermissionGuard)
   @RequirePermission('client_chats_config.access')
+  @Doc({ summary: 'Facebook webhook subscription status', ok: 'Meta API status', permission: true })
   getFacebookWebhookStatus() {
     return this.facebookWebhook.getWebhookStatus();
   }
@@ -136,6 +169,7 @@ export class ClientChatsAdminController {
   @Get('whatsapp/webhook-status')
   @UseGuards(PositionPermissionGuard)
   @RequirePermission('client_chats_config.access')
+  @Doc({ summary: 'WhatsApp webhook subscription status', ok: 'Meta API status', permission: true })
   getWhatsAppWebhookStatus() {
     return this.whatsappWebhook.getWebhookStatus();
   }
@@ -143,6 +177,12 @@ export class ClientChatsAdminController {
   @Post('whatsapp/create-test-conversation')
   @UseGuards(PositionPermissionGuard)
   @RequirePermission('client_chats_config.access')
+  @Doc({
+    summary: 'Create test WhatsApp conversation',
+    ok: 'Test conversation metadata',
+    permission: true,
+    bodyType: CreateTestWhatsAppConversationDto,
+  })
   createTestWhatsAppConversation(
     @Body() dto: CreateTestWhatsAppConversationDto,
   ) {
@@ -154,6 +194,15 @@ export class ClientChatsAdminController {
   @Get('analytics/overview')
   @UseGuards(PositionPermissionGuard)
   @RequirePermission('client_chats_config.access')
+  @Doc({
+    summary: 'Client chats analytics overview',
+    ok: 'Aggregate KPIs',
+    permission: true,
+    queries: [
+      { name: 'from', description: 'ISO start date' },
+      { name: 'to', description: 'ISO end date' },
+    ],
+  })
   getAnalyticsOverview(
     @Query('from') from?: string,
     @Query('to') to?: string,
@@ -164,6 +213,15 @@ export class ClientChatsAdminController {
   @Get('analytics/by-channel')
   @UseGuards(PositionPermissionGuard)
   @RequirePermission('client_chats_config.access')
+  @Doc({
+    summary: 'Analytics grouped by channel',
+    ok: 'Per-channel metrics',
+    permission: true,
+    queries: [
+      { name: 'from', description: 'ISO start date' },
+      { name: 'to', description: 'ISO end date' },
+    ],
+  })
   getAnalyticsByChannel(
     @Query('from') from?: string,
     @Query('to') to?: string,
@@ -174,6 +232,15 @@ export class ClientChatsAdminController {
   @Get('analytics/by-agent')
   @UseGuards(PositionPermissionGuard)
   @RequirePermission('client_chats_config.access')
+  @Doc({
+    summary: 'Analytics grouped by agent',
+    ok: 'Per-agent metrics',
+    permission: true,
+    queries: [
+      { name: 'from', description: 'ISO start date' },
+      { name: 'to', description: 'ISO end date' },
+    ],
+  })
   getAnalyticsByAgent(
     @Query('from') from?: string,
     @Query('to') to?: string,

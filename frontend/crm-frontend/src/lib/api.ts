@@ -79,6 +79,27 @@ async function apiRequest<T>(
   return handleResponse<T>(res);
 }
 
+/**
+ * POST multipart/form-data (e.g. file upload). Do not set Content-Type — the
+ * browser will set the boundary. Uses the same auth and error handling as other api helpers.
+ */
+export async function apiPostFormData<T>(
+  path: string,
+  body: FormData,
+  init?: RequestInit,
+): Promise<T> {
+  const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
+
+  const res = await fetch(url, {
+    method: "POST",
+    body,
+    credentials: "include",
+    ...init,
+  });
+
+  return handleResponse<T>(res);
+}
+
 export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
   return apiRequest<T>(path, {
     method: "GET",

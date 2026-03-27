@@ -10,7 +10,7 @@ import {
   Query,
   UseGuards,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation } from "@nestjs/swagger";
+import { ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { AdminOnlyGuard } from "../common/guards/admin-only.guard";
 import { PositionPermissionGuard } from "../common/guards/position-permission.guard";
@@ -28,6 +28,7 @@ import {
   SendNotificationDto,
 } from "../notifications/dto";
 import { NotificationType } from "@prisma/client";
+import { Doc } from "../common/openapi/doc-endpoint.decorator";
 
 @ApiTags("Admin Notifications")
 @Controller("v1/admin/notifications")
@@ -44,19 +45,32 @@ export class NotificationsController {
   // ─── Email Config ──────────────────────────────────────────
 
   @Get("email-config")
-  @ApiOperation({ summary: "Get email (SMTP/IMAP) configuration" })
+  @Doc({
+    summary: "Get email (SMTP/IMAP) configuration",
+    ok: "Masked email configuration",
+    permission: true,
+  })
   getEmailConfig() {
     return this.emailConfig.getConfigMasked();
   }
 
   @Put("email-config")
-  @ApiOperation({ summary: "Create or update email configuration" })
+  @Doc({
+    summary: "Create or update email configuration",
+    ok: "Email configuration saved",
+    permission: true,
+    bodyType: UpdateEmailConfigDto,
+  })
   updateEmailConfig(@Body() dto: UpdateEmailConfigDto) {
     return this.emailConfig.upsertConfig(dto);
   }
 
   @Post("email-config/test")
-  @ApiOperation({ summary: "Test SMTP and IMAP connections" })
+  @Doc({
+    summary: "Test SMTP and IMAP connections",
+    ok: "SMTP and IMAP test results",
+    permission: true,
+  })
   async testEmailConfig() {
     const [smtp, imap] = await Promise.all([
       this.emailConfig.testSmtpConnection(),
@@ -70,7 +84,11 @@ export class NotificationsController {
   @Get("sms-config")
   @UseGuards(PositionPermissionGuard)
   @RequirePermission("sms_config.access")
-  @ApiOperation({ summary: "Get SMS provider configuration" })
+  @Doc({
+    summary: "Get SMS provider configuration",
+    ok: "Masked SMS configuration",
+    permission: true,
+  })
   getSmsConfig() {
     return this.smsConfig.getConfigMasked();
   }
@@ -78,7 +96,12 @@ export class NotificationsController {
   @Put("sms-config")
   @UseGuards(PositionPermissionGuard)
   @RequirePermission("sms_config.access")
-  @ApiOperation({ summary: "Create or update SMS configuration" })
+  @Doc({
+    summary: "Create or update SMS configuration",
+    ok: "SMS configuration saved",
+    permission: true,
+    bodyType: UpdateSmsConfigDto,
+  })
   updateSmsConfig(@Body() dto: UpdateSmsConfigDto) {
     return this.smsConfig.upsertConfig(dto);
   }
@@ -86,7 +109,11 @@ export class NotificationsController {
   @Post("sms-config/test")
   @UseGuards(PositionPermissionGuard)
   @RequirePermission("sms_config.access")
-  @ApiOperation({ summary: "Send a test SMS" })
+  @Doc({
+    summary: "Send a test SMS",
+    ok: "Test SMS result",
+    permission: true,
+  })
   testSmsConfig(@Body() body: { testNumber: string }) {
     return this.smsConfig.testConnection(body.testNumber);
   }
@@ -94,7 +121,11 @@ export class NotificationsController {
   @Get("sms-config/balance")
   @UseGuards(PositionPermissionGuard)
   @RequirePermission("sms_config.access")
-  @ApiOperation({ summary: "Get Sender.ge account balance" })
+  @Doc({
+    summary: "Get Sender.ge account balance",
+    ok: "Account balance",
+    permission: true,
+  })
   getSmsBalance() {
     return this.smsConfig.getBalance();
   }
@@ -102,7 +133,11 @@ export class NotificationsController {
   @Get("sms-logs")
   @UseGuards(PositionPermissionGuard)
   @RequirePermission("sms_config.access")
-  @ApiOperation({ summary: "Get SMS-only notification logs" })
+  @Doc({
+    summary: "Get SMS-only notification logs",
+    ok: "Paginated SMS logs",
+    permission: true,
+  })
   getSmsLogs(
     @Query("page") page?: string,
     @Query("limit") limit?: string,
@@ -118,7 +153,11 @@ export class NotificationsController {
   @Get("sms-logs/stats")
   @UseGuards(PositionPermissionGuard)
   @RequirePermission("sms_config.access")
-  @ApiOperation({ summary: "Get SMS delivery statistics" })
+  @Doc({
+    summary: "Get SMS delivery statistics",
+    ok: "SMS delivery statistics",
+    permission: true,
+  })
   getSmsStats() {
     return this.logService.getSmsStats();
   }
@@ -126,7 +165,13 @@ export class NotificationsController {
   @Post("sms-logs/:id/check-delivery")
   @UseGuards(PositionPermissionGuard)
   @RequirePermission("sms_config.access")
-  @ApiOperation({ summary: "Check delivery status for a specific SMS" })
+  @Doc({
+    summary: "Check delivery status for a specific SMS",
+    ok: "Delivery status",
+    permission: true,
+    notFound: true,
+    params: [{ name: "id", description: "SMS log ID" }],
+  })
   checkSmsDelivery(@Param("id") id: string) {
     return this.smsConfig.checkDeliveryStatus(id);
   }
@@ -134,7 +179,11 @@ export class NotificationsController {
   @Post("sms-logs/refresh-deliveries")
   @UseGuards(PositionPermissionGuard)
   @RequirePermission("sms_config.access")
-  @ApiOperation({ summary: "Refresh delivery status for all pending SMS" })
+  @Doc({
+    summary: "Refresh delivery status for all pending SMS",
+    ok: "Refresh result",
+    permission: true,
+  })
   refreshDeliveries() {
     return this.smsConfig.refreshAllPendingDeliveries();
   }
@@ -142,25 +191,48 @@ export class NotificationsController {
   // ─── Notification Templates ────────────────────────────────
 
   @Get("templates")
-  @ApiOperation({ summary: "List all notification templates" })
+  @Doc({
+    summary: "List all notification templates",
+    ok: "Notification templates",
+    permission: true,
+  })
   getTemplates() {
     return this.templatesService.findAll();
   }
 
   @Post("templates")
-  @ApiOperation({ summary: "Create a notification template" })
+  @Doc({
+    summary: "Create a notification template",
+    ok: "Created template",
+    status: 201,
+    permission: true,
+    bodyType: CreateTemplateDto,
+  })
   createTemplate(@Body() dto: CreateTemplateDto) {
     return this.templatesService.create(dto);
   }
 
   @Patch("templates/:id")
-  @ApiOperation({ summary: "Update a notification template" })
+  @Doc({
+    summary: "Update a notification template",
+    ok: "Updated template",
+    permission: true,
+    notFound: true,
+    bodyType: UpdateTemplateDto,
+    params: [{ name: "id", description: "Template ID" }],
+  })
   updateTemplate(@Param("id") id: string, @Body() dto: UpdateTemplateDto) {
     return this.templatesService.update(id, dto);
   }
 
   @Delete("templates/:id")
-  @ApiOperation({ summary: "Delete a notification template" })
+  @Doc({
+    summary: "Delete a notification template",
+    ok: "Template deleted",
+    permission: true,
+    notFound: true,
+    params: [{ name: "id", description: "Template ID" }],
+  })
   deleteTemplate(@Param("id") id: string) {
     return this.templatesService.delete(id);
   }
@@ -168,7 +240,12 @@ export class NotificationsController {
   // ─── Send Notification ─────────────────────────────────────
 
   @Post("send")
-  @ApiOperation({ summary: "Send email/SMS notification to selected employees" })
+  @Doc({
+    summary: "Send email/SMS notification to selected employees",
+    ok: "Send result",
+    permission: true,
+    bodyType: SendNotificationDto,
+  })
   sendNotification(@Body() dto: SendNotificationDto) {
     return this.notificationService.send(dto);
   }
@@ -176,7 +253,11 @@ export class NotificationsController {
   // ─── Logs ──────────────────────────────────────────────────
 
   @Get("logs")
-  @ApiOperation({ summary: "Get paginated notification logs" })
+  @Doc({
+    summary: "Get paginated notification logs",
+    ok: "Paginated notification logs",
+    permission: true,
+  })
   getLogs(
     @Query("page") page?: string,
     @Query("limit") limit?: string,

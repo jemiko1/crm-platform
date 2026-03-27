@@ -16,6 +16,7 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
@@ -30,7 +31,9 @@ import { ChangeStatusDto } from '../dto/change-status.dto';
 import { LinkClientDto } from '../dto/link-client.dto';
 import { CreateCannedResponseDto } from '../dto/create-canned-response.dto';
 import { UpdateCannedResponseDto } from '../dto/update-canned-response.dto';
+import { Doc } from '../../common/openapi/doc-endpoint.decorator';
 
+@ApiTags('ClientChatsAgent')
 @Controller('v1/clientchats')
 @UseGuards(JwtAuthGuard, PositionPermissionGuard)
 export class ClientChatsAgentController {
@@ -42,12 +45,18 @@ export class ClientChatsAgentController {
 
   @Get('unread-count')
   @RequirePermission('client_chats.menu')
+  @Doc({ summary: 'Unread client chat count for current user', ok: 'Count payload', permission: true })
   getUnreadCount(@Req() req: any) {
     return this.core.getUnreadCount(req.user.id);
   }
 
   @Get('conversations')
   @RequirePermission('client_chats.menu')
+  @Doc({
+    summary: 'List conversations (queue vs mine based on role)',
+    ok: 'Paged conversations',
+    permission: true,
+  })
   async listConversations(@Query() query: ConversationQueryDto, @Req() req: any) {
     const isManager =
       req.user.isSuperAdmin ||
@@ -65,12 +74,30 @@ export class ClientChatsAgentController {
 
   @Get('conversations/:id')
   @RequirePermission('client_chats.menu')
+  @Doc({
+    summary: 'Get conversation detail',
+    ok: 'Conversation row',
+    permission: true,
+    notFound: true,
+    params: [{ name: 'id', description: 'Conversation UUID' }],
+  })
   getConversation(@Param('id') id: string) {
     return this.core.getConversation(id);
   }
 
   @Get('conversations/:id/messages')
   @RequirePermission('client_chats.menu')
+  @Doc({
+    summary: 'Paged messages for conversation',
+    ok: 'Message list',
+    permission: true,
+    notFound: true,
+    params: [{ name: 'id', description: 'Conversation UUID' }],
+    queries: [
+      { name: 'page', description: 'Page number' },
+      { name: 'limit', description: 'Page size' },
+    ],
+  })
   getMessages(
     @Param('id') id: string,
     @Query('page') page?: string,
@@ -93,6 +120,14 @@ export class ClientChatsAgentController {
 
   @Post('conversations/:id/reply')
   @RequirePermission('client_chats.menu')
+  @Doc({
+    summary: 'Reply to customer (multipart: text and/or file)',
+    ok: 'Outbound message result',
+    permission: true,
+    notFound: true,
+    badRequest: true,
+    params: [{ name: 'id', description: 'Conversation UUID' }],
+  })
   @UseInterceptors(
     FileInterceptor('file', {
       limits: { fileSize: 10 * 1024 * 1024 },
@@ -137,30 +172,71 @@ export class ClientChatsAgentController {
 
   @Post('conversations/:id/join')
   @RequirePermission('client_chats.menu')
+  @Doc({
+    summary: 'Join conversation from queue',
+    ok: 'Assignment result',
+    permission: true,
+    notFound: true,
+    params: [{ name: 'id', description: 'Conversation UUID' }],
+  })
   joinConversation(@Param('id') id: string, @Req() req: any) {
     return this.assignment.joinConversation(id, req.user.id);
   }
 
   @Patch('conversations/:id/assign')
   @RequirePermission('client_chats.menu')
+  @Doc({
+    summary: 'Assign or unassign conversation',
+    ok: 'Updated conversation',
+    permission: true,
+    notFound: true,
+    bodyType: AssignConversationDto,
+    params: [{ name: 'id', description: 'Conversation UUID' }],
+  })
   assign(@Param('id') id: string, @Body() dto: AssignConversationDto) {
     return this.core.assignConversation(id, dto.userId ?? null);
   }
 
   @Patch('conversations/:id/status')
   @RequirePermission('client_chats.menu')
+  @Doc({
+    summary: 'Change conversation status',
+    ok: 'Updated status',
+    permission: true,
+    notFound: true,
+    bodyType: ChangeStatusDto,
+    params: [{ name: 'id', description: 'Conversation UUID' }],
+  })
   changeStatus(@Param('id') id: string, @Body() dto: ChangeStatusDto) {
     return this.core.changeStatus(id, dto.status);
   }
 
   @Post('conversations/:id/request-reopen')
   @RequirePermission('client_chats.menu')
+  @Doc({
+    summary: 'Request reopen of closed conversation',
+    ok: 'Request recorded',
+    permission: true,
+    notFound: true,
+    params: [{ name: 'id', description: 'Conversation UUID' }],
+  })
   requestReopen(@Param('id') id: string, @Req() req: any) {
     return this.core.requestReopen(id, req.user.id);
   }
 
   @Get('conversations/:id/history')
   @RequirePermission('client_chats.menu')
+  @Doc({
+    summary: 'Conversation history (archived thread)',
+    ok: 'History pages',
+    permission: true,
+    notFound: true,
+    params: [{ name: 'id', description: 'Conversation UUID' }],
+    queries: [
+      { name: 'page', description: 'Page number' },
+      { name: 'limit', description: 'Page size' },
+    ],
+  })
   getConversationHistory(
     @Param('id') id: string,
     @Query('page') page?: string,
@@ -175,24 +251,50 @@ export class ClientChatsAgentController {
 
   @Post('conversations/:id/link-client')
   @RequirePermission('client_chats.menu')
+  @Doc({
+    summary: 'Link CRM client to conversation',
+    ok: 'Updated conversation',
+    permission: true,
+    notFound: true,
+    bodyType: LinkClientDto,
+    params: [{ name: 'id', description: 'Conversation UUID' }],
+  })
   linkClient(@Param('id') id: string, @Body() dto: LinkClientDto) {
     return this.core.linkClient(id, dto.clientId);
   }
 
   @Post('conversations/:id/unlink-client')
   @RequirePermission('client_chats.menu')
+  @Doc({
+    summary: 'Remove CRM client link',
+    ok: 'Updated conversation',
+    permission: true,
+    notFound: true,
+    params: [{ name: 'id', description: 'Conversation UUID' }],
+  })
   unlinkClient(@Param('id') id: string) {
     return this.core.unlinkClient(id);
   }
 
   @Get('whatsapp/templates')
   @RequirePermission('client_chats.menu')
+  @Doc({
+    summary: 'WhatsApp Cloud API templates',
+    ok: 'Template metadata from provider',
+    permission: true,
+  })
   getWhatsAppTemplates() {
     return this.core.getWhatsAppTemplates();
   }
 
   @Post('whatsapp/send-template')
   @RequirePermission('client_chats.menu')
+  @Doc({
+    summary: 'Send WhatsApp template message',
+    ok: 'Provider send result',
+    permission: true,
+    notFound: true,
+  })
   sendWhatsAppTemplate(
     @Body()
     dto: {
@@ -214,6 +316,13 @@ export class ClientChatsAgentController {
 
   @Get('media/:mediaId')
   @RequirePermission('client_chats.menu')
+  @Doc({
+    summary: 'Proxy WhatsApp media binary',
+    ok: 'Streamed media response',
+    permission: true,
+    notFound: true,
+    params: [{ name: 'mediaId', description: 'WhatsApp media ID' }],
+  })
   async proxyMedia(
     @Param('mediaId') mediaId: string,
     @Res() res: Response,
@@ -229,6 +338,16 @@ export class ClientChatsAgentController {
 
   @Get('canned-responses')
   @RequirePermission('client_chats.menu')
+  @Doc({
+    summary: 'List canned responses for operator',
+    ok: 'Canned response rows',
+    permission: true,
+    queries: [
+      { name: 'category', description: 'Category filter' },
+      { name: 'channelType', description: 'Channel filter' },
+      { name: 'search', description: 'Text search' },
+    ],
+  })
   listCannedResponses(
     @Req() req: any,
     @Query('category') category?: string,
@@ -244,6 +363,13 @@ export class ClientChatsAgentController {
 
   @Post('canned-responses')
   @RequirePermission('client_chats.menu')
+  @Doc({
+    summary: 'Create canned response',
+    ok: 'Created canned response',
+    permission: true,
+    status: 201,
+    bodyType: CreateCannedResponseDto,
+  })
   createCannedResponse(
     @Req() req: any,
     @Body() dto: CreateCannedResponseDto,
@@ -257,6 +383,14 @@ export class ClientChatsAgentController {
 
   @Put('canned-responses/:id')
   @RequirePermission('client_chats.menu')
+  @Doc({
+    summary: 'Update canned response',
+    ok: 'Updated canned response',
+    permission: true,
+    notFound: true,
+    bodyType: UpdateCannedResponseDto,
+    params: [{ name: 'id', description: 'Canned response UUID' }],
+  })
   updateCannedResponse(
     @Param('id') id: string,
     @Req() req: any,
@@ -272,6 +406,13 @@ export class ClientChatsAgentController {
 
   @Delete('canned-responses/:id')
   @RequirePermission('client_chats.menu')
+  @Doc({
+    summary: 'Delete canned response',
+    ok: 'Deletion result',
+    permission: true,
+    notFound: true,
+    params: [{ name: 'id', description: 'Canned response UUID' }],
+  })
   deleteCannedResponse(@Param('id') id: string, @Req() req: any) {
     return this.cannedResponses.delete(
       id,

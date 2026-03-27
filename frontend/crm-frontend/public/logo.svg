@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 312 72" width="584" height="144">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#DC693C"/>
+      <stop offset="100%" stop-color="#AF3A16"/>
+    </linearGradient>
+    <clipPath id="c">
+      <rect x="240" y="0" width="72" height="72" rx="15.5" ry="15.5"/>
+    </clipPath>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@700&display=swap');
+    </style>
+  </defs>
+
+  <text
+    x="0"
+    y="72"
+    dominant-baseline="auto"
+    text-anchor="start"
+    font-family="'Outfit', 'Helvetica Neue', Arial, sans-serif"
+    font-weight="700"
+    font-size="99"
+    letter-spacing="4"
+    fill="#1A140D"
+  >CRM</text>
+
+  <rect x="240" y="0" width="72" height="72" rx="15.5" ry="15.5" fill="url(#g)"/>
+  <rect x="240" y="0" width="72" height="36" rx="15.5" ry="15.5" fill="white" fill-opacity="0.07" clip-path="url(#c)"/>
+  <text
+    x="276"
+    y="47"
+    text-anchor="middle"
+    dominant-baseline="auto"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-weight="700"
+    font-size="46"
+    letter-spacing="-1"
+    fill="rgba(255,255,255,0.97)"
+  >28</text>
+
+</svg>

@@ -14,6 +14,7 @@ import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { CoreWebhookGuard } from "./core-webhook.guard";
 import { CoreSyncService } from "./core-sync.service";
 import { CoreWebhookDto } from "./dto/webhook-event.dto";
+import { Doc } from "../common/openapi/doc-endpoint.decorator";
 
 @ApiTags("CoreIntegration")
 @Controller("v1/integrations/core")
@@ -29,6 +30,12 @@ export class CoreIntegrationController {
 
   @Post("webhook")
   @UseGuards(CoreWebhookGuard)
+  @Doc({
+    summary: "Core system webhook (HMAC / shared secret)",
+    ok: "Processing or duplicate acknowledgment",
+    noAuth: true,
+    bodyType: CoreWebhookDto,
+  })
   async handleWebhook(@Body() dto: CoreWebhookDto) {
     const existing = await this.prisma.syncEvent.findUnique({
       where: { eventId: dto.eventId },
@@ -77,6 +84,10 @@ export class CoreIntegrationController {
 
   @Get("status")
   @UseGuards(JwtAuthGuard)
+  @Doc({
+    summary: "Core sync diagnostics (last 24h)",
+    ok: "Event counts and last processed/failed metadata",
+  })
   async getStatus() {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
@@ -114,6 +125,14 @@ export class CoreIntegrationController {
 
   @Get("events")
   @UseGuards(JwtAuthGuard)
+  @Doc({
+    summary: "Recent sync events",
+    ok: "Paged sync event rows",
+    queries: [
+      { name: "status", description: "Filter by event status" },
+      { name: "limit", description: "Max rows (1–100)" },
+    ],
+  })
   async getEvents(
     @Query("status") status?: string,
     @Query("limit") limit?: string,

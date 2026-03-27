@@ -9,6 +9,7 @@ import {
   Logger,
   HttpCode,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import { JwtService } from '@nestjs/jwt';
 import type { Request, Response } from 'express';
@@ -31,8 +32,10 @@ import { StartChatDto } from '../dto/start-chat.dto';
 import { SendWidgetMessageDto } from '../dto/send-widget-message.dto';
 import { ConversationTokenPayload } from '../guards/conversation-token.guard';
 import { randomUUID } from 'crypto';
+import { Doc } from '../../common/openapi/doc-endpoint.decorator';
 
 @SkipThrottle()
+@ApiTags('ClientChatsPublic')
 @Controller('public/clientchats')
 export class ClientChatsPublicController {
   private readonly logger = new Logger(ClientChatsPublicController.name);
@@ -51,6 +54,13 @@ export class ClientChatsPublicController {
   // ── Web Widget ─────────────────────────────────────────
 
   @Post('start')
+  @Doc({
+    summary: 'Start web widget chat session',
+    ok: 'conversationId, visitorId, and conversation JWT',
+    noAuth: true,
+    status: 200,
+    bodyType: StartChatDto,
+  })
   async startChat(@Body() dto: StartChatDto) {
     const visitorId = dto.visitorId || randomUUID();
     const account = await this.core.getOrCreateDefaultAccount(
@@ -94,6 +104,12 @@ export class ClientChatsPublicController {
 
   @Post('message')
   @UseGuards(ConversationTokenGuard)
+  @Doc({
+    summary: 'Send widget message (conversation token)',
+    ok: 'messageId or error payload',
+    noAuth: true,
+    bodyType: SendWidgetMessageDto,
+  })
   async sendWidgetMessage(
     @Body() dto: SendWidgetMessageDto,
     @Req() req: Request,
@@ -123,6 +139,12 @@ export class ClientChatsPublicController {
   @Post('webhook/viber')
   @UseGuards(ViberWebhookGuard)
   @HttpCode(200)
+  @Doc({
+    summary: 'Viber inbound webhook',
+    ok: 'Viber acknowledgment payload',
+    noAuth: true,
+    status: 200,
+  })
   async viberWebhook(@Body() body: unknown) {
     try {
       const b = body as Record<string, unknown>;
@@ -164,6 +186,12 @@ export class ClientChatsPublicController {
   // ── Facebook Webhook ───────────────────────────────────
 
   @Get('webhook/facebook')
+  @Doc({
+    summary: 'Facebook webhook verification (Meta challenge)',
+    ok: 'hub.challenge string or error text',
+    noAuth: true,
+    badRequest: true,
+  })
   async facebookVerify(@Req() req: Request, @Res() res: Response) {
     const challenge = this.facebook.getVerificationChallenge(req);
     if (!challenge) {
@@ -189,6 +217,12 @@ export class ClientChatsPublicController {
   @Post('webhook/facebook')
   @UseGuards(FacebookWebhookGuard)
   @HttpCode(200)
+  @Doc({
+    summary: 'Facebook inbound webhook',
+    ok: 'EVENT_RECEIVED acknowledgment',
+    noAuth: true,
+    status: 200,
+  })
   async facebookWebhook(@Body() body: unknown) {
     try {
       const account = await this.core.getOrCreateDefaultAccount(
@@ -226,6 +260,12 @@ export class ClientChatsPublicController {
   @Post('webhook/telegram')
   @UseGuards(TelegramWebhookGuard)
   @HttpCode(200)
+  @Doc({
+    summary: 'Telegram inbound webhook',
+    ok: '{ ok: true } acknowledgment',
+    noAuth: true,
+    status: 200,
+  })
   async telegramWebhook(@Body() body: unknown) {
     try {
       const account = await this.core.getOrCreateDefaultAccount(
@@ -261,6 +301,12 @@ export class ClientChatsPublicController {
   // ── WhatsApp Webhook ───────────────────────────────────
 
   @Get('webhook/whatsapp')
+  @Doc({
+    summary: 'WhatsApp webhook verification (Meta challenge)',
+    ok: 'hub.challenge string or error text',
+    noAuth: true,
+    badRequest: true,
+  })
   async whatsappVerify(@Req() req: Request, @Res() res: Response) {
     const challenge = this.whatsapp.getVerificationChallenge(req);
     if (!challenge) {
@@ -285,6 +331,12 @@ export class ClientChatsPublicController {
   @Post('webhook/whatsapp')
   @UseGuards(WhatsAppWebhookGuard)
   @HttpCode(200)
+  @Doc({
+    summary: 'WhatsApp inbound webhook',
+    ok: 'EVENT_RECEIVED acknowledgment',
+    noAuth: true,
+    status: 200,
+  })
   async whatsappWebhook(@Body() body: unknown) {
     try {
       const account = await this.core.getOrCreateDefaultAccount(

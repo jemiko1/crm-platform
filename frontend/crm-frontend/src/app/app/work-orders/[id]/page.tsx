@@ -758,7 +758,7 @@ export default function WorkOrderDetailPage() {
 
       {/* Delete Confirmation Dialog */}
       {mounted && showDeleteConfirm && inventoryImpact && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[50000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-xl rounded-3xl bg-white shadow-2xl overflow-hidden">
             {/* Header */}
             <div className="px-6 py-5 bg-gradient-to-r from-red-500 to-red-600">
@@ -1042,7 +1042,7 @@ export default function WorkOrderDetailPage() {
 
       {/* Simple Delete Confirmation Dialog (No Inventory Impact) */}
       {mounted && showSimpleDeleteConfirm && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[50000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl overflow-hidden">
             {/* Header */}
             <div className="px-6 py-5 bg-gradient-to-r from-zinc-600 to-zinc-700">

@@ -4,6 +4,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { TelephonyIngestGuard } from '../guards/telephony-ingest.guard';
 import { TelephonyIngestionService } from '../services/telephony-ingestion.service';
 import { IngestEventsDto } from '../dto/ingest-event.dto';
+import { Doc } from '../../common/openapi/doc-endpoint.decorator';
 
 @SkipThrottle()
 @ApiTags('Telephony')
@@ -13,6 +14,12 @@ export class TelephonyIngestionController {
 
   @Post('events')
   @UseGuards(TelephonyIngestGuard)
+  @Doc({
+    summary: 'AMI bridge batch ingest (shared secret)',
+    ok: 'Ingest processing summary',
+    noAuth: true,
+    bodyType: IngestEventsDto,
+  })
   async ingestEvents(@Body() dto: IngestEventsDto) {
     return this.ingestionService.ingestBatch(dto.events);
   }

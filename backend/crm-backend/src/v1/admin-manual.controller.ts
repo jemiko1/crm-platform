@@ -1,6 +1,7 @@
 import { Body, Controller, Param, ParseIntPipe, Post, Patch, Req, UseGuards } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 
+import { Doc } from "../common/openapi/doc-endpoint.decorator";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { FeatureFlagGuard } from "../common/guards/feature-flag.guard";
 import { AdminOnlyGuard } from "../common/guards/admin-only.guard";
@@ -25,6 +26,13 @@ export class AdminManualController {
   ) {}
 
   @Post("buildings")
+  @Doc({
+    summary: "Manual create building (admin + feature flag)",
+    ok: "Created building",
+    permission: true,
+    status: 201,
+    bodyType: CreateBuildingDto,
+  })
   async createBuilding(@Body() dto: CreateBuildingDto, @Req() req: any) {
     const created = await this.buildings.createManual(dto);
 
@@ -40,6 +48,14 @@ export class AdminManualController {
   }
 
   @Patch("buildings/:buildingCoreId")
+  @Doc({
+    summary: "Manual update building (admin + feature flag)",
+    ok: "Updated building",
+    permission: true,
+    notFound: true,
+    bodyType: UpdateBuildingDto,
+    params: [{ name: "buildingCoreId", description: "Building core ID", type: "number" }],
+  })
   async updateBuilding(
     @Param("buildingCoreId", ParseIntPipe) buildingCoreId: number,
     @Body() dto: UpdateBuildingDto,
@@ -59,6 +75,14 @@ export class AdminManualController {
   }
 
   @Post("buildings/:buildingCoreId/clients")
+  @Doc({
+    summary: "Manual create client under building(s)",
+    ok: "Created client",
+    permission: true,
+    status: 201,
+    bodyType: AdminCreateClientDto,
+    params: [{ name: "buildingCoreId", description: "Primary building core ID", type: "number" }],
+  })
   async createClient(
     @Param("buildingCoreId", ParseIntPipe) buildingCoreId: number,
     @Body() dto: AdminCreateClientDto,
@@ -87,6 +111,14 @@ export class AdminManualController {
   }
 
   @Post("buildings/:buildingCoreId/assets")
+  @Doc({
+    summary: "Manual create asset in building",
+    ok: "Created asset",
+    permission: true,
+    status: 201,
+    bodyType: AdminCreateAssetDto,
+    params: [{ name: "buildingCoreId", description: "Building core ID", type: "number" }],
+  })
   async createAsset(
     @Param("buildingCoreId", ParseIntPipe) buildingCoreId: number,
     @Body() dto: AdminCreateAssetDto,

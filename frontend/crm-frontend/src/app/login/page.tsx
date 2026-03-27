@@ -1,11 +1,36 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
-import Link from "next/link";
+import { Suspense, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { API_BASE } from "@/lib/api";
 
 const BRIDGE_URL = "http://127.0.0.1:19876";
+
+function apiUnreachableMessage(): string {
+  return "Cannot reach the CRM API on port 3000. From backend/crm-backend run: pnpm start:dev. If the terminal shows EADDRINUSE, port 3000 is already in use—stop the other Node process (PowerShell: netstat -ano | findstr :3000, then taskkill /PID <pid> /F) and start the backend again.";
+}
+
+function loginFailureMessage(res: Response, body: unknown): string {
+  if (res.status === 502 || res.status === 503 || res.status === 504) {
+    return apiUnreachableMessage();
+  }
+  if (typeof body === "object" && body !== null && "message" in body) {
+    const m = (body as { message?: unknown }).message;
+    if (typeof m === "string") return m;
+    if (Array.isArray(m)) return m.filter((x) => typeof x === "string").join(", ");
+  }
+  return "Invalid email or password";
+}
+
+function isLikelyNetworkFailure(message: string): boolean {
+  return (
+    message === "Failed to fetch" ||
+    message === "Load failed" ||
+    message.includes("NetworkError") ||
+    message.includes("ECONNRESET")
+  );
+}
 
 function LoginPageContent() {
   const router = useRouter();
@@ -22,23 +47,32 @@ function LoginPageContent() {
     appExtension: string;
   } | null>(null);
   const [switchingPhone, setSwitchingPhone] = useState(false);
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  async function checkDesktopPhone(loggedInUserId: string) {
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  /** @returns true if CRM Phone is logged in as a different user (show modal, skip redirect). */
+  async function checkDesktopPhone(loggedInUserId: string): Promise<boolean> {
     try {
       const res = await fetch(`${BRIDGE_URL}/status`, {
         signal: AbortSignal.timeout(2000),
       });
-      if (!res.ok) return;
+      if (!res.ok) return false;
       const status = await res.json();
       if (status.loggedIn && status.user && status.user.id !== loggedInUserId) {
         setPhoneMismatch({
           appUserName: status.user.name,
           appExtension: status.user.extension,
         });
+        return true;
       }
     } catch {
       // App not running
     }
+    return false;
   }
 
   async function handleSwitchPhone() {
@@ -82,24 +116,26 @@ function LoginPageContent() {
 
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        throw new Error(body?.message || "Invalid email or password");
+        throw new Error(loginFailureMessage(res, body));
       }
 
       void remember; // UI-only for now
 
       const data = await res.json();
       const userId = data?.user?.id;
-      if (userId) {
-        await checkDesktopPhone(userId);
-      }
+      const phoneBlocksRedirect =
+        userId ? await checkDesktopPhone(userId) : false;
 
-      if (!phoneMismatch) {
+      if (!phoneBlocksRedirect) {
         router.push(next);
         router.refresh();
       }
     } catch (err: unknown) {
-      const msg =
+      let msg =
         err instanceof Error ? err.message : "Invalid email or password";
+      if (isLikelyNetworkFailure(msg)) {
+        msg = apiUnreachableMessage();
+      }
       setError(msg);
     } finally {
       setLoading(false);
@@ -186,12 +222,13 @@ function LoginPageContent() {
                   Remember me
                 </label>
 
-                <Link
-                  href="#"
+                <button
+                  type="button"
+                  onClick={() => setShowForgotModal(true)}
                   className="text-sm text-zinc-600 hover:text-zinc-900"
                 >
                   Forgot password?
-                </Link>
+                </button>
               </div>
 
               <button
@@ -210,37 +247,75 @@ function LoginPageContent() {
         </div>
       </div>
 
-      {phoneMismatch && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm mx-4 space-y-4">
-            <h3 className="text-lg font-semibold text-zinc-900">Phone App Mismatch</h3>
-            <p className="text-sm text-zinc-600">
-              The CRM Phone app on this PC is logged in as{" "}
-              <strong>{phoneMismatch.appUserName}</strong> (ext {phoneMismatch.appExtension}).
-              Switch the phone to your account?
-            </p>
-            <div className="flex gap-3">
+      {mounted &&
+        phoneMismatch &&
+        createPortal(
+          <div className="fixed inset-0 z-[50000] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm mx-4 space-y-4">
+              <h3 className="text-lg font-semibold text-zinc-900">Phone App Mismatch</h3>
+              <p className="text-sm text-zinc-600">
+                The CRM Phone app on this PC is logged in as{" "}
+                <strong>{phoneMismatch.appUserName}</strong> (ext {phoneMismatch.appExtension}).
+                Switch the phone to your account?
+              </p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPhoneMismatch(null);
+                    router.push(next);
+                    router.refresh();
+                  }}
+                  className="flex-1 px-4 py-2 rounded-xl border border-zinc-200 text-sm text-zinc-700 hover:bg-zinc-50"
+                >
+                  Skip
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSwitchPhone}
+                  disabled={switchingPhone}
+                  className="flex-1 px-4 py-2 rounded-xl bg-teal-800 text-white text-sm font-medium hover:bg-teal-900 disabled:opacity-50"
+                >
+                  {switchingPhone ? "Switching..." : "Switch Phone"}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {mounted &&
+        showForgotModal &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[50000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+            onClick={() => setShowForgotModal(false)}
+            role="presentation"
+          >
+            <div
+              className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full space-y-4"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="forgot-password-title"
+            >
+              <h3 id="forgot-password-title" className="text-lg font-semibold text-zinc-900">
+                Forgot password?
+              </h3>
+              <p className="text-sm text-zinc-600">
+                Password resets are handled by your administrator. Please contact them to regain access to your account.
+              </p>
               <button
-                onClick={() => {
-                  setPhoneMismatch(null);
-                  router.push(next);
-                  router.refresh();
-                }}
-                className="flex-1 px-4 py-2 rounded-xl border border-zinc-200 text-sm text-zinc-700 hover:bg-zinc-50"
+                type="button"
+                onClick={() => setShowForgotModal(false)}
+                className="w-full px-4 py-2 rounded-xl bg-teal-800 text-white text-sm font-medium hover:bg-teal-900"
               >
-                Skip
-              </button>
-              <button
-                onClick={handleSwitchPhone}
-                disabled={switchingPhone}
-                className="flex-1 px-4 py-2 rounded-xl bg-teal-800 text-white text-sm font-medium hover:bg-teal-900 disabled:opacity-50"
-              >
-                {switchingPhone ? "Switching..." : "Switch Phone"}
+                Close
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

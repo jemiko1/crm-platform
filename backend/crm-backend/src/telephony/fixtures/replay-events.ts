@@ -9,8 +9,11 @@
  *   TELEPHONY_INGEST_SECRET  default test-telephony-secret
  */
 
+import { Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
+
+const logger = new Logger('ReplayTelephonyEvents');
 
 const BASE_URL = process.env.BASE_URL ?? 'http://localhost:3000';
 const SECRET = process.env.TELEPHONY_INGEST_SECRET ?? 'test-telephony-secret';
@@ -21,7 +24,7 @@ async function main() {
   const fixture = JSON.parse(raw);
   const events: any[] = fixture.events;
 
-  console.log(`Replaying ${events.length} events to ${BASE_URL}/v1/telephony/events`);
+  logger.log(`Replaying ${events.length} events to ${BASE_URL}/v1/telephony/events`);
 
   const batchSize = 5;
   let processed = 0;
@@ -53,12 +56,12 @@ async function main() {
     skipped += result.skipped ?? 0;
     errors += (result.errors?.length ?? 0);
 
-    console.log(
+    logger.log(
       `Batch ${Math.floor(i / batchSize) + 1}: processed=${result.processed}, skipped=${result.skipped}, errors=${result.errors?.length ?? 0}`,
     );
   }
 
-  console.log(`\nDone. Total: processed=${processed}, skipped=${skipped}, errors=${errors}`);
+  logger.log(`\nDone. Total: processed=${processed}, skipped=${skipped}, errors=${errors}`);
 }
 
 main().catch((err) => {
