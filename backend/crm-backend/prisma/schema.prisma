@@ -675,6 +675,7 @@ model InventoryProduct {
   unit               ProductUnit             @default(PIECE)
   lowStockThreshold  Int                     @default(10)
   currentStock       Int                     @default(0)
+  reservedStock      Int                     @default(0)
   isActive           Boolean                 @default(true)
   createdAt          DateTime                @default(now())
   updatedAt          DateTime                @updatedAt
@@ -1908,6 +1909,9 @@ enum StockTransactionType {
   ADJUSTMENT_OUT
   RETURN_IN
   DAMAGED_OUT
+  RESERVATION_HOLD
+  RESERVATION_RELEASE
+  REVERSAL_IN
 }
 
 enum LeadStatus {

@@ -23,6 +23,8 @@ import { ProductUsageDto } from "../work-orders/dto/product-usage.dto";
 import { DeactivatedDeviceDto } from "../work-orders/dto/deactivated-device.dto";
 import { AssignEmployeesDto } from "../work-orders/dto/assign-employees.dto";
 import { RequestRepairDto } from "../work-orders/dto/request-repair.dto";
+import { CancelWorkOrderDto } from "../work-orders/dto/cancel-work-order.dto";
+import { ReassignEmployeesDto } from "../work-orders/dto/reassign-employees.dto";
 import { PrismaService } from "../prisma/prisma.service";
 import { Doc } from "../common/openapi/doc-endpoint.decorator";
 
@@ -329,7 +331,6 @@ export class WorkOrdersController {
     body: {
       productUsages?: ProductUsageDto[];
       comment?: string;
-      cancelReason?: string;
     },
     @Req() req: any,
   ) {
@@ -338,29 +339,39 @@ export class WorkOrdersController {
       req.user.id,
       body.productUsages,
       body.comment,
-      body.cancelReason,
     );
   }
 
   @Post(":id/cancel")
   @Doc({
-    summary: "Cancel work order (head of technical department)",
-    ok: "Cancellation processed",
+    summary: "Cancel work order (Step 1 or Step 5 positions)",
+    ok: "Work order canceled",
     notFound: true,
     params: [{ name: "id", description: "Work order ID" }],
+    bodyType: CancelWorkOrderDto,
   })
   async cancelWorkOrder(
     @Param("id") id: string,
-    @Body() body: { cancelReason: string; comment?: string },
+    @Body() body: CancelWorkOrderDto,
     @Req() req: any,
   ) {
-    return this.workOrdersService.approveWorkOrder(
-      id,
-      req.user.id,
-      undefined,
-      body.comment,
-      body.cancelReason,
-    );
+    return this.workOrdersService.cancelWorkOrder(id, body, req.user.id);
+  }
+
+  @Post(":id/reassign")
+  @Doc({
+    summary: "Reassign employees on a work order (Step 1 positions only)",
+    ok: "Employees reassigned",
+    notFound: true,
+    params: [{ name: "id", description: "Work order ID" }],
+    bodyType: ReassignEmployeesDto,
+  })
+  async reassignEmployees(
+    @Param("id") id: string,
+    @Body() body: ReassignEmployeesDto,
+    @Req() req: any,
+  ) {
+    return this.workOrdersService.reassignEmployees(id, body, req.user.id);
   }
 
   @Get(":id/inventory-impact")
