@@ -7,12 +7,18 @@ import { useI18n } from "@/hooks/useI18n";
 
 const BRAND = "rgb(0, 86, 83)";
 
+/** Available stock — prefers availableStock (currentStock - reservedStock), falls back to currentStock */
+function availableStockOf(p: { currentStock: number; availableStock?: number } | undefined): number {
+  return p ? (p.availableStock ?? p.currentStock) : 0;
+}
+
 type Product = {
   id: string;
   name: string;
   sku: string;
   category: string;
   currentStock: number;
+  availableStock?: number;
 };
 
 type ProductUsage = {
@@ -56,6 +62,8 @@ export default function ProductUsageSection({
   onUpdate,
 }: ProductUsageSectionProps) {
   const { t } = useI18n();
+  const stock = availableStockOf;
+
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +79,7 @@ export default function ProductUsageSection({
         const res = await apiGet<any>("/v1/inventory/products");
         const list = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
         if (!cancelled) {
-          setProducts(list.filter((p: any) => p.currentStock > 0));
+          setProducts(list.filter((p: any) => (p.availableStock ?? p.currentStock) > 0));
         }
       } catch (err) {
         if (!cancelled) {
@@ -195,7 +203,7 @@ export default function ProductUsageSection({
                     <input
                       type="number"
                       min="0"
-                      max={products.find((p) => p.id === usage.product.id)?.currentStock || 0}
+                      max={stock(products.find((p) => p.id === usage.product.id))}
                       value={currentQuantity}
                       onChange={(e) => {
                         const newQty = parseInt(e.target.value) || 0;
@@ -272,7 +280,7 @@ export default function ProductUsageSection({
                       {product?.name || "Unknown Product"}
                     </div>
                     <div className="mt-1 text-xs text-zinc-500">
-                      SKU: {product?.sku || "N/A"} • Stock: {product?.currentStock || 0}
+                      SKU: {product?.sku || "N/A"} • Stock: {stock(product)}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -280,11 +288,11 @@ export default function ProductUsageSection({
                     <input
                       type="number"
                       min="1"
-                      max={product?.currentStock || 0}
+                      max={stock(product)}
                       value={usage.quantity}
                       onChange={(e) => {
                         const newQty = parseInt(e.target.value) || 1;
-                        if (newQty > 0 && newQty <= (product?.currentStock || 0)) {
+                        if (newQty > 0 && newQty <= stock(product)) {
                           updateUsage(actualIndex >= 0 ? actualIndex : index, "quantity", newQty);
                         }
                       }}
@@ -292,8 +300,8 @@ export default function ProductUsageSection({
                         const newQty = parseInt(e.target.value) || 1;
                         if (newQty < 1) {
                           updateUsage(actualIndex >= 0 ? actualIndex : index, "quantity", 1);
-                        } else if (newQty > (product?.currentStock || 0)) {
-                          updateUsage(actualIndex >= 0 ? actualIndex : index, "quantity", product?.currentStock || 1);
+                        } else if (newQty > stock(product)) {
+                          updateUsage(actualIndex >= 0 ? actualIndex : index, "quantity", stock(product) || 1);
                         }
                       }}
                       className="w-20 rounded-xl border-zinc-300 bg-white px-2 py-1 text-sm text-center focus:border-teal-500 focus:ring-teal-500 transition-colors"
@@ -441,7 +449,7 @@ function AddProductModal({
               <option value="">Select product</option>
               {products.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} (Stock: {p.currentStock})
+                  {p.name} (Stock: {availableStockOf(p)})
                 </option>
               ))}
             </select>
@@ -452,13 +460,13 @@ function AddProductModal({
               <input
                 type="number"
                 min="1"
-                max={selectedProduct.currentStock}
+                max={availableStockOf(selectedProduct)}
                 value={quantity}
                 onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
                 className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm text-zinc-900 ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-teal-500/30"
               />
               <div className="mt-1 text-xs text-zinc-500">
-                Available: {selectedProduct.currentStock}
+                Available: {availableStockOf(selectedProduct)}
               </div>
             </div>
           )}

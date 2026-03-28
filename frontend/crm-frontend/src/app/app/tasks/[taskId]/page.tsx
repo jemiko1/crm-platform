@@ -157,6 +157,7 @@ export default function TaskDetailPage() {
   const [showCancelForm, setShowCancelForm] = useState(false);
   const [modifiedProducts, setModifiedProducts] = useState<{ productId: string; quantity: number; productName?: string; productSku?: string }[]>([]);
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showReassignModal, setShowReassignModal] = useState(false);
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [availableProducts, setAvailableProducts] = useState<Product[]>([]);
   const [productSearchQuery, setProductSearchQuery] = useState("");
@@ -636,6 +637,8 @@ export default function TaskDetailPage() {
   // Step 5 positions - can approve/reject IN_PROGRESS tasks with techEmployeeComment
   const showAssignSection = canAssignEmployees && task.status === "CREATED";
   const needsHeadReview = canApprove && task.status === "IN_PROGRESS" && !!task.techEmployeeComment;
+  // Step 1 positions can cancel/reassign tasks in LINKED_TO_GROUP or IN_PROGRESS
+  const canCancelOrReassign = canAssignEmployees && (task.status === "LINKED_TO_GROUP" || task.status === "IN_PROGRESS");
   const techEmployeeSubmitted = task.status === "IN_PROGRESS" && !!task.techEmployeeComment;
 
   return (
@@ -1190,6 +1193,34 @@ export default function TaskDetailPage() {
               </div>
             )}
 
+            {/* Step 1 Position - Cancel/Reassign for active tasks */}
+            {canCancelOrReassign && (
+              <div className="rounded-3xl bg-zinc-50 p-6 shadow-sm ring-1 ring-zinc-200">
+                <h2 className="text-lg font-semibold text-zinc-900 mb-2">Task Management</h2>
+                <p className="text-sm text-zinc-600 mb-4">
+                  As a workflow manager, you can reassign employees or cancel this work order.
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowReassignModal(true)}
+                    disabled={actionLoading}
+                    className="flex-1 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    🔄 Reassign Employees
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowCancelForm(true)}
+                    disabled={actionLoading}
+                    className="flex-1 rounded-2xl bg-red-600 px-4 py-3 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                  >
+                    ✕ Cancel Work Order
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Step 5 Position - Review & Approve */}
             {needsHeadReview && (
               <div className="space-y-4">
@@ -1590,6 +1621,21 @@ export default function TaskDetailPage() {
           }}
           workOrderId={task.workOrderNumber?.toString() || task.id}
           existingAssignments={task.assignments?.map((a) => a.employee.id) || []}
+        />
+      )}
+
+      {/* Reassign Employees Modal */}
+      {showReassignModal && task && (
+        <AssignEmployeesModal
+          open={showReassignModal}
+          onClose={() => setShowReassignModal(false)}
+          onSuccess={() => {
+            setShowReassignModal(false);
+            window.location.reload();
+          }}
+          workOrderId={task.workOrderNumber?.toString() || task.id}
+          existingAssignments={[]}
+          isReassign
         />
       )}
 

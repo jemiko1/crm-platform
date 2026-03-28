@@ -13,6 +13,8 @@ import { ProductUsageDto } from "./dto/product-usage.dto";
 import { DeactivatedDeviceDto } from "./dto/deactivated-device.dto";
 import { AssignEmployeesDto } from "./dto/assign-employees.dto";
 import { RequestRepairDto } from "./dto/request-repair.dto";
+import { CancelWorkOrderDto } from "./dto/cancel-work-order.dto";
+import { ReassignEmployeesDto } from "./dto/reassign-employees.dto";
 import { BuildingsService } from "../buildings/buildings.service";
 import { AssetsService } from "../assets/assets.service";
 import { InventoryService } from "../inventory/inventory.service";
@@ -711,11 +713,24 @@ export class WorkOrdersService {
   async getInventoryImpact(idOrNumber: string) {
     const workOrder = await this.findOne(idOrNumber);
 
-    // Get approved product usages (these affected inventory)
+    // Get approved product usages (these affected inventory — stock was deducted)
     const approvedProductUsages = await this.prisma.workOrderProductUsage.findMany({
       where: {
         workOrderId: workOrder.id,
         isApproved: true,
+      },
+      include: {
+        product: {
+          select: { id: true, name: true, sku: true },
+        },
+      },
+    });
+
+    // Get unapproved product usages (these have reserved stock)
+    const unapprovedProductUsages = await this.prisma.workOrderProductUsage.findMany({
+      where: {
+        workOrderId: workOrder.id,
+        isApproved: false,
       },
       include: {
         product: {
@@ -749,8 +764,9 @@ export class WorkOrdersService {
       },
     });
 
-    const hasImpact = 
-      approvedProductUsages.length > 0 || 
+    const hasImpact =
+      approvedProductUsages.length > 0 ||
+      unapprovedProductUsages.length > 0 ||
       transferredDevices.length > 0 ||
       stockTransactions.length > 0;
 
@@ -765,6 +781,13 @@ export class WorkOrdersService {
         productSku: pu.product.sku,
         quantity: pu.quantity,
       })),
+      reservedProductUsages: unapprovedProductUsages.length,
+      reservedProducts: unapprovedProductUsages.map(pu => ({
+        productId: pu.productId,
+        productName: pu.product.name,
+        productSku: pu.product.sku,
+        quantity: pu.quantity,
+      })),
       transferredDevices: transferredDevices.length,
       deactivatedDevices: transferredDevices.map(dd => ({
         deviceId: dd.id,
@@ -773,7 +796,6 @@ export class WorkOrdersService {
         productSku: dd.product.sku,
         quantity: dd.quantity,
       })),
-      // Building product flow - not implemented in schema yet, return empty
       buildingProductFlowCount: 0,
       buildingProductFlow: [],
       inventoryTransactionsCount: stockTransactions.length,
@@ -792,15 +814,32 @@ export class WorkOrdersService {
   async remove(idOrNumber: string, revertInventory: boolean = false) {
     const workOrder = await this.findOne(idOrNumber);
 
-    if (revertInventory) {
-      // Revert all inventory changes
-      await this.revertInventoryChanges(workOrder.id);
-    }
+    // Wrap in a single transaction: revert/release + delete
+    return this.prisma.$transaction(
+      async (tx) => {
+        if (revertInventory) {
+          // Revert approved deductions + release unapproved reservations + revert device transfers
+          await this.revertInventoryChanges(workOrder.id, tx);
+        } else {
+          // Even without revert, must release reservations for unapproved usages
+          // (stock shouldn't stay reserved for a deleted work order)
+          const unapprovedUsages = workOrder.productUsages.filter((pu) => !pu.isApproved);
+          if (unapprovedUsages.length > 0) {
+            await this.inventory.releaseReservationTx(
+              tx,
+              unapprovedUsages.map((pu) => ({ productId: pu.productId, quantity: pu.quantity })),
+              workOrder.id,
+            );
+          }
+        }
 
-    // Delete the work order (cascades to related records via Prisma schema)
-    return this.prisma.workOrder.delete({
-      where: { id: workOrder.id },
-    });
+        // Delete the work order (cascades to related records via Prisma schema)
+        return tx.workOrder.delete({
+          where: { id: workOrder.id },
+        });
+      },
+      { timeout: 15000 },
+    );
   }
 
   async bulkRemove(ids: string[], revertInventory: boolean = false) {
@@ -823,53 +862,29 @@ export class WorkOrdersService {
   /**
    * Revert all inventory changes made by a work order
    */
-  private async revertInventoryChanges(workOrderId: string) {
-    // 1. Revert product usage deductions (add back to stock)
-    const approvedProductUsages = await this.prisma.workOrderProductUsage.findMany({
-      where: {
-        workOrderId,
-        isApproved: true,
-      },
-      include: {
-        product: true,
-      },
+  private async revertInventoryChanges(
+    workOrderId: string,
+    tx?: import('@prisma/client').Prisma.TransactionClient,
+  ) {
+    const client = tx || this.prisma;
+
+    // 1. Revert approved product usage deductions (add back to stock)
+    await this.inventory.revertStockForWorkOrderTx(client as any, workOrderId);
+
+    // 2. Release reservations for unapproved usages
+    const unapprovedUsages = await client.workOrderProductUsage.findMany({
+      where: { workOrderId, isApproved: false },
     });
-
-    for (const usage of approvedProductUsages) {
-      // Get current stock for balance tracking
-      const product = await this.prisma.inventoryProduct.findUnique({
-        where: { id: usage.productId },
-        select: { currentStock: true },
-      });
-      
-      const balanceBefore = product?.currentStock || 0;
-      const balanceAfter = balanceBefore + usage.quantity;
-
-      // Add back to product stock
-      await this.prisma.inventoryProduct.update({
-        where: { id: usage.productId },
-        data: {
-          currentStock: { increment: usage.quantity },
-        },
-      });
-
-      // Create reversal transaction using StockTransaction model
-      await this.prisma.stockTransaction.create({
-        data: {
-          productId: usage.productId,
-          type: 'ADJUSTMENT_IN', // Using ADJUSTMENT_IN to add back to stock
-          quantity: usage.quantity,
-          workOrderId,
-          notes: `Work order deletion reversal`,
-          performedBy: 'system',
-          balanceBefore,
-          balanceAfter,
-        },
-      });
+    if (unapprovedUsages.length > 0) {
+      await this.inventory.releaseReservationTx(
+        client as any,
+        unapprovedUsages.map((pu) => ({ productId: pu.productId, quantity: pu.quantity })),
+        workOrderId,
+      );
     }
 
-    // 2. Revert deactivated device transfers (mark as not transferred)
-    await this.prisma.deactivatedDevice.updateMany({
+    // 3. Revert deactivated device transfers (mark as not transferred)
+    await client.deactivatedDevice.updateMany({
       where: {
         workOrderId,
         transferredToStock: true,
@@ -882,10 +897,7 @@ export class WorkOrdersService {
       },
     });
 
-    // 3. Remove stock transactions for this work order
-    await this.prisma.stockTransaction.deleteMany({
-      where: { workOrderId },
-    });
+    // NOTE: Stock transactions are NEVER deleted — audit trail preserved
   }
 
   // ===== WORKFLOW METHODS =====
@@ -1049,45 +1061,52 @@ export class WorkOrdersService {
       );
     }
 
-    // Verify all products exist and have sufficient stock
-    for (const usage of productUsages) {
-      const product = await this.prisma.inventoryProduct.findUnique({
-        where: { id: usage.productId },
-      });
+    // Collect old unapproved usages so we can release their reservations
+    const oldUnapproved = workOrder.productUsages.filter((pu) => !pu.isApproved);
+    const oldReservationItems = oldUnapproved.map((pu) => ({
+      productId: pu.productId,
+      quantity: pu.quantity,
+    }));
 
-      if (!product) {
-        throw new NotFoundException(`Product with ID ${usage.productId} not found`);
-      }
+    // Single transaction: release old reservations → delete old → create new → reserve new
+    await this.prisma.$transaction(
+      async (tx) => {
+        // 1. Release old reservations (if tech is re-submitting)
+        if (oldReservationItems.length > 0) {
+          await this.inventory.releaseReservationTx(tx, oldReservationItems, workOrder.id);
+        }
 
-      if (product.currentStock < usage.quantity) {
-        throw new BadRequestException(
-          `Insufficient stock for ${product.name}. Available: ${product.currentStock}, Requested: ${usage.quantity}`,
-        );
-      }
-    }
+        // 2. Validate available stock and reserve new usages
+        const newReservationItems = productUsages.map((u) => ({
+          productId: u.productId,
+          quantity: u.quantity,
+        }));
+        await this.inventory.reserveStockTx(tx, newReservationItems, workOrder.id);
 
-    // Delete existing unapproved product usages for this work order
-    // This prevents duplication when products are re-submitted
-    await this.prisma.workOrderProductUsage.deleteMany({
-      where: {
-        workOrderId: workOrder.id,
-        isApproved: false, // Only delete unapproved ones
+        // 3. Delete old unapproved usages
+        await tx.workOrderProductUsage.deleteMany({
+          where: {
+            workOrderId: workOrder.id,
+            isApproved: false,
+          },
+        });
+
+        // 4. Create new product usage records (not yet approved)
+        await tx.workOrderProductUsage.createMany({
+          data: productUsages.map((usage) => ({
+            workOrderId: workOrder.id,
+            productId: usage.productId,
+            quantity: usage.quantity,
+            batchId: usage.batchId ?? null,
+            filledBy: employeeId,
+            isApproved: false,
+          })),
+        });
       },
-    });
+      { timeout: 15000 },
+    );
 
-    // Create product usage records (not yet approved)
-    await this.prisma.workOrderProductUsage.createMany({
-      data: productUsages.map((usage) => ({
-        workOrderId: workOrder.id,
-        productId: usage.productId,
-        quantity: usage.quantity,
-        batchId: usage.batchId ?? null,
-        filledBy: employeeId,
-        isApproved: false,
-      })),
-    });
-
-    // Get product details for activity log
+    // Activity logging AFTER tx commits (non-transactional — safe to fail independently)
     const products = await this.prisma.inventoryProduct.findMany({
       where: { id: { in: productUsages.map((u) => u.productId) } },
       select: { id: true, name: true },
@@ -1098,7 +1117,6 @@ export class WorkOrdersService {
       quantity: usage.quantity,
     }));
 
-    // Log activity - Products Added
     await this.activityService.logProductsAdded(workOrder.id, employeeId, productDetails);
 
     return this.findOne(workOrder.id);
@@ -1317,148 +1335,174 @@ export class WorkOrdersService {
     });
     const headEmployeeId = head?.id || headUserId;
 
+    // --- CANCEL PATH ---
     if (cancelReason) {
-      // Log activity - Canceled
-      await this.activityService.logCancellation(workOrder.id, headEmployeeId, cancelReason);
+      const unapprovedUsages = workOrder.productUsages.filter((pu) => !pu.isApproved);
+      const approvedUsages = workOrder.productUsages.filter((pu) => pu.isApproved);
 
-      // Log status change
-      await this.activityService.logStatusChange(
-        workOrder.id,
-        headEmployeeId,
-        "IN_PROGRESS",
-        "CANCELED",
+      await this.prisma.$transaction(
+        async (tx) => {
+          // Release reservations for unapproved usages
+          if (unapprovedUsages.length > 0) {
+            await this.inventory.releaseReservationTx(
+              tx,
+              unapprovedUsages.map((pu) => ({ productId: pu.productId, quantity: pu.quantity })),
+              workOrder.id,
+            );
+          }
+
+          // Revert stock for any approved usages (edge case)
+          if (approvedUsages.length > 0) {
+            await this.inventory.revertStockForWorkOrderTx(tx, workOrder.id);
+          }
+
+          // Set status to CANCELED
+          await tx.workOrder.update({
+            where: { id: workOrder.id },
+            data: {
+              status: "CANCELED",
+              cancelReason,
+              canceledAt: new Date(),
+              techHeadComment: comment ?? null,
+            },
+          });
+        },
+        { timeout: 15000 },
       );
 
-      // Fire workflow triggers
+      // Activity logging AFTER tx commits
+      await this.activityService.logCancellation(workOrder.id, headEmployeeId, cancelReason);
+      await this.activityService.logStatusChange(workOrder.id, headEmployeeId, "IN_PROGRESS", "CANCELED");
+
       this.triggerEngine.evaluateStatusChange(
         { id: workOrder.id, type: workOrder.type, title: workOrder.title, workOrderNumber: workOrder.workOrderNumber },
         "IN_PROGRESS",
         "CANCELED",
       ).catch(() => {});
 
-      // Cancel work order
-      return this.prisma.workOrder.update({
-        where: { id: workOrder.id },
-        data: {
-          status: "CANCELED",
-          cancelReason,
-          canceledAt: new Date(),
-          techHeadComment: comment ?? null,
-        },
-      });
+      return this.findOne(workOrder.id);
     }
 
-    // Approve work order
-    // Get product details for logging
+    // --- APPROVE PATH ---
     const existingUsages = workOrder.productUsages.filter((pu) => !pu.isApproved);
-    const existingProductIds = existingUsages.map((pu) => pu.productId);
 
-    // Fetch product names for logging
+    // Fetch product names for logging (outside tx — read-only)
+    const allProductIds = [
+      ...existingUsages.map((pu) => pu.productId),
+      ...(productUsages?.map((p) => p.productId) || []),
+    ];
     const productDetails = await this.prisma.inventoryProduct.findMany({
-      where: { id: { in: [...existingProductIds, ...(productUsages?.map(p => p.productId) || [])] } },
-      select: { id: true, name: true, sku: true, currentStock: true },
+      where: { id: { in: [...new Set(allProductIds)] } },
+      select: { id: true, name: true, sku: true },
     });
-    const productMap = new Map(productDetails.map(p => [p.id, { name: p.name, sku: p.sku, currentStock: p.currentStock }]));
+    const productMap = new Map(productDetails.map((p) => [p.id, { name: p.name, sku: p.sku }]));
 
-    // Determine what items will be deducted BEFORE writing anything
+    // Determine items to deduct
     let itemsToDeduct: { productId: string; quantity: number }[] = [];
-
     if (productUsages && productUsages.length > 0) {
-      itemsToDeduct = productUsages.map((usage) => ({ productId: usage.productId, quantity: usage.quantity }));
-    } else if (workOrder.productUsages.length > 0) {
+      itemsToDeduct = productUsages.map((u) => ({ productId: u.productId, quantity: u.quantity }));
+    } else if (existingUsages.length > 0) {
       itemsToDeduct = existingUsages.map((pu) => ({ productId: pu.productId, quantity: pu.quantity }));
     }
 
-    // Validate stock availability BEFORE committing any changes or logs
-    for (const item of itemsToDeduct) {
-      const product = productMap.get(item.productId);
-      if (!product) {
-        throw new NotFoundException(`Product with ID ${item.productId} not found`);
-      }
-      if (product.currentStock < item.quantity) {
-        throw new BadRequestException(
-          `Insufficient stock for ${product.name}. Available: ${product.currentStock}, Requested: ${item.quantity}`,
-        );
-      }
-    }
-
-    // Stock is validated — now safe to write product usages, logs, and deduct
+    // Build modification log data (for head-modified products)
+    const modifications: { name: string; sku?: string; originalQuantity?: number; newQuantity: number; action: 'added' | 'modified' | 'removed' }[] = [];
     if (productUsages && productUsages.length > 0) {
-      const modifications: { name: string; sku?: string; originalQuantity?: number; newQuantity: number; action: 'added' | 'modified' | 'removed' }[] = [];
-
       for (const usage of productUsages) {
-        const existing = existingUsages.find(eu => eu.productId === usage.productId);
-        const productInfo = productMap.get(usage.productId);
+        const existing = existingUsages.find((eu) => eu.productId === usage.productId);
+        const info = productMap.get(usage.productId);
         if (existing) {
           if (existing.quantity !== usage.quantity) {
-            modifications.push({ name: productInfo?.name || 'Unknown', sku: productInfo?.sku, originalQuantity: existing.quantity, newQuantity: usage.quantity, action: 'modified' });
+            modifications.push({ name: info?.name || 'Unknown', sku: info?.sku, originalQuantity: existing.quantity, newQuantity: usage.quantity, action: 'modified' });
           }
         } else {
-          modifications.push({ name: productInfo?.name || 'Unknown', sku: productInfo?.sku, newQuantity: usage.quantity, action: 'added' });
+          modifications.push({ name: info?.name || 'Unknown', sku: info?.sku, newQuantity: usage.quantity, action: 'added' });
         }
       }
-
       for (const existing of existingUsages) {
-        if (!productUsages.find(pu => pu.productId === existing.productId)) {
-          const productInfo = productMap.get(existing.productId);
-          modifications.push({ name: productInfo?.name || 'Unknown', sku: productInfo?.sku, originalQuantity: existing.quantity, newQuantity: 0, action: 'removed' });
+        if (!productUsages.find((pu) => pu.productId === existing.productId)) {
+          const info = productMap.get(existing.productId);
+          modifications.push({ name: info?.name || 'Unknown', sku: info?.sku, originalQuantity: existing.quantity, newQuantity: 0, action: 'removed' });
         }
-      }
-
-      if (modifications.length > 0) {
-        await this.activityService.logProductsModified(workOrder.id, headEmployeeId, modifications);
-      }
-
-      await this.prisma.$transaction(async (tx) => {
-        await tx.workOrderProductUsage.deleteMany({
-          where: { workOrderId: workOrder.id, isApproved: false },
-        });
-
-        await tx.workOrderProductUsage.createMany({
-          data: productUsages.map((usage) => ({
-            workOrderId: workOrder.id,
-            productId: usage.productId,
-            quantity: usage.quantity,
-            batchId: usage.batchId ?? null,
-            filledBy: workOrder.productUsages[0]?.filledBy ?? null,
-            modifiedBy: headUserId,
-            isApproved: true,
-            approvedBy: headUserId,
-            approvedAt: new Date(),
-          })),
-        });
-      });
-
-      const approvedProducts = productUsages.map(usage => ({
-        name: productMap.get(usage.productId)?.name || 'Unknown',
-        sku: productMap.get(usage.productId)?.sku,
-        quantity: usage.quantity,
-      }));
-      await this.activityService.logProductsApproved(workOrder.id, headEmployeeId, approvedProducts);
-    } else if (workOrder.productUsages.length > 0) {
-      await this.prisma.workOrderProductUsage.updateMany({
-        where: { workOrderId: workOrder.id, isApproved: false },
-        data: { isApproved: true, approvedBy: headUserId, approvedAt: new Date() },
-      });
-
-      const approvedProducts = existingUsages.map(usage => ({
-        name: productMap.get(usage.productId)?.name || 'Unknown',
-        sku: productMap.get(usage.productId)?.sku,
-        quantity: usage.quantity,
-      }));
-      if (approvedProducts.length > 0) {
-        await this.activityService.logProductsApproved(workOrder.id, headEmployeeId, approvedProducts);
       }
     }
 
-    // Stock deduction — stock was pre-validated, but deductStockForWorkOrder
-    // still does its own check + FIFO batch deduction in a transaction
-    if (itemsToDeduct.length > 0) {
-      await this.inventory.deductStockForWorkOrder({
-        workOrderId: workOrder.id,
-        items: itemsToDeduct,
-        performedBy: headUserId,
-      });
+    // Items that had reservations (the unapproved usages before this approval)
+    const reservationItems = existingUsages.map((pu) => ({
+      productId: pu.productId,
+      quantity: pu.quantity,
+    }));
+
+    // SINGLE ATOMIC TRANSACTION: release reservations → write usages as approved → FIFO deduct → set COMPLETED
+    await this.prisma.$transaction(
+      async (tx) => {
+        // 1. Release reservations for unapproved usages
+        if (reservationItems.length > 0) {
+          await this.inventory.releaseReservationTx(tx, reservationItems, workOrder.id);
+        }
+
+        // 2. Write product usages as approved
+        if (productUsages && productUsages.length > 0) {
+          // Head modified products — delete old, create new as approved
+          await tx.workOrderProductUsage.deleteMany({
+            where: { workOrderId: workOrder.id, isApproved: false },
+          });
+
+          await tx.workOrderProductUsage.createMany({
+            data: productUsages.map((usage) => ({
+              workOrderId: workOrder.id,
+              productId: usage.productId,
+              quantity: usage.quantity,
+              batchId: usage.batchId ?? null,
+              filledBy: workOrder.productUsages[0]?.filledBy ?? null,
+              modifiedBy: headUserId,
+              isApproved: true,
+              approvedBy: headUserId,
+              approvedAt: new Date(),
+            })),
+          });
+        } else if (existingUsages.length > 0) {
+          // Accept tech's usages as-is
+          await tx.workOrderProductUsage.updateMany({
+            where: { workOrderId: workOrder.id, isApproved: false },
+            data: { isApproved: true, approvedBy: headUserId, approvedAt: new Date() },
+          });
+        }
+
+        // 3. FIFO stock deduction (same tx — if this fails, usages are NOT marked approved)
+        if (itemsToDeduct.length > 0) {
+          await this.inventory.deductStockForWorkOrderTx(tx, {
+            workOrderId: workOrder.id,
+            items: itemsToDeduct,
+            performedBy: headUserId,
+          });
+        }
+
+        // 4. Set status to COMPLETED
+        await tx.workOrder.update({
+          where: { id: workOrder.id },
+          data: {
+            status: "COMPLETED",
+            completedAt: new Date(),
+            techHeadComment: comment ?? null,
+          },
+        });
+      },
+      { timeout: 15000 },
+    );
+
+    // Activity logging AFTER tx commits
+    if (modifications.length > 0) {
+      await this.activityService.logProductsModified(workOrder.id, headEmployeeId, modifications);
+    }
+
+    const approvedProducts = itemsToDeduct.map((item) => ({
+      name: productMap.get(item.productId)?.name || 'Unknown',
+      sku: productMap.get(item.productId)?.sku,
+      quantity: item.quantity,
+    }));
+    if (approvedProducts.length > 0) {
+      await this.activityService.logProductsApproved(workOrder.id, headEmployeeId, approvedProducts);
     }
 
     await this.activityService.logApproval(workOrder.id, headEmployeeId, comment);
@@ -1470,14 +1514,7 @@ export class WorkOrdersService {
       "COMPLETED",
     ).catch(() => {});
 
-    return this.prisma.workOrder.update({
-      where: { id: workOrder.id },
-      data: {
-        status: "COMPLETED",
-        completedAt: new Date(),
-        techHeadComment: comment ?? null,
-      },
-    });
+    return this.findOne(workOrder.id);
   }
 
   // Get work orders for position based on workflow configuration
@@ -1820,5 +1857,181 @@ export class WorkOrdersService {
 
       return updatedDevice;
     });
+  }
+
+  // ===== CANCEL WORK ORDER (dedicated endpoint) =====
+  async cancelWorkOrder(
+    workOrderId: string,
+    dto: CancelWorkOrderDto,
+    canceledByUserId: string,
+  ) {
+    const workOrder = await this.findOne(workOrderId);
+
+    const allowedStatuses = ["CREATED", "LINKED_TO_GROUP", "IN_PROGRESS"];
+    if (!allowedStatuses.includes(workOrder.status)) {
+      throw new BadRequestException(
+        `Cannot cancel work order with status ${workOrder.status}. Allowed: ${allowedStatuses.join(", ")}.`,
+      );
+    }
+
+    const employee = await this.prisma.employee.findFirst({
+      where: { userId: canceledByUserId },
+    });
+    const employeeId = employee?.id || canceledByUserId;
+
+    const unapprovedUsages = workOrder.productUsages.filter((pu) => !pu.isApproved);
+    const approvedUsages = workOrder.productUsages.filter((pu) => pu.isApproved);
+    const oldStatus = workOrder.status;
+
+    await this.prisma.$transaction(
+      async (tx) => {
+        // Release reservations for unapproved usages
+        if (unapprovedUsages.length > 0) {
+          await this.inventory.releaseReservationTx(
+            tx,
+            unapprovedUsages.map((pu) => ({ productId: pu.productId, quantity: pu.quantity })),
+            workOrder.id,
+          );
+        }
+
+        // Revert stock for approved usages (edge case — partial approval)
+        if (approvedUsages.length > 0) {
+          await this.inventory.revertStockForWorkOrderTx(tx, workOrder.id);
+        }
+
+        // Set status to CANCELED
+        await tx.workOrder.update({
+          where: { id: workOrder.id },
+          data: {
+            status: "CANCELED",
+            cancelReason: dto.cancelReason,
+            canceledAt: new Date(),
+          },
+        });
+      },
+      { timeout: 15000 },
+    );
+
+    // Activity logging AFTER tx commits
+    await this.activityService.logCancellation(workOrder.id, employeeId, dto.cancelReason);
+    await this.activityService.logStatusChange(workOrder.id, employeeId, oldStatus, "CANCELED");
+
+    this.triggerEngine.evaluateStatusChange(
+      { id: workOrder.id, type: workOrder.type, title: workOrder.title, workOrderNumber: workOrder.workOrderNumber },
+      oldStatus,
+      "CANCELED",
+    ).catch(() => {});
+
+    return this.findOne(workOrder.id);
+  }
+
+  // ===== REASSIGN EMPLOYEES =====
+  async reassignEmployees(
+    workOrderId: string,
+    dto: ReassignEmployeesDto,
+    reassignedByUserId: string,
+  ) {
+    const workOrder = await this.findOne(workOrderId);
+
+    const allowedStatuses = ["LINKED_TO_GROUP", "IN_PROGRESS"];
+    if (!allowedStatuses.includes(workOrder.status)) {
+      throw new BadRequestException(
+        `Cannot reassign employees for work order with status ${workOrder.status}. Allowed: ${allowedStatuses.join(", ")}.`,
+      );
+    }
+
+    // Verify all new employees exist and are active
+    const newEmployees = await this.prisma.employee.findMany({
+      where: {
+        id: { in: dto.employeeIds },
+        status: "ACTIVE",
+      },
+    });
+
+    if (newEmployees.length !== dto.employeeIds.length) {
+      throw new NotFoundException("One or more employees not found or not active");
+    }
+
+    const reassigner = await this.prisma.employee.findFirst({
+      where: { userId: reassignedByUserId },
+    });
+    const reassignerEmployeeId = reassigner?.id || reassignedByUserId;
+
+    // Capture old assignments for activity log
+    const oldAssignments = workOrder.assignments.map((a) => ({
+      name: `${a.employee.firstName} ${a.employee.lastName}`,
+      id: a.employee.id,
+    }));
+
+    const unapprovedUsages = workOrder.productUsages.filter((pu) => !pu.isApproved);
+
+    await this.prisma.$transaction(
+      async (tx) => {
+        // 1. Release reservations for unapproved product usages (old employee's submissions)
+        if (unapprovedUsages.length > 0) {
+          await this.inventory.releaseReservationTx(
+            tx,
+            unapprovedUsages.map((pu) => ({ productId: pu.productId, quantity: pu.quantity })),
+            workOrder.id,
+          );
+        }
+
+        // 2. Delete unapproved product usages (old employee's selections)
+        await tx.workOrderProductUsage.deleteMany({
+          where: { workOrderId: workOrder.id, isApproved: false },
+        });
+
+        // 3. Delete existing assignments
+        await tx.workOrderAssignment.deleteMany({
+          where: { workOrderId: workOrder.id },
+        });
+
+        // 4. Create new assignments
+        await tx.workOrderAssignment.createMany({
+          data: dto.employeeIds.map((empId) => ({
+            workOrderId: workOrder.id,
+            employeeId: empId,
+            assignedBy: reassignedByUserId,
+          })),
+        });
+
+        // 5. Delete old notifications and create new ones for reassigned employees
+        await tx.workOrderNotification.deleteMany({
+          where: { workOrderId: workOrder.id },
+        });
+
+        for (const empId of dto.employeeIds) {
+          await tx.workOrderNotification.create({
+            data: {
+              workOrderId: workOrder.id,
+              employeeId: empId,
+            },
+          });
+        }
+
+        // Status stays unchanged per requirement
+      },
+      { timeout: 15000 },
+    );
+
+    // Activity logging AFTER tx commits
+    const newAssignmentNames = newEmployees.map((e) => `${e.firstName} ${e.lastName}`);
+    const oldAssignmentNames = oldAssignments.map((a) => a.name);
+
+    await this.activityService.logActivity({
+      workOrderId: workOrder.id,
+      action: 'EMPLOYEES_MODIFIED' as any,
+      category: 'MAIN' as any,
+      title: 'Employees Reassigned',
+      description: `Employees reassigned. Previous: ${oldAssignmentNames.join(", ")}. New: ${newAssignmentNames.join(", ")}. Reason: ${dto.reason}`,
+      performedById: reassignerEmployeeId,
+      metadata: {
+        employeeNames: newAssignmentNames,
+        employeeIds: dto.employeeIds,
+        comment: dto.reason,
+      },
+    });
+
+    return this.findOne(workOrder.id);
   }
 }

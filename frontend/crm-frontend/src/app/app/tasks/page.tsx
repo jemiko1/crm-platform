@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiGet, apiGetList, apiPost, apiPatch, ApiError } from "@/lib/api";
@@ -185,6 +186,16 @@ export default function TasksPage() {
   const [activeTab, setActiveTab] = useState<"open" | "closed">("open");
   const [taskFilter, setTaskFilter] = useState<TaskFilter>("all");
 
+  // Cancel modal state
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelLoading, setCancelLoading] = useState(false);
+
+  // Reassign modal state
+  const [showReassignModal, setShowReassignModal] = useState(false);
+  const [reassignTargetId, setReassignTargetId] = useState<string | null>(null);
+
   async function handleAssignEmployees(workOrderId: string) {
     // Use workOrderNumber if available, otherwise use the provided ID
     const task = tasks.find(t => t.id === workOrderId);
@@ -210,6 +221,41 @@ export default function TasksPage() {
     } finally {
       setActionLoading(null);
     }
+  }
+
+  function handleCancelClick(workOrderId: string) {
+    const task = tasks.find(t => t.id === workOrderId);
+    const idToUse = task?.workOrderNumber?.toString() || workOrderId;
+    setCancelTargetId(idToUse);
+    setCancelReason("");
+    setShowCancelModal(true);
+  }
+
+  async function handleCancelConfirm() {
+    if (!cancelTargetId || cancelReason.length < 3) return;
+    setCancelLoading(true);
+    try {
+      await apiPost(`/v1/work-orders/${cancelTargetId}/cancel`, { cancelReason });
+      setShowCancelModal(false);
+      setCancelTargetId(null);
+      setCancelReason("");
+      await fetchTasks();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        alert(err.message);
+      } else {
+        alert("Failed to cancel work order");
+      }
+    } finally {
+      setCancelLoading(false);
+    }
+  }
+
+  function handleReassignClick(workOrderId: string) {
+    const task = tasks.find(t => t.id === workOrderId);
+    const idToUse = task?.workOrderNumber?.toString() || workOrderId;
+    setReassignTargetId(idToUse);
+    setShowReassignModal(true);
   }
 
   // Filter tasks based on status
@@ -439,6 +485,8 @@ export default function TasksPage() {
                 canApprove={canApprove}
                 onAssign={activeTab === "open" ? () => handleAssignEmployees(task.id) : undefined}
                 onStart={activeTab === "open" ? () => handleStartWork(task.id) : undefined}
+                onCancel={activeTab === "open" ? () => handleCancelClick(task.id) : undefined}
+                onReassign={activeTab === "open" ? () => handleReassignClick(task.id) : undefined}
                 actionLoading={actionLoading === task.id}
                 getTypeLabel={getTypeLabel}
               />
@@ -466,6 +514,36 @@ export default function TasksPage() {
           }
         />
       )}
+
+      {/* Cancel Work Order Modal */}
+      {showCancelModal && cancelTargetId && (
+        <CancelWorkOrderModal
+          onClose={() => { setShowCancelModal(false); setCancelTargetId(null); }}
+          onConfirm={handleCancelConfirm}
+          cancelReason={cancelReason}
+          setCancelReason={setCancelReason}
+          loading={cancelLoading}
+        />
+      )}
+
+      {/* Reassign Employees Modal */}
+      {showReassignModal && reassignTargetId && (
+        <AssignEmployeesModal
+          open={showReassignModal}
+          onClose={() => {
+            setShowReassignModal(false);
+            setReassignTargetId(null);
+          }}
+          onSuccess={async () => {
+            setShowReassignModal(false);
+            setReassignTargetId(null);
+            await fetchTasks();
+          }}
+          workOrderId={reassignTargetId}
+          existingAssignments={[]}
+          isReassign
+        />
+      )}
     </div>
     </PermissionGuard>
   );
@@ -477,6 +555,8 @@ function TaskCard({
   canApprove,
   onAssign,
   onStart,
+  onCancel,
+  onReassign,
   actionLoading,
   getTypeLabel,
 }: {
@@ -485,6 +565,8 @@ function TaskCard({
   canApprove: boolean;
   onAssign?: () => void;
   onStart?: () => void;
+  onCancel?: () => void;
+  onReassign?: () => void;
   actionLoading?: boolean;
   getTypeLabel: (value: string) => string;
 }) {
@@ -506,6 +588,8 @@ function TaskCard({
   const canAssign = canAssignEmployees && task.status === "CREATED";
   // Non-workflow managers can start tasks that are LINKED_TO_GROUP
   const canStart = !canAssignEmployees && !canApprove && task.status === "LINKED_TO_GROUP";
+  // Step 1 positions can cancel/reassign for LINKED_TO_GROUP or IN_PROGRESS
+  const canCancelOrReassign = canAssignEmployees && (task.status === "LINKED_TO_GROUP" || task.status === "IN_PROGRESS");
   const waitingApproval = task.status === "IN_PROGRESS" && !!task.techEmployeeComment;
   
   // Check if deadline is overdue
@@ -643,6 +727,36 @@ function TaskCard({
             </button>
           )}
 
+          {canCancelOrReassign && onReassign && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onReassign();
+              }}
+              disabled={actionLoading}
+              className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+            >
+              🔄 Reassign
+            </button>
+          )}
+
+          {canCancelOrReassign && onCancel && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onCancel();
+              }}
+              disabled={actionLoading}
+              className="rounded-2xl bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-700 disabled:opacity-50"
+            >
+              ✕ Cancel
+            </button>
+          )}
+
           <div className="text-xs text-zinc-400 mt-1">
             Created {new Date(task.createdAt).toLocaleDateString("en-US", {
               month: "short",
@@ -652,5 +766,76 @@ function TaskCard({
         </div>
       </div>
     </Link>
+  );
+}
+
+function CancelWorkOrderModal({
+  onClose,
+  onConfirm,
+  cancelReason,
+  setCancelReason,
+  loading,
+}: {
+  onClose: () => void;
+  onConfirm: () => void;
+  cancelReason: string;
+  setCancelReason: (v: string) => void;
+  loading: boolean;
+}) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[50000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full space-y-4"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+      >
+        <h3 className="text-lg font-semibold text-zinc-900">Cancel Work Order</h3>
+        <p className="text-sm text-zinc-600">
+          This will cancel the work order and release any reserved inventory. This action cannot be undone.
+        </p>
+        <div>
+          <label className="mb-2 block text-sm font-medium text-zinc-900">
+            Reason <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+            placeholder="Explain why this work order is being canceled..."
+            rows={3}
+            className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-red-200 focus:border-red-500"
+            autoFocus
+          />
+        </div>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="flex-1 px-4 py-2 rounded-xl border border-zinc-200 text-sm text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+          >
+            Keep Open
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={loading || cancelReason.length < 3}
+            className="flex-1 px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+          >
+            {loading ? "Canceling..." : "Cancel Work Order"}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
