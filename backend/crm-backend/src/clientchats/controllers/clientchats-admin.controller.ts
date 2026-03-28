@@ -39,7 +39,9 @@ export class ClientChatsAdminController {
   ) {}
 
   @Get('status')
-  @Doc({ summary: 'Client chats integration status', ok: 'Channel and webhook health snapshot' })
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('client_chats_config.access')
+  @Doc({ summary: 'Client chats integration status', ok: 'Channel and webhook health snapshot', permission: true })
   getStatus() {
     return this.observability.getStatus();
   }

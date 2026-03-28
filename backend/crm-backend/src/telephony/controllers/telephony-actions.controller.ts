@@ -8,6 +8,8 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { PositionPermissionGuard } from '../../common/guards/position-permission.guard';
+import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { AriClientService } from '../ari/ari-client.service';
 import { AmiClientService } from '../ami/ami-client.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -24,10 +26,13 @@ export class TelephonyActionsController {
   ) {}
 
   @Post('originate')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('telephony.call')
   @Doc({
     summary: 'Originate outbound call from user extension',
     ok: 'ARI channel info or AMI async acknowledgment',
     badRequest: true,
+    permission: true,
   })
   async originate(
     @Req() req: any,
@@ -66,10 +71,13 @@ export class TelephonyActionsController {
   }
 
   @Post('transfer')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('telephony.call')
   @Doc({
     summary: 'Transfer active channel',
     ok: 'Redirect initiated',
     badRequest: true,
+    permission: true,
   })
   async transfer(@Body() body: { channelId: string; target: string }) {
     if (!body.channelId || !body.target) {
@@ -92,10 +100,13 @@ export class TelephonyActionsController {
   }
 
   @Post('hangup')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('telephony.call')
   @Doc({
     summary: 'Hang up channel',
     ok: 'Hangup sent',
     badRequest: true,
+    permission: true,
   })
   async hangup(@Body() body: { channelId: string }) {
     if (!body.channelId) {
@@ -115,10 +126,13 @@ export class TelephonyActionsController {
   }
 
   @Post('hold')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('telephony.call')
   @Doc({
     summary: 'Hold or resume channel (ARI only)',
     ok: 'Hold state updated',
     badRequest: true,
+    permission: true,
   })
   async hold(@Body() body: { channelId: string; hold: boolean }) {
     if (!body.channelId) {
@@ -141,10 +155,13 @@ export class TelephonyActionsController {
   }
 
   @Post('queue-login')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('telephony.call')
   @Doc({
     summary: 'Add user extension to queue',
     ok: 'QueueAdd sent',
     badRequest: true,
+    permission: true,
   })
   async queueLogin(
     @Req() req: any,
@@ -170,10 +187,13 @@ export class TelephonyActionsController {
   }
 
   @Post('queue-logout')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('telephony.call')
   @Doc({
     summary: 'Remove user extension from queue',
     ok: 'QueueRemove sent',
     badRequest: true,
+    permission: true,
   })
   async queueLogout(
     @Req() req: any,
@@ -197,10 +217,13 @@ export class TelephonyActionsController {
   }
 
   @Post('queue-pause')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('telephony.call')
   @Doc({
     summary: 'Pause or unpause queue member',
     ok: 'QueuePause sent',
     badRequest: true,
+    permission: true,
   })
   async queuePause(
     @Req() req: any,

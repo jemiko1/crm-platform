@@ -11,6 +11,8 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import { IsBoolean, IsOptional, IsString } from 'class-validator';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { PositionPermissionGuard } from '../../common/guards/position-permission.guard';
+import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Doc } from '../../common/openapi/doc-endpoint.decorator';
 
@@ -39,9 +41,12 @@ export class TelephonyExtensionsController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get('users-with-config')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('telephony.manage')
   @Doc({
     summary: 'Active users with optional telephony extension',
-    ok: 'Users joined with extension fields',
+    ok: 'Users joined with extension fields (no SIP passwords)',
+    permission: true,
   })
   async usersWithConfig() {
     return this.prisma.user.findMany({
@@ -59,7 +64,6 @@ export class TelephonyExtensionsController {
             extension: true,
             displayName: true,
             sipServer: true,
-            sipPassword: true,
             isOperator: true,
             isActive: true,
           },
@@ -70,7 +74,9 @@ export class TelephonyExtensionsController {
   }
 
   @Get()
-  @Doc({ summary: 'List telephony extensions', ok: 'Extensions with user info' })
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('telephony.manage')
+  @Doc({ summary: 'List telephony extensions', ok: 'Extensions with user info', permission: true })
   async list() {
     return this.prisma.telephonyExtension.findMany({
       include: {
@@ -88,11 +94,14 @@ export class TelephonyExtensionsController {
   }
 
   @Post()
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('telephony.manage')
   @Doc({
     summary: 'Create or update extension for CRM user',
     ok: 'Upserted extension row',
     status: 201,
     bodyType: UpsertExtensionDto,
+    permission: true,
   })
   async upsert(@Body() dto: UpsertExtensionDto) {
     const existing = await this.prisma.telephonyExtension.findUnique({
@@ -125,12 +134,15 @@ export class TelephonyExtensionsController {
   }
 
   @Patch(':id')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('telephony.manage')
   @Doc({
     summary: 'Patch telephony extension',
     ok: 'Updated extension',
     notFound: true,
     bodyType: UpdateExtensionDto,
     params: [{ name: 'id', description: 'Extension UUID' }],
+    permission: true,
   })
   async update(@Param('id') id: string, @Body() dto: UpdateExtensionDto) {
     const data: Record<string, any> = {};
@@ -145,11 +157,14 @@ export class TelephonyExtensionsController {
   }
 
   @Delete(':id')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('telephony.manage')
   @Doc({
     summary: 'Delete telephony extension',
     ok: '{ ok: true }',
     notFound: true,
     params: [{ name: 'id', description: 'Extension UUID' }],
+    permission: true,
   })
   async remove(@Param('id') id: string) {
     await this.prisma.telephonyExtension.delete({ where: { id } });
