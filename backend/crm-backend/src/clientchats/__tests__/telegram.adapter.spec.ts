@@ -19,9 +19,10 @@ describe('TelegramAdapter', () => {
   });
 
   describe('verifyWebhook', () => {
-    it('should return true when token is configured', () => {
+    it('should return false when TELEGRAM_WEBHOOK_SECRET is not set', () => {
+      delete process.env.TELEGRAM_WEBHOOK_SECRET;
       const req = { headers: {}, body: {} };
-      expect(adapter.verifyWebhook(req as any)).toBe(true);
+      expect(adapter.verifyWebhook(req as any)).toBe(false);
     });
 
     it('should return false when TELEGRAM_BOT_TOKEN is not set', () => {
@@ -30,13 +31,22 @@ describe('TelegramAdapter', () => {
       expect(adapter.verifyWebhook(req as any)).toBe(false);
     });
 
-    it('should validate secret token when TELEGRAM_WEBHOOK_SECRET is set', () => {
+    it('should return true when secret token matches', () => {
       process.env.TELEGRAM_WEBHOOK_SECRET = 'my-secret';
       const req = {
         headers: { 'x-telegram-bot-api-secret-token': 'my-secret' },
         body: {},
       };
       expect(adapter.verifyWebhook(req as any)).toBe(true);
+    });
+
+    it('should return false when secret token header is missing', () => {
+      process.env.TELEGRAM_WEBHOOK_SECRET = 'my-secret';
+      const req = {
+        headers: {},
+        body: {},
+      };
+      expect(adapter.verifyWebhook(req as any)).toBe(false);
     });
 
     it('should reject when secret token does not match', () => {

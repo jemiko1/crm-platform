@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { createReadStream, existsSync } from 'fs';
-import { join, isAbsolute } from 'path';
+import { isAbsolute, resolve, normalize } from 'path';
 
 @Injectable()
 export class RecordingAccessService {
@@ -67,7 +67,18 @@ export class RecordingAccessService {
 
   resolveFilePath(filePath: string | null): string | null {
     if (!filePath) return null;
-    if (isAbsolute(filePath)) return filePath;
-    return join(this.basePath, filePath);
+
+    // Normalize to prevent directory traversal via ../ sequences
+    const resolved = isAbsolute(filePath)
+      ? normalize(filePath)
+      : resolve(this.basePath, filePath);
+
+    // Ensure the resolved path stays within the allowed base directory
+    if (!resolved.startsWith(normalize(this.basePath))) {
+      this.logger.warn(`Path traversal attempt blocked: ${filePath}`);
+      return null;
+    }
+
+    return resolved;
   }
 }

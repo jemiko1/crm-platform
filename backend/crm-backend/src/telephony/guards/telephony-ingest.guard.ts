@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   Logger,
 } from '@nestjs/common';
+import { timingSafeEqual } from 'crypto';
 
 @Injectable()
 export class TelephonyIngestGuard implements CanActivate {
@@ -18,9 +19,22 @@ export class TelephonyIngestGuard implements CanActivate {
     }
 
     const req = ctx.switchToHttp().getRequest();
-    const header = req.headers['x-telephony-secret'];
+    const header = req.headers['x-telephony-secret'] as string | undefined;
 
-    if (header !== secret) {
+    if (!header) {
+      throw new ForbiddenException('Invalid telephony ingest secret');
+    }
+
+    try {
+      const isValid = timingSafeEqual(
+        Buffer.from(header),
+        Buffer.from(secret),
+      );
+      if (!isValid) {
+        throw new ForbiddenException('Invalid telephony ingest secret');
+      }
+    } catch (err) {
+      if (err instanceof ForbiddenException) throw err;
       throw new ForbiddenException('Invalid telephony ingest secret');
     }
 

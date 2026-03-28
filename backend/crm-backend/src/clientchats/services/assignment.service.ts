@@ -41,14 +41,11 @@ export class AssignmentService {
       throw new ConflictException('Conversation already assigned to another operator');
     }
 
-    const lockResult = await this.prisma.$queryRawUnsafe<{ id: string }[]>(
-      `UPDATE "ClientChatConversation"
-       SET "assignedUserId" = $1, "lastOperatorActivityAt" = NULL, "joinedAt" = NOW()
-       WHERE "id" = $2 AND "assignedUserId" IS NULL
-       RETURNING "id"`,
-      userId,
-      conversationId,
-    );
+    const lockResult = await this.prisma.$queryRaw<{ id: string }[]>`
+      UPDATE "ClientChatConversation"
+       SET "assignedUserId" = ${userId}, "lastOperatorActivityAt" = NULL, "joinedAt" = NOW()
+       WHERE "id" = ${conversationId} AND "assignedUserId" IS NULL
+       RETURNING "id"`;
 
     if (!lockResult || lockResult.length === 0) {
       throw new ConflictException('Conversation was already taken by another operator');

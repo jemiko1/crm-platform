@@ -34,7 +34,14 @@ export class ViberAdapter implements ChannelAdapter {
       .update(body)
       .digest('hex');
 
-    return signature === expected;
+    try {
+      return crypto.timingSafeEqual(
+        Buffer.from(signature, 'hex'),
+        Buffer.from(expected, 'hex'),
+      );
+    } catch {
+      return false;
+    }
   }
 
   parseInbound(body: unknown): ParsedInboundMessage | null {
