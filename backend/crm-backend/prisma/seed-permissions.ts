@@ -163,6 +163,11 @@ const DEFAULT_PERMISSIONS = [
   { resource: "messenger", action: "create_group", category: PermissionCategory.MESSENGER, description: "Create group conversations in messenger" },
   { resource: "messenger", action: "manage_groups", category: PermissionCategory.MESSENGER, description: "Manage group settings and participants" },
 
+  // Telephony
+  { resource: "telephony", action: "call", category: PermissionCategory.TELEPHONY, description: "Originate, transfer, hangup calls and manage queue membership" },
+  { resource: "telephony", action: "manage", category: PermissionCategory.TELEPHONY, description: "Manage telephony extensions and configuration" },
+  { resource: "telephony", action: "menu", category: PermissionCategory.TELEPHONY, description: "Show Telephony in left menu" },
+
   // SMS Configuration
   { resource: "sms_config", action: "access", category: PermissionCategory.ADMIN, description: "Access SMS configuration, logs, and spam protection settings" },
 

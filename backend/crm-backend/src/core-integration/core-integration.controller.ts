@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
+import { SkipThrottle } from "@nestjs/throttler";
 import { PrismaService } from "../prisma/prisma.service";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { CoreWebhookGuard } from "./core-webhook.guard";
@@ -29,6 +30,7 @@ export class CoreIntegrationController {
   // ─── Webhook (authenticated via shared secret) ───
 
   @Post("webhook")
+  @SkipThrottle()
   @UseGuards(CoreWebhookGuard)
   @Doc({
     summary: "Core system webhook (HMAC / shared secret)",

@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   Logger,
 } from "@nestjs/common";
+import { timingSafeEqual } from "crypto";
 
 @Injectable()
 export class CoreWebhookGuard implements CanActivate {
@@ -18,9 +19,22 @@ export class CoreWebhookGuard implements CanActivate {
     }
 
     const req = ctx.switchToHttp().getRequest();
-    const header = req.headers["x-core-secret"];
+    const header = req.headers["x-core-secret"] as string | undefined;
 
-    if (header !== secret) {
+    if (!header) {
+      throw new ForbiddenException("Invalid webhook secret");
+    }
+
+    try {
+      const isValid = timingSafeEqual(
+        Buffer.from(header),
+        Buffer.from(secret),
+      );
+      if (!isValid) {
+        throw new ForbiddenException("Invalid webhook secret");
+      }
+    } catch (err) {
+      if (err instanceof ForbiddenException) throw err;
       throw new ForbiddenException("Invalid webhook secret");
     }
 

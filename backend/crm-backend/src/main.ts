@@ -42,17 +42,18 @@ async function bootstrap() {
     }),
   );
 
-  // Swagger setup
-  const config = new DocumentBuilder()
-    .setTitle("CRM API")
-    .setDescription("CRM backend API")
-    .setVersion("1.0")
-    // Optional: allows testing protected routes via Bearer token in Swagger
-    .addBearerAuth()
-    .build();
+  // Swagger setup — only exposed in non-production environments
+  if (process.env.NODE_ENV !== "production") {
+    const config = new DocumentBuilder()
+      .setTitle("CRM API")
+      .setDescription("CRM backend API")
+      .setVersion("1.0")
+      .addBearerAuth()
+      .build();
 
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup("api", app, document);
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup("api", app, document);
+  }
 
   await app.listen(process.env.PORT ?? 3000);
 }

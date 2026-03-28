@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ClientChatChannelType } from '@prisma/client';
 import { Request } from 'express';
+import * as crypto from 'crypto';
 import {
   ChannelAdapter,
   ParsedInboundMessage,
@@ -26,15 +27,25 @@ export class TelegramAdapter implements ChannelAdapter {
     }
 
     const secretToken = process.env.TELEGRAM_WEBHOOK_SECRET;
-    if (secretToken) {
-      const headerToken = req.headers['x-telegram-bot-api-secret-token'] as string;
-      if (headerToken !== secretToken) {
-        this.logger.warn('Telegram webhook secret token mismatch');
-        return false;
-      }
+    if (!secretToken) {
+      this.logger.error('TELEGRAM_WEBHOOK_SECRET is not configured — rejecting webhook');
+      return false;
     }
 
-    return true;
+    const headerToken = req.headers['x-telegram-bot-api-secret-token'] as string;
+    if (!headerToken) {
+      this.logger.warn('Telegram webhook missing secret token header');
+      return false;
+    }
+
+    try {
+      return crypto.timingSafeEqual(
+        Buffer.from(headerToken),
+        Buffer.from(secretToken),
+      );
+    } catch {
+      return false;
+    }
   }
 
   parseInbound(body: unknown): ParsedInboundMessage | null {
