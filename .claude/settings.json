@@ -1,4 +1,30 @@
 {
+  "lspServers": {
+    "vtsls": {
+      "command": "vtsls",
+      "args": ["--stdio"],
+      "extensionToLanguage": {
+        ".ts": "typescript",
+        ".tsx": "typescriptreact",
+        ".js": "javascript",
+        ".jsx": "javascriptreact"
+      },
+      "initializationOptions": {
+        "typescript": {
+          "tsdk": "node_modules/typescript/lib"
+        }
+      },
+      "settings": {
+        "typescript": {
+          "suggest": { "completeFunctionCalls": true },
+          "inlayHints": {
+            "parameterNames": { "enabled": "literals" },
+            "variableTypes": { "enabled": false }
+          }
+        }
+      }
+    }
+  },
   "permissions": {
     "allow": [
       "bash(git checkout:*)",
@@ -46,6 +72,26 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/protect-master.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/lint-format.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/lint-format.sh"
           }
         ]
       }

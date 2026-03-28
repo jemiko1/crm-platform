@@ -1,497 +1,298 @@
 # CLAUDE.md — Project Context for Claude Code
 
-> **CRM28**: Property/building management CRM. Georgian market. Domain: crm28.asg.ge
-> Manages buildings, residents, work orders, incidents, sales leads, inventory, telephony, multi-channel chat.
+## Working Mode
 
----
+The project owner is a non-programmer founder. For all technical decisions (libraries, config, patterns, structure, tooling), decide based on what you see in the codebase and proceed without asking. Only ask about business logic decisions — who can access what, what should happen when X occurs, user-facing behavior, and workflow rules.
 
-## Session Start Protocol
+## Project Overview
 
-**Every new session, do this FIRST:**
+CRM28 — Property/building management CRM for the Georgian market. Domain: crm28.asg.ge
+Manages buildings, residents, work orders, incidents, sales leads, inventory, telephony, multi-channel chat.
+
+- **Backend**: NestJS 11 (TypeScript) — `backend/crm-backend/`, port 3000, `npm run start:dev`
+- **Frontend**: Next.js 16 App Router, React 19 — `frontend/crm-frontend/`, port 4002, `pnpm dev --port 4002`
+- **Database**: PostgreSQL 16 via Prisma 7 ORM in Docker (`crm-prod-db`, port 5433)
+- **Real-time**: Socket.IO — namespaces: `/messenger`, `/telephony`, `/ws/clientchats`
+- **Telephony**: Asterisk/FreePBX 16 + AMI Bridge (`ami-bridge/`, separate VM) + Electron softphone (`crm-phone/`)
+- **Auth**: JWT in httpOnly cookie (`access_token`), Passport, 24h expiry
+- **AI**: OpenAI GPT-4o + Whisper (call quality reviews)
+- **Chat Channels**: Viber, Facebook, Telegram, WebChat (WhatsApp planned) — adapter pattern
+- **CSS**: Tailwind CSS v4 (PostCSS plugin, theme in `globals.css`, NO `tailwind.config` file)
+- **CI/CD**: GitHub Actions → Railway (auto-deploy from master)
+- **Deployment**: Railway auto-deploys on master merge. Build: `pnpm install && pnpm build`. Start: `prisma migrate deploy && seed-permissions && node dist/main`
+
+### Quick Start
 ```powershell
-git checkout master
-git pull origin master
-git log --oneline -3
-```
-If you're on a stale feature branch from a previous session, warn me before switching.
-Then ask what I want to work on.
-
----
-
-## Quick Start (Local Development)
-```powershell
-# Database (Docker PostgreSQL on port 5433)
-docker start crm-prod-db
-
-# Backend (port 3000) — Terminal 1
-cd C:\CRM-Platform\backend\crm-backend
-npm run start:dev
-
-# Frontend (port 4002) — Terminal 2
-cd C:\CRM-Platform\frontend\crm-frontend
-pnpm dev --port 4002
+docker start crm-prod-db                          # Database
+cd backend\crm-backend ; npm run start:dev         # Backend on :3000
+cd frontend\crm-frontend ; pnpm dev --port 4002    # Frontend on :4002
 ```
 
-**Backend: port 3000. Frontend: port 4002. NEVER use port 4000 (Chrome blocks it).**
-
-### First-time setup
+### First-Time Setup
 ```powershell
 cd backend\crm-backend
-pnpm install
-pnpm prisma generate
-npx prisma migrate dev
-pnpm seed:all
+pnpm install ; pnpm prisma generate ; npx prisma migrate dev ; pnpm seed:all
 ```
-`seed:all` runs all 8 seed scripts in the correct dependency order (permissions first). `seed-permissions.ts` is the canonical seed (not `seed-rbac.ts`).
+`seed:all` runs all 8 seed scripts in dependency order. `seed-permissions.ts` is the canonical seed (not `seed-rbac.ts`).
 
 ---
 
-## Workflow Rules
+## Git Rules (ENFORCED)
 
-### Git Branch Rules
 - **NEVER commit directly to master** — master is production
-- **Create feature branches FROM master**: `git checkout -b feature/name master`
-- **PRs target master directly** — NO dev or staging branches exist
-- **I (Jemiko) merge PRs manually** after testing on localhost
-- Always pull master before creating a new branch
+- Always work on `feature/*` branches created from master
+- Branch protection is enforced via PreToolUse hook
+- PRs target master directly — NO dev or staging branches exist
+- Jemiko merges PRs manually after testing on localhost
+- Commit format: `feat(scope):`, `fix(scope):`, `refactor(scope):`, `test(scope):`, `docs(scope):`, `chore(scope):`
 
 ### Feature Flow
-
-1. git checkout master ; git pull origin master
-2. git checkout -b feature/my-feature
+1. `git checkout master ; git pull origin master`
+2. `git checkout -b feature/my-feature`
 3. Build the feature
-4. git push origin feature/my-feature
-5. gh pr create --base master --title "feat(scope): description"
+4. `git push origin feature/my-feature`
+5. `gh pr create --base master --title "feat(scope): description"`
 6. Tell me: "Ready to test on localhost"
 7. I test → merge PR → Railway auto-deploys
-
-### Commit Format
-`feat(scope):`, `fix(scope):`, `refactor(scope):`, `test(scope):`, `docs(scope):`, `chore(scope):`
 
 ### Stop Conditions — ASK Before Doing
 1. Database schema breaking changes (dropping columns, renaming)
 2. API contract changes (removing endpoints, incompatible changes)
-3. Asterisk/FreePBX config changes (ALWAYS apply via GUI too — see Safety Rules)
+3. Asterisk/FreePBX config changes (ALWAYS apply via GUI too)
 4. Deleting files or large refactors
 5. Changing environment variables (both local and Railway may need updates)
 6. Changing seed scripts (affects Railway deployment)
 
 ---
 
-## Tech Stack
+## Verification Commands
 
-- **Backend**: NestJS 11 (TypeScript) — `backend/crm-backend/`
-- **Frontend**: Next.js 16 App Router, React 19 — `frontend/crm-frontend/`
-- **Database**: PostgreSQL 16 (Docker `crm-prod-db`, port 5433)
-- **ORM**: Prisma 7 — schema at `backend/crm-backend/prisma/schema.prisma` (2125 lines, single file)
-- **CSS**: Tailwind CSS v4 (PostCSS plugin, theme in globals.css, NO tailwind.config file — it gets ignored)
-- **Auth**: JWT in httpOnly cookie (`access_token`), Passport, 24h expiry. App crashes on startup if JWT_SECRET is not set.
-- **Real-time**: Socket.IO — namespaces: `/messenger`, `/telephony`, `/ws/clientchats` (note the inconsistency)
-- **Telephony**: Asterisk/FreePBX 16 + AMI Bridge (ami-bridge/) + Electron softphone (crm-phone/)
-- **AI**: OpenAI GPT-4o + Whisper (call quality reviews)
-- **Chat Channels**: Viber, Facebook, Telegram, WhatsApp (planned), Web Widget — adapter pattern
-- **Email/SMS**: Nodemailer + IMAPFlow / sender.ge API
-- **Charts**: Recharts 3, **Dates**: date-fns 4
-- **CI/CD**: GitHub Actions → Railway (auto-deploy from master)
-- **Package Manager**: pnpm 10 (local and CI)
-- **Node**: v24 (local and CI)
-- **OS**: Windows 10 (PowerShell) — use `;` not `&&`, no heredoc, no `wc -l`
-- **Rate Limiting**: Global ThrottlerGuard — 60 req/60s per IP. Webhooks, health, and telephony ingestion endpoints have @SkipThrottle().
-
----
-
-## Environment & Remote Access
-
-### Local CLIs Available
-| Tool | Purpose |
-|------|---------|
-| `gh` (GitHub CLI) | PRs, issues, CI status. Account: jemiko1 |
-| `railway` | Deploy status, logs, env vars. Project: CRM28, env: production |
-| `ssh` (OpenSSH) | Asterisk access: `ssh asterisk` (requires VPN) |
-| `docker` | Local PostgreSQL: `docker start crm-prod-db` |
-| `git` | Version control (HTTPS protocol, credential manager) |
-| `pnpm` / `npm` / `npx` | Package management, Prisma CLI, seed scripts |
-
-`psql` is NOT installed locally. Use `npx prisma studio` or `docker exec -it crm-prod-db psql -U postgres` for DB access.
-
-### Remote Servers
-| Server | Access | Requires VPN |
-|--------|--------|-------------|
-| Asterisk/FreePBX (5.10.34.153) | `ssh asterisk` (ed25519 key) | Yes |
-| AMI Bridge (Windows VM, private network) | Via Asterisk network | Yes |
-| Railway (production) | `railway logs`, `railway status` | No |
-| Production DB | `railway connect postgres` or Railway dashboard | No |
-
-### VPN
-OpenVPN is always-on (TAP adapter). If Asterisk SSH times out, VPN may have disconnected — check OpenVPN GUI.
-
----
-
-## Project Structure
-
-```
-backend/crm-backend/
-├── prisma/schema.prisma          # 70+ models, 40+ enums (single 2125-line file)
-├── prisma/migrations/            # 28 migrations — NEVER edit applied migrations
-├── prisma/seed-*.ts              # 8 seed scripts + seed-all.ts orchestrator
-├── prisma.config.ts              # Fallback DB URL for CI builds (build:build@localhost)
-├── src/main.ts                   # Bootstrap: Helmet, CORS, cookies, Swagger, rawBody: true
-├── src/app.module.ts             # Root module — imports all feature modules + ThrottlerGuard
-├── src/auth/                     # JWT login, /me, logout. Requires JWT_SECRET env var
-├── src/prisma/                   # PrismaService — extends PrismaClient + manages pg.Pool
-├── src/buildings/                # Building CRUD
-├── src/clients/                  # Client service (accessed via v1/ controllers)
-├── src/assets/                   # Building devices
-├── src/incidents/                # Incident management (known bug: null client constraint)
-├── src/work-orders/              # Work order lifecycle, products, approval flow
-├── src/inventory/                # Products, purchase orders, stock, batch tracking
-├── src/employees/                # Employee lifecycle (create/dismiss/activate/delete)
-├── src/departments/              # Department hierarchy
-├── src/positions/                # Positions (linked to RoleGroups)
-├── src/role-groups/              # Permission bundles
-├── src/permissions/              # RBAC CRUD
-├── src/system-lists/             # Dynamic dropdown values
-├── src/workflow/                 # Workflow steps, triggers, automation
-├── src/sales/                    # Leads, pipeline, services, plans
-├── src/messenger/                # Internal chat (Socket.IO /messenger)
-├── src/telephony/                # Call center (Socket.IO /telephony, AMI, ARI, CDR, quality)
-├── src/clientchats/              # Unified inbox (Socket.IO /ws/clientchats)
-├── src/notifications/            # Email + SMS
-├── src/translations/             # i18n
-├── src/core-integration/         # External webhook sync
-├── src/audit/                    # Audit log
-├── src/common/                   # Guards, filters, decorators
-├── src/v1/                       # Versioned controllers
-└── src/health/                   # Health module — /health endpoint with DB + memory checks
-
-frontend/crm-frontend/
-├── src/app/layout.tsx            # Root layout
-├── src/app/login/page.tsx        # Login page
-├── src/app/app/                  # Authenticated shell (47 pages)
-│   ├── layout.tsx                # Sidebar, header, messenger, modals (FRAGILE — crashes blank all pages if context providers throw)
-│   ├── modal-manager.tsx         # Entity detail modal renderer
-│   ├── modal-stack-context.tsx   # LIFO modal stack synced with browser history (VERY FRAGILE)
-│   └── [all feature pages]
-├── src/hooks/useListItems.ts     # Dynamic dropdown hook
-├── src/lib/api.ts                # API client (returns undefined as T on empty responses)
-├── src/lib/use-permissions.ts    # RBAC hook
-└── src/locales/{en,ka}.json      # i18n
-
-ami-bridge/                       # AMI event relay (runs on separate VM, PM2)
-crm-phone/                        # Electron + SIP.js softphone
-```
-
----
-
-## Deployment (Railway)
-
-### How Deploy Works
-1. PR merged to master → Railway auto-detects push
-2. Build: `cd backend/crm-backend && pnpm install && pnpm build` (prisma generate + nest build)
-3. Start: `prisma migrate deploy && npx tsx prisma/seed-permissions.ts && node dist/main`
-4. Frontend deployed as separate Railway service: `next start --port ${PORT:-3000}`
-
-### After Deploying
-- Check: `railway logs` — look for "Nest application successfully started"
-- Verify: `https://crm28.asg.ge/auth/login` loads
-- Health: `https://crm28.asg.ge/health` — returns DB + memory status
-
-### Rollback
-- Railway dashboard → Deployments → Rollback to previous
-- Or push a revert commit to master
-
-### Railway Commands
+After any backend change:
 ```powershell
-railway status       # Current project/service/environment
-railway logs         # Stream production logs
-railway variables    # List env vars (redacted)
-railway shell        # Open shell in production container
+cd backend\crm-backend ; pnpm typecheck       # TypeScript check
+cd backend\crm-backend ; pnpm lint             # Lint
+cd backend\crm-backend ; pnpm test:unit        # Unit tests
 ```
 
----
-
-## CI Pipeline (GitHub Actions)
-
-CI runs on every PR to master. All checks must pass before merge.
-
-| Job | What it runs | Command |
-|-----|-------------|---------|
-| backend-test | Unit tests | `pnpm test:unit` |
-| backend-typecheck | TypeScript check | `tsc --noEmit` |
-| frontend-build | Production build | `pnpm build` |
-| frontend-typecheck | TypeScript check | `pnpm typecheck` |
-
-Branch protection requires: all 4 checks pass + 1 review approval + conversations resolved. Admin (Jemiko) can bypass all protection rules.
-
-### Run CI Checks Locally Before Pushing
+After any frontend change:
 ```powershell
-cd backend\crm-backend ; pnpm typecheck
-cd backend\crm-backend ; pnpm test:unit
-cd frontend\crm-frontend ; pnpm typecheck
-cd frontend\crm-frontend ; pnpm build
+cd frontend\crm-frontend ; pnpm typecheck      # TypeScript check
+cd frontend\crm-frontend ; pnpm build          # Production build
 ```
 
----
+After any Prisma schema change:
+```powershell
+cd backend\crm-backend ; npx prisma generate
+cd backend\crm-backend ; npx prisma migrate dev --name descriptive_name
+```
 
-## NEVER Do These
+After any API change, test the endpoint with curl or the existing test suite.
 
-1. **NEVER hardcode dropdown values** — use `useListItems(categoryCode)`
-2. **NEVER use raw fetch()** — use `apiGet/apiPost/apiPatch/apiDelete` from `@/lib/api`
-3. **NEVER use port 4000** — Chrome blocks it
-4. **NEVER commit to master directly** — use feature branches + PRs
-5. **NEVER hardcode API URLs** — use centralized API client
-6. **NEVER render modals inline** — use `createPortal(content, document.body)` with mounted check
-7. **NEVER use router.push() for detail modals** — use `openModal(type, id)`
-8. **NEVER overwrite customer names** with fallback/generic names (isBetterName guard)
-9. **NEVER replace joinConversation() SQL** with plain Prisma update (race condition)
-10. **NEVER use && in shell commands** — PowerShell uses `;`
-11. **NEVER edit applied migration files** in `prisma/migrations/`
-12. **NEVER change processInbound() pipeline order** — dedup → upsert → save → match → emit
-13. **NEVER change Socket.IO namespace paths** — /messenger, /telephony, /ws/clientchats
-14. **NEVER change modal-stack-context.tsx URL param priority order** — messenger → incident → workOrder → employee → client → building
-15. **NEVER run seed-rbac.ts in production** — use seed-permissions.ts (canonical)
-16. **NEVER change TELEPHONY_INGEST_SECRET** without updating both Railway env AND AMI Bridge env on the VM
+### Pre-Completion Checklist
+Before telling me "ready to test":
+1. All verification commands pass (typecheck, lint, tests)
+2. No `console.log` left (unless intentional logging)
+3. No hardcoded URLs, ports, credentials
+4. `useListItems()` for all dropdowns — never hardcode dropdown values
+5. `apiGet/apiPost/apiPatch/apiDelete` for all HTTP calls — never raw `fetch()`
+6. Permissions added if needed (seed-permissions.ts + backend guard + frontend hook)
+7. Documentation updated (CLAUDE.md, API_ROUTE_MAP.md, FRONTEND_ROUTE_MAP.md, DATABASE_SCHEMA.md)
 
 ---
 
-## Safety Rules
+## Critical Rule: Asterisk/FreePBX
 
-### Asterisk/FreePBX — CLI vs GUI Conflict (CRITICAL)
-When making ANY changes to Asterisk via SSH/CLI (queues, extensions, SIP config, manager config):
+When making ANY Asterisk/FreePBX changes via CLI/SSH:
 1. Make the change via CLI
-2. ALSO apply the same change through the FreePBX web GUI (or run `fwconsole reload` at minimum)
-3. If you only change via CLI, the next time someone clicks "Apply Config" in the FreePBX GUI, the GUI's version overwrites CLI changes and they're LOST
+2. **ALSO apply the same change through the FreePBX web GUI** (or run `fwconsole reload` at minimum)
+3. If you only change via CLI, the next time someone clicks "Apply Config" in the FreePBX GUI, the GUI's version **silently overwrites** CLI changes — they're LOST
 4. For queue changes: edit in GUI → Apply Config → verify with `asterisk -rx "queue show"`
-5. For manager config: edit `/etc/asterisk/manager_custom.conf` → `asterisk -rx "manager reload"` → also verify in GUI
+5. For manager config: edit `/etc/asterisk/manager_custom.conf` → `asterisk -rx "manager reload"` → verify in GUI
 6. Rule of thumb: treat the FreePBX GUI as the source of truth, use CLI only for verification
 
-### Database Safety
-1. Always run `npx prisma migrate dev --name descriptive_name` — never manual SQL for schema changes
-2. PostgreSQL CANNOT use a new enum value in the same transaction that adds it. If migration fails with "unsafe use of new value", either use fresh DB or apply ALTER TYPE manually outside transaction then `npx prisma migrate resolve --applied <name>`
-3. After ANY schema change: `npx prisma generate` to update the client
-4. Run `npx prisma studio` to visually verify data after migrations
-5. Production migrations run automatically on deploy via `prisma migrate deploy`
+---
 
-### Secret Safety
-1. JWT_SECRET is required — app crashes on startup if missing (no silent fallback)
-2. TELEPHONY_INGEST_SECRET must match between Railway backend and AMI Bridge VM
-3. Never commit .env files — only .env.example
-4. All channel tokens (Viber, FB, Telegram) are in backend .env — rotating one requires Railway env update too
+## Silent Override Risks (Always Check)
 
-### Code Safety
-1. `api.ts` returns `undefined as T` on empty responses (204) — always check before destructuring
-2. `api.ts` returns a never-resolving Promise on 401 — don't await it expecting an error
-3. Both `bcrypt` AND `bcryptjs` are installed — check which is actually imported before changing auth
-4. `rawBody: true` is enabled globally for all requests, not just webhooks — performance consideration
-5. ThrottlerGuard (60/min) applies to most routes. Webhooks, health, and telephony ingestion have @SkipThrottle()
-6. All gateways (telephony + messenger) use COOKIE_NAME env var for cookie extraction
-7. JWT_SECRET has no fallback — app crashes if missing
-8. PrismaService must call BOTH `$disconnect()` AND `pool.end()` on shutdown
-9. `frontend/package.json` start script uses bash `${PORT:-3000}` — doesn't work in PowerShell directly
-10. Escalation and quality AI pipeline crons have overlap guards (processing flag)
+Flag any situation where a value lives in more than one place. Known risks:
 
-### Fragile Code — Extra Caution Required
-1. `modal-stack-context.tsx` — syncs with browser history via pushState/popstate with RAF timing. Any change can break back button across entire app
-2. `clientchats-core.service.ts processInbound()` — pipeline order is load-bearing
-3. `assignment.service.ts joinConversation()` — raw SQL optimistic lock prevents race conditions
-4. `clientchats-core.service.ts isBetterName()` — prevents permanent customer name corruption
-5. Closed conversation archival — rewrites externalConversationId to `${id}__archived_${timestamp}`. Changing this breaks conversation threading
-6. Work order product approval — inventory deduction must happen AFTER approval, never before
-7. Employee deletion delegation — must delegate active leads/work orders before hard delete
-8. `app/layout.tsx` — if MessengerContext, ModalStackContext, or I18nContext throws on init, entire app goes blank
+1. **JWT secret fallback** — `JWT_SECRET` is required, app crashes if missing. Ensure no hardcoded default exists anywhere.
+2. **Telephony ingest secret sync** — `TELEPHONY_INGEST_SECRET` must match between Railway backend env and AMI Bridge VM env. Changing one without the other silently breaks telephony ingestion.
+3. **Hardcoded cookie names** — All gateways (telephony + messenger) use `COOKIE_NAME` env var for cookie extraction. Frontend and backend must agree.
+4. **Prisma enum migration behavior** — PostgreSQL CANNOT use a new enum value in the same transaction that adds it. If migration fails with "unsafe use of new value", either use fresh DB or apply `ALTER TYPE` manually outside transaction, then `npx prisma migrate resolve --applied <name>`. Always check existing data before enum changes.
+5. **AMI Bridge buffer risks under load** — AMI event relay runs on separate VM with PM2. High call volume can cause event buffering/loss if the bridge falls behind.
+6. **Rate limiter vs webhook conflict** — Global ThrottlerGuard (60 req/60s per IP) applies to most routes. Webhooks, health, and telephony ingestion have `@SkipThrottle()`. New webhook endpoints MUST add `@SkipThrottle()` or external services will get 429'd.
+7. **Unwired HealthModule** — `/health` endpoint exists with DB + memory checks. Verify it's imported in `app.module.ts` and actually responding.
+8. **Dual RBAC systems** — Legacy `RolesModule` exists alongside Position-based RBAC (`RoleGroups → Permissions`). Both are imported in `app.module.ts`. Position RBAC is authoritative. Legacy module is technical debt — do not build new features on it.
+9. **Seed script ordering dependencies** — `seed:all` orchestrates 8 scripts in dependency order (permissions first). Running individual seeds out of order can cause foreign key violations. `seed-permissions.ts` is canonical for production; never run `seed-rbac.ts` in production.
+10. **Frontend API rewrite localhost default** — `next.config.ts` rewrites `/auth/*`, `/v1/*`, `/public/*` to backend. `NEXT_PUBLIC_API_BASE` defaults to `http://localhost:3000`. Production must set this correctly or API calls silently hit localhost.
+11. **Message deduplication race condition** — `clientchats-core.service.ts processInbound()` pipeline order is load-bearing: dedup → upsert → save → match → emit. Changing this order can cause duplicate messages or lost customer name data (`isBetterName()` guard).
 
 ---
 
-## Automation Rules
+## Module Boundaries
 
-These rules are ALWAYS active. Follow them without me asking.
+### Backend (`backend/crm-backend/src/`)
+Each NestJS module owns its domain: controller + service + DTOs + module file. Key modules:
 
-### Rule 1: Plan Before Code
-Before writing code for medium/complex tasks:
-1. State files you'll create/modify
-2. Explain approach in 2-3 sentences
-3. Flag risks
-4. Wait for my "go"
+| Module | Domain | Notes |
+|--------|--------|-------|
+| `auth/` | JWT login, /me, logout | Requires JWT_SECRET |
+| `prisma/` | PrismaService | Extends PrismaClient + manages pg.Pool. Must call both `$disconnect()` AND `pool.end()` on shutdown |
+| `buildings/` | Building CRUD | |
+| `clients/` | Client service | Accessed via `v1/` controllers |
+| `assets/` | Building devices | Terminology: "Devices" = building assets |
+| `incidents/` | Incident management | Known bug: null client constraint violation |
+| `work-orders/` | Work order lifecycle | Products, approval flow, inventory deduction ONLY after approval |
+| `inventory/` | Products, stock, batches | Terminology: "Products" = inventory items |
+| `employees/` | Employee lifecycle | Hard delete requires delegating active leads/work orders first |
+| `departments/` | Department hierarchy | |
+| `positions/` | Positions | Linked to RoleGroups |
+| `role-groups/` | Permission bundles | |
+| `permissions/` | RBAC CRUD | |
+| `system-lists/` | Dynamic dropdown values | |
+| `workflow/` | Workflow steps, triggers | |
+| `sales/` | Leads, pipeline | |
+| `messenger/` | Internal chat | Socket.IO `/messenger` |
+| `telephony/` | Call center | Socket.IO `/telephony`, AMI, ARI, CDR, quality |
+| `clientchats/` | Unified inbox | Socket.IO `/ws/clientchats`. FRAGILE: `processInbound()`, `joinConversation()`, `isBetterName()` |
+| `notifications/` | Email + SMS | |
+| `translations/` | i18n | |
+| `audit/` | Audit log | |
+| `health/` | Health endpoint | DB + memory checks |
+| `common/` | Guards, filters, decorators | |
+| `v1/` | Versioned controllers | |
 
-For simple tasks (typo, label change, spacing): just do it.
+### Prisma (`backend/crm-backend/prisma/`)
+- `schema.prisma` — 70+ models, 40+ enums (single file). NEVER edit applied migration files.
+- `migrations/` — NEVER edit applied migrations
+- `seed-*.ts` — 8 seed scripts + `seed-all.ts` orchestrator
 
-### Rule 2: Auto-Test
-After completing any feature or bug fix:
-1. Write unit tests (.spec.ts next to source) — happy path + error + edge case
-2. Mock PrismaService and external services
-3. Run tests, fix if failing
-4. Report test count
+### Frontend (`frontend/crm-frontend/`)
+- All authenticated pages are `"use client"` components under `src/app/app/` (47 pages)
+- `src/lib/api.ts` — API client. Returns `undefined as T` on 204. Returns never-resolving Promise on 401.
+- `src/hooks/useListItems.ts` — Dynamic dropdown hook
+- `src/lib/use-permissions.ts` — RBAC hook
+- `src/app/app/modal-stack-context.tsx` — VERY FRAGILE. Syncs with browser history via pushState/popstate. URL param priority: messenger → incident → workOrder → employee → client → building.
+- `src/app/app/layout.tsx` — FRAGILE. If MessengerContext, ModalStackContext, or I18nContext throws on init, entire app goes blank.
+- Modals: `createPortal` + mounted check + z-index (detail: 10000, action: 50000+). Never render inline.
+- React hooks: ALL hooks BEFORE any conditional returns (React #310 crash)
 
-### Rule 3: Auto-Update Docs
-After any feature, update in the same commit:
-- CLAUDE.md if new models, routes, pages, or business rules
-- API_ROUTE_MAP.md if endpoints changed
-- FRONTEND_ROUTE_MAP.md if pages changed
-- DATABASE_SCHEMA.md if schema changed
+**Do not create cross-module dependencies without documenting them.**
 
-### Rule 4: Pre-Completion Checklist
-Before telling me "ready to test":
-1. Backend TypeScript: `cd backend\crm-backend ; pnpm typecheck`
-2. Frontend TypeScript: `cd frontend\crm-frontend ; pnpm typecheck`
-3. Backend lint: `cd backend\crm-backend ; pnpm lint`
-4. Backend tests: `cd backend\crm-backend ; pnpm test:unit`
-5. No console.log left (unless intentional logging)
-6. No hardcoded URLs, ports, credentials
-7. useListItems() for all dropdowns
-8. apiGet/apiPost for all HTTP calls
-9. Permissions added if needed
-10. Documentation updated
+---
 
-### Rule 5: Database Protocol
-1. Modify schema.prisma
-2. `npx prisma migrate dev --name descriptive_name`
-3. `npx prisma generate`
-4. Warn me if adding enums (Railway migration note needed)
-5. Update seed scripts if needed
-6. Update DATABASE_SCHEMA.md
+## For Subagents
 
-### Rule 6: Permission-Aware
-When building access-controlled features:
-1. Add to seed-permissions.ts
-2. Backend: @RequirePermission()
-3. Frontend: usePermissions() + conditional render
-4. Sidebar: *.menu permission
-5. Test as both superadmin and regular user
-
-### Rule 7: Error Handling
-- Validate with class-validator DTOs
-- Return proper HTTP status codes
-- Log errors with context
-- Never expose internal errors to frontend
-
-### Rule 8: Performance
-- Use select (not full includes) for list queries
-- Use _count/groupBy, not loading + counting in JS
-- Promise.all() for independent queries
-- Add indexes for new WHERE/ORDER BY fields
-- Always paginate list endpoints
-
-### Rule 9: Task Complexity
-| Type | Examples | Approach |
-|------|----------|----------|
-| Simple | Fix typo, change label, adjust spacing | Just do it, type check, commit |
-| Medium | Add field, add filter, new endpoint, add modal | Brief plan → approval → build → test → docs → commit |
-| Complex | New module, real-time feature, integration, major refactor | Detailed plan → discuss → incremental builds → full tests → docs |
+When working as a subagent, read this file first. Key rules:
+1. Check the **Verification Commands** section — run relevant checks before reporting done
+2. Do not modify files outside your assigned module without explicit instruction
+3. Use `apiGet/apiPost` (not raw `fetch()`) and `useListItems()` (not hardcoded dropdowns)
+4. Never commit to master — work on feature branches only
+5. Check **Silent Override Risks** if your change touches config, env vars, or cross-module boundaries
 
 ---
 
 ## Business Rules
 
 ### Work Order Lifecycle
-CREATED → LINKED_TO_GROUP → IN_PROGRESS → COMPLETED/CANCELED
+`CREATED → LINKED_TO_GROUP → IN_PROGRESS → COMPLETED/CANCELED`
 - Types: INSTALLATION, DIAGNOSTIC, RESEARCH, DEACTIVATE, REPAIR_CHANGE, ACTIVATE
 - Approval: technician submits → head reviews products → approves (inventory deducted) → or cancels
-- Inventory deduction happens ONLY after approval — never before
+- **Inventory deduction happens ONLY after approval — never before**
 
 ### Incident Lifecycle
-CREATED → IN_PROGRESS → COMPLETED/WORK_ORDER_INITIATED
-- Building required, client optional (but null client causes known bug)
+`CREATED → IN_PROGRESS → COMPLETED/WORK_ORDER_INITIATED`
+- Building required, client optional (null client causes known bug)
 - Auto-numbered INC-YYYY-####
 
 ### Sales Pipeline
-NEW → CONTACT → MEETING → PROPOSAL → NEGOTIATION → APPROVED → WON/LOST
+`NEW → CONTACT → MEETING → PROPOSAL → NEGOTIATION → APPROVED → WON/LOST`
 - Approval: employee submits → lead locks → approver reviews → WON or rejects → unlocks
 
 ### RBAC
 - Chain: User → Employee → Position → RoleGroup → Permissions
 - ~100 permissions, 12 categories
-- Backend: @UseGuards(JwtAuthGuard, PositionPermissionGuard) + @RequirePermission()
-- Frontend: usePermissions(), <PermissionButton>, <PermissionGuard>
+- Backend: `@UseGuards(JwtAuthGuard, PositionPermissionGuard)` + `@RequirePermission()`
+- Frontend: `usePermissions()`, `<PermissionButton>`, `<PermissionGuard>`
 - Superadmin bypasses all
 
 ### Employee Lifecycle
-ACTIVE → TERMINATED (dismiss) → ACTIVE (reactivate) or DELETED (permanent)
-- EMP-### IDs never reused
+`ACTIVE → TERMINATED (dismiss) → ACTIVE (reactivate) or DELETED (permanent)`
+- EMP-### IDs never reused (ExternalIdCounter table)
 - Hard delete requires delegating active leads/work orders first
 
 ### Client Chats
 - Channel adapters: Viber, Facebook, Telegram, WebChat (WhatsApp planned)
-- Queue: weekly schedule + daily overrides, operators join conversations manually
+- Queue: weekly schedule + daily overrides, operators join manually
 - Escalation: auto-escalate on SLA timeout
 - Display name chain: CRM Client name → participant.displayName → "Unknown Customer"
+- Closed conversation archival rewrites externalConversationId to `${id}__archived_${timestamp}` — changing this breaks conversation threading
 
 ---
 
-## Cron Jobs (Background Tasks)
+## Cron Jobs
 | Service | Schedule | What it does | Concern |
 |---------|----------|-------------|---------|
-| escalation.service.ts | Every 1 min | Check chat SLA rules | Overlap-guarded |
-| cdr-import.service.ts | Every 5 min | Import CDR from Asterisk | — |
-| asterisk-sync.service.ts | Every 5 min | Sync extension/queue state | — |
-| quality-pipeline.service.ts | Every 2 min | OpenAI call reviews | Overlap-guarded |
+| `escalation.service.ts` | Every 1 min | Check chat SLA rules | Overlap-guarded |
+| `cdr-import.service.ts` | Every 5 min | Import CDR from Asterisk | — |
+| `asterisk-sync.service.ts` | Every 5 min | Sync extension/queue state | — |
+| `quality-pipeline.service.ts` | Every 2 min | OpenAI call reviews | Overlap-guarded |
 
 ---
 
-## Known Bugs & Incomplete Features
+## Environment & Access
 
-### Bugs
+### Environment Variables
+**Backend (.env):** DATABASE_URL, JWT_SECRET, JWT_EXPIRES_IN, PORT, CORS_ORIGINS, COOKIE_NAME, COOKIE_SECURE, VIBER_BOT_TOKEN, FB_PAGE_ACCESS_TOKEN, FB_APP_SECRET, FB_VERIFY_TOKEN, TELEGRAM_BOT_TOKEN, WA_ACCESS_TOKEN, WA_PHONE_NUMBER_ID, WA_VERIFY_TOKEN, WA_APP_SECRET, CLIENTCHATS_WEBHOOK_BASE_URL, TELEPHONY_INGEST_SECRET, AMI_ENABLED, AMI_HOST, AMI_PORT, AMI_USER, AMI_SECRET, ARI_ENABLED, ARI_BASE_URL, ARI_USER, ARI_PASSWORD, OPENAI_API_KEY, QUALITY_AI_ENABLED, QUALITY_AI_MODEL
+
+**Frontend (.env.local):** NEXT_PUBLIC_API_BASE (default http://localhost:3000), API_BACKEND_URL
+
+### Remote Access
+| Server | Access | VPN Required |
+|--------|--------|-------------|
+| Asterisk/FreePBX | `ssh asterisk` | Yes |
+| AMI Bridge (Windows VM) | Via Asterisk network | Yes |
+| Railway (production) | `railway logs`, `railway status` | No |
+| Production DB | `railway connect postgres` | No |
+
+OpenVPN is always-on (TAP adapter). If Asterisk SSH times out, check OpenVPN GUI.
+
+`psql` is NOT installed locally. Use `npx prisma studio` or `docker exec -it crm-prod-db psql -U postgres`.
+
+---
+
+## Automation Rules
+
+### Plan Before Code
+Before writing code for medium/complex tasks: state files, explain approach, flag risks, wait for "go". Simple tasks (typo, label, spacing): just do it.
+
+### Auto-Test
+After any feature or fix: write unit tests (.spec.ts next to source) — happy path + error + edge case. Mock PrismaService and external services. Run tests, report count.
+
+### Auto-Update Docs
+After any feature, update in the same commit: CLAUDE.md, API_ROUTE_MAP.md, FRONTEND_ROUTE_MAP.md, DATABASE_SCHEMA.md (as applicable).
+
+### Permission-Aware
+When building access-controlled features: add to seed-permissions.ts → backend `@RequirePermission()` → frontend `usePermissions()` → sidebar `*.menu` permission.
+
+---
+
+## Known Issues & Technical Debt
 - Incident without client: null constraint violation
-
-### Incomplete
 - Dashboard: static placeholder (no API)
 - WhatsApp adapter: schema ready, adapter not built
 - Work order export: permissions exist, no UI
 - Web chat widget: backend ready, no embeddable JS widget
-
-### Technical Debt
-- Some pages use raw fetch() instead of apiGet/apiPost
-- Legacy RolesModule alongside Position RBAC (both imported — eventual cleanup needed)
+- Some pages use raw `fetch()` instead of `apiGet/apiPost`
+- Legacy RolesModule alongside Position RBAC (both imported — Position RBAC is authoritative)
 - Single 2125-line Prisma schema
-- dist/ files in git status (gitignore issue)
-- rawBody: true enabled globally (only needed for webhook HMAC)
+- `rawBody: true` enabled globally (only needed for webhook HMAC)
+- Both `bcrypt` AND `bcryptjs` installed — check which is imported before changing auth
 
 ---
-
-## Environment Variables
-
-### Backend (.env)
-DATABASE_URL, JWT_SECRET, JWT_EXPIRES_IN, PORT, CORS_ORIGINS, COOKIE_NAME, COOKIE_SECURE, VIBER_BOT_TOKEN, FB_PAGE_ACCESS_TOKEN, FB_APP_SECRET, FB_VERIFY_TOKEN, TELEGRAM_BOT_TOKEN, WA_ACCESS_TOKEN, WA_PHONE_NUMBER_ID, WA_VERIFY_TOKEN, WA_APP_SECRET, CLIENTCHATS_WEBHOOK_BASE_URL, TELEPHONY_INGEST_SECRET, AMI_ENABLED, AMI_HOST, AMI_PORT, AMI_USER, AMI_SECRET, ARI_ENABLED, ARI_BASE_URL, ARI_USER, ARI_PASSWORD, OPENAI_API_KEY, QUALITY_AI_ENABLED, QUALITY_AI_MODEL
-
-### Frontend (.env.local)
-NEXT_PUBLIC_API_BASE (default http://localhost:3000), API_BACKEND_URL
-
----
-
-## Coding Conventions
-
-- Backend: NestJS module per domain (controller + service + DTOs + module)
-- Frontend: All authenticated pages are "use client" components
-- Terminology: "Devices" = building assets. "Products" = inventory items.
-- Auto-generated codes: Department, Position, RoleGroup codes from name
-- Employee IDs: EMP-### never reused (ExternalIdCounter table)
-- Prisma: sole DB access via PrismaService (extends PrismaClient + pg.Pool)
-- Validation: DTOs with class-validator
-- Guards: @UseGuards(JwtAuthGuard, PositionPermissionGuard) + @RequirePermission()
-- Performance: Promise.all(), groupBy, indexes, select, pagination
-- Frontend API: same-origin rewrites in next.config.ts (/auth/*, /v1/*, /public/* → backend)
-- Modals: createPortal + mounted check + z-index (detail: 10000, action: 50000+)
-- Pagination: cursor-based for messenger, page-based for everything else
-- React hooks: ALL hooks BEFORE any conditional returns (React #310 crash)
-
-## Key Files
-
-| Purpose | Path |
-|---------|------|
-| Prisma schema | backend/crm-backend/prisma/schema.prisma |
-| Backend entry | backend/crm-backend/src/main.ts |
-| Root module | backend/crm-backend/src/app.module.ts |
-| Prisma config (CI fallback) | backend/crm-backend/prisma.config.ts |
-| API client | frontend/crm-frontend/src/lib/api.ts |
-| Dynamic lists hook | frontend/crm-frontend/src/hooks/useListItems.ts |
-| Permissions hook | frontend/crm-frontend/src/lib/use-permissions.ts |
-| Modal manager | frontend/crm-frontend/src/app/app/modal-manager.tsx |
-| Modal stack (FRAGILE) | frontend/crm-frontend/src/app/app/modal-stack-context.tsx |
-| App layout (FRAGILE) | frontend/crm-frontend/src/app/app/layout.tsx |
-| Messenger context | frontend/crm-frontend/src/app/app/messenger/messenger-context.tsx |
-| Client chats core (FRAGILE) | backend/crm-backend/src/clientchats/services/clientchats-core.service.ts |
 
 ## Deeper Documentation
-
 - DATABASE_SCHEMA.md — every table, relationship, enum
 - API_ROUTE_MAP.md — every endpoint with method, auth, request/response
 - FRONTEND_ROUTE_MAP.md — all 47 pages, components, status
@@ -500,9 +301,3 @@ NEXT_PUBLIC_API_BASE (default http://localhost:3000), API_BACKEND_URL
 - docs/DESIGN_SYSTEM.md — UI design tokens
 - docs/TELEPHONY_INTEGRATION.md — full telephony architecture
 - docs/LOCAL_DEVELOPMENT.md — troubleshooting, health checks, Prisma enum workaround
-
-## Production
-- Domain: crm28.asg.ge
-- Hosting: Railway (auto-deploys from master)
-- Backend start: prisma migrate deploy → seed-permissions → node dist/main
-- Frontend: separate Railway service
