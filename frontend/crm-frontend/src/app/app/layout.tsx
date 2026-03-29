@@ -7,6 +7,7 @@ import ChatBubbleContainer from "./messenger/chat-bubble-container";
 import MessengerModalBridge from "./messenger/messenger-modal-bridge";
 import PhoneMismatchBanner from "./phone-mismatch-banner";
 import { I18nProvider } from "@/contexts/i18n-context";
+import BugReporterGate from "@/components/bug-reporter/bug-reporter-gate";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
@@ -69,6 +70,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       </div>
       <ChatBubbleContainer />
       <MessengerModalBridge />
+      <BugReporterGate />
     </ModalStackWrapper>
     </MessengerProvider>
     </I18nProvider>

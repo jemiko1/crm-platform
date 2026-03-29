@@ -268,6 +268,7 @@ model User {
   chatQueueSchedules    ClientChatQueueSchedule[] @relation("UserChatQueueSchedules")
   chatQueueOverrides    ClientChatQueueOverride[] @relation("UserChatQueueOverrides")
   deviceHandshakeTokens DeviceHandshakeToken[]
+  bugReports            BugReport[]               @relation("UserBugReports")
 
   @@index([email])
   @@index([isActive])
@@ -2146,4 +2147,75 @@ enum ClientChatDirection {
 enum ClientChatAccountStatus {
   ACTIVE
   INACTIVE
+}
+
+// ──────────────────────────────────────────────
+// Bug Reports (beta testing)
+// ──────────────────────────────────────────────
+
+model BugReport {
+  id            String   @id @default(uuid())
+
+  reporterId    String
+  reporter      User     @relation("UserBugReports", fields: [reporterId], references: [id])
+
+  description   String
+  severity      BugSeverity
+  category      BugCategory      @default(BUG)
+
+  pageUrl       String
+  browserInfo   Json
+  actionLog     Json
+  consoleLog    Json
+  networkLog    Json
+  videoPath     String?
+  screenshots   Json?
+
+  aiTitle       String?
+  aiAnalysis    Json?
+  aiSeverity    BugSeverity?
+
+  githubIssueId     Int?
+  githubIssueUrl    String?
+  githubSyncStatus  GithubSyncStatus @default(PENDING)
+
+  status        BugReportStatus  @default(NEW)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([reporterId])
+  @@index([status])
+  @@index([severity])
+  @@index([createdAt])
+}
+
+enum BugSeverity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum BugCategory {
+  BUG
+  IMPROVEMENT
+  UI_ISSUE
+  PERFORMANCE
+}
+
+enum GithubSyncStatus {
+  PENDING
+  SYNCED
+  FAILED
+}
+
+enum BugReportStatus {
+  NEW
+  AI_ANALYZED
+  GITHUB_CREATED
+  IN_PROGRESS
+  FIXED
+  CLOSED
+  WONT_FIX
 }

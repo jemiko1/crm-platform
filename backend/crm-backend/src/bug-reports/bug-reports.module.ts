@@ -1,0 +1,14 @@
+import { Module } from "@nestjs/common";
+import { PrismaModule } from "../prisma/prisma.module";
+import { BugReportsService } from "./bug-reports.service";
+import { BugReportsController } from "./bug-reports.controller";
+import { BugAnalyzerService } from "./ai/bug-analyzer.service";
+import { GitHubIssueService } from "./github/github-issue.service";
+
+@Module({
+  imports: [PrismaModule],
+  controllers: [BugReportsController],
+  providers: [BugReportsService, BugAnalyzerService, GitHubIssueService],
+  exports: [BugReportsService],
+})
+export class BugReportsModule {}

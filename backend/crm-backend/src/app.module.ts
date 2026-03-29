@@ -57,6 +57,9 @@ import { ClientChatsModule } from "./clientchats/clientchats.module";
 // Client Intelligence
 import { ClientIntelligenceModule } from "./client-intelligence/client-intelligence.module";
 
+// Bug Reports (beta testing)
+import { BugReportsModule } from "./bug-reports/bug-reports.module";
+
 import { V1Module } from "./v1/v1.module";
 
 @Module({
@@ -117,6 +120,9 @@ import { V1Module } from "./v1/v1.module";
 
     // Client Intelligence
     ClientIntelligenceModule,
+
+    // Bug Reports (beta testing)
+    BugReportsModule,
 
     // API controllers (v1)
     V1Module,
