@@ -66,6 +66,9 @@ backups/*.bundle
 # Local / generated audio
 *.wav
 
+# Bug report video uploads
+uploads/
+
 # Local MCP config (may contain paths or secrets)
 .mcp.json
 
