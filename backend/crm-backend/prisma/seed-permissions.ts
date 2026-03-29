@@ -168,6 +168,10 @@ const DEFAULT_PERMISSIONS = [
   { resource: "telephony", action: "manage", category: PermissionCategory.TELEPHONY, description: "Manage telephony extensions and configuration" },
   { resource: "telephony", action: "menu", category: PermissionCategory.TELEPHONY, description: "Show Telephony in left menu" },
 
+  // Missed Calls
+  { resource: "missed_calls", action: "access", category: PermissionCategory.TELEPHONY, description: "View missed calls queue" },
+  { resource: "missed_calls", action: "manage", category: PermissionCategory.TELEPHONY, description: "Claim, attempt, resolve, and ignore missed calls" },
+
   // SMS Configuration
   { resource: "sms_config", action: "access", category: PermissionCategory.ADMIN, description: "Access SMS configuration, logs, and spam protection settings" },
 

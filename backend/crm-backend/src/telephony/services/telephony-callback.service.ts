@@ -99,7 +99,7 @@ export class TelephonyCallbackService {
 
     const where = params.status ? { status: params.status } : {};
 
-    const [data, total] = await Promise.all([
+    const [rawData, total] = await Promise.all([
       this.prisma.callbackRequest.findMany({
         where,
         include: {
@@ -113,6 +113,14 @@ export class TelephonyCallbackService {
                   direction: true,
                 },
               },
+              queue: { select: { id: true, name: true } },
+            },
+          },
+          assignedTo: {
+            select: {
+              id: true,
+              email: true,
+              employee: { select: { firstName: true, lastName: true } },
             },
           },
         },
@@ -126,7 +134,68 @@ export class TelephonyCallbackService {
       this.prisma.callbackRequest.count({ where }),
     ]);
 
-    return { data, total, page, pageSize };
+    // Resolve client names
+    const callerNumbers = [
+      ...new Set(
+        rawData
+          .map((r) => r.missedCall?.callSession?.callerNumber)
+          .filter((n): n is string => !!n),
+      ),
+    ];
+    const clientNameMap = new Map<string, string>();
+    if (callerNumbers.length > 0) {
+      const clients = await this.prisma.client.findMany({
+        where: {
+          OR: [
+            { primaryPhone: { in: callerNumbers } },
+            { secondaryPhone: { in: callerNumbers } },
+          ],
+        },
+        select: { firstName: true, lastName: true, primaryPhone: true, secondaryPhone: true },
+      });
+      for (const c of clients) {
+        const name = [c.firstName, c.lastName].filter(Boolean).join(' ');
+        if (name) {
+          if (c.primaryPhone) clientNameMap.set(c.primaryPhone, name);
+          if (c.secondaryPhone) clientNameMap.set(c.secondaryPhone, name);
+        }
+      }
+    }
+
+    const totalPages = Math.ceil(total / pageSize);
+
+    const data = rawData.map((r) => {
+      const callerNumber = r.missedCall?.callSession?.callerNumber ?? null;
+      const assignedName = r.assignedTo?.employee
+        ? [r.assignedTo.employee.firstName, r.assignedTo.employee.lastName]
+            .filter(Boolean)
+            .join(' ')
+        : r.assignedTo?.email ?? null;
+
+      return {
+        id: r.id,
+        callerNumber,
+        clientName: callerNumber ? clientNameMap.get(callerNumber) ?? null : null,
+        queueId: r.missedCall?.queue?.id ?? null,
+        queueName: r.missedCall?.queue?.name ?? null,
+        status: r.status,
+        reason: r.missedCall?.reason ?? null,
+        createdAt: r.createdAt.toISOString(),
+        scheduledAt: r.scheduledAt?.toISOString() ?? null,
+        completedAt: r.status === CallbackRequestStatus.DONE ? r.updatedAt.toISOString() : null,
+        attemptsCount: r.attemptsCount,
+        lastAttemptAt: r.lastAttemptAt?.toISOString() ?? null,
+        assignedToName: assignedName,
+        missedCallId: r.missedCallId,
+        callSessionId: r.missedCall?.callSession?.id ?? null,
+        missedAt: r.missedCall?.callSession?.startAt?.toISOString() ?? null,
+      };
+    });
+
+    return {
+      data,
+      meta: { page, pageSize, total, totalPages },
+    };
   }
 
   private classifyMissedReason(session: {

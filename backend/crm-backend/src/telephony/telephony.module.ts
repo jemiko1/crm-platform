@@ -27,6 +27,8 @@ import { AsteriskSyncService } from './sync/asterisk-sync.service';
 import { CdrImportService } from './cdr/cdr-import.service';
 import { RecordingAccessService } from './recording/recording-access.service';
 import { QualityPipelineService } from './quality/quality-pipeline.service';
+import { MissedCallsService } from './services/missed-calls.service';
+import { MissedCallsController } from './controllers/missed-calls.controller';
 
 @Module({
   imports: [
@@ -46,6 +48,7 @@ import { QualityPipelineService } from './quality/quality-pipeline.service';
     TelephonyActionsController,
     TelephonyRecordingController,
     TelephonyExtensionsController,
+    MissedCallsController,
   ],
   providers: [
     TelephonyIngestionService,
@@ -64,6 +67,7 @@ import { QualityPipelineService } from './quality/quality-pipeline.service';
     CdrImportService,
     RecordingAccessService,
     QualityPipelineService,
+    MissedCallsService,
   ],
   exports: [
     TelephonyIngestionService,
@@ -76,6 +80,7 @@ import { QualityPipelineService } from './quality/quality-pipeline.service';
     AmiClientService,
     TelephonyStateManager,
     AriClientService,
+    MissedCallsService,
   ],
 })
 export class TelephonyModule {}

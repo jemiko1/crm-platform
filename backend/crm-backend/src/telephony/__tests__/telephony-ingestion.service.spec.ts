@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TelephonyIngestionService } from '../services/telephony-ingestion.service';
 import { TelephonyCallbackService } from '../services/telephony-callback.service';
+import { MissedCallsService } from '../services/missed-calls.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 describe('TelephonyIngestionService', () => {
@@ -54,6 +55,7 @@ describe('TelephonyIngestionService', () => {
         TelephonyIngestionService,
         { provide: PrismaService, useValue: prisma },
         { provide: TelephonyCallbackService, useValue: callbackService },
+        { provide: MissedCallsService, useValue: { autoResolveByPhone: jest.fn().mockResolvedValue(0) } },
       ],
     }).compile();
 

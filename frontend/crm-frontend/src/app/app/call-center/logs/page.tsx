@@ -16,32 +16,34 @@ function defaultTo() {
   return new Date().toISOString().slice(0, 10);
 }
 
-const DISPOSITION_COLORS: Record<string, { bg: string; text: string }> = {
-  ANSWERED: { bg: "bg-teal-50", text: "text-teal-900" },
-  NO_ANSWER: { bg: "bg-rose-50", text: "text-rose-700" },
-  BUSY: { bg: "bg-amber-50", text: "text-amber-700" },
-  FAILED: { bg: "bg-zinc-100", text: "text-zinc-600" },
-  VOICEMAIL: { bg: "bg-purple-50", text: "text-purple-700" },
+const DISPOSITION_COLORS: Record<string, { bg: string; text: string; label: string }> = {
+  ANSWERED: { bg: "bg-teal-50", text: "text-teal-700", label: "Answered" },
+  NOANSWER: { bg: "bg-rose-50", text: "text-rose-700", label: "No Answer" },
+  MISSED: { bg: "bg-orange-50", text: "text-orange-700", label: "Missed" },
+  ABANDONED: { bg: "bg-red-50", text: "text-red-700", label: "Abandoned" },
+  BUSY: { bg: "bg-amber-50", text: "text-amber-700", label: "Busy" },
+  FAILED: { bg: "bg-zinc-100", text: "text-zinc-600", label: "Failed" },
 };
 
 function DispositionBadge({ disposition }: { disposition: string | null }) {
   const d = disposition ?? "UNKNOWN";
-  const c = DISPOSITION_COLORS[d] ?? { bg: "bg-zinc-100", text: "text-zinc-600" };
+  const c = DISPOSITION_COLORS[d] ?? { bg: "bg-zinc-100", text: "text-zinc-600", label: d };
   return (
     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${c.bg} ${c.text}`}>
-      {d.replace(/_/g, " ")}
+      {c.label}
     </span>
   );
 }
 
 function DirectionBadge({ direction }: { direction: string }) {
-  const isInbound = direction === "INBOUND";
+  const isInbound = direction === "IN";
+  const label = isInbound ? "Inbound" : "Outbound";
   return (
     <span className={`inline-flex items-center gap-1 text-xs font-medium ${isInbound ? "text-blue-600" : "text-zinc-500"}`}>
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
         {isInbound ? <path d="M16 3l-4 4-4-4M12 7v14" /> : <path d="M8 21l4-4 4 4M12 17V3" />}
       </svg>
-      {direction}
+      {label}
     </span>
   );
 }
@@ -81,11 +83,9 @@ export default function CallLogsPage() {
         search: search || undefined,
         disposition: disposition || undefined,
       });
-      const data = res?.data ?? (Array.isArray(res) ? res as unknown as CallSession[] : []);
-      setCalls(data);
-      setMeta(res?.meta ?? { page: 1, pageSize: 25, total: data.length, totalPages: 1 });
-    } catch (err) {
-      console.error("Failed to load calls", err);
+      setCalls(res?.data ?? []);
+      setMeta(res?.meta ?? { page: 1, pageSize: 25, total: 0, totalPages: 1 });
+    } catch {
       setCalls([]);
     } finally {
       setLoading(false);
@@ -119,10 +119,12 @@ export default function CallLogsPage() {
           <select value={disposition} onChange={(e) => { setDisposition(e.target.value); setPage(1); }}
             className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50">
             <option value="">{t("callCenter.logs.allStatuses", "All")}</option>
-            <option value="ANSWERED">Answered</option>
-            <option value="NO_ANSWER">No Answer</option>
-            <option value="BUSY">Busy</option>
-            <option value="FAILED">Failed</option>
+            <option value="ANSWERED">{t("callCenter.disposition.answered", "Answered")}</option>
+            <option value="NOANSWER">{t("callCenter.disposition.noAnswer", "No Answer")}</option>
+            <option value="MISSED">{t("callCenter.disposition.missed", "Missed")}</option>
+            <option value="ABANDONED">{t("callCenter.disposition.abandoned", "Abandoned")}</option>
+            <option value="BUSY">{t("callCenter.disposition.busy", "Busy")}</option>
+            <option value="FAILED">{t("callCenter.disposition.failed", "Failed")}</option>
           </select>
         </div>
       </div>

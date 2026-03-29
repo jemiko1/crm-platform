@@ -37,13 +37,19 @@ export class TelephonyCallsService {
       ];
     }
 
-    const [data, total] = await Promise.all([
+    const [rawData, total] = await Promise.all([
       this.prisma.callSession.findMany({
         where,
         include: {
           callMetrics: true,
           queue: { select: { id: true, name: true } },
-          assignedUser: { select: { id: true, email: true } },
+          assignedUser: {
+            select: {
+              id: true,
+              email: true,
+              employee: { select: { firstName: true, lastName: true } },
+            },
+          },
           recordings: { select: { id: true, durationSeconds: true } },
           qualityReview: { select: { id: true, status: true, score: true } },
         },
@@ -54,7 +60,85 @@ export class TelephonyCallsService {
       this.prisma.callSession.count({ where }),
     ]);
 
-    return { data, total, page, pageSize };
+    // Resolve agent display names from TelephonyExtension
+    const agentUserIds = rawData
+      .map((s) => s.assignedUserId)
+      .filter((id): id is string => id !== null);
+    const extensions =
+      agentUserIds.length > 0
+        ? await this.prisma.telephonyExtension.findMany({
+            where: { crmUserId: { in: agentUserIds } },
+            select: { crmUserId: true, displayName: true },
+          })
+        : [];
+    const extNameMap = new Map(extensions.map((e) => [e.crmUserId, e.displayName]));
+
+    // Resolve client names from caller numbers
+    const callerNumbers = [...new Set(rawData.map((s) => s.callerNumber).filter(Boolean))];
+    const clientNameMap = new Map<string, string>();
+    if (callerNumbers.length > 0) {
+      const clients = await this.prisma.client.findMany({
+        where: {
+          OR: [
+            { primaryPhone: { in: callerNumbers } },
+            { secondaryPhone: { in: callerNumbers } },
+          ],
+        },
+        select: { firstName: true, lastName: true, primaryPhone: true, secondaryPhone: true },
+      });
+      for (const c of clients) {
+        const name = [c.firstName, c.lastName].filter(Boolean).join(' ');
+        if (name) {
+          if (c.primaryPhone) clientNameMap.set(c.primaryPhone, name);
+          if (c.secondaryPhone) clientNameMap.set(c.secondaryPhone, name);
+        }
+      }
+    }
+
+    const totalPages = Math.ceil(total / pageSize);
+
+    const data = rawData.map((s) => {
+      const agentName =
+        extNameMap.get(s.assignedUserId ?? '') ??
+        (s.assignedUser?.employee
+          ? [s.assignedUser.employee.firstName, s.assignedUser.employee.lastName]
+              .filter(Boolean)
+              .join(' ')
+          : null) ??
+        s.assignedUser?.email ??
+        null;
+
+      return {
+        id: s.id,
+        linkedId: s.linkedId,
+        direction: s.direction,
+        callerNumber: s.callerNumber,
+        calleeNumber: s.calleeNumber,
+        queueId: s.queue?.id ?? null,
+        queueName: s.queue?.name ?? null,
+        disposition: s.disposition,
+        startAt: s.startAt.toISOString(),
+        answerAt: s.answerAt?.toISOString() ?? null,
+        endAt: s.endAt?.toISOString() ?? null,
+        durationSec: s.callMetrics
+          ? s.callMetrics.talkSeconds + s.callMetrics.holdSeconds
+          : null,
+        talkTimeSec: s.callMetrics?.talkSeconds ?? null,
+        waitTimeSec: s.callMetrics?.waitSeconds ?? null,
+        holdTimeSec: s.callMetrics?.holdSeconds ?? null,
+        agentExtension: s.assignedExtension ?? null,
+        agentName,
+        clientName: clientNameMap.get(s.callerNumber) ?? null,
+        recordingUrl: s.recordings.length > 0 ? `/v1/telephony/recordings/${s.recordings[0].id}/stream` : null,
+        recordingId: s.recordings[0]?.id ?? null,
+        qualityScore: s.qualityReview?.score ?? null,
+      };
+    });
+
+    return {
+      data,
+      meta: { page, pageSize, total, totalPages },
+    };
   }
 
   async lookupPhone(phone: string): Promise<CallerLookupResult> {
