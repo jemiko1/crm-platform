@@ -6,6 +6,7 @@
       "runtimeExecutable": "cmd.exe",
       "runtimeArgs": ["/c", "npm run start:dev"],
       "port": 3000,
+      "autoPort": false,
       "cwd": "backend/crm-backend"
     },
     {

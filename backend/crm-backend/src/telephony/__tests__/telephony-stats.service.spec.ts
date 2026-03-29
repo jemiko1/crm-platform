@@ -180,7 +180,7 @@ describe('TelephonyStatsService', () => {
       expect(agent1.totalCalls).toBe(2);
       expect(agent1.answered).toBe(1);
       expect(agent1.missed).toBe(1);
-      expect(agent1.answerRate).toBe(0.5);
+      expect(agent1.answerRate).toBe(50);
       expect(agent1.displayName).toBe('Agent A');
     });
   });

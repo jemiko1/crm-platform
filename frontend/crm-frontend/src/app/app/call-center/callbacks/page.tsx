@@ -54,8 +54,7 @@ export default function CallbacksPage() {
       const data = res?.data ?? (Array.isArray(res) ? res as unknown as CallbackRequest[] : []);
       setCallbacks(data);
       setMeta(res?.meta ?? { page: 1, pageSize: 25, total: data.length, totalPages: 1 });
-    } catch (err) {
-      console.error("Failed to load callbacks", err);
+    } catch {
       setCallbacks([]);
     } finally {
       setLoading(false);
