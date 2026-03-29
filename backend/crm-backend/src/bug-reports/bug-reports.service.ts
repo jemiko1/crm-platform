@@ -132,14 +132,9 @@ export class BugReportsService {
 
   async retryGithub(id: string) {
     const report = await this.findOne(id);
-    if (!report.aiAnalysis) {
-      throw new BadRequestException(
-        "AI analysis must complete before creating a GitHub issue",
-      );
-    }
 
     const reporter = report.reporter;
-    const analysis = report.aiAnalysis as Record<string, unknown>;
+    const analysis = report.aiAnalysis as Record<string, unknown> | null;
 
     const ghResult = await this.github.createIssue({
       bugReportId: report.id,
@@ -203,43 +198,43 @@ export class BugReportsService {
           status: "AI_ANALYZED",
         },
       });
-
-      const ghResult = await this.github.createIssue({
-        bugReportId: report.id,
-        reporterName: report.reporter.email,
-        reporterEmail: report.reporter.email,
-        severity: report.severity,
-        category: report.category,
-        pageUrl: report.pageUrl,
-        browserInfo: report.browserInfo as Record<string, unknown>,
-        description: report.description,
-        actionLog: report.actionLog as unknown[],
-        consoleLog: report.consoleLog as unknown[],
-        networkLog: report.networkLog as unknown[],
-        createdAt: report.createdAt,
-        analysis,
-      });
-
-      if (ghResult) {
-        await this.prisma.bugReport.update({
-          where: { id: bugReportId },
-          data: {
-            githubIssueId: ghResult.issueNumber,
-            githubIssueUrl: ghResult.issueUrl,
-            githubSyncStatus: "SYNCED",
-            status: "GITHUB_CREATED",
-          },
-        });
-      } else {
-        await this.prisma.bugReport.update({
-          where: { id: bugReportId },
-          data: { githubSyncStatus: "FAILED" },
-        });
-      }
     } else {
       this.logger.warn(
-        `AI analysis returned null for ${bugReportId} — report saved, GitHub pending`,
+        `AI analysis returned null for ${bugReportId} — proceeding to GitHub without AI`,
       );
+    }
+
+    const ghResult = await this.github.createIssue({
+      bugReportId: report.id,
+      reporterName: report.reporter.email,
+      reporterEmail: report.reporter.email,
+      severity: report.severity,
+      category: report.category,
+      pageUrl: report.pageUrl,
+      browserInfo: report.browserInfo as Record<string, unknown>,
+      description: report.description,
+      actionLog: report.actionLog as unknown[],
+      consoleLog: report.consoleLog as unknown[],
+      networkLog: report.networkLog as unknown[],
+      createdAt: report.createdAt,
+      analysis,
+    });
+
+    if (ghResult) {
+      await this.prisma.bugReport.update({
+        where: { id: bugReportId },
+        data: {
+          githubIssueId: ghResult.issueNumber,
+          githubIssueUrl: ghResult.issueUrl,
+          githubSyncStatus: "SYNCED",
+          status: analysis ? "GITHUB_CREATED" : "GITHUB_CREATED",
+        },
+      });
+    } else {
+      await this.prisma.bugReport.update({
+        where: { id: bugReportId },
+        data: { githubSyncStatus: "FAILED" },
+      });
     }
   }
 }

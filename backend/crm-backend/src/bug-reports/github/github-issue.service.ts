@@ -23,7 +23,7 @@ export class GitHubIssueService {
     consoleLog: unknown[];
     networkLog: unknown[];
     createdAt: Date;
-    analysis: BugAnalysisResult;
+    analysis: BugAnalysisResult | null;
   }): Promise<GitHubIssueResult | null> {
     const token = process.env.GITHUB_TOKEN;
     const owner = process.env.GITHUB_OWNER || "jemiko1";
@@ -43,23 +43,13 @@ export class GitHubIssueService {
       (e) => typeof e.status === "number" && (e.status as number) >= 400,
     );
 
-    const body = `## Bug Report \`${params.bugReportId.slice(0, 8)}\`
+    const title = analysis?.title ?? `[${params.severity}] Bug report from ${params.pageUrl}`;
+    const labels = analysis
+      ? [...new Set([...analysis.labels, "tester-reported"])]
+      : ["tester-reported", "bug", "needs-triage"];
 
-**Reported by:** ${params.reporterName} (${params.reporterEmail})
-**Severity (tester):** ${params.severity}
-**Severity (AI):** ${analysis.aiSeverity}
-**Page:** ${params.pageUrl}
-**Category:** ${params.category}
-**Browser:** ${params.browserInfo.userAgent ?? "unknown"}
-**Screen:** ${params.browserInfo.screenResolution ?? "unknown"}
-**Timestamp:** ${params.createdAt.toISOString()}
-
----
-
-### Tester Description (Original — Georgian)
-${params.description}
-
-### Tester Description (English Translation)
+    const aiSection = analysis
+      ? `### Tester Description (English Translation)
 ${analysis.testerDescriptionTranslation}
 
 ---
@@ -76,7 +66,25 @@ ${analysis.suggestedFix}
 
 **Affected Area:** ${analysis.affectedArea}
 **Likely Affected Files:**
-${analysis.affectedFiles.map((f) => "- `" + f + "`").join("\n")}
+${analysis.affectedFiles.map((f) => "- `" + f + "`").join("\n")}`
+      : `> _AI analysis was unavailable — raw tester data included below._`;
+
+    const body = `## Bug Report \`${params.bugReportId.slice(0, 8)}\`
+
+**Reported by:** ${params.reporterName} (${params.reporterEmail})
+**Severity (tester):** ${params.severity}${analysis ? `\n**Severity (AI):** ${analysis.aiSeverity}` : ""}
+**Page:** ${params.pageUrl}
+**Category:** ${params.category}
+**Browser:** ${params.browserInfo.userAgent ?? "unknown"}
+**Screen:** ${params.browserInfo.screenResolution ?? "unknown"}
+**Timestamp:** ${params.createdAt.toISOString()}
+
+---
+
+### Tester Description (Original — Georgian)
+${params.description}
+
+${aiSection}
 
 ---
 
@@ -110,8 +118,6 @@ ${JSON.stringify(params.actionLog.slice(0, 60), null, 2)}
 </details>
 `;
 
-    const labels = [...new Set([...analysis.labels, "tester-reported"])];
-
     try {
       const res = await fetch(
         `https://api.github.com/repos/${owner}/${repo}/issues`,
@@ -124,7 +130,7 @@ ${JSON.stringify(params.actionLog.slice(0, 60), null, 2)}
             "X-GitHub-Api-Version": "2022-11-28",
           },
           body: JSON.stringify({
-            title: analysis.title,
+            title,
             body,
             labels,
           }),
