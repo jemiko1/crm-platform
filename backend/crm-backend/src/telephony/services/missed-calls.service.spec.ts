@@ -120,7 +120,7 @@ describe('MissedCallsService', () => {
         callbackRequest: { attemptsCount: 0 },
       });
 
-      const result = await service.recordAttempt('mc-1', 'No answer');
+      const result = await service.recordAttempt('mc-1', 'user-1', 'No answer');
       expect(result.status).toBe('ATTEMPTED');
       expect(result.attempts).toBe(1);
       expect(prisma.callbackRequest.upsert).toHaveBeenCalled();
@@ -133,7 +133,7 @@ describe('MissedCallsService', () => {
         callbackRequest: { attemptsCount: 2 },
       });
 
-      const result = await service.recordAttempt('mc-1');
+      const result = await service.recordAttempt('mc-1', 'user-1');
       expect(result.status).toBe('MAX_ATTEMPTS_REACHED');
       expect(result.attempts).toBe(3);
     });

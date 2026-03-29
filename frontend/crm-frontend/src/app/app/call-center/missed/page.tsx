@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useI18n } from "@/hooks/useI18n";
 import { apiGet, apiPatch } from "@/lib/api";
+import { useDesktopPhone } from "@/hooks/useDesktopPhone";
 
 interface MissedCallItem {
   id: string;
@@ -35,7 +37,7 @@ interface MissedCallsPaginated {
 const STATUS_FILTERS = [
   { value: "", label: "Active", labelKey: "missedCalls.filter.active" },
   { value: "NEW", label: "New", labelKey: "missedCalls.filter.new" },
-  { value: "CLAIMED", label: "Claimed", labelKey: "missedCalls.filter.claimed" },
+  { value: "CLAIMED", label: "In Progress", labelKey: "missedCalls.filter.claimed" },
   { value: "ATTEMPTED", label: "Attempted", labelKey: "missedCalls.filter.attempted" },
   { value: "HANDLED", label: "Resolved", labelKey: "missedCalls.filter.resolved" },
   { value: "IGNORED", label: "Ignored", labelKey: "missedCalls.filter.ignored" },
@@ -50,7 +52,7 @@ const REASON_BADGES: Record<string, { bg: string; text: string; label: string }>
 
 const STATUS_BADGES: Record<string, { bg: string; text: string; label: string }> = {
   NEW: { bg: "bg-blue-50", text: "text-blue-700", label: "New" },
-  CLAIMED: { bg: "bg-indigo-50", text: "text-indigo-700", label: "Claimed" },
+  CLAIMED: { bg: "bg-indigo-50", text: "text-indigo-700", label: "In Progress" },
   ATTEMPTED: { bg: "bg-amber-50", text: "text-amber-700", label: "Attempted" },
   HANDLED: { bg: "bg-teal-50", text: "text-teal-700", label: "Resolved" },
   IGNORED: { bg: "bg-zinc-100", text: "text-zinc-500", label: "Ignored" },
@@ -86,8 +88,86 @@ function fmtDate(iso: string): string {
   });
 }
 
+/** Phone icon SVG for the Call button */
+function PhoneIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" />
+    </svg>
+  );
+}
+
+/** Portal-based modal that always renders centered in viewport */
+function NoteModal({
+  title,
+  description,
+  placeholder,
+  submitLabel,
+  onSubmit,
+  onCancel,
+}: {
+  title: string;
+  description: string;
+  placeholder: string;
+  submitLabel: string;
+  onSubmit: (text: string) => void;
+  onCancel: () => void;
+}) {
+  const [text, setText] = useState("");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+      style={{ zIndex: 50000 }}
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+    >
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-lg font-semibold text-zinc-900">{title}</h3>
+        <p className="mt-1 text-sm text-zinc-500">{description}</p>
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder={placeholder}
+          rows={3}
+          autoFocus
+          className="mt-4 w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-teal-500/50"
+        />
+        <div className="mt-4 flex items-center justify-end gap-2">
+          <button
+            onClick={onCancel}
+            className="rounded-xl px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onSubmit(text)}
+            className="rounded-xl bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 shadow-sm transition"
+          >
+            {submitLabel}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 export default function MissedCallsPage() {
   const { t } = useI18n();
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    apiGet<any>("/auth/me")
+      .then((data) => { if (data?.user?.id) setCurrentUserId(data.user.id); })
+      .catch(() => {});
+  }, []);
+
+  const { dial, appDetected } = useDesktopPhone(currentUserId);
   const [status, setStatus] = useState("");
   const [myClaimsOnly, setMyClaimsOnly] = useState(false);
   const [page, setPage] = useState(1);
@@ -95,8 +175,8 @@ export default function MissedCallsPage() {
   const [items, setItems] = useState<MissedCallItem[]>([]);
   const [meta, setMeta] = useState({ page: 1, pageSize: 25, total: 0, totalPages: 1 });
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [noteModal, setNoteModal] = useState<{ id: string; action: "attempt" | "resolve" | "ignore" } | null>(null);
-  const [noteText, setNoteText] = useState("");
+  const [noteModal, setNoteModal] = useState<{ id: string; action: "resolve" | "ignore" } | null>(null);
+  const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -123,8 +203,8 @@ export default function MissedCallsPage() {
 
   // Auto-refresh every 30s
   useEffect(() => {
-    const interval = setInterval(load, 30000);
-    return () => clearInterval(interval);
+    refreshTimerRef.current = setInterval(load, 30000);
+    return () => { if (refreshTimerRef.current) clearInterval(refreshTimerRef.current); };
   }, [load]);
 
   async function handleAction(id: string, action: string, body?: Record<string, string>) {
@@ -139,17 +219,38 @@ export default function MissedCallsPage() {
     }
   }
 
-  function submitNoteAction() {
+  /** Call button: triggers CRM28 Softphone dial + auto-records an attempt on the backend */
+  async function handleCall(m: MissedCallItem) {
+    if (!m.callerNumber) return;
+    setActionLoading(m.id);
+    try {
+      // Trigger the softphone to dial
+      const dialOk = await dial(m.callerNumber);
+      if (!dialOk) {
+        // Softphone not available — still record the attempt so it's tracked
+      }
+      // Record attempt on backend (auto-claims + tracks who attempted)
+      await apiPatch(`/v1/telephony/missed-calls/${m.id}/attempt`, {
+        note: `Outbound call initiated to ${m.callerNumber}`,
+      });
+      await load();
+    } catch {
+      // Reload to show current state
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  function submitNoteAction(text: string) {
     if (!noteModal) return;
     const body: Record<string, string> = {};
     if (noteModal.action === "ignore") {
-      body.reason = noteText || "No reason provided";
+      body.reason = text || "No reason provided";
     } else {
-      body.note = noteText;
+      body.note = text;
     }
     handleAction(noteModal.id, noteModal.action, body);
     setNoteModal(null);
-    setNoteText("");
   }
 
   const activeCount = items.filter(
@@ -171,6 +272,16 @@ export default function MissedCallsPage() {
               <span className="text-sm text-red-600">{t("missedCalls.needAction", "need action")}</span>
             </div>
           )}
+          {!appDetected && (
+            <div className="flex items-center gap-2 rounded-xl bg-amber-50 px-4 py-2 ring-1 ring-amber-200">
+              <svg className="h-4 w-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <span className="text-xs font-medium text-amber-700">
+                {t("missedCalls.phoneNotDetected", "CRM28 Phone not detected")}
+              </span>
+            </div>
+          )}
         </div>
 
         <label className="flex items-center gap-2 text-sm text-zinc-600 cursor-pointer select-none">
@@ -180,7 +291,7 @@ export default function MissedCallsPage() {
             onChange={(e) => { setMyClaimsOnly(e.target.checked); setPage(1); }}
             className="rounded border-zinc-300 text-teal-600 focus:ring-teal-500"
           />
-          {t("missedCalls.myClaimsOnly", "My claims only")}
+          {t("missedCalls.myClaimsOnly", "My calls only")}
         </label>
       </div>
 
@@ -205,7 +316,7 @@ export default function MissedCallsPage() {
       {/* Table */}
       <div className="rounded-3xl bg-white shadow-sm ring-1 ring-zinc-200 overflow-clip">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1000px] border-separate border-spacing-0">
+          <table className="w-full min-w-[900px] border-separate border-spacing-0">
             <thead className="bg-zinc-50">
               <tr className="text-left text-xs text-zinc-600">
                 <th className="px-4 py-3 font-medium">{t("missedCalls.col.time", "Time")}</th>
@@ -215,7 +326,7 @@ export default function MissedCallsPage() {
                 <th className="px-4 py-3 font-medium">{t("missedCalls.col.reason", "Reason")}</th>
                 <th className="px-4 py-3 font-medium">{t("missedCalls.col.status", "Status")}</th>
                 <th className="px-4 py-3 font-medium">{t("missedCalls.col.attempts", "Attempts")}</th>
-                <th className="px-4 py-3 font-medium">{t("missedCalls.col.claimedBy", "Claimed by")}</th>
+                <th className="px-4 py-3 font-medium">{t("missedCalls.col.lastAttemptedBy", "Last Attempted By")}</th>
                 <th className="px-4 py-3 font-medium text-right">{t("missedCalls.col.actions", "Actions")}</th>
               </tr>
             </thead>
@@ -258,7 +369,7 @@ export default function MissedCallsPage() {
                         <div className="text-xs text-zinc-400">{timeAgo(m.detectedAt)}</div>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="text-sm font-mono text-zinc-900">{m.callerNumber || "—"}</div>
+                        <div className="text-sm font-mono text-zinc-900">{m.callerNumber || "\u2014"}</div>
                         {m.missedCallCount > 1 && (
                           <span className="mt-0.5 inline-flex items-center rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
                             {m.missedCallCount}x
@@ -268,7 +379,7 @@ export default function MissedCallsPage() {
                       <td className="px-4 py-3 text-sm text-zinc-700">
                         {m.clientName || <span className="text-zinc-400">Unknown</span>}
                       </td>
-                      <td className="px-4 py-3 text-sm text-zinc-600">{m.queueName || "—"}</td>
+                      <td className="px-4 py-3 text-sm text-zinc-600">{m.queueName || "\u2014"}</td>
                       <td className="px-4 py-3">
                         <Badge map={REASON_BADGES} value={m.reason} />
                       </td>
@@ -284,42 +395,37 @@ export default function MissedCallsPage() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-sm text-zinc-600">
-                        {m.claimedByName || "—"}
-                        {m.claimedAt && (
+                        {m.claimedByName || "\u2014"}
+                        {m.claimedAt && m.claimedByName && (
                           <div className="text-xs text-zinc-400">{timeAgo(m.claimedAt)}</div>
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">
                         {isActionable && !isProcessing && (
                           <div className="flex items-center justify-end gap-1.5">
-                            {m.status === "NEW" && (
+                            {/* Call button — primary action */}
+                            {m.attemptsCount < 3 && (
                               <button
-                                onClick={() => handleAction(m.id, "claim")}
-                                className="rounded-lg bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 transition"
-                                title={t("missedCalls.action.claim", "Claim")}
+                                onClick={() => handleCall(m)}
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition ring-1 ring-emerald-200"
+                                title={t("missedCalls.action.call", "Call back")}
                               >
-                                {t("missedCalls.action.claim", "Claim")}
+                                <PhoneIcon className="h-3.5 w-3.5" />
+                                {t("missedCalls.action.call", "Call")}
                               </button>
                             )}
-                            {(m.status === "CLAIMED" || m.status === "ATTEMPTED") && m.attemptsCount < 3 && (
-                              <button
-                                onClick={() => { setNoteModal({ id: m.id, action: "attempt" }); setNoteText(""); }}
-                                className="rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100 transition"
-                                title={t("missedCalls.action.attempt", "Log attempt")}
-                              >
-                                {t("missedCalls.action.attempt", "Attempt")}
-                              </button>
-                            )}
+                            {/* Resolve */}
                             <button
-                              onClick={() => { setNoteModal({ id: m.id, action: "resolve" }); setNoteText(""); }}
-                              className="rounded-lg bg-teal-50 px-2.5 py-1 text-xs font-medium text-teal-700 hover:bg-teal-100 transition"
+                              onClick={() => setNoteModal({ id: m.id, action: "resolve" })}
+                              className="rounded-lg bg-teal-50 px-2.5 py-1.5 text-xs font-medium text-teal-700 hover:bg-teal-100 transition"
                               title={t("missedCalls.action.resolve", "Resolve")}
                             >
                               {t("missedCalls.action.resolve", "Resolve")}
                             </button>
+                            {/* Ignore */}
                             <button
-                              onClick={() => { setNoteModal({ id: m.id, action: "ignore" }); setNoteText(""); }}
-                              className="rounded-lg bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-500 hover:bg-zinc-200 transition"
+                              onClick={() => setNoteModal({ id: m.id, action: "ignore" })}
+                              className="rounded-lg bg-zinc-100 px-2.5 py-1.5 text-xs font-medium text-zinc-500 hover:bg-zinc-200 transition"
                               title={t("missedCalls.action.ignore", "Ignore")}
                             >
                               {t("missedCalls.action.ignore", "Ignore")}
@@ -344,7 +450,7 @@ export default function MissedCallsPage() {
             <span className="text-xs text-zinc-500">
               {t("common.page", "Page")} <span className="font-semibold">{meta.page}</span>{" "}
               {t("common.of", "of")} <span className="font-semibold">{meta.totalPages}</span>
-              {" · "}{meta.total} {t("missedCalls.items", "missed calls")}
+              {" \u00B7 "}{meta.total} {t("missedCalls.items", "missed calls")}
             </span>
             <div className="flex items-center gap-2">
               <button
@@ -366,53 +472,32 @@ export default function MissedCallsPage() {
         )}
       </div>
 
-      {/* Note modal */}
+      {/* Note modal (portal-based, always centered) */}
       {noteModal && (
-        <div className="fixed inset-0 z-[50000] flex items-center justify-center bg-black/30 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-zinc-900">
-              {noteModal.action === "attempt"
-                ? t("missedCalls.modal.attemptTitle", "Log Callback Attempt")
-                : noteModal.action === "resolve"
-                  ? t("missedCalls.modal.resolveTitle", "Resolve Missed Call")
-                  : t("missedCalls.modal.ignoreTitle", "Ignore Missed Call")}
-            </h3>
-            <p className="mt-1 text-sm text-zinc-500">
-              {noteModal.action === "ignore"
-                ? t("missedCalls.modal.ignoreDesc", "Provide a reason for ignoring this missed call.")
-                : t("missedCalls.modal.noteDesc", "Add an optional note about this action.")}
-            </p>
-            <textarea
-              value={noteText}
-              onChange={(e) => setNoteText(e.target.value)}
-              placeholder={
-                noteModal.action === "ignore"
-                  ? t("missedCalls.modal.reasonPlaceholder", "Reason for ignoring...")
-                  : t("missedCalls.modal.notePlaceholder", "Optional note...")
-              }
-              rows={3}
-              className="mt-4 w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-teal-500/50"
-            />
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button
-                onClick={() => setNoteModal(null)}
-                className="rounded-xl px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 transition"
-              >
-                {t("common.cancel", "Cancel")}
-              </button>
-              <button
-                onClick={submitNoteAction}
-                className="rounded-xl bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 shadow-sm transition"
-              >
-                {noteModal.action === "attempt"
-                  ? t("missedCalls.modal.logAttempt", "Log Attempt")
-                  : noteModal.action === "resolve"
-                    ? t("missedCalls.modal.resolve", "Resolve")
-                    : t("missedCalls.modal.ignore", "Ignore")}
-              </button>
-            </div>
-          </div>
-        </div>
+        <NoteModal
+          title={
+            noteModal.action === "resolve"
+              ? t("missedCalls.modal.resolveTitle", "Resolve Missed Call")
+              : t("missedCalls.modal.ignoreTitle", "Ignore Missed Call")
+          }
+          description={
+            noteModal.action === "ignore"
+              ? t("missedCalls.modal.ignoreDesc", "Provide a reason for ignoring this missed call.")
+              : t("missedCalls.modal.noteDesc", "Add an optional note about this action.")
+          }
+          placeholder={
+            noteModal.action === "ignore"
+              ? t("missedCalls.modal.reasonPlaceholder", "Reason for ignoring...")
+              : t("missedCalls.modal.notePlaceholder", "Optional note...")
+          }
+          submitLabel={
+            noteModal.action === "resolve"
+              ? t("missedCalls.modal.resolve", "Resolve")
+              : t("missedCalls.modal.ignore", "Ignore")
+          }
+          onSubmit={submitNoteAction}
+          onCancel={() => setNoteModal(null)}
+        />
       )}
     </div>
   );
