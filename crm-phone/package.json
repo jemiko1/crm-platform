@@ -59,7 +59,8 @@
     "nsis": {
       "oneClick": true,
       "perMachine": true,
-      "allowToChangeInstallationDirectory": false
+      "allowToChangeInstallationDirectory": false,
+      "artifactName": "CRM28-Phone-Setup.${ext}"
     }
   }
 }
