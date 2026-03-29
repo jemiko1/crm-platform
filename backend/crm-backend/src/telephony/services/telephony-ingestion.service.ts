@@ -492,7 +492,8 @@ export class TelephonyIngestionService {
     const answerMs = session.answerAt?.getTime();
     const endMs = session.endAt.getTime();
 
-    const waitSeconds = answerMs ? (answerMs - startMs) / 1000 : 0;
+    // For answered calls: wait = time until answer. For unanswered: wait = total call duration (how long caller waited before hanging up)
+    const waitSeconds = answerMs ? (answerMs - startMs) / 1000 : (endMs - startMs) / 1000;
     const talkSeconds = answerMs ? (endMs - answerMs) / 1000 : 0;
     const ringSeconds = waitSeconds;
 
