@@ -49,9 +49,12 @@ export function useScreenRecorder() {
   const start = useCallback(async (): Promise<boolean> => {
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: { displaySurface: "browser" } as any,
+        video: true,
         audio: false,
-      });
+        // Let Chrome show all options (Tab, Window, Screen)
+        // preferCurrentTab is better than displaySurface for localhost
+        preferCurrentTab: true,
+      } as any);
 
       mediaStream.current = stream;
       chunks.current = [];
