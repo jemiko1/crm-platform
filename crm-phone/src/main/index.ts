@@ -316,6 +316,15 @@ app.whenReady().then(async () => {
     onSessionChanged: (data) => {
       mainWindow?.webContents.send(IPC.AUTH_SESSION_CHANGED, data);
     },
+    onDial: (number) => {
+      if (!mainWindow) return false;
+      mainWindow.webContents.send(IPC.PHONE_DIAL, number);
+      // Bring window to front so user sees the call
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+      return true;
+    },
   });
 
   await restoreSession();

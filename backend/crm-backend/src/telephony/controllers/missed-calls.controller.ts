@@ -68,9 +68,10 @@ export class MissedCallsController {
   })
   async recordAttempt(
     @Param('id') id: string,
+    @Req() req: any,
     @Body('note') note?: string,
   ) {
-    return this.missedCallsService.recordAttempt(id, note);
+    return this.missedCallsService.recordAttempt(id, req.user.sub, note);
   }
 
   @Patch(':id/resolve')

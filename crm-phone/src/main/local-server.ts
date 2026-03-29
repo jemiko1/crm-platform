@@ -8,6 +8,7 @@ const PORT = 19876;
 
 export function startLocalServer(_unused: unknown, callbacks: {
   onSessionChanged: (session: AppLoginResponse | null) => void;
+  onDial?: (number: string) => Promise<boolean> | boolean;
 }): Server {
   const app = express();
 
@@ -69,6 +70,35 @@ export function startLocalServer(_unused: unknown, callbacks: {
       setSession(data);
       callbacks.onSessionChanged(data);
       res.json({ ok: true, user: data.user, extension: data.telephonyExtension?.extension });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/dial", async (req, res) => {
+    const { number } = req.body;
+    if (!number || typeof number !== "string") {
+      return res.status(400).json({ error: "number is required" });
+    }
+
+    // Sanitize: strip formatting, validate phone number format
+    const cleaned = number.replace(/[\s\-()]/g, "");
+    if (!/^\+?\d{3,20}$/.test(cleaned)) {
+      return res.status(400).json({ error: "Invalid phone number format" });
+    }
+
+    const session = getSession();
+    if (!session) {
+      return res.status(401).json({ error: "Not logged in" });
+    }
+
+    try {
+      if (callbacks.onDial) {
+        const ok = await callbacks.onDial(number);
+        res.json({ ok, number });
+      } else {
+        res.status(501).json({ error: "Dial not supported in this build" });
+      }
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

@@ -47,6 +47,11 @@ export class MissedCallsService {
       where.claimedByUserId = params.claimedByMe;
     }
 
+    // Filter out internal extension-to-extension calls — only show external inbound missed calls
+    where.callSession = {
+      direction: 'IN',
+    };
+
     const [rawData, total] = await Promise.all([
       this.prisma.missedCall.findMany({
         where,
@@ -204,7 +209,7 @@ export class MissedCallsService {
   /**
    * Record a callback attempt
    */
-  async recordAttempt(missedCallId: string, note?: string) {
+  async recordAttempt(missedCallId: string, userId: string, note?: string) {
     const mc = await this.prisma.missedCall.findUnique({
       where: { id: missedCallId },
       include: { callbackRequest: true },
@@ -231,6 +236,18 @@ export class MissedCallsService {
         outcome: note ?? null,
       },
     });
+
+    // Auto-claim for the user who is attempting (tracks "Last Attempted By")
+    // Only auto-claim if unclaimed or already claimed by the same user — respects existing claims
+    if (!mc.claimedByUserId || mc.claimedByUserId === userId) {
+      await this.prisma.missedCall.update({
+        where: { id: missedCallId },
+        data: {
+          claimedByUserId: userId,
+          claimedAt: new Date(),
+        },
+      });
+    }
 
     // If max attempts reached, mark as FAILED
     if (newAttempts >= MAX_ATTEMPTS) {
