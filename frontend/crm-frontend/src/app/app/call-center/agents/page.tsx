@@ -28,8 +28,9 @@ function formatSeconds(sec: number | null | undefined): string {
 
 function getAnswerRateColor(rate: number | null | undefined): string {
   if (rate == null || Number.isNaN(rate)) return "text-zinc-500";
-  if (rate >= 90) return "text-teal-800 font-semibold";
-  if (rate >= 75) return "text-yellow-600 font-semibold";
+  const pct = rate;
+  if (pct >= 90) return "text-teal-800 font-semibold";
+  if (pct >= 75) return "text-yellow-600 font-semibold";
   return "text-red-600 font-semibold";
 }
 
@@ -181,9 +182,8 @@ export default function AgentsPage() {
                     <td className="px-4 py-3 text-right">
                       <span className={getAnswerRateColor(a.answerRate)}>
                         {a.answerRate != null
-                          ? a.answerRate.toFixed(1)
+                          ? `${a.answerRate.toFixed(1)}%`
                           : "—"}
-                        %
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right text-zinc-600">

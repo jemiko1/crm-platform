@@ -259,6 +259,7 @@ model User {
   assignedCallSessions  CallSession[]       @relation("UserAssignedCalls")
   callLegs              CallLeg[]           @relation("UserCallLegs")
   missedCalls           MissedCall[]        @relation("UserMissedCalls")
+  claimedMissedCalls    MissedCall[]        @relation("UserClaimedMissedCalls")
   assignedCallbacks     CallbackRequest[]   @relation("UserAssignedCallbacks")
   qualityReviews        QualityReview[]     @relation("UserQualityReviews")
   assignedClientChats   ClientChatConversation[] @relation("UserAssignedClientChats")
@@ -1463,6 +1464,7 @@ model CallSession {
   callEvents        CallEvent[]
   callMetrics       CallMetrics?
   missedCall        MissedCall?
+  resolvedMissedCalls MissedCall[]  @relation("ResolvingCallSession")
   recordings        Recording[]
   qualityReview     QualityReview?
 
@@ -1529,26 +1531,34 @@ model CallMetrics {
 }
 
 model MissedCall {
-  id              String            @id @default(uuid())
-  callSessionId   String            @unique
-  reason          MissedCallReason
-  detectedAt      DateTime          @default(now())
-  queueId         String?
-  userId          String?
-  callerNumber    String
-  status          MissedCallStatus  @default(NEW)
-  notes           String?
-  createdAt       DateTime          @default(now())
-  callSession     CallSession       @relation(fields: [callSessionId], references: [id], onDelete: Cascade)
-  queue           TelephonyQueue?   @relation(fields: [queueId], references: [id])
-  user            User?             @relation("UserMissedCalls", fields: [userId], references: [id])
-  callbackRequest CallbackRequest?
+  id                      String            @id @default(uuid())
+  callSessionId           String            @unique
+  reason                  MissedCallReason
+  detectedAt              DateTime          @default(now())
+  queueId                 String?
+  userId                  String?
+  callerNumber            String
+  status                  MissedCallStatus  @default(NEW)
+  notes                   String?
+  claimedByUserId         String?
+  claimedAt               DateTime?
+  resolvedByCallSessionId String?
+  resolvedAt              DateTime?
+  createdAt               DateTime          @default(now())
+  callSession             CallSession       @relation(fields: [callSessionId], references: [id], onDelete: Cascade)
+  queue                   TelephonyQueue?   @relation(fields: [queueId], references: [id])
+  user                    User?             @relation("UserMissedCalls", fields: [userId], references: [id])
+  claimedBy               User?             @relation("UserClaimedMissedCalls", fields: [claimedByUserId], references: [id])
+  resolvedByCallSession   CallSession?      @relation("ResolvingCallSession", fields: [resolvedByCallSessionId], references: [id])
+  callbackRequest         CallbackRequest?
 
   @@index([status])
   @@index([queueId])
   @@index([detectedAt])
   @@index([callerNumber])
   @@index([userId])
+  @@index([claimedByUserId])
+  @@index([callerNumber, status])
 }
 
 model CallbackRequest {
@@ -2037,8 +2047,11 @@ enum MissedCallReason {
 
 enum MissedCallStatus {
   NEW
+  CLAIMED
+  ATTEMPTED
   HANDLED
   IGNORED
+  EXPIRED
 }
 
 enum CallbackRequestStatus {

@@ -8,6 +8,7 @@ import {
 } from '../types/telephony.types';
 import { IngestEventItemDto } from '../dto/ingest-event.dto';
 import { TelephonyCallbackService } from './telephony-callback.service';
+import { MissedCallsService } from './missed-calls.service';
 
 @Injectable()
 export class TelephonyIngestionService {
@@ -16,6 +17,7 @@ export class TelephonyIngestionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly callbackService: TelephonyCallbackService,
+    private readonly missedCallsService: MissedCallsService,
   ) {}
 
   async ingestBatch(events: IngestEventItemDto[]): Promise<IngestResult> {
@@ -215,7 +217,21 @@ export class TelephonyIngestionService {
 
     await this.computeMetrics(session.id);
 
-    if (disposition && disposition !== CallDisposition.ANSWERED) {
+    if (disposition === CallDisposition.ANSWERED) {
+      // Auto-resolve any pending missed calls for this caller/callee number
+      try {
+        const callerNumber = session.callerNumber ?? (payload.callerIdNum as string);
+        const calleeNumber = session.calleeNumber ?? (payload.connectedLineNum as string);
+        if (callerNumber) {
+          await this.missedCallsService.autoResolveByPhone(callerNumber, session.id);
+        }
+        if (calleeNumber && calleeNumber !== callerNumber) {
+          await this.missedCallsService.autoResolveByPhone(calleeNumber, session.id);
+        }
+      } catch (err: any) {
+        this.logger.error(`Auto-resolve missed calls failed for session ${session.id}: ${err.message}`);
+      }
+    } else if (disposition) {
       await this.callbackService.handleNonAnsweredCall(session.id);
     }
   }

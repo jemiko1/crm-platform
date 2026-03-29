@@ -1,7 +1,7 @@
 export interface CallSession {
   id: string;
   linkedId: string;
-  direction: "INBOUND" | "OUTBOUND" | "INTERNAL";
+  direction: "IN" | "OUT";
   callerNumber: string | null;
   calleeNumber: string | null;
   queueId: string | null;
@@ -18,6 +18,8 @@ export interface CallSession {
   agentName: string | null;
   clientName: string | null;
   recordingUrl: string | null;
+  recordingId?: string | null;
+  qualityScore?: number | null;
 }
 
 export interface CallsPaginated {
@@ -100,14 +102,21 @@ export interface LiveAgent {
 
 export interface CallbackRequest {
   id: string;
-  callerNumber: string;
+  callerNumber: string | null;
   queueId: string | null;
   queueName: string | null;
-  status: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "EXPIRED" | "CANCELLED";
+  status: "PENDING" | "SCHEDULED" | "ATTEMPTING" | "DONE" | "FAILED" | "CANCELED";
+  reason: "OUT_OF_HOURS" | "ABANDONED" | "NO_ANSWER" | null;
   createdAt: string;
   scheduledAt: string | null;
   completedAt: string | null;
+  attemptsCount: number;
+  lastAttemptAt: string | null;
+  assignedToName: string | null;
   clientName: string | null;
+  missedCallId: string;
+  callSessionId: string | null;
+  missedAt: string | null;
 }
 
 export interface CallbacksPaginated {

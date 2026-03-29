@@ -7,12 +7,11 @@ import { useI18n } from "@/hooks/useI18n";
 const BRAND = "rgb(8,117,56)";
 
 const TABS = [
-  { href: "/app/call-center", label: "Dashboard", labelKey: "callCenter.tabs.dashboard" },
+  { href: "/app/call-center", label: "Overview", labelKey: "callCenter.tabs.overview" },
   { href: "/app/call-center/logs", label: "Call Logs", labelKey: "callCenter.tabs.logs" },
+  { href: "/app/call-center/missed", label: "Missed Calls", labelKey: "callCenter.tabs.missed" },
   { href: "/app/call-center/live", label: "Live Monitor", labelKey: "callCenter.tabs.live" },
-  { href: "/app/call-center/callbacks", label: "Callbacks", labelKey: "callCenter.tabs.callbacks" },
   { href: "/app/call-center/quality", label: "Quality", labelKey: "callCenter.tabs.quality" },
-  { href: "/app/call-center/agents", label: "Agents", labelKey: "callCenter.tabs.agents" },
   { href: "/app/call-center/statistics", label: "Statistics", labelKey: "callCenter.tabs.statistics" },
 ];
 
