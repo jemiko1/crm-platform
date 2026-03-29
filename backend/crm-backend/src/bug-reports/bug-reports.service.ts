@@ -5,7 +5,6 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
-import { BugAnalyzerService } from "./ai/bug-analyzer.service";
 import { GitHubIssueService } from "./github/github-issue.service";
 import { CreateBugReportDto } from "./dto/create-bug-report.dto";
 import { UpdateBugReportStatusDto } from "./dto/update-bug-report-status.dto";
@@ -21,7 +20,6 @@ export class BugReportsService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly analyzer: BugAnalyzerService,
     private readonly github: GitHubIssueService,
   ) {
     this.videoDir =
@@ -179,30 +177,8 @@ export class BugReportsService {
     });
     if (!report) return;
 
-    const analysis = await this.analyzer.analyze({
-      description: report.description,
-      pageUrl: report.pageUrl,
-      browserInfo: report.browserInfo,
-      actionLog: report.actionLog as unknown[],
-      consoleLog: report.consoleLog as unknown[],
-      networkLog: report.networkLog as unknown[],
-    });
-
-    if (analysis) {
-      await this.prisma.bugReport.update({
-        where: { id: bugReportId },
-        data: {
-          aiTitle: analysis.title,
-          aiAnalysis: analysis as any,
-          aiSeverity: analysis.aiSeverity,
-          status: "AI_ANALYZED",
-        },
-      });
-    } else {
-      this.logger.warn(
-        `AI analysis returned null for ${bugReportId} — proceeding to GitHub without AI`,
-      );
-    }
+    // AI analysis is handled externally by Claude Code via /analyze-bugs skill
+    // Backend only creates the GitHub issue with raw tester data
 
     const ghResult = await this.github.createIssue({
       bugReportId: report.id,
@@ -217,7 +193,7 @@ export class BugReportsService {
       consoleLog: report.consoleLog as unknown[],
       networkLog: report.networkLog as unknown[],
       createdAt: report.createdAt,
-      analysis,
+      analysis: null,
     });
 
     if (ghResult) {
@@ -227,7 +203,7 @@ export class BugReportsService {
           githubIssueId: ghResult.issueNumber,
           githubIssueUrl: ghResult.issueUrl,
           githubSyncStatus: "SYNCED",
-          status: analysis ? "GITHUB_CREATED" : "GITHUB_CREATED",
+          status: "GITHUB_CREATED",
         },
       });
     } else {
