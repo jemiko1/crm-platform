@@ -1,0 +1,40 @@
+name: Claude Revise Analysis
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  revise:
+    if: |
+      !github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '@claude') &&
+      contains(join(github.event.issue.labels.*.name, ','), 'claude-analyzed')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          trigger_phrase: "@claude"
+          prompt: |
+            You are a senior developer analyzing bugs for CRM28 — a property management CRM (NestJS + Next.js + Prisma + PostgreSQL + Socket.IO).
+
+            This issue has already been analyzed. The project owner is providing feedback, asking questions, or requesting revisions to the analysis.
+
+            Read the full issue body and ALL comments to understand the conversation history.
+            Address the owner's latest comment. If they ask you to:
+            - Modify the analysis: post an updated, complete analysis
+            - Answer a question: answer with reference to the actual codebase (search for files)
+            - Change the fix plan: post a revised fix plan
+            - Skip parts: acknowledge and update accordingly
+
+            Always verify file paths exist in the codebase before referencing them.
+            Keep your response focused and actionable.
+          claude_args: |
+            --allowedTools Bash,Read,Glob,Grep
+            --max-turns 20
