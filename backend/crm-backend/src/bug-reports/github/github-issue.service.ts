@@ -36,6 +36,7 @@ export class GitHubIssueService {
     createdAt: Date;
     analysis: BugAnalysisResult | null;
     videoUrl?: string | null;
+    screenshotUrls?: string[];
   }): Promise<GitHubIssueResult | null> {
     const token = process.env.GITHUB_TOKEN;
     const owner = process.env.GITHUB_OWNER || "jemiko1";
@@ -89,7 +90,7 @@ ${analysis.affectedFiles.map((f) => "- `" + f + "`").join("\n")}`
 **Category:** ${params.category}
 **Browser:** ${params.browserInfo.userAgent ?? "unknown"}
 **Screen:** ${params.browserInfo.screenResolution ?? "unknown"}
-**Timestamp:** ${params.createdAt.toISOString()}${params.videoUrl ? `\n**Video:** [View Screen Recording](${params.videoUrl})` : ""}
+**Timestamp:** ${params.createdAt.toISOString()}${params.videoUrl ? `\n**Video:** [View Screen Recording](${params.videoUrl})` : ""}${params.screenshotUrls && params.screenshotUrls.length > 0 ? `\n**Screenshots:** ${params.screenshotUrls.length} attached` : ""}
 
 ---
 
@@ -98,7 +99,13 @@ ${params.description}
 
 ${aiSection}
 
----
+${params.screenshotUrls && params.screenshotUrls.length > 0 ? `---
+
+### Screenshots
+
+${params.screenshotUrls.map((url, i) => `![Screenshot ${i + 1}](${url})`).join("\n\n")}
+
+` : ""}---
 
 ### Evidence
 
@@ -145,6 +152,7 @@ ${JSON.stringify(params.actionLog.slice(0, 60), null, 2)}
             title,
             body,
             labels,
+            assignees: [owner],
           }),
         },
       );

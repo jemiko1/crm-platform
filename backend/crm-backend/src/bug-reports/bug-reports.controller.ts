@@ -11,14 +11,14 @@ import {
   Res,
   UseGuards,
   UseInterceptors,
-  UploadedFile,
+  UploadedFiles,
   HttpCode,
   HttpStatus,
   BadRequestException,
   NotFoundException,
   ForbiddenException,
 } from "@nestjs/common";
-import { FileInterceptor } from "@nestjs/platform-express";
+import { FileFieldsInterceptor } from "@nestjs/platform-express";
 import { ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { PositionPermissionGuard } from "../common/guards/position-permission.guard";
@@ -34,6 +34,14 @@ import * as path from "path";
 import { plainToInstance } from "class-transformer";
 import { validateOrReject } from "class-validator";
 
+const ALLOWED_IMAGE_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/jpg",
+  "image/gif",
+  "image/webp",
+];
+
 @ApiTags("Bug Reports")
 @Controller("v1/bug-reports")
 @UseGuards(JwtAuthGuard, PositionPermissionGuard)
@@ -43,21 +51,41 @@ export class BugReportsController {
   @Post()
   @RequirePermission("bug_reports.create")
   @UseInterceptors(
-    FileInterceptor("video", {
-      limits: { fileSize: 50 * 1024 * 1024 },
-      fileFilter: (_req, file, cb) => {
-        if (file.mimetype === "video/webm" || file.mimetype === "video/mp4") {
-          cb(null, true);
-        } else {
-          cb(new BadRequestException("Only webm/mp4 video files are allowed"), false);
-        }
+    FileFieldsInterceptor(
+      [
+        { name: "video", maxCount: 1 },
+        { name: "screenshots", maxCount: 10 },
+      ],
+      {
+        limits: { fileSize: 50 * 1024 * 1024 },
+        fileFilter: (_req, file, cb) => {
+          if (file.fieldname === "video") {
+            if (file.mimetype === "video/webm" || file.mimetype === "video/mp4") {
+              cb(null, true);
+            } else {
+              cb(new BadRequestException("Only webm/mp4 video files are allowed"), false);
+            }
+          } else if (file.fieldname === "screenshots") {
+            if (ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
+              cb(null, true);
+            } else {
+              cb(new BadRequestException("Only png/jpg/gif/webp image files are allowed"), false);
+            }
+          } else {
+            cb(null, false);
+          }
+        },
       },
-    }),
+    ),
   )
   async create(
     @Req() req: any,
     @Body("data") rawData: string,
-    @UploadedFile() video?: Express.Multer.File,
+    @UploadedFiles()
+    files: {
+      video?: Express.Multer.File[];
+      screenshots?: Express.Multer.File[];
+    },
   ) {
     let parsed: Record<string, unknown>;
     try {
@@ -74,7 +102,9 @@ export class BugReportsController {
     }
 
     const reporterId: string = req.user.id ?? req.user.sub;
-    return this.bugReportsService.create(reporterId, dto, video);
+    const video = files?.video?.[0];
+    const screenshots = files?.screenshots ?? [];
+    return this.bugReportsService.create(reporterId, dto, video, screenshots);
   }
 
   @Get()
