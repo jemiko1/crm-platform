@@ -491,7 +491,7 @@ Complete frontend route documentation for CRM Platform.
 **Working**: 21 routes (Buildings, Clients, Incidents, Work Orders, Work Order Detail, Tasks, Task Detail, Inventory, Employees, Employee Detail, Admin Panel, Positions, Role Groups, Departments, Workflow Configuration, Sales Leads, Lead Detail, Sales Config)  
 **Partial**: 3 routes (Dashboard - static UI, Roles - read-only, Admin Employees - duplicate)  
 **Placeholder**: 4 routes (Users, Assets, empty directories)  
-**Global Components**: Messenger (chat bubbles + full messenger modal + header integration)
+**Global Components**: Messenger (chat bubbles + full messenger modal + header integration), Bug Reporter Widget (floating FAB + recording bar + submission modal)
 
 **Key Patterns**:
 - Most routes use `apiGet`, `apiPost`, `apiPatch`, `apiDelete` from `@/lib/api`
@@ -510,3 +510,11 @@ Complete frontend route documentation for CRM Platform.
 - Z-index architecture: detail modals at 10000, action modals at 50000+
 - All detail views open as full-size, shareable popups
 - Files: `modal-manager.tsx`, `modal-provider.tsx`, `modal-z-index-context.tsx`, `modal-stack-context.tsx`
+
+**Bug Reporter Widget (beta)**:
+- Global floating widget mounted in `app/layout.tsx` via `BugReporterGate`
+- Gated by `NEXT_PUBLIC_BUG_REPORTER_ENABLED=true` env var + auth check
+- Captures: screen recording (MediaRecorder), DOM actions, console logs, network requests
+- Files: `src/components/bug-reporter/` — `bug-reporter-widget.tsx`, `bug-reporter-modal.tsx`, `recording-bar.tsx`, `bug-reporter-gate.tsx`
+- Hooks: `use-screen-recorder.ts`, `use-action-logger.ts`, `use-console-capture.ts`, `use-network-capture.ts`, `use-bug-report-submit.ts`
+- Z-index: FAB at 9999, recording bar at 10001, submission modal at 50010

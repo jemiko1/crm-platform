@@ -1,0 +1,39 @@
+name: Cleanup Bug Report Video
+
+on:
+  issues:
+    types: [closed]
+
+jobs:
+  cleanup:
+    if: contains(join(github.event.issue.labels.*.name, ','), 'tester-reported')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete bug report video via backend API
+        env:
+          CLEANUP_SECRET: ${{ secrets.BUG_REPORT_CLEANUP_SECRET }}
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
+        run: |
+          if [ -z "$API_BASE_URL" ] || [ -z "$CLEANUP_SECRET" ]; then
+            echo "API_BASE_URL or BUG_REPORT_CLEANUP_SECRET not configured — skipping cleanup"
+            exit 0
+          fi
+
+          ISSUE_NUMBER=${{ github.event.issue.number }}
+          echo "Cleaning up video for GitHub issue #${ISSUE_NUMBER}"
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${API_BASE_URL}/public/bug-reports/video-cleanup" \
+            -H "Content-Type: application/json" \
+            -H "X-Cleanup-Secret: ${CLEANUP_SECRET}" \
+            -d "{\"githubIssueId\": ${ISSUE_NUMBER}}")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "Video cleanup successful: $BODY"
+          elif [ "$HTTP_CODE" = "404" ]; then
+            echo "No bug report found for issue #${ISSUE_NUMBER} (may not have a video)"
+          else
+            echo "Cleanup request returned HTTP $HTTP_CODE: $BODY"
+          fi

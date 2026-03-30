@@ -454,9 +454,25 @@ Complete API route documentation for CRM Platform backend.
 
 ---
 
+## Bug Reports (Beta Testing)
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| POST | `/v1/bug-reports` | Create bug report (multipart: `video` file + `data` JSON string). Auth required. Triggers async AI analysis + GitHub issue creation. |
+| GET | `/v1/bug-reports` | List all bug reports (paginated: `?page=&pageSize=`). Auth required. |
+| GET | `/v1/bug-reports/:id` | Get single bug report with all captured data. Auth required. |
+| GET | `/v1/bug-reports/:id/video` | Stream recorded video file. Auth required. |
+| PATCH | `/v1/bug-reports/:id/status` | Update bug report status (body: `{ status }`). Auth required. |
+| DELETE | `/v1/bug-reports/:id` | Delete bug report and associated video file. Auth required. Returns 204. |
+| POST | `/v1/bug-reports/:id/retry-github` | Retry failed GitHub issue creation. Requires AI analysis to be complete. Auth required. |
+
+**Env vars**: `ANTHROPIC_API_KEY` (Claude AI), `GITHUB_TOKEN` (GitHub API), `GITHUB_OWNER`, `GITHUB_REPO`, `BUG_REPORT_VIDEO_DIR`
+
+---
+
 ## Summary
 
-**Total Controllers**: 19  
+**Total Controllers**: 20  
 **Guarded Routes**: Most routes under `/v1/*` require `JwtAuthGuard`  
 **Admin-Only Routes**: Positions, Role Groups, Admin Manual, Workflow Configuration, Notifications  
 **Permission-Protected**: 

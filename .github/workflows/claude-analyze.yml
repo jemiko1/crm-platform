@@ -1,0 +1,57 @@
+name: Claude Analyze Issue
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  analyze:
+    if: github.event.label.name == 'claude-analyze'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Analyze GitHub issue #${{ github.event.issue.number }} in this repository.
+
+            This is a bug report from a CRM tester. The description may be in Georgian language.
+
+            Steps:
+            1. Read the issue body using: gh issue view ${{ github.event.issue.number }} --repo ${{ github.repository }} --json body,title,labels
+            2. Analyze all data: console errors, network failures, user actions, page URL, browser info
+            3. Translate any Georgian text to English
+            4. Map page URLs and API endpoints to actual files in the codebase (search the code to verify file paths exist)
+            5. Post a structured analysis comment on the issue using gh issue comment:
+
+            ## AI Analysis
+
+            **English Translation:** {translation of Georgian description}
+
+            **Summary:** {2-3 sentence summary}
+
+            **Root Cause Hypothesis:**
+            {analysis referencing specific endpoints, components, error traces}
+
+            **Suggested Fix Plan:**
+            {step-by-step fix plan}
+
+            **Affected Area:** {e.g. Work Orders, Sales, Inventory}
+            **Likely Affected Files:**
+            {list of verified file paths}
+
+            **AI Severity Assessment:** {CRITICAL|HIGH|MEDIUM|LOW}
+
+            ---
+            _Analyzed by Claude Code Action_
+
+            6. After posting the comment, update labels:
+               gh issue edit ${{ github.event.issue.number }} --repo ${{ github.repository }} --remove-label "claude-analyze" --add-label "claude-analyzed"
+          claude_args: |
+            --allowedTools Bash,Read,Glob,Grep
+            --max-turns 25
