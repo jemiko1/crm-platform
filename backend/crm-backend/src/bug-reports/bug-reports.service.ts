@@ -18,6 +18,7 @@ import * as crypto from "crypto";
 export class BugReportsService {
   private readonly logger = new Logger(BugReportsService.name);
   private readonly videoDir: string;
+  private readonly screenshotsDir: string;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -26,27 +27,51 @@ export class BugReportsService {
     this.videoDir =
       process.env.BUG_REPORT_VIDEO_DIR ||
       path.join(process.cwd(), "uploads", "bug-reports", "videos");
+    this.screenshotsDir = path.join(
+      process.cwd(),
+      "uploads",
+      "bug-reports",
+      "screenshots",
+    );
     fsSyncInit.mkdirSync(this.videoDir, { recursive: true });
+    fsSyncInit.mkdirSync(this.screenshotsDir, { recursive: true });
   }
 
   getVideoDir(): string {
     return this.videoDir;
   }
 
-  generateVideoToken(bugReportId: string): string {
-    const secret = process.env.BUG_REPORT_CLEANUP_SECRET || "dev-secret";
+  getScreenshotsDir(): string {
+    return this.screenshotsDir;
+  }
+
+  generateMediaToken(resourceId: string): string {
+    const secret = process.env.BUG_REPORT_CLEANUP_SECRET;
+    if (!secret) {
+      this.logger.warn("BUG_REPORT_CLEANUP_SECRET not set — cannot generate media token");
+      return "";
+    }
     const expires = Math.floor(Date.now() / 1000) + 7 * 24 * 3600; // 7 days
-    const payload = `${bugReportId}:${expires}`;
+    const payload = `${resourceId}:${expires}`;
     const sig = crypto
       .createHmac("sha256", secret)
       .update(payload)
       .digest("hex")
-      .slice(0, 16);
+      .slice(0, 32);
     return `${expires}.${sig}`;
   }
 
+  generateVideoToken(bugReportId: string): string {
+    return this.generateMediaToken(bugReportId);
+  }
+
   verifyVideoToken(bugReportId: string, token: string): boolean {
-    const secret = process.env.BUG_REPORT_CLEANUP_SECRET || "dev-secret";
+    return this.verifyMediaToken(bugReportId, token);
+  }
+
+  verifyMediaToken(resourceId: string, token: string): boolean {
+    const secret = process.env.BUG_REPORT_CLEANUP_SECRET;
+    if (!secret) return false;
     const parts = token.split(".");
     if (parts.length !== 2) return false;
     const [expiresStr, sig] = parts;
@@ -54,16 +79,18 @@ export class BugReportsService {
     if (isNaN(expires) || expires < Math.floor(Date.now() / 1000)) return false;
     const expected = crypto
       .createHmac("sha256", secret)
-      .update(`${bugReportId}:${expires}`)
+      .update(`${resourceId}:${expires}`)
       .digest("hex")
-      .slice(0, 16);
-    return sig === expected;
+      .slice(0, 32);
+    if (sig.length !== expected.length) return false;
+    return crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
   }
 
   async create(
     reporterId: string,
     dto: CreateBugReportDto,
     videoFile?: Express.Multer.File,
+    screenshotFiles?: Express.Multer.File[],
   ) {
     let videoPath: string | null = null;
 
@@ -71,10 +98,23 @@ export class BugReportsService {
       if (videoFile.size > 50 * 1024 * 1024) {
         throw new BadRequestException("Video file exceeds 50MB limit");
       }
-      const filename = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.webm`;
+      const videoExt = videoFile.mimetype === "video/mp4" ? ".mp4" : ".webm";
+      const filename = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}${videoExt}`;
       const fullPath = path.join(this.videoDir, filename);
       await fs.writeFile(fullPath, videoFile.buffer);
       videoPath = fullPath;
+    }
+
+    const screenshotPaths: string[] = [];
+    if (screenshotFiles && screenshotFiles.length > 0) {
+      for (const file of screenshotFiles) {
+        const rawExt = path.extname(file.originalname).toLowerCase();
+        const ext = [".png", ".jpg", ".jpeg", ".gif", ".webp"].includes(rawExt) ? rawExt : ".png";
+        const filename = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
+        const fullPath = path.join(this.screenshotsDir, filename);
+        await fs.writeFile(fullPath, file.buffer);
+        screenshotPaths.push(fullPath);
+      }
     }
 
     const report = await this.prisma.bugReport.create({
@@ -88,7 +128,7 @@ export class BugReportsService {
         actionLog: dto.actionLog as unknown as Prisma.InputJsonValue,
         consoleLog: dto.consoleLog as unknown as Prisma.InputJsonValue,
         networkLog: dto.networkLog as unknown as Prisma.InputJsonValue,
-        screenshots: (dto.screenshots ?? []) as unknown as Prisma.InputJsonValue,
+        screenshots: screenshotPaths as unknown as Prisma.InputJsonValue,
         videoPath,
       },
       include: { reporter: { select: { id: true, email: true } } },
@@ -157,28 +197,47 @@ export class BugReportsService {
         this.logger.warn(`Could not delete video file: ${report.videoPath}`);
       }
     }
+    const screenshots = (report.screenshots ?? []) as string[];
+    for (const p of screenshots) {
+      try {
+        await fs.unlink(p);
+      } catch {
+        this.logger.warn(`Could not delete screenshot: ${p}`);
+      }
+    }
     await this.prisma.bugReport.delete({ where: { id } });
   }
 
-  async cleanupVideoByGithubIssue(githubIssueId: number): Promise<boolean> {
+  async cleanupMediaByGithubIssue(githubIssueId: number): Promise<boolean> {
     const report = await this.prisma.bugReport.findFirst({
       where: { githubIssueId },
     });
-    if (!report || !report.videoPath) return false;
+    if (!report) return false;
 
-    try {
-      await fs.unlink(report.videoPath);
-    } catch {
-      this.logger.warn(`Could not delete video file: ${report.videoPath}`);
+    if (report.videoPath) {
+      try {
+        await fs.unlink(report.videoPath);
+      } catch {
+        this.logger.warn(`Could not delete video file: ${report.videoPath}`);
+      }
+    }
+
+    const screenshots = (report.screenshots ?? []) as string[];
+    for (const p of screenshots) {
+      try {
+        await fs.unlink(p);
+      } catch {
+        this.logger.warn(`Could not delete screenshot: ${p}`);
+      }
     }
 
     await this.prisma.bugReport.update({
       where: { id: report.id },
-      data: { videoPath: null },
+      data: { videoPath: null, screenshots: [] },
     });
 
     this.logger.log(
-      `Cleaned up video for bug report ${report.id} (GitHub issue #${githubIssueId})`,
+      `Cleaned up media for bug report ${report.id} (GitHub issue #${githubIssueId})`,
     );
     return true;
   }
@@ -186,8 +245,17 @@ export class BugReportsService {
   private buildVideoUrl(bugReportId: string): string | null {
     const baseUrl = process.env.APP_BASE_URL;
     if (!baseUrl) return null;
-    const token = this.generateVideoToken(bugReportId);
+    const token = this.generateMediaToken(bugReportId);
     return `${baseUrl}/public/bug-reports/${bugReportId}/video?token=${token}`;
+  }
+
+  buildScreenshotUrls(bugReportId: string, screenshotPaths: string[]): string[] {
+    const baseUrl = process.env.APP_BASE_URL;
+    if (!baseUrl) return [];
+    const token = this.generateMediaToken(bugReportId);
+    return screenshotPaths.map((_, i) =>
+      `${baseUrl}/public/bug-reports/${bugReportId}/screenshots/${i}?token=${token}`,
+    );
   }
 
   async retryGithub(id: string) {
@@ -196,6 +264,8 @@ export class BugReportsService {
     const reporter = report.reporter;
     const analysis = report.aiAnalysis as Record<string, unknown> | null;
     const videoUrl = report.videoPath ? this.buildVideoUrl(report.id) : null;
+    const screenshotPaths = (report.screenshots ?? []) as string[];
+    const screenshotUrls = this.buildScreenshotUrls(report.id, screenshotPaths);
 
     const ghResult = await this.github.createIssue({
       bugReportId: report.id,
@@ -212,6 +282,7 @@ export class BugReportsService {
       createdAt: report.createdAt,
       analysis: analysis as any,
       videoUrl,
+      screenshotUrls,
     });
 
     if (!ghResult) {
@@ -241,12 +312,12 @@ export class BugReportsService {
     });
     if (!report) return;
 
-    // AI analysis is handled externally by Claude Code via GitHub Actions
-    // Backend only creates the GitHub issue with raw tester data
-
     const videoUrl = report.videoPath
       ? this.buildVideoUrl(report.id)
       : null;
+
+    const screenshotPaths = (report.screenshots ?? []) as string[];
+    const screenshotUrls = this.buildScreenshotUrls(report.id, screenshotPaths);
 
     const ghResult = await this.github.createIssue({
       bugReportId: report.id,
@@ -263,6 +334,7 @@ export class BugReportsService {
       createdAt: report.createdAt,
       analysis: null,
       videoUrl,
+      screenshotUrls,
     });
 
     if (ghResult) {

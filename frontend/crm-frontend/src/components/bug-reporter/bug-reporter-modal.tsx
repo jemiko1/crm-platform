@@ -12,6 +12,7 @@ interface CapturedData {
   consoleLog: unknown[];
   networkLog: unknown[];
   videoBlob: Blob | null;
+  screenshotFiles: File[];
 }
 
 interface BugReporterModalProps {
@@ -55,6 +56,8 @@ export default function BugReporterModal({
   const [category, setCategory] = useState<Category>(initialCategory);
   const contentRef = useRef<HTMLDivElement>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [screenshots, setScreenshots] = useState<File[]>(captured.screenshotFiles ?? []);
+  const [screenshotPreviews, setScreenshotPreviews] = useState<string[]>([]);
 
   const { phase, error, result, submit, reset } = useBugReportSubmit();
 
@@ -63,11 +66,14 @@ export default function BugReporterModal({
       URL.revokeObjectURL(videoUrl);
       setVideoUrl(null);
     }
+    screenshotPreviews.forEach((u) => URL.revokeObjectURL(u));
+    setScreenshotPreviews([]);
+    setScreenshots([]);
     setDescription("");
     setSeverity("MEDIUM");
     reset();
     onClose();
-  }, [onClose, reset, videoUrl]);
+  }, [onClose, reset, videoUrl, screenshotPreviews]);
 
   useEffect(() => {
     setMounted(true);
@@ -85,6 +91,13 @@ export default function BugReporterModal({
     }
   }, [open, captured.videoBlob, videoUrl]);
 
+  // Generate previews when screenshots change
+  useEffect(() => {
+    const urls = screenshots.map((f) => URL.createObjectURL(f));
+    setScreenshotPreviews(urls);
+    return () => urls.forEach((u) => URL.revokeObjectURL(u));
+  }, [screenshots]);
+
   useEffect(() => {
     if (!open) return;
     const handleEsc = (e: KeyboardEvent) => {
@@ -93,6 +106,24 @@ export default function BugReporterModal({
     document.addEventListener("keydown", handleEsc);
     return () => document.removeEventListener("keydown", handleEsc);
   }, [open, phase, handleDiscard]);
+
+  const handleAddScreenshots = useCallback(() => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.multiple = true;
+    input.onchange = () => {
+      const files = input.files ? Array.from(input.files) : [];
+      if (files.length > 0) {
+        setScreenshots((prev) => [...prev, ...files]);
+      }
+    };
+    input.click();
+  }, []);
+
+  const handleRemoveScreenshot = useCallback((index: number) => {
+    setScreenshots((prev) => prev.filter((_, i) => i !== index));
+  }, []);
 
   const handleSubmit = async () => {
     if (!description.trim()) return;
@@ -115,6 +146,7 @@ export default function BugReporterModal({
         networkLog: captured.networkLog,
       },
       captured.videoBlob,
+      screenshots,
     );
   };
 
@@ -185,7 +217,7 @@ export default function BugReporterModal({
               )}
               {!result.githubIssueUrl && (
                 <p className="text-xs text-zinc-500">
-                  AI analysis and GitHub issue creation are processing in the background.
+                  GitHub issue creation is processing in the background.
                 </p>
               )}
               <button
@@ -250,7 +282,7 @@ export default function BugReporterModal({
                   onChange={(e) => setDescription(e.target.value)}
                   disabled={isSubmitting}
                   placeholder="აღწერეთ პრობლემა დეტალურად..."
-                  rows={5}
+                  rows={4}
                   className="w-full rounded-xl border border-zinc-200 px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none resize-y disabled:opacity-50"
                 />
               </div>
@@ -267,31 +299,92 @@ export default function BugReporterModal({
                 </div>
               )}
 
-              {/* Capture summary badges */}
-              <div className="flex flex-wrap gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-600">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-                  {captured.actionLog.length} actions
-                </span>
-                {consoleErrors > 0 && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-600">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/><line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-                    {consoleErrors} console errors
-                  </span>
-                )}
-                {failedRequests > 0 && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-50 px-3 py-1 text-xs font-medium text-orange-600">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    {failedRequests} failed requests
-                  </span>
-                )}
-                {captured.videoBlob && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-3 py-1 text-xs font-medium text-teal-700">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><polygon points="23 7 16 12 23 17 23 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2" stroke="currentColor" strokeWidth="2"/></svg>
-                    Video recorded
-                  </span>
+              {/* Screenshots */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-zinc-700">
+                    Screenshots {screenshots.length > 0 && `(${screenshots.length})`}
+                  </label>
+                  {!isSubmitting && (
+                    <button
+                      type="button"
+                      onClick={handleAddScreenshots}
+                      className="text-xs font-medium text-teal-700 hover:text-teal-900 transition"
+                    >
+                      + Add Images
+                    </button>
+                  )}
+                </div>
+                {screenshots.length > 0 ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    {screenshotPreviews.map((url, i) => (
+                      <div key={i} className="relative group">
+                        <img
+                          src={url}
+                          alt={`Screenshot ${i + 1}`}
+                          className="w-full h-24 object-cover rounded-lg border border-zinc-200"
+                        />
+                        {!isSubmitting && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveScreenshot(i)}
+                            className="absolute top-1 right-1 w-5 h-5 rounded-full bg-zinc-900/70 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                          >
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+                              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  !isSubmitting && (
+                    <button
+                      type="button"
+                      onClick={handleAddScreenshots}
+                      className="w-full rounded-xl border-2 border-dashed border-zinc-200 px-4 py-4 text-center hover:border-zinc-300 transition"
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="mx-auto mb-1 text-zinc-400" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                        <circle cx="8.5" cy="8.5" r="1.5" />
+                        <polyline points="21 15 16 10 5 21" />
+                      </svg>
+                      <span className="text-xs text-zinc-500">Click to add screenshots</span>
+                    </button>
+                  )
                 )}
               </div>
+
+              {/* Capture summary badges */}
+              {(captured.actionLog.length > 0 || consoleErrors > 0 || failedRequests > 0 || captured.videoBlob) && (
+                <div className="flex flex-wrap gap-2">
+                  {captured.actionLog.length > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-600">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                      {captured.actionLog.length} actions
+                    </span>
+                  )}
+                  {consoleErrors > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-600">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/><line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                      {consoleErrors} console errors
+                    </span>
+                  )}
+                  {failedRequests > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-50 px-3 py-1 text-xs font-medium text-orange-600">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      {failedRequests} failed requests
+                    </span>
+                  )}
+                  {captured.videoBlob && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-3 py-1 text-xs font-medium text-teal-700">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><polygon points="23 7 16 12 23 17 23 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2" stroke="currentColor" strokeWidth="2"/></svg>
+                      Video recorded
+                    </span>
+                  )}
+                </div>
+              )}
 
               {/* Error */}
               {phase === "error" && error && (

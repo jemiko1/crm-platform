@@ -29,7 +29,7 @@ export function useBugReportSubmit() {
   const [result, setResult] = useState<SubmitResult | null>(null);
 
   const submit = useCallback(
-    async (payload: SubmitPayload, videoBlob: Blob | null) => {
+    async (payload: SubmitPayload, videoBlob: Blob | null, screenshotFiles?: File[]) => {
       setPhase("uploading");
       setError(null);
       setResult(null);
@@ -39,6 +39,11 @@ export function useBugReportSubmit() {
         fd.append("data", JSON.stringify(payload));
         if (videoBlob) {
           fd.append("video", videoBlob, "recording.webm");
+        }
+        if (screenshotFiles) {
+          for (const file of screenshotFiles) {
+            fd.append("screenshots", file, file.name);
+          }
         }
 
         const res = await apiPostFormData<SubmitResult>(
