@@ -1,0 +1,78 @@
+name: Claude Implement Fix
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  implement:
+    if: github.event.label.name == 'claude-do-it'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: |
+            backend/crm-backend/pnpm-lock.yaml
+            frontend/crm-frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: |
+          cd backend/crm-backend && pnpm install --frozen-lockfile && pnpm prisma generate
+          cd ../../frontend/crm-frontend && pnpm install --frozen-lockfile
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Read GitHub issue #${{ github.event.issue.number }} and ALL its comments.
+            Find the latest approved analysis and fix plan from the comment thread.
+
+            Implement the fix following these rules:
+
+            1. UNDERSTAND: Read the approved plan carefully. If unclear, implement the most recent analysis.
+
+            2. IMPLEMENT: Make the code changes described in the plan.
+               - Backend: backend/crm-backend/src/
+               - Frontend: frontend/crm-frontend/src/
+               - Prisma schema: backend/crm-backend/prisma/schema.prisma
+               - If Prisma schema changed: run `cd backend/crm-backend && npx prisma generate`
+
+            3. VERIFY: Run these checks and fix any failures:
+               - cd backend/crm-backend && pnpm typecheck
+               - cd backend/crm-backend && pnpm lint
+               - cd backend/crm-backend && pnpm test:unit
+               - cd frontend/crm-frontend && pnpm typecheck
+               - cd frontend/crm-frontend && pnpm build
+
+            4. COMMIT: Use format: fix(scope): description (refs #${{ github.event.issue.number }})
+
+            5. After implementation, update the issue:
+               - Remove "claude-do-it" label
+               - Add "claude-implemented" label
+               - Post a comment summarizing what was changed and linking to the PR
+
+            Rules:
+            - NEVER commit to master — the action creates a branch automatically
+            - Use apiGet/apiPost (not raw fetch) for frontend HTTP calls
+            - Use useListItems() for dropdowns
+            - No console.log left behind
+            - No hardcoded URLs or credentials
+          claude_args: |
+            --allowedTools Bash,Read,Write,Edit,Glob,Grep
+            --max-turns 50
+          base_branch: master
+          branch_prefix: "claude/issue-"

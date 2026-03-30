@@ -128,11 +128,41 @@ export class BugReportsService {
     await this.prisma.bugReport.delete({ where: { id } });
   }
 
+  async cleanupVideoByGithubIssue(githubIssueId: number): Promise<boolean> {
+    const report = await this.prisma.bugReport.findFirst({
+      where: { githubIssueId },
+    });
+    if (!report || !report.videoPath) return false;
+
+    try {
+      await fs.unlink(report.videoPath);
+    } catch {
+      this.logger.warn(`Could not delete video file: ${report.videoPath}`);
+    }
+
+    await this.prisma.bugReport.update({
+      where: { id: report.id },
+      data: { videoPath: null },
+    });
+
+    this.logger.log(
+      `Cleaned up video for bug report ${report.id} (GitHub issue #${githubIssueId})`,
+    );
+    return true;
+  }
+
+  private buildVideoUrl(bugReportId: string): string | null {
+    const baseUrl = process.env.APP_BASE_URL;
+    if (!baseUrl) return null;
+    return `${baseUrl}/public/bug-reports/${bugReportId}/video`;
+  }
+
   async retryGithub(id: string) {
     const report = await this.findOne(id);
 
     const reporter = report.reporter;
     const analysis = report.aiAnalysis as Record<string, unknown> | null;
+    const videoUrl = report.videoPath ? this.buildVideoUrl(report.id) : null;
 
     const ghResult = await this.github.createIssue({
       bugReportId: report.id,
@@ -148,6 +178,7 @@ export class BugReportsService {
       networkLog: report.networkLog as unknown[],
       createdAt: report.createdAt,
       analysis: analysis as any,
+      videoUrl,
     });
 
     if (!ghResult) {
@@ -177,8 +208,12 @@ export class BugReportsService {
     });
     if (!report) return;
 
-    // AI analysis is handled externally by Claude Code via /analyze-bugs skill
+    // AI analysis is handled externally by Claude Code via GitHub Actions
     // Backend only creates the GitHub issue with raw tester data
+
+    const videoUrl = report.videoPath
+      ? this.buildVideoUrl(report.id)
+      : null;
 
     const ghResult = await this.github.createIssue({
       bugReportId: report.id,
@@ -194,6 +229,7 @@ export class BugReportsService {
       networkLog: report.networkLog as unknown[],
       createdAt: report.createdAt,
       analysis: null,
+      videoUrl,
     });
 
     if (ghResult) {
