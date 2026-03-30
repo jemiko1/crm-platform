@@ -4,6 +4,7 @@ import {
   Post,
   Param,
   Body,
+  Query,
   Req,
   Res,
   NotFoundException,
@@ -17,6 +18,7 @@ import { BugReportsService } from "./bug-reports.service";
 import type { Response, Request } from "express";
 import * as fs from "fs/promises";
 import { createReadStream } from "fs";
+import * as path from "path";
 
 @SkipThrottle()
 @Controller("public/bug-reports")
@@ -26,30 +28,44 @@ export class BugReportsPublicController {
   constructor(private readonly bugReportsService: BugReportsService) {}
 
   @Get(":id/video")
-  async serveVideo(@Param("id") id: string, @Res() res: Response) {
+  async serveVideo(
+    @Param("id") id: string,
+    @Query("token") token: string,
+    @Res() res: Response,
+  ) {
+    if (!token || !this.bugReportsService.verifyVideoToken(id, token)) {
+      throw new ForbiddenException("Invalid or expired video token");
+    }
+
     const report = await this.bugReportsService.findOne(id);
     if (!report.videoPath) {
       throw new NotFoundException("Video not found");
     }
 
+    const videoDir = this.bugReportsService.getVideoDir();
+    const resolved = path.resolve(report.videoPath);
+    if (!resolved.startsWith(path.resolve(videoDir))) {
+      throw new ForbiddenException("Invalid video path");
+    }
+
     let stat: Awaited<ReturnType<typeof fs.stat>>;
     try {
-      stat = await fs.stat(report.videoPath);
+      stat = await fs.stat(resolved);
     } catch {
       throw new NotFoundException("Video file not found on disk");
     }
 
-    const contentType = report.videoPath.endsWith(".mp4")
+    const contentType = resolved.endsWith(".mp4")
       ? "video/mp4"
       : "video/webm";
-    const ext = report.videoPath.endsWith(".mp4") ? "mp4" : "webm";
+    const ext = resolved.endsWith(".mp4") ? "mp4" : "webm";
     res.setHeader("Content-Type", contentType);
     res.setHeader("Content-Length", stat.size);
     res.setHeader(
       "Content-Disposition",
       `inline; filename="bug-${id.slice(0, 8)}.${ext}"`,
     );
-    createReadStream(report.videoPath).pipe(res);
+    createReadStream(resolved).pipe(res);
   }
 
   @Post("video-cleanup")
