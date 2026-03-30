@@ -12,6 +12,7 @@ import type { Prisma } from "@prisma/client";
 import * as fs from "fs/promises";
 import * as fsSyncInit from "fs";
 import * as path from "path";
+import * as crypto from "crypto";
 
 @Injectable()
 export class BugReportsService {
@@ -26,6 +27,37 @@ export class BugReportsService {
       process.env.BUG_REPORT_VIDEO_DIR ||
       path.join(process.cwd(), "uploads", "bug-reports", "videos");
     fsSyncInit.mkdirSync(this.videoDir, { recursive: true });
+  }
+
+  getVideoDir(): string {
+    return this.videoDir;
+  }
+
+  generateVideoToken(bugReportId: string): string {
+    const secret = process.env.BUG_REPORT_CLEANUP_SECRET || "dev-secret";
+    const expires = Math.floor(Date.now() / 1000) + 7 * 24 * 3600; // 7 days
+    const payload = `${bugReportId}:${expires}`;
+    const sig = crypto
+      .createHmac("sha256", secret)
+      .update(payload)
+      .digest("hex")
+      .slice(0, 16);
+    return `${expires}.${sig}`;
+  }
+
+  verifyVideoToken(bugReportId: string, token: string): boolean {
+    const secret = process.env.BUG_REPORT_CLEANUP_SECRET || "dev-secret";
+    const parts = token.split(".");
+    if (parts.length !== 2) return false;
+    const [expiresStr, sig] = parts;
+    const expires = parseInt(expiresStr, 10);
+    if (isNaN(expires) || expires < Math.floor(Date.now() / 1000)) return false;
+    const expected = crypto
+      .createHmac("sha256", secret)
+      .update(`${bugReportId}:${expires}`)
+      .digest("hex")
+      .slice(0, 16);
+    return sig === expected;
   }
 
   async create(
@@ -154,7 +186,8 @@ export class BugReportsService {
   private buildVideoUrl(bugReportId: string): string | null {
     const baseUrl = process.env.APP_BASE_URL;
     if (!baseUrl) return null;
-    return `${baseUrl}/public/bug-reports/${bugReportId}/video`;
+    const token = this.generateVideoToken(bugReportId);
+    return `${baseUrl}/public/bug-reports/${bugReportId}/video?token=${token}`;
   }
 
   async retryGithub(id: string) {

@@ -1,5 +1,16 @@
 import { Injectable, Logger } from "@nestjs/common";
-import type { BugAnalysisResult } from "../ai/bug-analyzer.service";
+
+export interface BugAnalysisResult {
+  title: string;
+  summary: string;
+  rootCause: string;
+  suggestedFix: string;
+  affectedArea: string;
+  affectedFiles: string[];
+  labels: string[];
+  aiSeverity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+  testerDescriptionTranslation: string;
+}
 
 export interface GitHubIssueResult {
   issueNumber: number;
