@@ -346,10 +346,10 @@ function BuildingsPageContent() {
                                       <span className="text-sm font-semibold leading-snug text-zinc-900 underline-offset-2 group-hover:underline">
                                         {b.name}
                                       </span>
-                                      <span className="text-zinc-400">ΓåÆ</span>
+                                      <span className="text-zinc-400">→</span>
                                     </div>
                                     <div className="mt-0.5 text-[12px] leading-snug text-zinc-500 md:mt-1 md:text-xs">
-                                      ID {b.coreId} ΓÇó {b.city ?? "ΓÇö"}
+                                      ID {b.coreId} · {b.city ?? "—"}
                                     </div>
                                   </div>
                                 </button>
