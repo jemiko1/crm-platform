@@ -21,6 +21,7 @@ export default function BugReporterWidget() {
     consoleLog: unknown[];
     networkLog: unknown[];
     videoBlob: Blob | null;
+    screenshotFiles: File[];
   } | null>(null);
   const [browserSupported, setBrowserSupported] = useState(true);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -72,9 +73,40 @@ export default function BugReporterWidget() {
     const consoleLog = consoleCap.stop();
     const networkLog = network.stop();
 
-    setCaptured({ actionLog, consoleLog, networkLog, videoBlob });
+    setCaptured({ actionLog, consoleLog, networkLog, videoBlob, screenshotFiles: [] });
     setState("submitting");
   }, [screen, actions, consoleCap, network]);
+
+  const handleScreenshotsOnly = useCallback(() => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.multiple = true;
+    input.onchange = () => {
+      const files = input.files ? Array.from(input.files) : [];
+      setCaptured({
+        actionLog: [],
+        consoleLog: [],
+        networkLog: [],
+        videoBlob: null,
+        screenshotFiles: files,
+      });
+      setState("submitting");
+    };
+    input.click();
+    setState("idle");
+  }, []);
+
+  const handleDescriptionOnly = useCallback(() => {
+    setCaptured({
+      actionLog: [],
+      consoleLog: [],
+      networkLog: [],
+      videoBlob: null,
+      screenshotFiles: [],
+    });
+    setState("submitting");
+  }, []);
 
   useEffect(() => {
     screen.setOnEnded(handleStopRecording);
@@ -96,12 +128,6 @@ export default function BugReporterWidget() {
           className="absolute bottom-16 right-0 w-72 rounded-2xl bg-white shadow-2xl ring-1 ring-zinc-200 p-5 space-y-4"
         >
           <h3 className="text-sm font-semibold text-zinc-900">Report a Bug</h3>
-
-          {!browserSupported && (
-            <p className="text-xs text-red-600">
-              Screen recording is not supported in this browser. Other captures will still work.
-            </p>
-          )}
 
           <div className="flex flex-wrap gap-2">
             {(
@@ -127,17 +153,63 @@ export default function BugReporterWidget() {
             ))}
           </div>
 
-          <p className="text-xs text-zinc-500">
-            Click Start, then reproduce the issue. Click Stop when done.
-          </p>
+          <div className="space-y-2">
+            {browserSupported && (
+              <button
+                type="button"
+                onClick={handleStartRecording}
+                className="w-full flex items-center gap-3 rounded-xl border border-zinc-200 px-4 py-3 text-left hover:bg-zinc-50 transition"
+              >
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-100">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="23 7 16 12 23 17 23 7" />
+                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                  </svg>
+                </span>
+                <div>
+                  <p className="text-sm font-medium text-zinc-900">Record Video</p>
+                  <p className="text-xs text-zinc-500">Record screen while reproducing the bug</p>
+                </div>
+              </button>
+            )}
 
-          <button
-            type="button"
-            onClick={handleStartRecording}
-            className="w-full rounded-2xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 transition"
-          >
-            Start Recording
-          </button>
+            <button
+              type="button"
+              onClick={handleScreenshotsOnly}
+              className="w-full flex items-center gap-3 rounded-xl border border-zinc-200 px-4 py-3 text-left hover:bg-zinc-50 transition"
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <polyline points="21 15 16 10 5 21" />
+                </svg>
+              </span>
+              <div>
+                <p className="text-sm font-medium text-zinc-900">Upload Screenshots</p>
+                <p className="text-xs text-zinc-500">Attach images of the issue</p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDescriptionOnly}
+              className="w-full flex items-center gap-3 rounded-xl border border-zinc-200 px-4 py-3 text-left hover:bg-zinc-50 transition"
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-100">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#52525b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                </svg>
+              </span>
+              <div>
+                <p className="text-sm font-medium text-zinc-900">Description Only</p>
+                <p className="text-xs text-zinc-500">Describe the issue without attachments</p>
+              </div>
+            </button>
+          </div>
         </div>
       )}
 
