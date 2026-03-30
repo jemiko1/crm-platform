@@ -54,33 +54,36 @@ export default function BugReporterModal({
   const [severity, setSeverity] = useState<Severity>("MEDIUM");
   const [category, setCategory] = useState<Category>(initialCategory);
   const contentRef = useRef<HTMLDivElement>(null);
-  const videoUrl = useRef<string | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
   const { phase, error, result, submit, reset } = useBugReportSubmit();
 
   const handleDiscard = useCallback(() => {
-    if (videoUrl.current) {
-      URL.revokeObjectURL(videoUrl.current);
-      videoUrl.current = null;
+    if (videoUrl) {
+      URL.revokeObjectURL(videoUrl);
+      setVideoUrl(null);
     }
     setDescription("");
     setSeverity("MEDIUM");
     reset();
     onClose();
-  }, [onClose, reset]);
+  }, [onClose, reset, videoUrl]);
 
   useEffect(() => {
     setMounted(true);
     return () => {
-      if (videoUrl.current) URL.revokeObjectURL(videoUrl.current);
+      setVideoUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
     };
   }, []);
 
   useEffect(() => {
-    if (open && captured.videoBlob && !videoUrl.current) {
-      videoUrl.current = URL.createObjectURL(captured.videoBlob);
+    if (open && captured.videoBlob && !videoUrl) {
+      setVideoUrl(URL.createObjectURL(captured.videoBlob));
     }
-  }, [open, captured.videoBlob]);
+  }, [open, captured.videoBlob, videoUrl]);
 
   useEffect(() => {
     if (!open) return;
@@ -253,11 +256,11 @@ export default function BugReporterModal({
               </div>
 
               {/* Video preview */}
-              {videoUrl.current && (
+              {videoUrl && (
                 <div>
                   <label className="block text-sm font-medium text-zinc-700 mb-2">Recording Preview</label>
                   <video
-                    src={videoUrl.current}
+                    src={videoUrl}
                     controls
                     className="w-full max-h-48 rounded-xl border border-zinc-200 bg-zinc-900"
                   />
