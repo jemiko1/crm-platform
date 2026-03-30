@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useBugReportSubmit, type SubmitPhase } from "./hooks/use-bug-report-submit";
 
@@ -58,6 +58,17 @@ export default function BugReporterModal({
 
   const { phase, error, result, submit, reset } = useBugReportSubmit();
 
+  const handleDiscard = useCallback(() => {
+    if (videoUrl.current) {
+      URL.revokeObjectURL(videoUrl.current);
+      videoUrl.current = null;
+    }
+    setDescription("");
+    setSeverity("MEDIUM");
+    reset();
+    onClose();
+  }, [onClose, reset]);
+
   useEffect(() => {
     setMounted(true);
     return () => {
@@ -78,18 +89,7 @@ export default function BugReporterModal({
     };
     document.addEventListener("keydown", handleEsc);
     return () => document.removeEventListener("keydown", handleEsc);
-  }, [open, phase]);
-
-  const handleDiscard = () => {
-    if (videoUrl.current) {
-      URL.revokeObjectURL(videoUrl.current);
-      videoUrl.current = null;
-    }
-    setDescription("");
-    setSeverity("MEDIUM");
-    reset();
-    onClose();
-  };
+  }, [open, phase, handleDiscard]);
 
   const handleSubmit = async () => {
     if (!description.trim()) return;
