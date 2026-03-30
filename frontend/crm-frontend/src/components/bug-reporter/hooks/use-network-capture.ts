@@ -122,19 +122,23 @@ export function useNetworkCapture() {
     const origOpen = OrigXHR.prototype.open;
     const origSend = OrigXHR.prototype.send;
 
+    // eslint-disable-next-line prefer-rest-params
     OrigXHR.prototype.open = function (method: string, url: string | URL) {
       (this as any).__bugMeta = {
         method: method.toUpperCase(),
         url: String(url),
         t0: 0,
       };
-      return origOpen.apply(this, arguments as any);
+      // eslint-disable-next-line prefer-rest-params
+      return origOpen.apply(this, arguments as unknown as Parameters<typeof origOpen>);
     };
 
+    // eslint-disable-next-line prefer-rest-params
     OrigXHR.prototype.send = function (body?: Document | XMLHttpRequestBodyInit | null) {
       const meta = (this as any).__bugMeta;
       if (!meta || shouldIgnore(meta.url)) {
-        return origSend.apply(this, arguments as any);
+        // eslint-disable-next-line prefer-rest-params
+        return origSend.apply(this, arguments as unknown as Parameters<typeof origSend>);
       }
 
       meta.t0 = Date.now();
@@ -181,7 +185,8 @@ export function useNetworkCapture() {
         });
       });
 
-      return origSend.apply(this, arguments as any);
+      // eslint-disable-next-line prefer-rest-params
+      return origSend.apply(this, arguments as unknown as Parameters<typeof origSend>);
     };
 
     fns.push(() => {
