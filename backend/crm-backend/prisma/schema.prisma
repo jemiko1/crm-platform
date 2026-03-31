@@ -21,11 +21,9 @@ model Building {
   deletedAt          DateTime?
   phone              String?
   email              String?
-  identificationCode String?
   numberOfApartments Int?
   disableCrons       Boolean           @default(false)
   branchId           Int?
-  source             String            @default("manual")
   assets             Asset[]
   clientBuildings    ClientBuilding[]
   buildingContacts   BuildingContact[]
@@ -35,7 +33,7 @@ model Building {
   @@index([name])
   @@index([city])
   @@index([isActive])
-  @@index([source])
+  @@index([coreId])
 }
 
 model Client {
@@ -48,8 +46,6 @@ model Client {
   primaryPhone     String?
   secondaryPhone   String?
   email            String?
-  state            String?          @default("ACTIVE")
-  source           String           @default("manual")
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
   lastSyncedAt     DateTime?
@@ -66,8 +62,7 @@ model Client {
   @@index([primaryPhone])
   @@index([idNumber])
   @@index([isActive])
-  @@index([state])
-  @@index([source])
+  @@index([coreId])
 }
 
 model ClientBuilding {
@@ -99,13 +94,12 @@ model Asset {
   updatedAt             DateTime         @updatedAt
   coreId                Int?             @unique
   ip                    String?
-  port                  Int?
+  port                  String?
   productId             String?
   assignedBuildingCoreId Int?
   door1                 String?
   door2                 String?
   door3                 String?
-  source                String           @default("manual")
   status                DeviceStatus     @default(UNKNOWN)
   lastSyncedAt          DateTime?
   coreUpdatedAt         DateTime?
@@ -121,7 +115,7 @@ model Asset {
   @@index([type])
   @@index([status])
   @@index([isActive])
-  @@index([source])
+  @@index([coreId])
 }
 
 model WorkOrder {
@@ -653,9 +647,6 @@ model BuildingContact {
   name        String
   type        String
   description String?
-  phone       String?
-  email       String?
-  documentId  String?
   clientId    String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())

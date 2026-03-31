@@ -36,17 +36,15 @@ export class CoreSyncService {
     const name = this.requireString(p, "name");
     const now = new Date();
 
-    // Never overwrite manually-created buildings
+    // Never overwrite manually-created buildings (those without coreId)
     const existing = await this.prisma.building.findUnique({
       where: { coreId },
-      select: { source: true },
+      select: { id: true, coreId: true },
     });
-    if (existing && existing.source === "manual") {
-      this.logger.warn(
-        `Building coreId=${coreId} is manual, skipping core upsert`,
-      );
-      return existing;
-    }
+
+    const disableCrons = p.disableCrons ?? false;
+    // isActive is derived from disableCrons: if crons disabled, building is inactive
+    const isActive = p.isActive !== undefined ? p.isActive : !disableCrons;
 
     const result = await this.prisma.building.upsert({
       where: { coreId },
@@ -54,38 +52,32 @@ export class CoreSyncService {
         coreId,
         name,
         address: p.address ?? null,
-        city: p.city ?? null,
         phone: p.phone ?? null,
         email: p.email ?? null,
-        identificationCode: p.identificationCode ?? null,
         numberOfApartments:
           p.numberOfApartments != null
             ? parseInt(p.numberOfApartments, 10)
             : null,
-        disableCrons: p.disableCrons ?? false,
+        disableCrons,
+        isActive,
         branchId: p.branchId != null ? parseInt(p.branchId, 10) : null,
-        source: "core",
         coreCreatedAt: this.toDateOrNull(p.coreCreatedAt),
         coreUpdatedAt: this.toDateOrNull(p.coreUpdatedAt),
         lastSyncedAt: now,
-        isActive: true,
       },
       update: {
         name,
         ...(p.address !== undefined && { address: p.address }),
-        ...(p.city !== undefined && { city: p.city }),
         ...(p.phone !== undefined && { phone: p.phone }),
         ...(p.email !== undefined && { email: p.email }),
-        ...(p.identificationCode !== undefined && {
-          identificationCode: p.identificationCode,
-        }),
         ...(p.numberOfApartments !== undefined && {
           numberOfApartments:
             p.numberOfApartments != null
               ? parseInt(p.numberOfApartments, 10)
               : null,
         }),
-        ...(p.disableCrons !== undefined && { disableCrons: p.disableCrons }),
+        ...(p.disableCrons !== undefined && { disableCrons }),
+        isActive,
         ...(p.branchId !== undefined && {
           branchId: p.branchId != null ? parseInt(p.branchId, 10) : null,
         }),
@@ -93,7 +85,6 @@ export class CoreSyncService {
           coreUpdatedAt: this.toDateOrNull(p.coreUpdatedAt),
         }),
         lastSyncedAt: now,
-        isActive: true,
         deletedAt: null,
       },
     });
@@ -108,18 +99,6 @@ export class CoreSyncService {
     const coreId = this.requireInt(p, "coreId");
     const now = new Date();
 
-    // Never overwrite manually-created clients
-    const existing = await this.prisma.client.findUnique({
-      where: { coreId },
-      select: { source: true },
-    });
-    if (existing && existing.source === "manual") {
-      this.logger.warn(
-        `Client coreId=${coreId} is manual, skipping core upsert`,
-      );
-      return existing;
-    }
-
     return this.prisma.$transaction(async (tx) => {
       const client = await tx.client.upsert({
         where: { coreId },
@@ -132,8 +111,6 @@ export class CoreSyncService {
           primaryPhone: p.primaryPhone ?? null,
           secondaryPhone: p.secondaryPhone ?? null,
           email: p.email ?? null,
-          state: p.state ?? "ACTIVE",
-          source: "core",
           coreCreatedAt: this.toDateOrNull(p.coreCreatedAt),
           coreUpdatedAt: this.toDateOrNull(p.coreUpdatedAt),
           lastSyncedAt: now,
@@ -149,7 +126,6 @@ export class CoreSyncService {
             secondaryPhone: p.secondaryPhone,
           }),
           ...(p.email !== undefined && { email: p.email }),
-          ...(p.state !== undefined && { state: p.state }),
           ...(p.coreUpdatedAt !== undefined && {
             coreUpdatedAt: this.toDateOrNull(p.coreUpdatedAt),
           }),
@@ -202,7 +178,7 @@ export class CoreSyncService {
     // Build target set from incoming apartments
     const targetLinks: Array<{
       buildingId: string;
-      apartmentCoreId: number | null;
+      apartmentCoreId: number;
       apartmentNumber: string | null;
       entranceNumber: string | null;
       floorNumber: string | null;
@@ -220,7 +196,7 @@ export class CoreSyncService {
       }
       targetLinks.push({
         buildingId,
-        apartmentCoreId: apt.apartmentCoreId ?? null,
+        apartmentCoreId: apt.apartmentCoreId ?? 0,
         apartmentNumber: apt.apartmentNumber ?? null,
         entranceNumber: apt.entranceNumber ?? null,
         floorNumber: apt.floorNumber ?? null,
@@ -233,20 +209,18 @@ export class CoreSyncService {
     let added = 0;
     let updated = 0;
     for (const link of targetLinks) {
-      // Use 0 as sentinel for null apartmentCoreId (NULLS NOT DISTINCT in index)
-      const safeAptCoreId = link.apartmentCoreId ?? 0;
       await tx.clientBuilding.upsert({
         where: {
           clientId_buildingId_apartmentCoreId: {
             clientId,
             buildingId: link.buildingId,
-            apartmentCoreId: safeAptCoreId,
+            apartmentCoreId: link.apartmentCoreId,
           },
         },
         create: {
           clientId,
           buildingId: link.buildingId,
-          apartmentCoreId: safeAptCoreId,
+          apartmentCoreId: link.apartmentCoreId,
           apartmentNumber: link.apartmentNumber,
           entranceNumber: link.entranceNumber,
           floorNumber: link.floorNumber,
@@ -264,7 +238,7 @@ export class CoreSyncService {
       const isExisting = currentLinks.some(
         (cl) =>
           cl.buildingId === link.buildingId &&
-          cl.apartmentCoreId === (link.apartmentCoreId ?? 0),
+          cl.apartmentCoreId === link.apartmentCoreId,
       );
       if (isExisting) updated++;
       else added++;
@@ -273,7 +247,7 @@ export class CoreSyncService {
     // Remove links no longer present
     const targetKeys = new Set(
       targetLinks.map(
-        (l) => `${l.buildingId}:${l.apartmentCoreId ?? 0}`,
+        (l) => `${l.buildingId}:${l.apartmentCoreId}`,
       ),
     );
     const toRemoveIds = currentLinks
@@ -351,18 +325,6 @@ export class CoreSyncService {
     const assignedBuildingCoreId = this.requireInt(p, "assignedBuildingCoreId");
     const now = new Date();
 
-    // Never overwrite manually-created assets
-    const existing = await this.prisma.asset.findUnique({
-      where: { coreId },
-      select: { source: true },
-    });
-    if (existing && existing.source === "manual") {
-      this.logger.warn(
-        `Asset coreId=${coreId} is manual, skipping core upsert`,
-      );
-      return existing;
-    }
-
     const building = await this.prisma.building.findUnique({
       where: { coreId: assignedBuildingCoreId },
       select: { id: true },
@@ -381,13 +343,12 @@ export class CoreSyncService {
         name,
         type,
         ip: p.ip ?? null,
-        port: p.port != null ? parseInt(p.port, 10) : null,
+        port: p.port != null ? String(p.port) : null,
         productId: p.productId ?? null,
         assignedBuildingCoreId,
         door1: p.door1 ?? null,
         door2: p.door2 ?? null,
         door3: p.door3 ?? null,
-        source: "core",
         status: p.status ?? "UNKNOWN",
         coreCreatedAt: this.toDateOrNull(p.coreCreatedAt),
         coreUpdatedAt: this.toDateOrNull(p.coreUpdatedAt),
@@ -400,7 +361,7 @@ export class CoreSyncService {
         type,
         ...(p.ip !== undefined && { ip: p.ip }),
         ...(p.port !== undefined && {
-          port: p.port != null ? parseInt(p.port, 10) : null,
+          port: p.port != null ? String(p.port) : null,
         }),
         ...(p.productId !== undefined && { productId: p.productId }),
         assignedBuildingCoreId,
@@ -454,22 +415,16 @@ export class CoreSyncService {
         coreId,
         buildingId: building.id,
         name,
-        type: p.type ?? "CONTACTS",
+        type: p.type != null ? String(p.type) : "CONTACTS",
         description: p.description ?? null,
-        phone: p.phone ?? null,
-        email: p.email ?? null,
-        documentId: p.documentId ?? null,
         clientId,
         isActive: true,
       },
       update: {
         buildingId: building.id,
         name,
-        ...(p.type !== undefined && { type: p.type }),
+        ...(p.type !== undefined && { type: String(p.type) }),
         ...(p.description !== undefined && { description: p.description }),
-        ...(p.phone !== undefined && { phone: p.phone }),
-        ...(p.email !== undefined && { email: p.email }),
-        ...(p.documentId !== undefined && { documentId: p.documentId }),
         clientId,
         isActive: true,
       },
@@ -491,19 +446,15 @@ export class CoreSyncService {
     const now = new Date();
     const data = { isActive: false, deletedAt: now, lastSyncedAt: now };
 
-    // Don't deactivate manual records or records that don't exist
+    // Only deactivate records that have a coreId (i.e., synced from core)
+    // Manual records (coreId = null) can never match here since we search by coreId
     switch (entity) {
       case "building": {
         const record = await this.prisma.building.findUnique({
           where: { coreId },
-          select: { source: true },
         });
         if (!record) {
           this.logger.warn(`Building coreId=${coreId} not found, skipping deactivate`);
-          return;
-        }
-        if (record.source === "manual") {
-          this.logger.warn(`Building coreId=${coreId} is manual, skipping deactivate`);
           return;
         }
         await this.prisma.building.update({ where: { coreId }, data });
@@ -513,14 +464,9 @@ export class CoreSyncService {
       case "client": {
         const record = await this.prisma.client.findUnique({
           where: { coreId },
-          select: { source: true },
         });
         if (!record) {
           this.logger.warn(`Client coreId=${coreId} not found, skipping deactivate`);
-          return;
-        }
-        if (record.source === "manual") {
-          this.logger.warn(`Client coreId=${coreId} is manual, skipping deactivate`);
           return;
         }
         await this.prisma.client.update({ where: { coreId }, data });
@@ -530,14 +476,9 @@ export class CoreSyncService {
       case "asset": {
         const record = await this.prisma.asset.findUnique({
           where: { coreId },
-          select: { source: true },
         });
         if (!record) {
           this.logger.warn(`Asset coreId=${coreId} not found, skipping deactivate`);
-          return;
-        }
-        if (record.source === "manual") {
-          this.logger.warn(`Asset coreId=${coreId} is manual, skipping deactivate`);
           return;
         }
         await this.prisma.asset.update({ where: { coreId }, data });

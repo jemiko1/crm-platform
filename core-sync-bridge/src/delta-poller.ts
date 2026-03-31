@@ -5,6 +5,9 @@
  *
  * Runs every 5 minutes. Typical load: 5 tiny SELECT queries returning 0-20 rows.
  * Pushes changed records to CRM webhook endpoint.
+ *
+ * Core table names are lowercase (Java/Hibernate convention):
+ *   company, client, savingaccount, smartgsmgate, contactperson
  */
 
 import { RowDataPacket } from "mysql2/promise";
@@ -23,7 +26,6 @@ interface BuildingRow extends RowDataPacket {
   address: string | null;
   mobileNumber: string | null;
   email: string | null;
-  identificationCode: string | null;
   numberOfAppartments: number | null;
   disableCrons: boolean | number;
   assignedBranchId: number | null;
@@ -35,7 +37,7 @@ async function pollBuildings(): Promise<number> {
   const since = getLastPollTime("building");
   const rows = await query<BuildingRow[]>(
     `SELECT id, companyName, address, mobileNumber, email,
-            identificationCode, numberOfAppartments, disableCrons,
+            numberOfAppartments, disableCrons,
             assignedBranchId, creationDate, lastModifiedDate
      FROM company
      WHERE lastModifiedDate > ?
@@ -48,15 +50,16 @@ async function pollBuildings(): Promise<number> {
 
   let maxDate = since;
   for (const r of rows) {
+    const disableCrons = Boolean(r.disableCrons);
     await postWebhook("building.upsert", {
       coreId: r.id,
       name: r.companyName,
       address: r.address,
       phone: r.mobileNumber,
       email: r.email,
-      identificationCode: r.identificationCode,
       numberOfApartments: r.numberOfAppartments,
-      disableCrons: Boolean(r.disableCrons),
+      disableCrons,
+      isActive: !disableCrons,
       branchId: r.assignedBranchId,
       coreCreatedAt: r.creationDate?.toISOString() ?? null,
       coreUpdatedAt: r.lastModifiedDate?.toISOString() ?? null,
@@ -80,15 +83,14 @@ interface ClientRow extends RowDataPacket {
   mobileNumber: string | null;
   secondaryMobileNumber: string | null;
   email: string | null;
-  state: string | null;
   creationDate: Date | null;
   lastModifiedDate: Date | null;
 }
 
 interface ApartmentRow extends RowDataPacket {
-  id: number;
+  ID: number;
   clientID: number;
-  companyID: number;
+  assignedToBuildingID: number;
   apartmentNumber: string | null;
   entranceNumber: string | null;
   floorNumber: string | null;
@@ -100,7 +102,7 @@ async function pollClients(): Promise<number> {
   const since = getLastPollTime("client");
   const rows = await query<ClientRow[]>(
     `SELECT id, firstName, lastName, documentID, mobileNumber,
-            secondaryMobileNumber, email, state, creationDate, lastModifiedDate
+            secondaryMobileNumber, email, creationDate, lastModifiedDate
      FROM client
      WHERE lastModifiedDate > ?
      ORDER BY lastModifiedDate ASC`,
@@ -111,14 +113,15 @@ async function pollClients(): Promise<number> {
   log.info(`Clients changed since ${since.toISOString()}: ${rows.length}`);
 
   // Fetch apartments for all changed clients in one query
+  // Use assignedToBuildingID to link apartments to buildings
   const clientIds = rows.map((r) => r.id);
   const apartments =
     clientIds.length > 0
       ? await query<ApartmentRow[]>(
-          `SELECT id, clientID, companyID, apartmentNumber, entranceNumber,
+          `SELECT ID, clientID, assignedToBuildingID, apartmentNumber, entranceNumber,
                   floorNumber, paymentID, consolidatedBalance
-           FROM saving_account
-           WHERE clientID IN (?) AND accountType = 'CURRENT_ACCOUNT'`,
+           FROM savingaccount
+           WHERE clientID IN (?) AND AccountType = 'CURRENT_ACCOUNT'`,
           [clientIds],
         )
       : [];
@@ -143,12 +146,11 @@ async function pollClients(): Promise<number> {
       primaryPhone: r.mobileNumber,
       secondaryPhone: r.secondaryMobileNumber,
       email: r.email,
-      state: r.state,
       coreCreatedAt: r.creationDate?.toISOString() ?? null,
       coreUpdatedAt: r.lastModifiedDate?.toISOString() ?? null,
       apartments: clientApts.map((a) => ({
-        buildingCoreId: a.companyID,
-        apartmentCoreId: a.id,
+        buildingCoreId: a.assignedToBuildingID,
+        apartmentCoreId: a.ID,
         apartmentNumber: a.apartmentNumber,
         entranceNumber: a.entranceNumber,
         floorNumber: a.floorNumber,
@@ -166,29 +168,28 @@ async function pollClients(): Promise<number> {
   return rows.length;
 }
 
-// ── Asset queries (Lift/Door from saving_account) ───────
+// ── Asset queries (Lift/Door/Intercom from savingaccount) ───
 
 interface AssetRow extends RowDataPacket {
-  id: number;
-  name: string;
-  accountType: string;
-  productID: string | null;
+  ID: number;
+  NAME: string;
+  AccountType: string;
+  productID: number | null;
   ip: string | null;
-  port: number | null;
-  companyID: number;
+  port: string | null;  // varchar in core DB
   assignedToBuildingID: number | null;
-  creationDate: Date | null;
+  CREATIONDATE: Date | null;
   lastModifiedDate: Date | null;
 }
 
 async function pollAssets(): Promise<number> {
   const since = getLastPollTime("asset");
   const rows = await query<AssetRow[]>(
-    `SELECT id, name, accountType, productID, ip, port,
-            companyID, assignedToBuildingID, creationDate, lastModifiedDate
-     FROM saving_account
+    `SELECT ID, NAME, AccountType, productID, ip, port,
+            assignedToBuildingID, CREATIONDATE, lastModifiedDate
+     FROM savingaccount
      WHERE lastModifiedDate > ?
-       AND accountType IN ('LIFT', 'DOOR', 'INTERCOM')
+       AND AccountType IN ('LIFT', 'DOOR', 'INTERCOM')
      ORDER BY lastModifiedDate ASC`,
     [since],
   );
@@ -199,14 +200,14 @@ async function pollAssets(): Promise<number> {
   let maxDate = since;
   for (const r of rows) {
     await postWebhook("asset.upsert", {
-      coreId: r.id,
-      name: r.name,
-      type: r.accountType,
-      productId: r.productID,
+      coreId: r.ID,
+      name: r.NAME,
+      type: r.AccountType,
+      productId: r.productID != null ? String(r.productID) : null,
       ip: r.ip,
-      port: r.port,
-      assignedBuildingCoreId: r.assignedToBuildingID ?? r.companyID,
-      coreCreatedAt: r.creationDate?.toISOString() ?? null,
+      port: r.port,  // varchar — synced as string
+      assignedBuildingCoreId: r.assignedToBuildingID,
+      coreCreatedAt: r.CREATIONDATE?.toISOString() ?? null,
       coreUpdatedAt: r.lastModifiedDate?.toISOString() ?? null,
     });
     if (r.lastModifiedDate && r.lastModifiedDate > maxDate) {
@@ -218,131 +219,29 @@ async function pollAssets(): Promise<number> {
   return rows.length;
 }
 
-// ── Gate devices (Smart GSM Gate from separate table) ───
-
-interface GateRow extends RowDataPacket {
-  id: number;
-  name: string;
-  buildingID: number;
-  productID: string | null;
-  smartGSMGateNumber1: string | null;
-  smartGSMGateNumber2: string | null;
-  smartGSMGateNumber3: string | null;
-  lastModifiedDate: Date | null;
-  creationDate: Date | null;
-}
+// ── Gate devices (Smart GSM Gate from smartgsmgate table) ───
+// Note: smartgsmgate has NO lastModifiedDate or creationDate columns.
+// Delta polling not possible — gates are only synced via bulk loader.
+// This function is kept for count verification only.
 
 async function pollGateDevices(): Promise<number> {
-  const since = getLastPollTime("gateDevice");
-
-  // Try smart_gsm_gate table — table name may vary, will be confirmed on first run
-  let rows: GateRow[] = [];
-  try {
-    rows = await query<GateRow[]>(
-      `SELECT id, name, buildingID, productID,
-              smartGSMGateNumber1, smartGSMGateNumber2, smartGSMGateNumber3,
-              creationDate, lastModifiedDate
-       FROM smart_gsm_gate
-       WHERE lastModifiedDate > ?
-       ORDER BY lastModifiedDate ASC`,
-      [since],
-    );
-  } catch (err: any) {
-    // Table might not exist or have different name — log and skip
-    if (err.code === "ER_NO_SUCH_TABLE") {
-      log.debug("smart_gsm_gate table not found, skipping gate poll");
-      return 0;
-    }
-    throw err;
-  }
-
-  if (rows.length === 0) return 0;
-  log.info(`Gate devices changed since ${since.toISOString()}: ${rows.length}`);
-
-  let maxDate = since;
-  for (const r of rows) {
-    // Offset gate IDs by 10_000_000 to avoid collision with saving_account IDs
-    // (both tables have independent auto-increment sequences)
-    await postWebhook("asset.upsert", {
-      coreId: 10_000_000 + r.id,
-      name: r.name,
-      type: "SMART_GSM_GATE",
-      productId: r.productID,
-      assignedBuildingCoreId: r.buildingID,
-      door1: r.smartGSMGateNumber1,
-      door2: r.smartGSMGateNumber2,
-      door3: r.smartGSMGateNumber3,
-      coreCreatedAt: r.creationDate?.toISOString() ?? null,
-      coreUpdatedAt: r.lastModifiedDate?.toISOString() ?? null,
-    });
-    if (r.lastModifiedDate && r.lastModifiedDate > maxDate) {
-      maxDate = r.lastModifiedDate;
-    }
-  }
-
-  updatePollTime("gateDevice", maxDate);
-  return rows.length;
+  // smartgsmgate has no timestamp columns, so we can't delta poll.
+  // Gates are synced during bulk load only.
+  // For count verification, we could check total count periodically.
+  log.debug("Gate devices: no timestamp columns in smartgsmgate, skipping delta poll (use bulk loader)");
+  return 0;
 }
 
 // ── Contact queries ─────────────────────────────────────
-
-interface ContactRow extends RowDataPacket {
-  id: number;
-  name: string;
-  type: string;
-  description: string | null;
-  mobileNumber: string | null;
-  email: string | null;
-  documentID: string | null;
-  contactClientID: number | null;
-  companyID: number;
-  lastModifiedDate: Date | null;
-}
+// contactperson columns: id, companyID, contactClientID, contactCompanyID,
+//   description, name, type, company_ID
+// Note: NO lastModifiedDate — delta polling not possible
 
 async function pollContacts(): Promise<number> {
-  const since = getLastPollTime("contact");
-
-  let rows: ContactRow[] = [];
-  try {
-    rows = await query<ContactRow[]>(
-      `SELECT id, name, type, description, mobileNumber, email,
-              documentID, contactClientID, companyID, lastModifiedDate
-       FROM contact_person
-       WHERE lastModifiedDate > ?
-       ORDER BY lastModifiedDate ASC`,
-      [since],
-    );
-  } catch (err: any) {
-    if (err.code === "ER_NO_SUCH_TABLE") {
-      log.debug("contact_person table not found, skipping contact poll");
-      return 0;
-    }
-    throw err;
-  }
-
-  if (rows.length === 0) return 0;
-  log.info(`Contacts changed since ${since.toISOString()}: ${rows.length}`);
-
-  let maxDate = since;
-  for (const r of rows) {
-    await postWebhook("contact.upsert", {
-      coreId: r.id,
-      buildingCoreId: r.companyID,
-      name: r.name,
-      type: r.type,
-      description: r.description,
-      phone: r.mobileNumber,
-      email: r.email,
-      documentId: r.documentID,
-      clientCoreId: r.contactClientID,
-    });
-    if (r.lastModifiedDate && r.lastModifiedDate > maxDate) {
-      maxDate = r.lastModifiedDate;
-    }
-  }
-
-  updatePollTime("contact", maxDate);
-  return rows.length;
+  // contactperson has no timestamp columns, so we can't delta poll.
+  // Contacts are synced during bulk load only.
+  log.debug("Contacts: no timestamp columns in contactperson, skipping delta poll (use bulk loader)");
+  return 0;
 }
 
 // ── Main poll cycle ─────────────────────────────────────

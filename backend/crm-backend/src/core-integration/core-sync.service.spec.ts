@@ -48,17 +48,17 @@ describe("CoreSyncService", () => {
   });
 
   describe("building.upsert", () => {
-    it("should upsert building with all new fields", async () => {
-      const row = { id: "b1", coreId: 5, source: "core" };
+    it("should upsert building with all fields", async () => {
+      const row = { id: "b1", coreId: 5 };
       prisma.building.upsert.mockResolvedValue(row);
       const result = await service.process("building.upsert", {
         coreId: 5,
         name: "Tower",
         phone: "599123456",
         email: "test@asg.ge",
-        identificationCode: "ABC123",
         numberOfApartments: 50,
         disableCrons: false,
+        isActive: true,
         branchId: 1,
       });
       expect(result).toEqual(row);
@@ -68,23 +68,31 @@ describe("CoreSyncService", () => {
           create: expect.objectContaining({
             phone: "599123456",
             email: "test@asg.ge",
-            identificationCode: "ABC123",
             numberOfApartments: 50,
             disableCrons: false,
+            isActive: true,
             branchId: 1,
-            source: "core",
           }),
         }),
       );
     });
 
-    it("should skip upsert for manual buildings", async () => {
-      prisma.building.findUnique.mockResolvedValue({ source: "manual" });
+    it("should derive isActive from disableCrons", async () => {
+      prisma.building.upsert.mockResolvedValue({ id: "b1", coreId: 5 });
       await service.process("building.upsert", {
         coreId: 5,
-        name: "Tower",
+        name: "Inactive Tower",
+        disableCrons: true,
+        isActive: false,
       });
-      expect(prisma.building.upsert).not.toHaveBeenCalled();
+      expect(prisma.building.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({
+            disableCrons: true,
+            isActive: false,
+          }),
+        }),
+      );
     });
 
     it("should throw when coreId is missing", async () => {
@@ -101,33 +109,22 @@ describe("CoreSyncService", () => {
   });
 
   describe("client.upsert", () => {
-    it("should upsert client with email and state", async () => {
-      const row = { id: "c1", coreId: 10, source: "core" };
+    it("should upsert client with email", async () => {
+      const row = { id: "c1", coreId: 10 };
       prisma.client.upsert.mockResolvedValue(row);
       const result = await service.process("client.upsert", {
         coreId: 10,
         firstName: "Giorgi",
         email: "giorgi@test.com",
-        state: "ACTIVE",
       });
       expect(result).toEqual(row);
       expect(prisma.client.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
           create: expect.objectContaining({
             email: "giorgi@test.com",
-            state: "ACTIVE",
-            source: "core",
           }),
         }),
       );
-    });
-
-    it("should skip upsert for manual clients", async () => {
-      prisma.client.findUnique.mockResolvedValue({ source: "manual" });
-      await service.process("client.upsert", {
-        coreId: 10,
-      });
-      expect(prisma.client.upsert).not.toHaveBeenCalled();
     });
 
     it("should sync apartment links when apartments array provided", async () => {
@@ -154,12 +151,37 @@ describe("CoreSyncService", () => {
 
       expect(prisma.clientBuilding.upsert).toHaveBeenCalled();
     });
+
+    it("should remove stale apartment links", async () => {
+      prisma.client.upsert.mockResolvedValue({ id: "c1", coreId: 10 });
+      prisma.building.findMany.mockResolvedValue([
+        { id: "b-uuid", coreId: 100 },
+      ]);
+      prisma.clientBuilding.findMany.mockResolvedValue([
+        { id: "old-link", buildingId: "b-old", apartmentCoreId: 999 },
+      ]);
+      prisma.clientBuilding.upsert.mockResolvedValue({});
+      prisma.clientBuilding.deleteMany.mockResolvedValue({ count: 1 });
+
+      await service.process("client.upsert", {
+        coreId: 10,
+        apartments: [
+          { buildingCoreId: 100, apartmentCoreId: 8001 },
+        ],
+      });
+
+      expect(prisma.clientBuilding.deleteMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: { in: ["old-link"] } },
+        }),
+      );
+    });
   });
 
   describe("asset.upsert", () => {
-    it("should upsert asset with port, productId, and door fields", async () => {
+    it("should upsert asset with port as string and productId", async () => {
       prisma.building.findUnique.mockResolvedValue({ id: "b-uuid" });
-      const row = { id: "a1", coreId: 20, source: "core" };
+      const row = { id: "a1", coreId: 20 };
       prisma.asset.upsert.mockResolvedValue(row);
 
       const result = await service.process("asset.upsert", {
@@ -168,17 +190,16 @@ describe("CoreSyncService", () => {
         type: "LIFT",
         assignedBuildingCoreId: 5,
         ip: "192.168.1.10",
-        port: 8080,
-        productId: "PROD-001",
+        port: "4370",
+        productId: "159",
       });
 
       expect(result).toEqual(row);
       expect(prisma.asset.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
           create: expect.objectContaining({
-            port: 8080,
-            productId: "PROD-001",
-            source: "core",
+            port: "4370",
+            productId: "159",
           }),
         }),
       );
@@ -186,14 +207,10 @@ describe("CoreSyncService", () => {
 
     it("should upsert gate device with door fields", async () => {
       prisma.building.findUnique.mockResolvedValue({ id: "b-uuid" });
-      prisma.asset.upsert.mockResolvedValue({
-        id: "a2",
-        coreId: 21,
-        source: "core",
-      });
+      prisma.asset.upsert.mockResolvedValue({ id: "a2", coreId: 10000021 });
 
       await service.process("asset.upsert", {
-        coreId: 21,
+        coreId: 10000021,
         name: "Gate #1",
         type: "SMART_GSM_GATE",
         assignedBuildingCoreId: 5,
@@ -211,17 +228,6 @@ describe("CoreSyncService", () => {
           }),
         }),
       );
-    });
-
-    it("should skip upsert for manual assets", async () => {
-      prisma.asset.findUnique.mockResolvedValue({ source: "manual" });
-      await service.process("asset.upsert", {
-        coreId: 20,
-        name: "Lift #1",
-        type: "LIFT",
-        assignedBuildingCoreId: 5,
-      });
-      expect(prisma.asset.upsert).not.toHaveBeenCalled();
     });
 
     it("should throw when building not found", async () => {
@@ -249,8 +255,8 @@ describe("CoreSyncService", () => {
         coreId: 30,
         buildingCoreId: 5,
         name: "Nino",
-        type: "SALES_AGENT",
-        phone: "599222333",
+        type: "1",
+        description: "Sales agent",
       });
 
       expect(prisma.buildingContact.upsert).toHaveBeenCalledWith(
@@ -258,8 +264,8 @@ describe("CoreSyncService", () => {
           where: { coreId: 30 },
           create: expect.objectContaining({
             name: "Nino",
-            type: "SALES_AGENT",
-            phone: "599222333",
+            type: "1",
+            description: "Sales agent",
           }),
         }),
       );
@@ -279,7 +285,7 @@ describe("CoreSyncService", () => {
 
   describe("deactivate", () => {
     it("should soft-delete building", async () => {
-      prisma.building.findUnique.mockResolvedValue({ source: "core" });
+      prisma.building.findUnique.mockResolvedValue({ id: "b1", coreId: 5 });
       prisma.building.update.mockResolvedValue({});
       await service.process("building.deactivate", { coreId: 5 });
       expect(prisma.building.update).toHaveBeenCalledWith(
@@ -290,9 +296,9 @@ describe("CoreSyncService", () => {
       );
     });
 
-    it("should not deactivate manual buildings", async () => {
-      prisma.building.findUnique.mockResolvedValue({ source: "manual" });
-      await service.process("building.deactivate", { coreId: 5 });
+    it("should skip deactivate when building not found", async () => {
+      prisma.building.findUnique.mockResolvedValue(null);
+      await service.process("building.deactivate", { coreId: 999 });
       expect(prisma.building.update).not.toHaveBeenCalled();
     });
 
