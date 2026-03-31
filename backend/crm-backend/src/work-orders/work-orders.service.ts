@@ -1217,11 +1217,19 @@ export class WorkOrdersService {
       throw new BadRequestException("Work order must be IN_PROGRESS to request conversion");
     }
 
+    if (!workOrder.building.coreId) {
+      throw new BadRequestException("Cannot convert: building has no coreId");
+    }
+
     // Create sub-order (child work order) with same parameters but REPAIR_CHANGE type
+    const assetCoreIds = workOrder.workOrderAssets
+      .map((wa) => wa.asset.coreId)
+      .filter((id): id is number => id != null);
+
     const childWorkOrder = await this.create(
       {
-        buildingId: workOrder.building.coreId ?? 0,
-        assetIds: workOrder.workOrderAssets.map((wa) => wa.asset.coreId!).filter(Boolean),
+        buildingId: workOrder.building.coreId,
+        assetIds: assetCoreIds,
         type: "REPAIR_CHANGE",
         title: `Repair/Change - ${workOrder.title}`,
         description: `Converted from Diagnostic work order. Reason: ${dto.reason}`,
