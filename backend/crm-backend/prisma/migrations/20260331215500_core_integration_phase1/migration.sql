@@ -66,7 +66,7 @@ ALTER TABLE "ClientBuilding" ALTER COLUMN "id" SET NOT NULL;
 ALTER TABLE "ClientBuilding" ADD CONSTRAINT "ClientBuilding_pkey" PRIMARY KEY ("id");
 
 -- Step 5: Add composite unique constraint (replaces old composite PK)
-CREATE UNIQUE INDEX "ClientBuilding_clientId_buildingId_apartmentCoreId_key" ON "ClientBuilding"("clientId", "buildingId", "apartmentCoreId");
+CREATE UNIQUE INDEX "ClientBuilding_clientId_buildingId_apartmentCoreId_key" ON "ClientBuilding"("clientId", "buildingId", "apartmentCoreId") NULLS NOT DISTINCT;
 
 -- ============================================
 -- BuildingContact: new model

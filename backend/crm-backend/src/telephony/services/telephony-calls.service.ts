@@ -273,9 +273,9 @@ export class TelephonyCallsService {
     });
 
     let intelligence: CallerLookupResult['intelligence'];
-    if (client) {
+    if (client?.coreId) {
       try {
-        const profile = await this.intelligenceService.getProfile(client.coreId!, 180);
+        const profile = await this.intelligenceService.getProfile(client.coreId, 180);
         intelligence = {
           labels: profile.labels,
           summary: profile.summary,

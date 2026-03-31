@@ -233,18 +233,20 @@ export class CoreSyncService {
     let added = 0;
     let updated = 0;
     for (const link of targetLinks) {
+      // Use 0 as sentinel for null apartmentCoreId (NULLS NOT DISTINCT in index)
+      const safeAptCoreId = link.apartmentCoreId ?? 0;
       await tx.clientBuilding.upsert({
         where: {
           clientId_buildingId_apartmentCoreId: {
             clientId,
             buildingId: link.buildingId,
-            apartmentCoreId: link.apartmentCoreId ?? 0,
+            apartmentCoreId: safeAptCoreId,
           },
         },
         create: {
           clientId,
           buildingId: link.buildingId,
-          apartmentCoreId: link.apartmentCoreId,
+          apartmentCoreId: safeAptCoreId,
           apartmentNumber: link.apartmentNumber,
           entranceNumber: link.entranceNumber,
           floorNumber: link.floorNumber,
@@ -489,15 +491,23 @@ export class CoreSyncService {
     const now = new Date();
     const data = { isActive: false, deletedAt: now, lastSyncedAt: now };
 
-    // Don't deactivate manual records via core sync
+    // Don't deactivate manual records or records that don't exist
     switch (entity) {
       case "building": {
         const record = await this.prisma.building.findUnique({
           where: { coreId },
           select: { source: true },
         });
-        if (record?.source === "manual") return;
+        if (!record) {
+          this.logger.warn(`Building coreId=${coreId} not found, skipping deactivate`);
+          return;
+        }
+        if (record.source === "manual") {
+          this.logger.warn(`Building coreId=${coreId} is manual, skipping deactivate`);
+          return;
+        }
         await this.prisma.building.update({ where: { coreId }, data });
+        this.logger.log(`Building coreId=${coreId} deactivated`);
         break;
       }
       case "client": {
@@ -505,8 +515,16 @@ export class CoreSyncService {
           where: { coreId },
           select: { source: true },
         });
-        if (record?.source === "manual") return;
+        if (!record) {
+          this.logger.warn(`Client coreId=${coreId} not found, skipping deactivate`);
+          return;
+        }
+        if (record.source === "manual") {
+          this.logger.warn(`Client coreId=${coreId} is manual, skipping deactivate`);
+          return;
+        }
         await this.prisma.client.update({ where: { coreId }, data });
+        this.logger.log(`Client coreId=${coreId} deactivated`);
         break;
       }
       case "asset": {
@@ -514,17 +532,31 @@ export class CoreSyncService {
           where: { coreId },
           select: { source: true },
         });
-        if (record?.source === "manual") return;
+        if (!record) {
+          this.logger.warn(`Asset coreId=${coreId} not found, skipping deactivate`);
+          return;
+        }
+        if (record.source === "manual") {
+          this.logger.warn(`Asset coreId=${coreId} is manual, skipping deactivate`);
+          return;
+        }
         await this.prisma.asset.update({ where: { coreId }, data });
+        this.logger.log(`Asset coreId=${coreId} deactivated`);
         break;
       }
     }
-
-    this.logger.log(`${entity} coreId=${coreId} deactivated`);
   }
 
   private async deactivateContact(p: Record<string, any>) {
     const coreId = this.requireInt(p, "coreId");
+
+    const existing = await this.prisma.buildingContact.findUnique({
+      where: { coreId },
+    });
+    if (!existing) {
+      this.logger.warn(`BuildingContact coreId=${coreId} not found, skipping deactivate`);
+      return;
+    }
 
     await this.prisma.buildingContact.update({
       where: { coreId },

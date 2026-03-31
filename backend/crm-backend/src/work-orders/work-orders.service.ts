@@ -1220,8 +1220,8 @@ export class WorkOrdersService {
     // Create sub-order (child work order) with same parameters but REPAIR_CHANGE type
     const childWorkOrder = await this.create(
       {
-        buildingId: workOrder.building.coreId!,
-        assetIds: workOrder.workOrderAssets.map((wa) => wa.asset.coreId!),
+        buildingId: workOrder.building.coreId ?? 0,
+        assetIds: workOrder.workOrderAssets.map((wa) => wa.asset.coreId!).filter(Boolean),
         type: "REPAIR_CHANGE",
         title: `Repair/Change - ${workOrder.title}`,
         description: `Converted from Diagnostic work order. Reason: ${dto.reason}`,

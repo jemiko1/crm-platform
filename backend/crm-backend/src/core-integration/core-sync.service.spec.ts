@@ -26,6 +26,7 @@ describe("CoreSyncService", () => {
         update: jest.fn(),
       },
       buildingContact: {
+        findUnique: jest.fn().mockResolvedValue(null),
         upsert: jest.fn(),
         update: jest.fn(),
       },
@@ -296,6 +297,7 @@ describe("CoreSyncService", () => {
     });
 
     it("should deactivate contact", async () => {
+      prisma.buildingContact.findUnique.mockResolvedValue({ coreId: 30, isActive: true });
       prisma.buildingContact.update.mockResolvedValue({});
       await service.process("contact.deactivate", { coreId: 30 });
       expect(prisma.buildingContact.update).toHaveBeenCalledWith(
@@ -304,6 +306,12 @@ describe("CoreSyncService", () => {
           data: { isActive: false },
         }),
       );
+    });
+
+    it("should skip deactivate contact when not found", async () => {
+      prisma.buildingContact.findUnique.mockResolvedValue(null);
+      await service.process("contact.deactivate", { coreId: 999 });
+      expect(prisma.buildingContact.update).not.toHaveBeenCalled();
     });
   });
 });
