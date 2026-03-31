@@ -7,45 +7,54 @@ datasource db {
 }
 
 model Building {
-  id              String           @id @default(uuid())
-  name            String
-  address         String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  city            String?
-  coreId          Int              @unique
-  lastSyncedAt    DateTime?
-  coreUpdatedAt   DateTime?
-  coreCreatedAt   DateTime?
-  isActive        Boolean          @default(true)
-  deletedAt       DateTime?
-  assets          Asset[]
-  clientBuildings ClientBuilding[]
-  incidents       Incident[]
-  workOrders      WorkOrder[]
+  id                 String            @id @default(uuid())
+  name               String
+  address            String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  city               String?
+  coreId             Int?              @unique
+  lastSyncedAt       DateTime?
+  coreUpdatedAt      DateTime?
+  coreCreatedAt      DateTime?
+  isActive           Boolean           @default(true)
+  deletedAt          DateTime?
+  phone              String?
+  email              String?
+  numberOfApartments Int?
+  disableCrons       Boolean           @default(false)
+  branchId           Int?
+  assets             Asset[]
+  clientBuildings    ClientBuilding[]
+  buildingContacts   BuildingContact[]
+  incidents          Incident[]
+  workOrders         WorkOrder[]
 
   @@index([name])
   @@index([city])
   @@index([isActive])
+  @@index([coreId])
 }
 
 model Client {
-  id              String           @id @default(uuid())
-  coreId          Int              @unique
-  firstName       String?
-  lastName        String?
-  idNumber        String?
-  paymentId       String?
-  primaryPhone    String?
-  secondaryPhone  String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  lastSyncedAt    DateTime?
-  coreUpdatedAt   DateTime?
-  coreCreatedAt   DateTime?
-  isActive        Boolean          @default(true)
-  deletedAt       DateTime?
+  id               String           @id @default(uuid())
+  coreId           Int?             @unique
+  firstName        String?
+  lastName         String?
+  idNumber         String?
+  paymentId        String?
+  primaryPhone     String?
+  secondaryPhone   String?
+  email            String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  lastSyncedAt     DateTime?
+  coreUpdatedAt    DateTime?
+  coreCreatedAt    DateTime?
+  isActive         Boolean          @default(true)
+  deletedAt        DateTime?
   clientBuildings      ClientBuilding[]
+  buildingContacts     BuildingContact[]
   incidents            Incident[]
   chatConversations    ClientChatConversation[] @relation("ClientChatConversations")
   chatParticipants     ClientChatParticipant[]  @relation("ClientChatParticipants")
@@ -53,44 +62,60 @@ model Client {
   @@index([primaryPhone])
   @@index([idNumber])
   @@index([isActive])
+  @@index([coreId])
 }
 
 model ClientBuilding {
-  clientId   String
-  buildingId String
-  createdAt  DateTime @default(now())
-  building   Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
-  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id              String   @id @default(uuid())
+  clientId        String
+  buildingId      String
+  apartmentCoreId Int?
+  apartmentNumber String?
+  entranceNumber  String?
+  floorNumber     String?
+  paymentId       String?
+  balance         Float?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  building        Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  client          Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
-  @@id([clientId, buildingId])
+  @@unique([clientId, buildingId, apartmentCoreId])
   @@index([buildingId])
   @@index([clientId])
 }
 
 model Asset {
-  id              String           @id @default(uuid())
-  buildingId      String
-  type            String
-  name            String
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  coreId          Int              @unique
-  ip              String?
-  status          DeviceStatus     @default(UNKNOWN)
-  lastSyncedAt    DateTime?
-  coreUpdatedAt   DateTime?
-  coreCreatedAt   DateTime?
-  isActive        Boolean          @default(true)
-  deletedAt       DateTime?
-  building        Building         @relation(fields: [buildingId], references: [id], onDelete: Cascade)
-  incidentAssets  IncidentAsset[]
-  workOrders      WorkOrder[]
-  workOrderAssets WorkOrderAsset[]
+  id                    String           @id @default(uuid())
+  buildingId            String
+  type                  String
+  name                  String
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  coreId                Int?             @unique
+  ip                    String?
+  port                  String?
+  productId             String?
+  assignedBuildingCoreId Int?
+  door1                 String?
+  door2                 String?
+  door3                 String?
+  status                DeviceStatus     @default(UNKNOWN)
+  lastSyncedAt          DateTime?
+  coreUpdatedAt         DateTime?
+  coreCreatedAt         DateTime?
+  isActive              Boolean          @default(true)
+  deletedAt             DateTime?
+  building              Building         @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  incidentAssets        IncidentAsset[]
+  workOrders            WorkOrder[]
+  workOrderAssets       WorkOrderAsset[]
 
   @@index([buildingId])
   @@index([type])
   @@index([status])
   @@index([isActive])
+  @@index([coreId])
 }
 
 model WorkOrder {
@@ -612,6 +637,34 @@ model SyncEvent {
   @@index([status])
   @@index([entityType, entityCoreId])
   @@index([receivedAt])
+}
+
+/// Building contacts and sales managers synced from core system.
+model BuildingContact {
+  id          String   @id @default(uuid())
+  buildingId  String
+  coreId      Int      @unique
+  name        String
+  type        String
+  description String?
+  clientId    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  building    Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  client      Client?  @relation(fields: [clientId], references: [id])
+
+  @@index([buildingId])
+  @@index([type])
+}
+
+/// Tracks polling checkpoints and count verification for core sync.
+model SyncCheckpoint {
+  entity         String    @id
+  lastPolledAt   DateTime
+  lastVerifiedAt DateTime?
+  recordCount    Int       @default(0)
+  updatedAt      DateTime  @updatedAt
 }
 
 model AuditLog {

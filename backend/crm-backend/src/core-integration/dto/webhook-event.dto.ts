@@ -4,9 +4,11 @@ export const CORE_EVENT_TYPES = [
   "building.upsert",
   "client.upsert",
   "asset.upsert",
+  "contact.upsert",
   "building.deactivate",
   "client.deactivate",
   "asset.deactivate",
+  "contact.deactivate",
 ] as const;
 
 export type CoreEventType = (typeof CORE_EVENT_TYPES)[number];

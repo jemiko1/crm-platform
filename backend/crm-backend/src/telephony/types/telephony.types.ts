@@ -110,7 +110,7 @@ export interface QueueKpis {
 export interface CallerLookupResult {
   client?: {
     id: string;
-    coreId: number;
+    coreId: number | null;
     name: string;
     firstName: string | null;
     lastName: string | null;
@@ -118,7 +118,7 @@ export interface CallerLookupResult {
     paymentId: string | null;
     primaryPhone: string | null;
     secondaryPhone: string | null;
-    buildings: Array<{ id: string; name: string; coreId: number }>;
+    buildings: Array<{ id: string; name: string; coreId: number | null }>;
   };
   lead?: {
     id: string;

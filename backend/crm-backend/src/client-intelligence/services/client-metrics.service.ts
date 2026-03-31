@@ -52,7 +52,7 @@ export class ClientMetricsService {
 
     return {
       clientId: client.id,
-      clientCoreId: client.coreId,
+      clientCoreId,
       periodDays,
       calls: callMetrics,
       chats: chatMetrics,

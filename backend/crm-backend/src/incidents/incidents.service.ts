@@ -169,7 +169,7 @@ export class IncidentsService {
     if (!building) throw new NotFoundException(`Building coreId=${dto.buildingId} not found`);
 
     // Client is optional (for unknown client incidents)
-    let client: { id: string; coreId: number; clientBuildings: any[] } | null = null;
+    let client: { id: string; coreId: number | null; clientBuildings: any[] } | null = null;
     if (dto.clientId !== undefined && dto.clientId !== null) {
       const foundClient = await this.prisma.client.findUnique({
         where: { coreId: dto.clientId },
