@@ -35,13 +35,6 @@ export class CoreSyncService {
     const coreId = this.requireInt(p, "coreId");
     const name = this.requireString(p, "name");
     const now = new Date();
-
-    // Never overwrite manually-created buildings (those without coreId)
-    const existing = await this.prisma.building.findUnique({
-      where: { coreId },
-      select: { id: true, coreId: true },
-    });
-
     const disableCrons = p.disableCrons ?? false;
     // isActive is derived from disableCrons: if crons disabled, building is inactive
     const isActive = p.isActive !== undefined ? p.isActive : !disableCrons;
