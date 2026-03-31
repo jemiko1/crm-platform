@@ -1,6 +1,6 @@
 import {
   Body, Controller, Get, Post, Req, Res, UseGuards,
-  HttpException, HttpStatus,
+  HttpException, HttpStatus, UnauthorizedException,
 } from "@nestjs/common";
 import type { Response } from "express";
 import { ApiProperty, ApiTags } from "@nestjs/swagger";
@@ -79,7 +79,7 @@ export class AuthController {
         sameSite: secure ? "none" : "lax",
         secure,
         path: "/",
-        maxAge: 24 * 60 * 60 * 1000,
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       });
 
       return { user };
@@ -191,7 +191,7 @@ export class AuthController {
     ok: "Aggregated session user with RBAC and telephony fields",
     status: 200,
   })
-  async me(@Req() req: any) {
+  async me(@Req() req: any, @Res({ passthrough: true }) res: Response) {
     const userId = req.user.id;
 
     const user = await this.prisma.user.findUnique({
@@ -199,8 +199,35 @@ export class AuthController {
       include: { employee: true },
     });
 
-    if (!user) {
-      return { user: req.user };
+    if (!user || !user.isActive) {
+      // User deleted or dismissed — clear cookie and reject
+      const cookieName = process.env.COOKIE_NAME ?? "access_token";
+      const secure = authSessionCookieSecure();
+      res.clearCookie(cookieName, { path: "/", sameSite: secure ? "none" : "lax", secure });
+      throw new UnauthorizedException("Account has been deactivated");
+    }
+
+    // Sliding session: refresh token if past 50% of its lifetime
+    const { iat, exp } = req.user;
+    if (iat && exp) {
+      const now = Math.floor(Date.now() / 1000);
+      const halfLife = iat + Math.floor((exp - iat) / 2);
+      if (now >= halfLife) {
+        const newToken = await this.auth.refreshToken({
+          id: user.id,
+          email: user.email,
+          role: user.role,
+        });
+        const cookieName = process.env.COOKIE_NAME ?? "access_token";
+        const secure = authSessionCookieSecure();
+        res.cookie(cookieName, newToken, {
+          httpOnly: true,
+          sameSite: secure ? "none" : "lax",
+          secure,
+          path: "/",
+          maxAge: 30 * 24 * 60 * 60 * 1000,
+        });
+      }
     }
 
     let employee = user.employee as (typeof user.employee) & {
