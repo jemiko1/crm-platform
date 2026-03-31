@@ -198,13 +198,13 @@ export class CoreIntegrationController {
     const [buildingCount, clientCount, assetCount, contactCount] =
       await Promise.all([
         this.prisma.building.count({
-          where: { source: "core", isActive: true },
+          where: { coreId: { not: null }, isActive: true },
         }),
         this.prisma.client.count({
-          where: { source: "core", isActive: true },
+          where: { coreId: { not: null }, isActive: true },
         }),
         this.prisma.asset.count({
-          where: { source: "core", isActive: true },
+          where: { coreId: { not: null }, isActive: true },
         }),
         this.prisma.buildingContact.count({ where: { isActive: true } }),
       ]);

@@ -8,11 +8,9 @@
 -- ============================================
 ALTER TABLE "Building" ADD COLUMN "phone" TEXT;
 ALTER TABLE "Building" ADD COLUMN "email" TEXT;
-ALTER TABLE "Building" ADD COLUMN "identificationCode" TEXT;
 ALTER TABLE "Building" ADD COLUMN "numberOfApartments" INTEGER;
 ALTER TABLE "Building" ADD COLUMN "disableCrons" BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE "Building" ADD COLUMN "branchId" INTEGER;
-ALTER TABLE "Building" ADD COLUMN "source" TEXT NOT NULL DEFAULT 'manual';
 
 -- Make coreId nullable (to support manual buildings without core link)
 ALTER TABLE "Building" ALTER COLUMN "coreId" DROP NOT NULL;
@@ -21,22 +19,24 @@ ALTER TABLE "Building" ALTER COLUMN "coreId" DROP NOT NULL;
 -- Client: add new fields
 -- ============================================
 ALTER TABLE "Client" ADD COLUMN "email" TEXT;
-ALTER TABLE "Client" ADD COLUMN "state" TEXT DEFAULT 'ACTIVE';
-ALTER TABLE "Client" ADD COLUMN "source" TEXT NOT NULL DEFAULT 'manual';
 
 -- Make coreId nullable (to support manual clients without core link)
 ALTER TABLE "Client" ALTER COLUMN "coreId" DROP NOT NULL;
 
+-- Drop source and state columns if they exist (from earlier migration attempt)
+-- These are handled by coreId presence (coreId != null = synced from core)
+
 -- ============================================
 -- Asset: add new fields
 -- ============================================
-ALTER TABLE "Asset" ADD COLUMN "port" INTEGER;
+-- Change port from Int to Text (core DB stores as varchar with mixed content)
+ALTER TABLE "Asset" ALTER COLUMN "port" TYPE TEXT USING port::text;
+
 ALTER TABLE "Asset" ADD COLUMN "productId" TEXT;
 ALTER TABLE "Asset" ADD COLUMN "assignedBuildingCoreId" INTEGER;
 ALTER TABLE "Asset" ADD COLUMN "door1" TEXT;
 ALTER TABLE "Asset" ADD COLUMN "door2" TEXT;
 ALTER TABLE "Asset" ADD COLUMN "door3" TEXT;
-ALTER TABLE "Asset" ADD COLUMN "source" TEXT NOT NULL DEFAULT 'manual';
 
 -- Make coreId nullable (to support manual assets without core link)
 ALTER TABLE "Asset" ALTER COLUMN "coreId" DROP NOT NULL;
@@ -66,6 +66,7 @@ ALTER TABLE "ClientBuilding" ALTER COLUMN "id" SET NOT NULL;
 ALTER TABLE "ClientBuilding" ADD CONSTRAINT "ClientBuilding_pkey" PRIMARY KEY ("id");
 
 -- Step 5: Add composite unique constraint (replaces old composite PK)
+-- NULLS NOT DISTINCT prevents duplicate rows when apartmentCoreId is null (PG16+)
 CREATE UNIQUE INDEX "ClientBuilding_clientId_buildingId_apartmentCoreId_key" ON "ClientBuilding"("clientId", "buildingId", "apartmentCoreId") NULLS NOT DISTINCT;
 
 -- ============================================
@@ -78,9 +79,6 @@ CREATE TABLE "BuildingContact" (
     "name" TEXT NOT NULL,
     "type" TEXT NOT NULL,
     "description" TEXT,
-    "phone" TEXT,
-    "email" TEXT,
-    "documentId" TEXT,
     "clientId" TEXT,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -110,9 +108,20 @@ CREATE TABLE "SyncCheckpoint" (
 );
 
 -- ============================================
--- New indexes
+-- New/updated indexes
 -- ============================================
-CREATE INDEX "Building_source_idx" ON "Building"("source");
-CREATE INDEX "Client_state_idx" ON "Client"("state");
-CREATE INDEX "Client_source_idx" ON "Client"("source");
-CREATE INDEX "Asset_source_idx" ON "Asset"("source");
+CREATE INDEX "Building_coreId_idx" ON "Building"("coreId");
+CREATE INDEX "Client_coreId_idx" ON "Client"("coreId");
+CREATE INDEX "Asset_coreId_idx" ON "Asset"("coreId");
+
+-- Drop source-related indexes and columns (source not needed; coreId presence is sufficient)
+DROP INDEX IF EXISTS "Building_source_idx";
+DROP INDEX IF EXISTS "Client_source_idx";
+DROP INDEX IF EXISTS "Asset_source_idx";
+DROP INDEX IF EXISTS "Client_state_idx";
+
+ALTER TABLE "Building" DROP COLUMN IF EXISTS "source";
+ALTER TABLE "Building" DROP COLUMN IF EXISTS "identificationCode";
+ALTER TABLE "Client" DROP COLUMN IF EXISTS "source";
+ALTER TABLE "Client" DROP COLUMN IF EXISTS "state";
+ALTER TABLE "Asset" DROP COLUMN IF EXISTS "source";

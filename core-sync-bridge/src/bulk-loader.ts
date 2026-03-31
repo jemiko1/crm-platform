@@ -5,6 +5,7 @@
  * After this, delta polling keeps everything in sync.
  *
  * Usage: npx tsx src/bulk-loader.ts
+ * Single building: npx tsx src/bulk-loader.ts --building 20
  *
  * ⛔ ALL QUERIES ARE READ-ONLY.
  */
@@ -37,7 +38,7 @@ async function syncBuilding(buildingId: number): Promise<void> {
   // 1. Building info
   const bRows = await query<RowDataPacket[]>(
     `SELECT id, companyName, address, mobileNumber, email,
-            identificationCode, numberOfAppartments, disableCrons,
+            numberOfAppartments, disableCrons,
             assignedBranchId, creationDate, lastModifiedDate
      FROM company WHERE id = ?`,
     [buildingId],
@@ -45,31 +46,34 @@ async function syncBuilding(buildingId: number): Promise<void> {
   if (bRows.length === 0) return;
   const b = bRows[0];
 
+  const disableCrons = Boolean(b.disableCrons);
+
   await postWebhook("building.upsert", {
     coreId: b.id,
     name: b.companyName,
     address: b.address,
     phone: b.mobileNumber,
     email: b.email,
-    identificationCode: b.identificationCode,
     numberOfApartments: b.numberOfAppartments,
-    disableCrons: Boolean(b.disableCrons),
+    disableCrons,
+    isActive: !disableCrons,
     branchId: b.assignedBranchId,
     coreCreatedAt: b.creationDate?.toISOString() ?? null,
     coreUpdatedAt: b.lastModifiedDate?.toISOString() ?? null,
   });
 
-  // 2. Clients (neighbors) via saving_account CURRENT_ACCOUNT
+  // 2. Clients (residents) via savingaccount CURRENT_ACCOUNT
+  //    Use assignedToBuildingID to link apartments to buildings
   const apartments = await query<RowDataPacket[]>(
-    `SELECT sa.id AS apartmentId, sa.clientID, sa.companyID,
+    `SELECT sa.ID AS apartmentId, sa.clientID, sa.assignedToBuildingID,
             sa.apartmentNumber, sa.entranceNumber, sa.floorNumber,
             sa.paymentID, sa.consolidatedBalance,
             c.firstName, c.lastName, c.documentID, c.mobileNumber,
-            c.secondaryMobileNumber, c.email, c.state,
+            c.secondaryMobileNumber, c.email,
             c.creationDate, c.lastModifiedDate
-     FROM saving_account sa
+     FROM savingaccount sa
      JOIN client c ON c.id = sa.clientID
-     WHERE sa.companyID = ? AND sa.accountType = 'CURRENT_ACCOUNT'`,
+     WHERE sa.assignedToBuildingID = ? AND sa.AccountType = 'CURRENT_ACCOUNT'`,
     [buildingId],
   );
 
@@ -97,11 +101,10 @@ async function syncBuilding(buildingId: number): Promise<void> {
       primaryPhone: c.mobileNumber,
       secondaryPhone: c.secondaryMobileNumber,
       email: c.email,
-      state: c.state,
       coreCreatedAt: c.creationDate?.toISOString() ?? null,
       coreUpdatedAt: c.lastModifiedDate?.toISOString() ?? null,
       apartments: data.apts.map((a) => ({
-        buildingCoreId: a.companyID,
+        buildingCoreId: a.assignedToBuildingID,
         apartmentCoreId: a.apartmentId,
         apartmentNumber: a.apartmentNumber,
         entranceNumber: a.entranceNumber,
@@ -112,83 +115,71 @@ async function syncBuilding(buildingId: number): Promise<void> {
     });
   }
 
-  // 3. Devices (Lift/Door/Intercom)
+  // 3. Devices (Lift/Door/Intercom) from savingaccount
+  //    Use assignedToBuildingID to link devices to buildings
   const devices = await query<RowDataPacket[]>(
-    `SELECT id, name, accountType, productID, ip, port,
-            companyID, assignedToBuildingID, creationDate, lastModifiedDate
-     FROM saving_account
-     WHERE (companyID = ? OR assignedToBuildingID = ?)
-       AND accountType IN ('LIFT', 'DOOR', 'INTERCOM')`,
-    [buildingId, buildingId],
+    `SELECT ID, NAME, AccountType, productID, ip, port,
+            assignedToBuildingID, CREATIONDATE, lastModifiedDate
+     FROM savingaccount
+     WHERE assignedToBuildingID = ?
+       AND AccountType IN ('LIFT', 'DOOR', 'INTERCOM')`,
+    [buildingId],
   );
 
   for (const d of devices) {
     await postWebhook("asset.upsert", {
-      coreId: d.id,
-      name: d.name,
-      type: d.accountType,
-      productId: d.productID,
+      coreId: d.ID,
+      name: d.NAME,
+      type: d.AccountType,
+      productId: d.productID != null ? String(d.productID) : null,
       ip: d.ip,
-      port: d.port,
-      assignedBuildingCoreId: d.assignedToBuildingID ?? d.companyID,
-      coreCreatedAt: d.creationDate?.toISOString() ?? null,
+      port: d.port,  // varchar in core — synced as string
+      assignedBuildingCoreId: d.assignedToBuildingID,
+      coreCreatedAt: d.CREATIONDATE?.toISOString() ?? null,
       coreUpdatedAt: d.lastModifiedDate?.toISOString() ?? null,
     });
   }
 
-  // 4. Smart GSM Gates
-  try {
-    const gates = await query<RowDataPacket[]>(
-      `SELECT id, name, buildingID, productID,
-              smartGSMGateNumber1, smartGSMGateNumber2, smartGSMGateNumber3,
-              creationDate, lastModifiedDate
-       FROM smart_gsm_gate WHERE buildingID = ?`,
-      [buildingId],
-    );
+  // 4. Smart GSM Gates — use companyID to link to buildings
+  const gates = await query<RowDataPacket[]>(
+    `SELECT ID, name, companyID,
+            smartGSMGateNumber1, smartGSMGateNumber2, smartGSMGateNumber3,
+            smartGSMGateNumber4, smartGSMGateLiftNumber
+     FROM smartgsmgate
+     WHERE companyID = ?`,
+    [buildingId],
+  );
 
-    for (const g of gates) {
-      // Offset gate IDs by 10_000_000 to avoid collision with saving_account IDs
-      await postWebhook("asset.upsert", {
-        coreId: 10_000_000 + g.id,
-        name: g.name,
-        type: "SMART_GSM_GATE",
-        productId: g.productID,
-        assignedBuildingCoreId: g.buildingID,
-        door1: g.smartGSMGateNumber1,
-        door2: g.smartGSMGateNumber2,
-        door3: g.smartGSMGateNumber3,
-        coreCreatedAt: g.creationDate?.toISOString() ?? null,
-        coreUpdatedAt: g.lastModifiedDate?.toISOString() ?? null,
-      });
-    }
-  } catch (err: any) {
-    if (err.code !== "ER_NO_SUCH_TABLE") throw err;
+  for (const g of gates) {
+    // Offset gate IDs by 10_000_000 to avoid collision with savingaccount IDs
+    await postWebhook("asset.upsert", {
+      coreId: 10_000_000 + g.ID,
+      name: g.name,
+      type: "SMART_GSM_GATE",
+      assignedBuildingCoreId: g.companyID,
+      door1: g.smartGSMGateNumber1,
+      door2: g.smartGSMGateNumber2,
+      door3: g.smartGSMGateNumber3,
+    });
   }
 
   // 5. Building contacts
-  try {
-    const contacts = await query<RowDataPacket[]>(
-      `SELECT id, name, type, description, mobileNumber, email,
-              documentID, contactClientID, companyID
-       FROM contact_person WHERE companyID = ?`,
-      [buildingId],
-    );
+  //    contactperson only has: id, companyID, contactClientID, contactCompanyID, description, name, type, company_ID
+  const contacts = await query<RowDataPacket[]>(
+    `SELECT id, name, type, description, contactClientID, companyID
+     FROM contactperson WHERE companyID = ?`,
+    [buildingId],
+  );
 
-    for (const ct of contacts) {
-      await postWebhook("contact.upsert", {
-        coreId: ct.id,
-        buildingCoreId: ct.companyID,
-        name: ct.name,
-        type: ct.type,
-        description: ct.description,
-        phone: ct.mobileNumber,
-        email: ct.email,
-        documentId: ct.documentID,
-        clientCoreId: ct.contactClientID,
-      });
-    }
-  } catch (err: any) {
-    if (err.code !== "ER_NO_SUCH_TABLE") throw err;
+  for (const ct of contacts) {
+    await postWebhook("contact.upsert", {
+      coreId: ct.id,
+      buildingCoreId: ct.companyID,
+      name: ct.name || "Contact",
+      type: ct.type,
+      description: ct.description,
+      clientCoreId: ct.contactClientID,
+    });
   }
 }
 
@@ -200,9 +191,22 @@ async function main(): Promise<void> {
 
   const startTime = Date.now();
 
-  // Get all building IDs
-  const buildingIds = await loadAllBuildings();
-  log.info(`Total buildings to sync: ${buildingIds.length}`);
+  // Check for --building flag for single-building test
+  const buildingArg = process.argv.indexOf("--building");
+  let buildingIds: number[];
+
+  if (buildingArg !== -1 && process.argv[buildingArg + 1]) {
+    const singleId = parseInt(process.argv[buildingArg + 1], 10);
+    if (isNaN(singleId)) {
+      log.error("Invalid building ID");
+      process.exit(1);
+    }
+    buildingIds = [singleId];
+    log.info(`Single building mode: syncing building ${singleId}`);
+  } else {
+    buildingIds = await loadAllBuildings();
+    log.info(`Total buildings to sync: ${buildingIds.length}`);
+  }
 
   const batchSize = config.bulk.batchSize;
   const totalBatches = Math.ceil(buildingIds.length / batchSize);
