@@ -157,4 +157,82 @@ export class CoreIntegrationController {
       },
     });
   }
+
+  // ─── Sync checkpoints (JWT-protected) ───
+
+  @Get("checkpoints")
+  @UseGuards(JwtAuthGuard)
+  @Doc({
+    summary: "View sync polling checkpoints",
+    ok: "Checkpoint data per entity type",
+  })
+  async getCheckpoints() {
+    return this.prisma.syncCheckpoint.findMany({
+      orderBy: { entity: "asc" },
+    });
+  }
+
+  // ─── Health check (JWT-protected) ───
+
+  @Get("health")
+  @UseGuards(JwtAuthGuard)
+  @Doc({
+    summary: "Core integration health check",
+    ok: "Sync health summary",
+  })
+  async getHealth() {
+    const now = new Date();
+    const fiveMinAgo = new Date(now.getTime() - 5 * 60 * 1000);
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+
+    // Check recent sync activity
+    const recentEvents = await this.prisma.syncEvent.count({
+      where: { receivedAt: { gte: fiveMinAgo } },
+    });
+
+    const recentFailures = await this.prisma.syncEvent.count({
+      where: { status: "FAILED", receivedAt: { gte: oneHourAgo } },
+    });
+
+    // Entity counts (core-sourced only)
+    const [buildingCount, clientCount, assetCount, contactCount] =
+      await Promise.all([
+        this.prisma.building.count({
+          where: { source: "core", isActive: true },
+        }),
+        this.prisma.client.count({
+          where: { source: "core", isActive: true },
+        }),
+        this.prisma.asset.count({
+          where: { source: "core", isActive: true },
+        }),
+        this.prisma.buildingContact.count({ where: { isActive: true } }),
+      ]);
+
+    // Checkpoints
+    const checkpoints = await this.prisma.syncCheckpoint.findMany();
+
+    return {
+      status: recentFailures === 0 ? "healthy" : "degraded",
+      recentEventsLast5Min: recentEvents,
+      recentFailuresLast1Hour: recentFailures,
+      entityCounts: {
+        buildings: buildingCount,
+        clients: clientCount,
+        assets: assetCount,
+        contacts: contactCount,
+      },
+      checkpoints: Object.fromEntries(
+        checkpoints.map((cp) => [
+          cp.entity,
+          {
+            lastPolledAt: cp.lastPolledAt,
+            lastVerifiedAt: cp.lastVerifiedAt,
+            recordCount: cp.recordCount,
+          },
+        ]),
+      ),
+      checkedAt: now,
+    };
+  }
 }
