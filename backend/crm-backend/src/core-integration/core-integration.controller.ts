@@ -12,6 +12,8 @@ import { ApiTags } from "@nestjs/swagger";
 import { SkipThrottle } from "@nestjs/throttler";
 import { PrismaService } from "../prisma/prisma.service";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
+import { PositionPermissionGuard } from "../common/guards/position-permission.guard";
+import { RequirePermission } from "../common/decorators/require-permission.decorator";
 import { CoreWebhookGuard } from "./core-webhook.guard";
 import { CoreSyncService } from "./core-sync.service";
 import { CoreWebhookDto } from "./dto/webhook-event.dto";
@@ -85,7 +87,8 @@ export class CoreIntegrationController {
   // ─── Status / diagnostics (JWT-protected) ───
 
   @Get("status")
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PositionPermissionGuard)
+  @RequirePermission("core_integration.view")
   @Doc({
     summary: "Core sync diagnostics (last 24h)",
     ok: "Event counts and last processed/failed metadata",
@@ -126,7 +129,8 @@ export class CoreIntegrationController {
   }
 
   @Get("events")
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PositionPermissionGuard)
+  @RequirePermission("core_integration.view")
   @Doc({
     summary: "Recent sync events",
     ok: "Paged sync event rows",
@@ -161,7 +165,8 @@ export class CoreIntegrationController {
   // ─── Sync checkpoints (JWT-protected) ───
 
   @Get("checkpoints")
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PositionPermissionGuard)
+  @RequirePermission("core_integration.view")
   @Doc({
     summary: "View sync polling checkpoints",
     ok: "Checkpoint data per entity type",
@@ -175,7 +180,8 @@ export class CoreIntegrationController {
   // ─── Health check (JWT-protected) ───
 
   @Get("health")
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PositionPermissionGuard)
+  @RequirePermission("core_integration.view")
   @Doc({
     summary: "Core integration health check",
     ok: "Sync health summary",

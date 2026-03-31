@@ -181,6 +181,9 @@ const DEFAULT_PERMISSIONS = [
   { resource: "bug_reports", action: "update", category: PermissionCategory.ADMIN, description: "Update bug report status" },
   { resource: "bug_reports", action: "delete", category: PermissionCategory.ADMIN, description: "Delete bug reports" },
 
+  // Core Integration
+  { resource: "core_integration", action: "view", category: PermissionCategory.ADMIN, description: "View core sync status, events, checkpoints and health" },
+
   // Client Chats (Unified Inbox)
   { resource: "client_chats", action: "menu", category: PermissionCategory.CLIENT_CHATS, description: "Show Client Chats in left menu and access inbox" },
   { resource: "client_chats", action: "reply", category: PermissionCategory.CLIENT_CHATS, description: "Send replies and messages to clients" },
