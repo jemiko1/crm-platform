@@ -6,6 +6,7 @@ import { useScreenRecorder } from "./hooks/use-screen-recorder";
 import { useActionLogger } from "./hooks/use-action-logger";
 import { useConsoleCapture } from "./hooks/use-console-capture";
 import { useNetworkCapture } from "./hooks/use-network-capture";
+import { useI18nContext } from "@/contexts/i18n-context";
 import RecordingBar from "./recording-bar";
 import BugReporterModal from "./bug-reporter-modal";
 
@@ -13,6 +14,7 @@ type Category = "BUG" | "IMPROVEMENT" | "UI_ISSUE" | "PERFORMANCE";
 type WidgetState = "idle" | "menu" | "recording" | "submitting";
 
 export default function BugReporterWidget() {
+  const { t } = useI18nContext();
   const [mounted, setMounted] = useState(false);
   const [state, setState] = useState<WidgetState>("idle");
   const [category, setCategory] = useState<Category>("BUG");
@@ -120,22 +122,22 @@ export default function BugReporterWidget() {
   if (!mounted) return null;
 
   const fab = (
-    <div style={{ position: "fixed", right: 24, bottom: 24, zIndex: 9999 }}>
+    <div style={{ position: "fixed", right: 24, bottom: 24, zIndex: 49999 }}>
       {/* Popover menu */}
       {state === "menu" && (
         <div
           ref={menuRef}
           className="absolute bottom-16 right-0 w-72 rounded-2xl bg-white shadow-2xl ring-1 ring-zinc-200 p-5 space-y-4"
         >
-          <h3 className="text-sm font-semibold text-zinc-900">Report a Bug</h3>
+          <h3 className="text-sm font-semibold text-zinc-900">{t("bugReporter.title", "Report a Bug")}</h3>
 
           <div className="flex flex-wrap gap-2">
             {(
               [
-                { value: "BUG", label: "Bug" },
-                { value: "IMPROVEMENT", label: "Improvement" },
-                { value: "UI_ISSUE", label: "UI Issue" },
-                { value: "PERFORMANCE", label: "Performance" },
+                { value: "BUG", label: t("bugReporter.categoryBug", "Bug") },
+                { value: "IMPROVEMENT", label: t("bugReporter.categoryImprovement", "Improvement") },
+                { value: "UI_ISSUE", label: t("bugReporter.categoryUiIssue", "UI Issue") },
+                { value: "PERFORMANCE", label: t("bugReporter.categoryPerformance", "Performance") },
               ] as const
             ).map((opt) => (
               <button
@@ -167,8 +169,8 @@ export default function BugReporterWidget() {
                   </svg>
                 </span>
                 <div>
-                  <p className="text-sm font-medium text-zinc-900">Record Video</p>
-                  <p className="text-xs text-zinc-500">Record screen while reproducing the bug</p>
+                  <p className="text-sm font-medium text-zinc-900">{t("bugReporter.recordVideo", "Record Video")}</p>
+                  <p className="text-xs text-zinc-500">{t("bugReporter.recordVideoHint", "Record screen while reproducing the bug")}</p>
                 </div>
               </button>
             )}
@@ -186,8 +188,8 @@ export default function BugReporterWidget() {
                 </svg>
               </span>
               <div>
-                <p className="text-sm font-medium text-zinc-900">Upload Screenshots</p>
-                <p className="text-xs text-zinc-500">Attach images of the issue</p>
+                <p className="text-sm font-medium text-zinc-900">{t("bugReporter.uploadScreenshots", "Upload Screenshots")}</p>
+                <p className="text-xs text-zinc-500">{t("bugReporter.uploadScreenshotsHint", "Attach images of the issue")}</p>
               </div>
             </button>
 
@@ -205,8 +207,8 @@ export default function BugReporterWidget() {
                 </svg>
               </span>
               <div>
-                <p className="text-sm font-medium text-zinc-900">Description Only</p>
-                <p className="text-xs text-zinc-500">Describe the issue without attachments</p>
+                <p className="text-sm font-medium text-zinc-900">{t("bugReporter.descriptionOnly", "Description Only")}</p>
+                <p className="text-xs text-zinc-500">{t("bugReporter.descriptionOnlyHint", "Describe the issue without attachments")}</p>
               </div>
             </button>
           </div>
@@ -226,7 +228,7 @@ export default function BugReporterWidget() {
             ? "bg-red-600 cursor-default"
             : "bg-teal-800 hover:bg-teal-900 hover:scale-105"
         }`}
-        aria-label="Report a bug"
+        aria-label={t("bugReporter.title", "Report a Bug")}
       >
         {state === "recording" ? (
           <span className="relative flex h-4 w-4">
