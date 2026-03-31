@@ -29,8 +29,8 @@ ALTER TABLE "Client" ALTER COLUMN "coreId" DROP NOT NULL;
 -- ============================================
 -- Asset: add new fields
 -- ============================================
--- Change port from Int to Text (core DB stores as varchar with mixed content)
-ALTER TABLE "Asset" ALTER COLUMN "port" TYPE TEXT USING port::text;
+-- Add port as Text (core DB stores as varchar with mixed content)
+ALTER TABLE "Asset" ADD COLUMN "port" TEXT;
 
 ALTER TABLE "Asset" ADD COLUMN "productId" TEXT;
 ALTER TABLE "Asset" ADD COLUMN "assignedBuildingCoreId" INTEGER;
