@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useBugReportSubmit, type SubmitPhase } from "./hooks/use-bug-report-submit";
+import { useI18nContext } from "@/contexts/i18n-context";
 
 type Severity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
 type Category = "BUG" | "IMPROVEMENT" | "UI_ISSUE" | "PERFORMANCE";
@@ -22,27 +23,19 @@ interface BugReporterModalProps {
   captured: CapturedData;
 }
 
-const SEVERITY_OPTIONS: { value: Severity; label: string; color: string; bg: string }[] = [
-  { value: "CRITICAL", label: "Critical", color: "text-red-700", bg: "bg-red-100 border-red-300 hover:bg-red-200" },
-  { value: "HIGH", label: "High", color: "text-orange-700", bg: "bg-orange-100 border-orange-300 hover:bg-orange-200" },
-  { value: "MEDIUM", label: "Medium", color: "text-yellow-700", bg: "bg-yellow-100 border-yellow-300 hover:bg-yellow-200" },
-  { value: "LOW", label: "Low", color: "text-green-700", bg: "bg-green-100 border-green-300 hover:bg-green-200" },
+const SEVERITY_STYLES: { value: Severity; i18nKey: string; fallback: string; color: string; bg: string }[] = [
+  { value: "CRITICAL", i18nKey: "bugReporter.severityCritical", fallback: "Critical", color: "text-red-700", bg: "bg-red-100 border-red-300 hover:bg-red-200" },
+  { value: "HIGH", i18nKey: "bugReporter.severityHigh", fallback: "High", color: "text-orange-700", bg: "bg-orange-100 border-orange-300 hover:bg-orange-200" },
+  { value: "MEDIUM", i18nKey: "bugReporter.severityMedium", fallback: "Medium", color: "text-yellow-700", bg: "bg-yellow-100 border-yellow-300 hover:bg-yellow-200" },
+  { value: "LOW", i18nKey: "bugReporter.severityLow", fallback: "Low", color: "text-green-700", bg: "bg-green-100 border-green-300 hover:bg-green-200" },
 ];
 
-const CATEGORY_OPTIONS: { value: Category; label: string }[] = [
-  { value: "BUG", label: "Bug" },
-  { value: "IMPROVEMENT", label: "Improvement" },
-  { value: "UI_ISSUE", label: "UI Issue" },
-  { value: "PERFORMANCE", label: "Performance" },
+const CATEGORY_KEYS: { value: Category; i18nKey: string; fallback: string }[] = [
+  { value: "BUG", i18nKey: "bugReporter.categoryBug", fallback: "Bug" },
+  { value: "IMPROVEMENT", i18nKey: "bugReporter.categoryImprovement", fallback: "Improvement" },
+  { value: "UI_ISSUE", i18nKey: "bugReporter.categoryUiIssue", fallback: "UI Issue" },
+  { value: "PERFORMANCE", i18nKey: "bugReporter.categoryPerformance", fallback: "Performance" },
 ];
-
-const PHASE_LABELS: Record<SubmitPhase, string> = {
-  idle: "",
-  uploading: "Submitting report...",
-  processing: "Processing...",
-  done: "",
-  error: "",
-};
 
 export default function BugReporterModal({
   open,
@@ -59,7 +52,16 @@ export default function BugReporterModal({
   const [screenshots, setScreenshots] = useState<File[]>(captured.screenshotFiles ?? []);
   const [screenshotPreviews, setScreenshotPreviews] = useState<string[]>([]);
 
+  const { t } = useI18nContext();
   const { phase, error, result, submit, reset } = useBugReportSubmit();
+
+  const phaseLabels: Record<SubmitPhase, string> = {
+    idle: "",
+    uploading: t("bugReporter.phaseUploading", "Submitting report..."),
+    processing: t("bugReporter.phaseProcessing", "Processing..."),
+    done: "",
+    error: "",
+  };
 
   const handleDiscard = useCallback(() => {
     if (videoUrl) {
@@ -180,7 +182,7 @@ export default function BugReporterModal({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4">
           <h2 className="text-lg font-semibold text-zinc-900">
-            {phase === "done" ? "Report Submitted" : "Submit Bug Report"}
+            {phase === "done" ? t("bugReporter.reportSubmitted", "Report Submitted") : t("bugReporter.submitBugReport", "Submit Bug Report")}
           </h2>
           {!isSubmitting && (
             <button
@@ -204,7 +206,7 @@ export default function BugReporterModal({
                   <path d="M20 6L9 17l-5-5" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
-              <p className="text-zinc-700 font-medium">Bug report submitted successfully!</p>
+              <p className="text-zinc-700 font-medium">{t("bugReporter.submitSuccess", "Bug report submitted successfully!")}</p>
               {result.githubIssueUrl && (
                 <a
                   href={result.githubIssueUrl}
@@ -212,12 +214,12 @@ export default function BugReporterModal({
                   rel="noopener noreferrer"
                   className="inline-block text-sm text-teal-700 underline hover:text-teal-900"
                 >
-                  View GitHub Issue
+                  {t("bugReporter.viewGithubIssue", "View GitHub Issue")}
                 </a>
               )}
               {!result.githubIssueUrl && (
                 <p className="text-xs text-zinc-500">
-                  GitHub issue creation is processing in the background.
+                  {t("bugReporter.githubProcessing", "GitHub issue creation is processing in the background.")}
                 </p>
               )}
               <button
@@ -225,16 +227,16 @@ export default function BugReporterModal({
                 onClick={handleDiscard}
                 className="mt-4 rounded-2xl bg-teal-800 px-6 py-2.5 text-sm font-semibold text-white hover:bg-teal-900 transition"
               >
-                Close
+                {t("common.close", "Close")}
               </button>
             </div>
           ) : (
             <>
               {/* Category */}
               <div>
-                <label className="block text-sm font-medium text-zinc-700 mb-2">Category</label>
+                <label className="block text-sm font-medium text-zinc-700 mb-2">{t("bugReporter.category", "Category")}</label>
                 <div className="flex flex-wrap gap-2">
-                  {CATEGORY_OPTIONS.map((opt) => (
+                  {CATEGORY_KEYS.map((opt) => (
                     <button
                       key={opt.value}
                       type="button"
@@ -246,7 +248,7 @@ export default function BugReporterModal({
                           : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50"
                       }`}
                     >
-                      {opt.label}
+                      {t(opt.i18nKey, opt.fallback)}
                     </button>
                   ))}
                 </div>
@@ -254,9 +256,9 @@ export default function BugReporterModal({
 
               {/* Severity */}
               <div>
-                <label className="block text-sm font-medium text-zinc-700 mb-2">Severity</label>
+                <label className="block text-sm font-medium text-zinc-700 mb-2">{t("bugReporter.severity", "Severity")}</label>
                 <div className="flex flex-wrap gap-2">
-                  {SEVERITY_OPTIONS.map((opt) => (
+                  {SEVERITY_STYLES.map((opt) => (
                     <button
                       key={opt.value}
                       type="button"
@@ -268,7 +270,7 @@ export default function BugReporterModal({
                           : `${opt.bg} ${opt.color}`
                       }`}
                     >
-                      {opt.label}
+                      {t(opt.i18nKey, opt.fallback)}
                     </button>
                   ))}
                 </div>
@@ -276,12 +278,12 @@ export default function BugReporterModal({
 
               {/* Description */}
               <div>
-                <label className="block text-sm font-medium text-zinc-700 mb-2">Description</label>
+                <label className="block text-sm font-medium text-zinc-700 mb-2">{t("common.description", "Description")}</label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   disabled={isSubmitting}
-                  placeholder="აღწერეთ პრობლემა დეტალურად..."
+                  placeholder={t("bugReporter.descriptionPlaceholder", "Describe the problem in detail...")}
                   rows={4}
                   className="w-full rounded-xl border border-zinc-200 px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none resize-y disabled:opacity-50"
                 />
@@ -290,7 +292,7 @@ export default function BugReporterModal({
               {/* Video preview */}
               {videoUrl && (
                 <div>
-                  <label className="block text-sm font-medium text-zinc-700 mb-2">Recording Preview</label>
+                  <label className="block text-sm font-medium text-zinc-700 mb-2">{t("bugReporter.recordingPreview", "Recording Preview")}</label>
                   <video
                     src={videoUrl}
                     controls
@@ -303,7 +305,7 @@ export default function BugReporterModal({
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="block text-sm font-medium text-zinc-700">
-                    Screenshots {screenshots.length > 0 && `(${screenshots.length})`}
+                    {t("bugReporter.screenshots", "Screenshots")} {screenshots.length > 0 && `(${screenshots.length})`}
                   </label>
                   {!isSubmitting && (
                     <button
@@ -311,7 +313,7 @@ export default function BugReporterModal({
                       onClick={handleAddScreenshots}
                       className="text-xs font-medium text-teal-700 hover:text-teal-900 transition"
                     >
-                      + Add Images
+                      {t("bugReporter.addImages", "+ Add Images")}
                     </button>
                   )}
                 </div>
@@ -321,7 +323,7 @@ export default function BugReporterModal({
                       <div key={i} className="relative group">
                         <img
                           src={url}
-                          alt={`Screenshot ${i + 1}`}
+                          alt={`${t("bugReporter.screenshots", "Screenshot")} ${i + 1}`}
                           className="w-full h-24 object-cover rounded-lg border border-zinc-200"
                         />
                         {!isSubmitting && (
@@ -350,7 +352,7 @@ export default function BugReporterModal({
                         <circle cx="8.5" cy="8.5" r="1.5" />
                         <polyline points="21 15 16 10 5 21" />
                       </svg>
-                      <span className="text-xs text-zinc-500">Click to add screenshots</span>
+                      <span className="text-xs text-zinc-500">{t("bugReporter.clickToAddScreenshots", "Click to add screenshots")}</span>
                     </button>
                   )
                 )}
@@ -362,25 +364,25 @@ export default function BugReporterModal({
                   {captured.actionLog.length > 0 && (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-600">
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-                      {captured.actionLog.length} actions
+                      {captured.actionLog.length} {t("bugReporter.actions", "actions")}
                     </span>
                   )}
                   {consoleErrors > 0 && (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-600">
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/><line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-                      {consoleErrors} console errors
+                      {consoleErrors} {t("bugReporter.consoleErrors", "console errors")}
                     </span>
                   )}
                   {failedRequests > 0 && (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-50 px-3 py-1 text-xs font-medium text-orange-600">
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      {failedRequests} failed requests
+                      {failedRequests} {t("bugReporter.failedRequests", "failed requests")}
                     </span>
                   )}
                   {captured.videoBlob && (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-3 py-1 text-xs font-medium text-teal-700">
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><polygon points="23 7 16 12 23 17 23 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2" stroke="currentColor" strokeWidth="2"/></svg>
-                      Video recorded
+                      {t("bugReporter.videoRecorded", "Video recorded")}
                     </span>
                   )}
                 </div>
@@ -405,7 +407,7 @@ export default function BugReporterModal({
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                {PHASE_LABELS[phase]}
+                {phaseLabels[phase]}
               </span>
             )}
             <button
@@ -414,7 +416,7 @@ export default function BugReporterModal({
               disabled={isSubmitting}
               className="rounded-2xl border border-zinc-200 px-5 py-2.5 text-sm font-semibold text-zinc-600 hover:bg-zinc-50 transition disabled:opacity-50"
             >
-              Cancel
+              {t("common.cancel", "Cancel")}
             </button>
             <button
               type="button"
@@ -422,7 +424,7 @@ export default function BugReporterModal({
               disabled={isSubmitting || !description.trim()}
               className="rounded-2xl bg-teal-800 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-900 transition disabled:opacity-50"
             >
-              {phase === "error" ? "Retry" : "გაგზავნა"}
+              {phase === "error" ? t("common.retry", "Retry") : t("bugReporter.submit", "Submit")}
             </button>
           </div>
         )}
