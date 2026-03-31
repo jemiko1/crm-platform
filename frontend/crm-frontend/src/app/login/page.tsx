@@ -35,7 +35,7 @@ function isLikelyNetworkFailure(message: string): boolean {
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/app/dashboard";
+  const next = searchParams.get("next") || "/app/buildings";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

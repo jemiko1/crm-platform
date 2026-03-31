@@ -35,7 +35,6 @@ export class AuthService {
 
     const accessToken = await this.jwt.signAsync(
       { sub: user.id, email: user.email, role: user.role },
-      { expiresIn: "24h" },
     );
 
     const ext = await this.prisma.telephonyExtension.findUnique({
@@ -90,7 +89,6 @@ export class AuthService {
 
     const accessToken = await this.jwt.signAsync(
       { sub: user.id, email: user.email, role: user.role },
-      { expiresIn: "24h" },
     );
 
     const ext = await this.prisma.telephonyExtension.findUnique({
@@ -109,6 +107,17 @@ export class AuthService {
           }
         : null,
     };
+  }
+
+  /**
+   * Issue a fresh JWT for an already-authenticated user (sliding session).
+   */
+  async refreshToken(user: { id: string; email: string; role: string }) {
+    return this.jwt.signAsync({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    });
   }
 
   private async validateCredentials(email: string, password: string) {
