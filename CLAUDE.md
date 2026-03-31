@@ -96,7 +96,8 @@ Before telling me "ready to test":
 4. `useListItems()` for all dropdowns — never hardcode dropdown values
 5. `apiGet/apiPost/apiPatch/apiDelete` for all HTTP calls — never raw `fetch()`
 6. Permissions added if needed (seed-permissions.ts + backend guard + frontend hook)
-7. Documentation updated (CLAUDE.md, API_ROUTE_MAP.md, FRONTEND_ROUTE_MAP.md, DATABASE_SCHEMA.md)
+7. **i18n: All user-facing strings translated** — use `useI18nContext()` + `t()` for every string in frontend components. Add keys to both `src/locales/en.json` and `src/locales/ka.json`. Never hardcode user-facing text in English or Georgian directly in components.
+8. Documentation updated (CLAUDE.md, API_ROUTE_MAP.md, FRONTEND_ROUTE_MAP.md, DATABASE_SCHEMA.md)
 
 ---
 
