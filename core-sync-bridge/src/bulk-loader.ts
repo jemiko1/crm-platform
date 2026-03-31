@@ -46,7 +46,10 @@ async function syncBuilding(buildingId: number): Promise<void> {
   if (bRows.length === 0) return;
   const b = bRows[0];
 
-  const disableCrons = Boolean(b.disableCrons);
+  // MySQL bit(1) returns as Buffer in mysql2 — read the actual byte value
+  const disableCrons = Buffer.isBuffer(b.disableCrons)
+    ? b.disableCrons[0] === 1
+    : Boolean(b.disableCrons);
 
   await postWebhook("building.upsert", {
     coreId: b.id,

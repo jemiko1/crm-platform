@@ -50,7 +50,10 @@ async function pollBuildings(): Promise<number> {
 
   let maxDate = since;
   for (const r of rows) {
-    const disableCrons = Boolean(r.disableCrons);
+    // MySQL bit(1) returns as Buffer in mysql2 — read the actual byte value
+    const disableCrons = Buffer.isBuffer(r.disableCrons)
+      ? r.disableCrons[0] === 1
+      : Boolean(r.disableCrons);
     await postWebhook("building.upsert", {
       coreId: r.id,
       name: r.companyName,
