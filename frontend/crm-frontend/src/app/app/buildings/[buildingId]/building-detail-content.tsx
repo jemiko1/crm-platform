@@ -119,7 +119,6 @@ export default function BuildingDetailContent({ building, buildingId, onUpdate }
   const { openModal } = useModalContext();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [assets, setAssets] = useState<Asset[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [incidentsLoading, setIncidentsLoading] = useState(false);
   const [showAddDeviceModal, setShowAddDeviceModal] = useState(false);
@@ -135,19 +134,17 @@ export default function BuildingDetailContent({ building, buildingId, onUpdate }
     }
   }, [searchParams]);
 
-  // Fetch assets + clients + incidents
+  // Fetch assets + incidents (clients are fetched by ClientsTab with pagination)
   const fetchData = React.useCallback(async () => {
     if (!buildingId) return;
 
     try {
-      const [assetsData, clientsData, incidentsData] = await Promise.all([
+      const [assetsData, incidentsData] = await Promise.all([
         apiGetList<Asset>(`/v1/buildings/${buildingId}/assets`, { cache: "no-store" }).catch(() => []),
-        apiGetList<Client>(`/v1/buildings/${buildingId}/clients`, { cache: "no-store" }).catch(() => []),
         apiGetList<Incident>(`/v1/buildings/${buildingId}/incidents`, { cache: "no-store" }).catch(() => []),
       ]);
 
       setAssets(assetsData);
-      setClients(clientsData);
       setIncidents(incidentsData);
     } catch (err) {
       console.error("Failed to load data:", err);
@@ -283,7 +280,7 @@ export default function BuildingDetailContent({ building, buildingId, onUpdate }
             onClick={() => setActiveTab("devices")}
           />
           <TabButton
-            label={`Clients (${clients.length})`}
+            label={`Clients (${building.clientCount ?? 0})`}
             active={activeTab === "clients"}
             onClick={() => setActiveTab("clients")}
           />
@@ -316,7 +313,7 @@ export default function BuildingDetailContent({ building, buildingId, onUpdate }
             onAddClick={() => setShowAddDeviceModal(true)}
           />
         )}
-        {activeTab === "clients" && <ClientsTab clients={clients} onAddClick={() => setShowAddClientModal(true)} buildingId={buildingId} />}
+        {activeTab === "clients" && <ClientsTab buildingId={buildingId} onAddClick={() => setShowAddClientModal(true)} />}
         {activeTab === "work-orders" && <WorkOrdersTab buildingCoreId={building.coreId} building={building} buildingId={buildingId} onUpdate={onUpdate} />}
         {activeTab === "incidents" && (
           <IncidentsTab
@@ -770,13 +767,44 @@ const FilterPill = React.memo(function FilterPill({
 });
 
 /* ========== CLIENTS TAB ========== */
-function ClientsTab({ clients, onAddClick, buildingId }: { clients: Client[]; onAddClick: () => void; buildingId: string }) {
+function ClientsTab({ buildingId, onAddClick }: { buildingId: string; onAddClick: () => void }) {
   const { hasPermission } = usePermissions();
   const { openModal } = useModalContext();
+  const PAGE_SIZE = 50;
+  const [clients, setClients] = useState<Client[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchClients() {
+      try {
+        setLoading(true);
+        const res = await apiGet<{ data: Client[]; meta: { total: number; totalPages: number } }>(
+          `/v1/buildings/${buildingId}/clients?page=${page}&pageSize=${PAGE_SIZE}`,
+          { cache: "no-store" },
+        );
+        if (!cancelled) {
+          setClients(res.data ?? []);
+          setTotal(res.meta?.total ?? 0);
+        }
+      } catch {
+        if (!cancelled) { setClients([]); setTotal(0); }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    fetchClients();
+    return () => { cancelled = true; };
+  }, [buildingId, page]);
+
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-zinc-900">Clients ({clients.length})</h2>
+        <h2 className="text-lg font-semibold text-zinc-900">Clients ({total})</h2>
         {hasPermission('clients.create') && (
           <button
             type="button"
@@ -789,48 +817,82 @@ function ClientsTab({ clients, onAddClick, buildingId }: { clients: Client[]; on
         )}
       </div>
 
-      {clients.length === 0 ? (
+      {loading && (
+        <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
+          <div className="text-sm text-zinc-600">Loading clients...</div>
+        </div>
+      )}
+
+      {!loading && clients.length === 0 ? (
         <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
           <div className="text-sm text-zinc-600">No clients yet.</div>
         </div>
-      ) : (
-        <div className="overflow-hidden rounded-2xl ring-1 ring-zinc-200">
-          <table className="w-full border-separate border-spacing-0">
-            <thead className="bg-zinc-50">
-              <tr className="text-left text-xs text-zinc-600">
-                <th className="px-4 py-3 font-medium">Client</th>
-                <th className="px-4 py-3 font-medium">ID Number</th>
-                <th className="px-4 py-3 font-medium">Payment ID</th>
-                <th className="px-4 py-3 font-medium">Primary Phone</th>
-                <th className="px-4 py-3 font-medium"></th>
-              </tr>
-            </thead>
-            <tbody className="bg-white">
-              {clients.map((client) => (
-                  <tr
-                    key={client.coreId}
-                    onClick={() => openModal("client", String(client.coreId))}
-                    style={{ cursor: "pointer" }}
-                    className="group transition-colors hover:bg-teal-50/60"
-                  >
-                    <td className="px-4 py-3 align-middle">
-                      <div className="text-sm font-semibold text-zinc-900 group-hover:underline underline-offset-2">
-                        {client.firstName} {client.lastName}
-                      </div>
-                      <div className="text-xs text-zinc-500">ID: {client.coreId}</div>
-                    </td>
-                    <td className="px-4 py-3 align-middle text-sm text-zinc-700">{client.idNumber}</td>
-                    <td className="px-4 py-3 align-middle text-sm text-zinc-700">{client.paymentId}</td>
-                    <td className="px-4 py-3 align-middle text-sm text-zinc-700">{client.primaryPhone}</td>
-                    <td className="px-4 py-3 align-middle text-right">
-                      <span className="text-zinc-400 transition-transform group-hover:translate-x-0.5 inline-block">→</span>
-                    </td>
-                  </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      ) : !loading ? (
+        <>
+          <div className="overflow-hidden rounded-2xl ring-1 ring-zinc-200">
+            <table className="w-full border-separate border-spacing-0">
+              <thead className="bg-zinc-50">
+                <tr className="text-left text-xs text-zinc-600">
+                  <th className="px-4 py-3 font-medium">Client</th>
+                  <th className="px-4 py-3 font-medium">ID Number</th>
+                  <th className="px-4 py-3 font-medium">Payment ID</th>
+                  <th className="px-4 py-3 font-medium">Primary Phone</th>
+                  <th className="px-4 py-3 font-medium"></th>
+                </tr>
+              </thead>
+              <tbody className="bg-white">
+                {clients.map((client) => (
+                    <tr
+                      key={client.coreId}
+                      onClick={() => openModal("client", String(client.coreId))}
+                      style={{ cursor: "pointer" }}
+                      className="group transition-colors hover:bg-teal-50/60"
+                    >
+                      <td className="px-4 py-3 align-middle">
+                        <div className="text-sm font-semibold text-zinc-900 group-hover:underline underline-offset-2">
+                          {client.firstName} {client.lastName}
+                        </div>
+                        <div className="text-xs text-zinc-500">ID: {client.coreId}</div>
+                      </td>
+                      <td className="px-4 py-3 align-middle text-sm text-zinc-700">{client.idNumber}</td>
+                      <td className="px-4 py-3 align-middle text-sm text-zinc-700">{client.paymentId}</td>
+                      <td className="px-4 py-3 align-middle text-sm text-zinc-700">{client.primaryPhone}</td>
+                      <td className="px-4 py-3 align-middle text-right">
+                        <span className="text-zinc-400 transition-transform group-hover:translate-x-0.5 inline-block">→</span>
+                      </td>
+                    </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-zinc-500">
+                Page {page} of {totalPages} ({total} clients)
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="rounded-xl px-3 py-1.5 text-sm font-medium ring-1 ring-zinc-200 hover:bg-zinc-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  ← Previous
+                </button>
+                <button
+                  type="button"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => p + 1)}
+                  className="rounded-xl px-3 py-1.5 text-sm font-medium ring-1 ring-zinc-200 hover:bg-zinc-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      ) : null}
     </div>
   );
 }
