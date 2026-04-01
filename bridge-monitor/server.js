@@ -15,7 +15,7 @@
  */
 
 const http = require("http");
-const { execSync, exec } = require("child_process");
+const { execFileSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
@@ -55,7 +55,7 @@ function pm2Jlist() {
 
 function pm2Action(name, action) {
   try {
-    execSync(`pm2 ${action} ${name}`, { encoding: "utf-8", timeout: 10000 });
+    execFileSync("pm2", [action, name], { encoding: "utf-8", timeout: 10000 });
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err.message };
@@ -131,12 +131,12 @@ function handleApiAction(req, res) {
   req.on("end", () => {
     try {
       const { bridge, action } = JSON.parse(body);
-      if (!["ami-bridge", "core-sync-bridge"].includes(bridge)) {
+      if (typeof bridge !== "string" || !["ami-bridge", "core-sync-bridge"].includes(bridge)) {
         res.writeHead(400, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Invalid bridge name" }));
         return;
       }
-      if (!["restart", "stop", "start"].includes(action)) {
+      if (typeof action !== "string" || !["restart", "stop", "start"].includes(action)) {
         res.writeHead(400, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Invalid action" }));
         return;
@@ -175,7 +175,13 @@ function handleApiLogs(req, res) {
     return;
   }
 
-  const logFile = logPaths[bridge][type] || logPaths[bridge].out;
+  if (!["out", "error"].includes(type)) {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Invalid log type (use 'out' or 'error')" }));
+    return;
+  }
+
+  const logFile = logPaths[bridge][type];
   const content = readLogTail(logFile, 100);
 
   res.writeHead(200, { "Content-Type": "text/plain" });
