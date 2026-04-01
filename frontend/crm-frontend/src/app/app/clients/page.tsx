@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useCallback, useEffect, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet, apiGetPaginated } from "@/lib/api";
 import ClientStatistics from "./client-statistics";
@@ -67,6 +67,7 @@ function ClientsPageContent() {
 
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
+  const hasLoadedOnce = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<ClientRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -107,9 +108,8 @@ function ClientsPageContent() {
     let alive = true;
 
     async function load() {
-      const isFirstLoad = rows.length === 0;
       try {
-        if (isFirstLoad) setLoading(true);
+        if (!hasLoadedOnce.current) setLoading(true);
         else setSearching(true);
         setError(null);
 
@@ -130,6 +130,7 @@ function ClientsPageContent() {
         setRows([]);
       } finally {
         if (!alive) return;
+        hasLoadedOnce.current = true;
         setLoading(false);
         setSearching(false);
       }

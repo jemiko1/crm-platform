@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { IdGeneratorService } from "../common/id-generator/id-generator.service";
 import { paginate, buildPaginatedResponse } from "../common/dto/pagination.dto";
@@ -162,7 +163,7 @@ export class ClientsService {
     const { skip, take } = paginate(page, pageSize);
 
     const q = search?.trim() ?? "";
-    let where: any = { isActive: true };
+    let where: Prisma.ClientWhereInput = { isActive: true };
 
     if (q) {
       const parts = q.split(/\s+/).filter(Boolean);
