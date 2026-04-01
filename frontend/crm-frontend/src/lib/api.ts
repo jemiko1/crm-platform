@@ -1,11 +1,14 @@
 export const API_BASE = "";
 
-export const WS_BASE =
-  process.env.NEXT_PUBLIC_WS_URL ||
-  (typeof window !== "undefined" &&
-  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
-    ? "http://localhost:3000"
-    : "");
+export const WS_BASE = (() => {
+  if (process.env.NEXT_PUBLIC_WS_URL) return process.env.NEXT_PUBLIC_WS_URL;
+  if (typeof window === "undefined") return "";
+  const host = window.location.hostname;
+  if (host === "localhost" || host === "127.0.0.1")
+    return "http://localhost:3000";
+  // Production: connect to same origin (Nginx proxies WebSocket)
+  return window.location.origin;
+})();
 
 export class ApiError extends Error {
   constructor(
