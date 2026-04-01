@@ -18,6 +18,8 @@ import { runDeltaPoll } from "./delta-poller";
 import { runCountCheck, EntityCounts } from "./count-verifier";
 import { runGapRepair } from "./gap-repairer";
 import { getStats } from "./crm-poster";
+import { startHealthServer } from "./health-server";
+import { load as loadCheckpoint } from "./checkpoint";
 import { createLogger } from "./logger";
 
 const log = createLogger("Main");
@@ -92,6 +94,24 @@ async function main(): Promise<void> {
   }
   log.info("MySQL connection OK");
 
+  // Health endpoint
+  const healthServer = startHealthServer(config.healthPort, () => {
+    const stats = getStats();
+    let checkpoint: Record<string, unknown> | null = null;
+    try {
+      checkpoint = loadCheckpoint() as unknown as Record<string, unknown>;
+    } catch { /* ignore */ }
+    return {
+      poster: {
+        totalPosted: stats.totalPosted,
+        totalErrors: stats.totalErrors,
+        lastSuccessAt: stats.lastSuccessAt?.toISOString() ?? null,
+        minutesSinceSuccess: stats.minutesSinceSuccess,
+      },
+      checkpoint,
+    };
+  });
+
   // ── Scheduling ────────────────────────────────────────
 
   const pollIntervalMs = config.polling.intervalMinutes * 60 * 1000;
@@ -158,6 +178,7 @@ async function main(): Promise<void> {
     clearInterval(countTimer);
     clearInterval(nightlyTimer);
     clearInterval(statusTimer);
+    healthServer.close();
 
     await closePool();
 

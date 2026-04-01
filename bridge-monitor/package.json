@@ -1,0 +1,13 @@
+{
+  "name": "bridge-monitor",
+  "version": "1.0.0",
+  "description": "Dashboard for monitoring AMI Bridge and Core Sync Bridge on the VM",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {},
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

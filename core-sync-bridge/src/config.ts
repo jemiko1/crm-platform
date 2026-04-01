@@ -47,6 +47,7 @@ export const config = {
     batchSize: optionalInt("BULK_BATCH_SIZE", 50),
     batchPauseMs: optionalInt("BULK_BATCH_PAUSE_MS", 2000),
   },
+  healthPort: optionalInt("HEALTH_PORT", 3101),
   logLevel: optional("LOG_LEVEL", "INFO"),
 } as const;
 
