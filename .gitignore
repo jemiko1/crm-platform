@@ -10,6 +10,7 @@ frontend/crm-frontend/node_modules/
 backend/.env
 backend/crm-backend/.env
 frontend/crm-frontend/.env.local
+core-sync-bridge/.env
 
 # Build outputs
 dist/
@@ -53,6 +54,13 @@ crm-phone/release-*/
 
 # Design assets (not source code)
 CRM28 Logo Pack/
+
+# Deploy artifacts
+core-sync-bridge-deploy.zip
+vm-deploy.ps1
+
+# Audit reports (auto-generated)
+.audit-reports/
 
 # Test coverage
 coverage/
