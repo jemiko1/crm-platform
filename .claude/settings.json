@@ -48,6 +48,8 @@
       "bash(gh run:*)",
       "bash(railway:*)",
       "bash(ssh asterisk:*)",
+      "bash(ssh -i*192.168.65.110*)",
+      "bash(scp -i*192.168.65.110*)",
       "bash(cat:*)",
       "bash(ls:*)",
       "bash(find:*)",

@@ -18,7 +18,8 @@ Manages buildings, residents, work orders, incidents, sales leads, inventory, te
 - **AI**: OpenAI GPT-4o + Whisper (call quality reviews)
 - **Chat Channels**: Viber, Facebook, Telegram, WebChat (WhatsApp planned) — adapter pattern
 - **CSS**: Tailwind CSS v4 (PostCSS plugin, theme in `globals.css`, NO `tailwind.config` file)
-- **CI/CD**: GitHub Actions → Railway (auto-deploy from master)
+- **Core Sync**: One-way sync from legacy MySQL → CRM via webhook bridge (`core-sync-bridge/`, VM 192.168.65.110). See `docs/CORE_INTEGRATION.md`
+- **CI/CD**: GitHub Actions → Railway (auto-deploy from master). **Planned migration to local VM** for performance.
 - **Deployment**: Railway auto-deploys on master merge. Build: `pnpm install && pnpm build`. Start: `prisma migrate deploy && seed-permissions && node dist/main`
 
 ### Quick Start
@@ -62,6 +63,16 @@ pnpm install ; pnpm prisma generate ; npx prisma migrate dev ; pnpm seed:all
 4. Deleting files or large refactors
 5. Changing environment variables (both local and Railway may need updates)
 6. Changing seed scripts (affects Railway deployment)
+
+### ⛔ ABSOLUTE RULE: Core MySQL Database is READ-ONLY
+**NEVER, under ANY circumstances, execute INSERT, UPDATE, DELETE, ALTER, DROP, CREATE, TRUNCATE, or any data-modifying statement against the core MySQL database (192.168.65.97:3306).** This applies to:
+- All Claude agents and subagents working on this project
+- The Core Sync Bridge service
+- CRM backend code
+- Railway deployment
+- Any script, migration, or tool
+
+**Read queries MUST use non-locking reads** (`SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED` or explicit `LOCK IN SHARE MODE` avoidance). Never use `SELECT ... FOR UPDATE` or any locking SELECT. The core database serves critical production applications — CRM must never cause slowdowns, locks, or data corruption. Violation of this rule can halt company operations.
 
 ---
 
@@ -117,8 +128,10 @@ When making ANY Asterisk/FreePBX changes via CLI/SSH:
 
 Flag any situation where a value lives in more than one place. Known risks:
 
+0. **⛔ Core MySQL is READ-ONLY** — The core database at 192.168.65.97:3306 must NEVER be written to. All queries must be non-locking SELECTs. Use `SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED` on every connection. Never use `FOR UPDATE`, `LOCK IN SHARE MODE`, or any write statement. This database serves multiple critical production applications.
 1. **JWT secret fallback** — `JWT_SECRET` is required, app crashes if missing. Ensure no hardcoded default exists anywhere.
 2. **Telephony ingest secret sync** — `TELEPHONY_INGEST_SECRET` must match between Railway backend env and AMI Bridge VM env. Changing one without the other silently breaks telephony ingestion.
+2b. **Core webhook secret sync** — `CRM_WEBHOOK_SECRET` on the bridge VM must match `CORE_WEBHOOK_SECRET` on Railway. Changing one without the other silently breaks core sync.
 3. **Hardcoded cookie names** — All gateways (telephony + messenger) use `COOKIE_NAME` env var for cookie extraction. Frontend and backend must agree.
 4. **Prisma enum migration behavior** — PostgreSQL CANNOT use a new enum value in the same transaction that adds it. If migration fails with "unsafe use of new value", either use fresh DB or apply `ALTER TYPE` manually outside transaction, then `npx prisma migrate resolve --applied <name>`. Always check existing data before enum changes.
 5. **AMI Bridge buffer risks under load** — AMI event relay runs on separate VM with PM2. High call volume can cause event buffering/loss if the bridge falls behind.
@@ -162,6 +175,7 @@ Each NestJS module owns its domain: controller + service + DTOs + module file. K
 | `audit/` | Audit log | |
 | `health/` | Health endpoint | DB + memory checks |
 | `bug-reports/` | Bug reporter (beta) | Claude AI analysis + GitHub issue creation. Env: ANTHROPIC_API_KEY, GITHUB_TOKEN |
+| `core-integration/` | Core system sync | Webhook receiver + upsert logic. See `docs/CORE_INTEGRATION.md` |
 | `common/` | Guards, filters, decorators | |
 | `v1/` | Versioned controllers | |
 
@@ -250,13 +264,17 @@ When working as a subagent, read this file first. Key rules:
 
 **Frontend (.env.local):** NEXT_PUBLIC_API_BASE (default http://localhost:3000), API_BACKEND_URL
 
+**Core Sync Bridge (.env on VM):** CORE_MYSQL_HOST, CORE_MYSQL_PORT, CORE_MYSQL_USER, CORE_MYSQL_PASSWORD, CORE_MYSQL_DATABASE, CRM_WEBHOOK_URL, CRM_WEBHOOK_SECRET, POLL_INTERVAL_MINUTES, COUNT_CHECK_INTERVAL_MINUTES, NIGHTLY_REPAIR_HOUR, LOG_LEVEL
+
 ### Remote Access
 | Server | Access | VPN Required |
 |--------|--------|-------------|
 | Asterisk/FreePBX | `ssh asterisk` | Yes |
 | AMI Bridge (Windows VM) | Via Asterisk network | Yes |
+| Core Sync Bridge VM | `ssh -i ~/.ssh/id_ed25519_vm Administrator@192.168.65.110` | Yes |
+| Core MySQL (READ-ONLY) | 192.168.65.97:3306, user `asg_tablau`, db `tttt` | Yes (via VM only) |
 | Railway (production) | `railway logs`, `railway status` | No |
-| Production DB | `railway connect postgres` | No |
+| Production DB | `railway connect postgres` or `railway variables -s Postgres` for public URL | No |
 
 OpenVPN is always-on (TAP adapter). If Asterisk SSH times out, check OpenVPN GUI.
 
@@ -291,6 +309,9 @@ When building access-controlled features: add to seed-permissions.ts → backend
 - Single 2125-line Prisma schema
 - `rawBody: true` enabled globally (only needed for webhook HMAC)
 - Both `bcrypt` AND `bcryptjs` installed — check which is imported before changing auth
+- Core sync bridge count-verification/gap-repair require CRM health endpoint access, but endpoint needs JWT — bridge can't authenticate yet (degrades gracefully — delta polling still works)
+- `smartgsmgate` and `contactperson` tables have no timestamps — can't be delta-polled, only bulk-loaded
+- **Planned**: Railway → VM migration for CRM backend (better performance, same-network access to core MySQL)
 
 ---
 
@@ -303,3 +324,4 @@ When building access-controlled features: add to seed-permissions.ts → backend
 - docs/DESIGN_SYSTEM.md — UI design tokens
 - docs/TELEPHONY_INTEGRATION.md — full telephony architecture
 - docs/LOCAL_DEVELOPMENT.md — troubleshooting, health checks, Prisma enum workaround
+- docs/CORE_INTEGRATION.md — core MySQL → CRM sync architecture, field mappings, bridge operations, troubleshooting
