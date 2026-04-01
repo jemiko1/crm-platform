@@ -1,8 +1,9 @@
 "use client";
 
-import React, { Suspense, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { apiGetList } from "@/lib/api";
+import { apiGet, apiGetPaginated } from "@/lib/api";
+import ClientStatistics from "./client-statistics";
 import { PermissionGuard } from "@/lib/permission-guard";
 import { usePermissions } from "@/lib/use-permissions";
 import { useModalContext } from "../modal-manager";
@@ -23,8 +24,17 @@ type ClientRow = {
   paymentId: string | null;
   primaryPhone: string | null;
   secondaryPhone: string | null;
+  consolidatedBalance: number;
   updatedAt: string;
   buildings: ClientBuildingRef[];
+};
+
+type ClientStatisticsData = {
+  totalClientsCount?: number;
+  currentMonthCount: number;
+  currentMonthPercentageChange: number;
+  averagePercentageChange: number;
+  monthlyBreakdown: Record<number, Record<number, number>>;
 };
 
 function safeText(v?: string | null) {
@@ -50,12 +60,18 @@ function ClientsPageContent() {
   const { hasPermission } = usePermissions();
   const { t } = useI18n();
   const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const pageSize = 20;
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<ClientRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [statistics, setStatistics] = useState<ClientStatisticsData | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState<string | null>(null);
 
   const { openModal } = useModalContext();
 
@@ -63,6 +79,28 @@ function ClientsPageContent() {
     openModal("client", String(clientId));
   }
 
+  // Fetch statistics
+  const fetchStatistics = useCallback(() => {
+    setStatsError(null);
+    setStatsLoading(true);
+    apiGet<ClientStatisticsData>("/v1/clients/statistics/summary", { cache: "no-store" })
+      .then((data) => setStatistics(data))
+      .catch((err) => setStatsError(err instanceof Error ? err.message : "Failed to load statistics"))
+      .finally(() => setStatsLoading(false));
+  }, []);
+
+  useEffect(() => { fetchStatistics(); }, [fetchStatistics]);
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQ(q);
+      setPage(1);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [q]);
+
+  // Fetch clients from API (server-side pagination + search)
   useEffect(() => {
     let alive = true;
 
@@ -71,10 +109,17 @@ function ClientsPageContent() {
         setLoading(true);
         setError(null);
 
-        const data = await apiGetList<ClientRow>("/v1/clients");
+        const params = new URLSearchParams();
+        params.set("page", String(page));
+        params.set("pageSize", String(pageSize));
+        if (debouncedQ.trim()) params.set("search", debouncedQ.trim());
+
+        const result = await apiGetPaginated<ClientRow>(`/v1/clients?${params}`);
         if (!alive) return;
 
-        setRows(data);
+        setRows(result.data);
+        setTotal(result.meta.total);
+        setTotalPages(result.meta.totalPages);
       } catch (e) {
         if (!alive) return;
         setError(e instanceof Error ? e.message : t("clients.errorLoading", "Error loading clients"));
@@ -89,46 +134,10 @@ function ClientsPageContent() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [page, debouncedQ]);
 
-  const filtered = useMemo(() => {
-    const query = q.trim().toLowerCase();
-    const src = rows ?? [];
-
-    return src
-      .filter((c) => {
-        if (!query) return true;
-
-        const buildings = (c.buildings ?? [])
-          .map((b) => `${b.name} ${b.coreId}`)
-          .join(" ");
-
-        const hay = [
-          String(c.coreId),
-          c.firstName ?? "",
-          c.lastName ?? "",
-          c.idNumber ?? "",
-          c.paymentId ?? "",
-          c.primaryPhone ?? "",
-          c.secondaryPhone ?? "",
-          buildings,
-        ]
-          .join(" ")
-          .toLowerCase();
-
-        return hay.includes(query);
-      })
-      .sort((a, b) => {
-        const ta = new Date(a.updatedAt).getTime();
-        const tb = new Date(b.updatedAt).getTime();
-        if (tb !== ta) return tb - ta; // newest first
-        return (b.coreId ?? 0) - (a.coreId ?? 0); // tie-break
-      });
-  }, [rows, q]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages);
-  const paged = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const paged = rows;
 
   return (
     <PermissionGuard permission="clients.menu">
@@ -150,6 +159,14 @@ function ClientsPageContent() {
             </p>
           </div>
         </div>
+
+        {/* Statistics Section */}
+        <ClientStatistics
+          statistics={statistics}
+          loading={statsLoading}
+          error={statsError}
+          onRetry={fetchStatistics}
+        />
 
         {/* Main Card */}
         <div className="rounded-none bg-transparent p-0 shadow-none ring-0 md:rounded-3xl md:bg-white md:p-6 md:shadow-sm md:ring-1 md:ring-zinc-200">
@@ -179,10 +196,7 @@ function ClientsPageContent() {
               <div className="mb-3 md:mb-4">
                 <input
                   value={q}
-                  onChange={(e) => {
-                    setQ(e.target.value);
-                    setPage(1);
-                  }}
+                  onChange={(e) => setQ(e.target.value)}
                   placeholder={t("clients.searchPlaceholder", "Search by name, ID number, payment id, phone, building...")}
                   className="w-full rounded-lg bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-sm ring-2 ring-teal-500/40 border border-teal-500/30 hover:ring-teal-500/60 hover:border-teal-500/50 focus:outline-none focus:ring-2 focus:ring-teal-500/70 focus:border-teal-500/60 transition-all md:max-w-md md:rounded-2xl md:px-4 md:py-2.5 md:shadow-md"
                 />
@@ -190,36 +204,35 @@ function ClientsPageContent() {
 
               <div className="overflow-x-auto overflow-y-visible rounded-none ring-0 md:overflow-clip md:rounded-2xl md:ring-1 md:ring-zinc-200">
                 <div>
-                  <table className="min-w-[1220px] w-full border-separate border-spacing-0">
+                  <table className="min-w-[1120px] w-full border-separate border-spacing-0">
                     <colgroup>
-                      <col style={{ width: "340px" }} />
+                      <col style={{ width: "300px" }} />
                       <col />
                       <col />
                       <col />
                       <col />
                       <col />
-                      <col style={{ width: "120px" }} />
+                      <col style={{ width: "100px" }} />
                     </colgroup>
 
                     <thead className="bg-zinc-50 relative z-10 shadow-[0_1px_0_rgba(0,0,0,0.08)] md:sticky md:top-[52px] md:z-20">
                       <tr className="text-left text-[11px] text-zinc-600 md:text-xs">
-                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-5 md:py-3">Client</th>
+                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-5 md:py-3">{t("clients.columns.client", "Client")}</th>
                         <th className="px-2 py-2 font-medium border-l border-zinc-200 bg-zinc-50 md:px-4 md:py-3">
-                          ID Number
+                          {t("clients.columns.idNumber", "ID Number")}
                         </th>
-                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">Payment ID</th>
-                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">Primary Phone</th>
-                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">Secondary Phone</th>
-                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">Buildings</th>
-                        <th className="px-2 py-2 font-medium text-right bg-zinc-50 md:px-4 md:py-3">Client ID</th>
+                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("clients.columns.phone", "Phone")}</th>
+                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("clients.columns.buildings", "Buildings")}</th>
+                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("clients.columns.balance", "Balance")}</th>
+                        <th className="px-2 py-2 font-medium text-right bg-zinc-50 md:px-4 md:py-3">{t("clients.columns.clientId", "Client ID")}</th>
                       </tr>
                     </thead>
 
                     <tbody className="bg-white">
                       {paged.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="px-4 py-10 text-center text-sm text-zinc-600">
-                            {filtered.length === 0 && rows.length > 0
+                          <td colSpan={6} className="px-4 py-10 text-center text-sm text-zinc-600">
+                            {debouncedQ.trim()
                               ? t("clients.noMatch", "No clients match your search.")
                               : t("clients.noClientsFound", "No clients found.")}
                           </td>
@@ -228,6 +241,8 @@ function ClientsPageContent() {
                         paged.map((c, index) => {
                           const isLast = index === paged.length - 1;
                           const name = fullNameOf(c);
+                          const bal = c.consolidatedBalance ?? 0;
+                          const hasDebt = bal < 0;
 
                           return (
                             <tr
@@ -236,7 +251,7 @@ function ClientsPageContent() {
                               style={{ cursor: "pointer" }}
                               className={[
                                 "group transition-colors duration-200 ease-out",
-                                "hover:bg-teal-50/60",
+                                hasDebt ? "bg-red-50/40 hover:bg-red-50/70" : "hover:bg-teal-50/60",
                                 "md:hover:shadow-lg md:hover:-translate-y-0.5 md:hover:z-10",
                                 !isLast && "border-b border-zinc-100",
                               ].join(" ")}
@@ -249,13 +264,10 @@ function ClientsPageContent() {
                                       {name}
                                     </div>
                                     <div className="mt-0.5 truncate text-[12px] leading-snug text-zinc-500 md:mt-1 md:text-xs">
-                                      {safePhone(c.primaryPhone)} • {safeText(c.paymentId)}
+                                      {safePhone(c.primaryPhone)}
                                     </div>
                                   </div>
-
-                                  <span className="text-zinc-400 transition-transform group-hover:translate-x-0.5">
-                                    →
-                                  </span>
+                                  <span className="text-zinc-400 transition-transform group-hover:translate-x-0.5">→</span>
                                 </div>
                               </td>
 
@@ -266,26 +278,30 @@ function ClientsPageContent() {
                                 </span>
                               </td>
 
-                              {/* Payment ID */}
+                              {/* Phone */}
                               <td className="px-2 py-2 align-middle md:px-4 md:py-4">
-                                <span className="inline-flex items-center rounded-lg bg-zinc-50 px-2 py-1.5 text-sm text-zinc-900 ring-1 ring-zinc-200 md:rounded-2xl md:px-3 md:py-2">
-                                  <span className="tabular-nums">{safeText(c.paymentId)}</span>
-                                </span>
-                              </td>
-
-                              {/* Primary Phone */}
-                              <td className="px-2 py-2 align-middle text-sm text-zinc-700 md:px-4 md:py-4">
-                                {safePhone(c.primaryPhone)}
-                              </td>
-
-                              {/* Secondary Phone */}
-                              <td className="px-2 py-2 align-middle text-sm text-zinc-700 md:px-4 md:py-4">
-                                {safePhone(c.secondaryPhone)}
+                                <div className="text-sm text-zinc-700">{safePhone(c.primaryPhone)}</div>
+                                {c.secondaryPhone && (
+                                  <div className="mt-0.5 text-xs text-zinc-400">{c.secondaryPhone}</div>
+                                )}
                               </td>
 
                               {/* Buildings */}
                               <td className="px-2 py-2 align-middle md:px-4 md:py-4">
                                 <BuildingsCell buildings={c.buildings ?? []} />
+                              </td>
+
+                              {/* Balance */}
+                              <td className="px-2 py-2 align-middle md:px-4 md:py-4">
+                                <span className={`inline-flex items-center rounded-lg px-2 py-1.5 text-sm font-semibold tabular-nums ring-1 md:rounded-2xl md:px-3 md:py-2 ${
+                                  hasDebt
+                                    ? "bg-red-50 text-red-700 ring-red-200"
+                                    : bal > 0
+                                    ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                                    : "bg-zinc-50 text-zinc-600 ring-zinc-200"
+                                }`}>
+                                  {bal.toFixed(2)}
+                                </span>
                               </td>
 
                               {/* Client ID */}
@@ -304,11 +320,12 @@ function ClientsPageContent() {
               </div>
 
               {/* Pagination */}
-              {filtered.length > 0 && (
+              {total > 0 && (
                 <div className="mt-3 flex flex-col gap-2 pb-1 md:mt-5 md:flex-row md:items-center md:justify-between md:gap-3">
                   <div className="text-[11px] text-zinc-600 md:text-xs">
                     {t("common.page", "Page")} <span className="font-semibold text-zinc-900">{safePage}</span> {t("common.of", "of")}{" "}
                     <span className="font-semibold text-zinc-900">{totalPages}</span>
+                    <span className="ml-2 text-zinc-400">({total} {t("common.total", "total")})</span>
                   </div>
 
                   <div className="flex items-center gap-1.5 md:gap-2">

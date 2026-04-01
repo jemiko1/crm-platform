@@ -103,6 +103,30 @@ export async function apiPostFormData<T>(
   return handleResponse<T>(res);
 }
 
+/**
+ * Paginated response shape from the backend.
+ */
+export interface PaginatedResponse<T> {
+  data: T[];
+  meta: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+/**
+ * Fetch a paginated endpoint, returning both data and meta.
+ */
+export async function apiGetPaginated<T>(
+  path: string,
+  init?: RequestInit,
+): Promise<PaginatedResponse<T>> {
+  const raw = await apiGet<PaginatedResponse<T>>(path, init);
+  return raw;
+}
+
 export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
   return apiRequest<T>(path, {
     method: "GET",

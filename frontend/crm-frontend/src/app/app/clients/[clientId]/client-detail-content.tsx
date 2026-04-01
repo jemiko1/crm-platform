@@ -16,6 +16,11 @@ const BRAND = "rgb(0, 86, 83)";
 type ClientBuildingRef = {
   coreId: number;
   name: string;
+  paymentId: string | null;
+  balance: number | null;
+  apartmentNumber: string | null;
+  entranceNumber: string | null;
+  floorNumber: string | null;
 };
 
 type Client = {
@@ -264,8 +269,6 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
           <h1 className="mt-3 text-2xl font-semibold tracking-tight text-zinc-900 md:text-3xl">{name}</h1>
 
           <p className="mt-1 text-sm text-zinc-600">
-            Payment ID: <span className="font-medium text-zinc-900">{safeText(client.paymentId)}</span>
-            <span className="mx-2 text-zinc-300">•</span>
             ID Number: <span className="font-medium text-zinc-900">{safeText(client.idNumber)}</span>
           </p>
         </div>
@@ -311,7 +314,6 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
             <InfoCard label="First Name" value={safeText(client.firstName)} />
             <InfoCard label="Last Name" value={safeText(client.lastName)} />
             <InfoCard label="ID Number" value={safeText(client.idNumber)} />
-            <InfoCard label="Payment ID" value={safeText(client.paymentId)} />
             <InfoCard label="Primary Phone" value={safeText(client.primaryPhone)} />
             <InfoCard label="Secondary Phone" value={safeText(client.secondaryPhone)} />
           </div>
@@ -326,32 +328,60 @@ export default function ClientDetailContent({ client, clientId, onUpdate }: Prop
             </span>
           </div>
 
-          <div className="mt-4 space-y-2">
+          <div className="mt-4 space-y-3">
             {(client.buildings ?? []).length === 0 ? (
               <div className="rounded-2xl bg-zinc-50 p-4 text-sm text-zinc-600 ring-1 ring-zinc-200">
                 No building assignments yet.
               </div>
             ) : (
               (client.buildings ?? []).map((b) => {
-                // Simple URL - just the building param, browser history handles the "back" navigation
                 const buildingUrl = `/app/buildings?building=${b.coreId}`;
+                const bal = b.balance ?? 0;
+                const hasDebt = bal < 0;
                 return (
-                  <Link
-                    key={b.coreId}
-                    href={buildingUrl}
-                    className="group block rounded-2xl bg-white p-3 ring-1 ring-zinc-200 transition hover:bg-teal-50/60 hover:ring-teal-300"
-                    title="Open building"
+                  <div
+                    key={`${b.coreId}-${b.paymentId ?? "no-pid"}`}
+                    className={`rounded-2xl p-3 ring-1 transition ${hasDebt ? "bg-red-50/50 ring-red-200" : "bg-white ring-zinc-200"}`}
                   >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold text-zinc-900 group-hover:underline">
-                        {b.name}
+                    <Link
+                      href={buildingUrl}
+                      className="group flex items-center justify-between gap-3"
+                      title="Open building"
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold text-zinc-900 group-hover:underline">
+                          {b.name}
+                        </div>
+                        <div className="mt-0.5 text-xs text-zinc-500">Building #{b.coreId}</div>
                       </div>
-                      <div className="mt-0.5 text-xs text-zinc-500">Building #{b.coreId}</div>
+                      <span className="text-zinc-400 transition-transform group-hover:translate-x-0.5">→</span>
+                    </Link>
+
+                    {/* Apartment + Payment details */}
+                    <div className="mt-2 space-y-1 border-t border-zinc-100 pt-2">
+                      {(b.apartmentNumber || b.entranceNumber || b.floorNumber) && (
+                        <div className="text-xs text-zinc-500">
+                          {b.apartmentNumber && <span>Apt. {b.apartmentNumber}</span>}
+                          {b.entranceNumber && <span className="ml-2">Ent. {b.entranceNumber}</span>}
+                          {b.floorNumber && <span className="ml-2">Floor {b.floorNumber}</span>}
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-xs text-zinc-500">
+                          Payment ID: <span className="font-medium text-zinc-700">{safeText(b.paymentId)}</span>
+                        </div>
+                        <span className={`inline-flex items-center rounded-lg px-2 py-0.5 text-xs font-semibold tabular-nums ring-1 ${
+                          hasDebt
+                            ? "bg-red-100 text-red-700 ring-red-200"
+                            : bal > 0
+                            ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                            : "bg-zinc-50 text-zinc-600 ring-zinc-200"
+                        }`}>
+                          {bal.toFixed(2)}
+                        </span>
+                      </div>
                     </div>
-                    <span className="text-zinc-400 transition-transform group-hover:translate-x-0.5">→</span>
                   </div>
-                </Link>
                 );
               })
             )}

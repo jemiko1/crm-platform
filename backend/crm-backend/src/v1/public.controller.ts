@@ -27,8 +27,11 @@ export class PublicController {
       { name: "pageSize", description: "Page size" },
     ],
   })
-  listBuildings(@Query() pagination: PaginationDto) {
-    return this.buildings.list(pagination.page, pagination.pageSize);
+  listBuildings(
+    @Query() pagination: PaginationDto,
+    @Query("search") search?: string,
+  ) {
+    return this.buildings.list(pagination.page, pagination.pageSize, search);
   }
 
   @Get("buildings/statistics/summary")
@@ -84,6 +87,15 @@ export class PublicController {
   ) {
     const buildingId = await this.buildings.internalId(buildingCoreId);
     return this.assets.listByBuilding(buildingId, pagination.page, pagination.pageSize);
+  }
+
+  @Get("clients/statistics/summary")
+  @Doc({
+    summary: "Client statistics summary",
+    ok: "Aggregate counts and metrics for clients",
+  })
+  clientStatistics() {
+    return this.clients.getStatistics();
   }
 
   @Get("clients")
