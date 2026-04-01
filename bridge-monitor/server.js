@@ -46,7 +46,7 @@ function fetchJson(url, timeoutMs = 3000) {
 
 function pm2Jlist() {
   try {
-    const raw = execSync("pm2 jlist", { encoding: "utf-8", timeout: 5000 });
+    const raw = execFileSync("pm2", ["jlist"], { encoding: "utf-8", timeout: 5000 });
     return JSON.parse(raw);
   } catch {
     return [];
