@@ -1,0 +1,12 @@
+{
+  "name": "crm-monitor",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "basic-auth": "^2.0.1"
+  }
+}

@@ -85,6 +85,16 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/lint-format.sh"
+          },
+          {
+            "type": "agent",
+            "prompt": "Check if the edited file (from $ARGUMENTS) matches prisma/schema.prisma or prisma/migrations/**. If it does, run a db-reviewer analysis: review the Prisma schema changes for migration safety, enum transaction issues, breaking changes, and data integrity risks. If the file does NOT match those patterns, respond with just 'not applicable' and do nothing.",
+            "statusMessage": "Checking if DB review needed..."
+          },
+          {
+            "type": "agent",
+            "prompt": "Check if the edited file (from $ARGUMENTS) matches any of: src/auth/**, src/common/guards/**, src/prisma/**, src/**/guards/**, src/**/*.guard.ts, src/**/*.strategy.ts. If it does, run a security scan: check for OWASP top 10 vulnerabilities, auth bypass, injection risks, and ensure the core MySQL read-only rule is not violated. If the file does NOT match those patterns, respond with just 'not applicable' and do nothing.",
+            "statusMessage": "Checking if security scan needed..."
           }
         ]
       },
@@ -94,6 +104,16 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/lint-format.sh"
+          },
+          {
+            "type": "agent",
+            "prompt": "Check if the written file (from $ARGUMENTS) matches prisma/schema.prisma or prisma/migrations/**. If it does, run a db-reviewer analysis: review the Prisma schema changes for migration safety, enum transaction issues, breaking changes, and data integrity risks. If the file does NOT match those patterns, respond with just 'not applicable' and do nothing.",
+            "statusMessage": "Checking if DB review needed..."
+          },
+          {
+            "type": "agent",
+            "prompt": "Check if the written file (from $ARGUMENTS) matches any of: src/auth/**, src/common/guards/**, src/prisma/**, src/**/guards/**, src/**/*.guard.ts, src/**/*.strategy.ts. If it does, run a security scan: check for OWASP top 10 vulnerabilities, auth bypass, injection risks, and ensure the core MySQL read-only rule is not violated. If the file does NOT match those patterns, respond with just 'not applicable' and do nothing.",
+            "statusMessage": "Checking if security scan needed..."
           }
         ]
       }

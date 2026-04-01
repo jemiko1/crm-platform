@@ -2,16 +2,9 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
+import { WS_BASE } from "@/lib/api";
 
 type EventCallback = (...args: any[]) => void;
-
-function getSocketUrl(): string {
-  if (typeof window === "undefined") return "";
-  const host = window.location.hostname;
-  const isLocalDev = host === "localhost" || host === "127.0.0.1";
-  if (isLocalDev) return "http://localhost:3000";
-  return window.location.origin;
-}
 
 export function useClientChatSocket() {
   const socketRef = useRef<Socket | null>(null);
@@ -19,7 +12,7 @@ export function useClientChatSocket() {
   const listenersRef = useRef<Map<string, Set<EventCallback>>>(new Map());
 
   useEffect(() => {
-    const url = getSocketUrl();
+    const url = WS_BASE;
     if (!url) return;
 
     const socket = io(`${url}/ws/clientchats`, {
