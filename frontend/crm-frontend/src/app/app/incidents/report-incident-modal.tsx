@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useListItems } from "@/hooks/useListItems";
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGetList, apiPost } from "@/lib/api";
 
 const BRAND = "rgb(0, 86, 83)";
 
@@ -177,8 +177,7 @@ export default function ReportIncidentModal({
 
     async function loadBuildings() {
       try {
-        const data = await apiGet<Building[]>("/v1/buildings");
-        const all: Building[] = Array.isArray(data) ? data : [];
+        const all = await apiGetList<Building>("/v1/buildings?pageSize=5000");
 
         const filtered = hasBuildingRestriction
           ? all.filter((b) => allowedBuildingSet.has(Number(b.coreId)))
@@ -218,9 +217,9 @@ export default function ReportIncidentModal({
 
     async function loadClients() {
       try {
-        const data = await apiGet<Client[]>(`/v1/buildings/${b.coreId}/clients`);
+        const clients = await apiGetList<Client>(`/v1/buildings/${b.coreId}/clients?pageSize=5000`);
         if (!alive) return;
-        setBuildingClients(Array.isArray(data) ? data : []);
+        setBuildingClients(clients);
       } catch (e) {
         if (!alive) return;
         console.error("Failed to load clients:", e);
@@ -243,9 +242,9 @@ export default function ReportIncidentModal({
 
     async function loadAssets() {
       try {
-        const data = await apiGet<Asset[]>(`/v1/buildings/${b.coreId}/assets`);
+        const assets = await apiGetList<Asset>(`/v1/buildings/${b.coreId}/assets?pageSize=5000`);
         if (!alive) return;
-        setBuildingAssets(Array.isArray(data) ? data : []);
+        setBuildingAssets(assets);
       } catch (e) {
         if (!alive) return;
         console.error("Failed to load assets:", e);
