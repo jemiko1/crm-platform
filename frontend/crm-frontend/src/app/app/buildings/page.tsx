@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useCallback, useEffect, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet, apiGetPaginated } from "@/lib/api";
 import AddBuildingModal from "./add-building-modal";
@@ -158,6 +158,7 @@ function BuildingsPageContent() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
+  const hasLoadedOnce = useRef(false);
   const [buildings, setBuildings] = useState<BuildingRow[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -189,9 +190,8 @@ function BuildingsPageContent() {
     let cancelled = false;
 
     async function fetchBuildings() {
-      const isFirstLoad = buildings.length === 0;
       try {
-        if (isFirstLoad) setLoading(true);
+        if (!hasLoadedOnce.current) setLoading(true);
         else setSearching(true);
         setError(null);
 
@@ -227,6 +227,7 @@ function BuildingsPageContent() {
         }
       } finally {
         if (!cancelled) {
+          hasLoadedOnce.current = true;
           setLoading(false);
           setSearching(false);
         }
