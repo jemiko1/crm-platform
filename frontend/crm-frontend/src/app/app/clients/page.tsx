@@ -210,8 +210,6 @@ function ClientsPageContent() {
                       <col />
                       <col />
                       <col />
-                      <col />
-                      <col />
                       <col style={{ width: "100px" }} />
                     </colgroup>
 
@@ -223,7 +221,6 @@ function ClientsPageContent() {
                         </th>
                         <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("clients.columns.phone", "Phone")}</th>
                         <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("clients.columns.buildings", "Buildings")}</th>
-                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("clients.columns.balance", "Balance")}</th>
                         <th className="px-2 py-2 font-medium text-right bg-zinc-50 md:px-4 md:py-3">{t("clients.columns.clientId", "Client ID")}</th>
                       </tr>
                     </thead>
@@ -231,7 +228,7 @@ function ClientsPageContent() {
                     <tbody className="bg-white">
                       {paged.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="px-4 py-10 text-center text-sm text-zinc-600">
+                          <td colSpan={5} className="px-4 py-10 text-center text-sm text-zinc-600">
                             {debouncedQ.trim()
                               ? t("clients.noMatch", "No clients match your search.")
                               : t("clients.noClientsFound", "No clients found.")}
@@ -241,8 +238,6 @@ function ClientsPageContent() {
                         paged.map((c, index) => {
                           const isLast = index === paged.length - 1;
                           const name = fullNameOf(c);
-                          const bal = c.consolidatedBalance ?? 0;
-                          const hasDebt = bal < 0;
 
                           return (
                             <tr
@@ -251,7 +246,7 @@ function ClientsPageContent() {
                               style={{ cursor: "pointer" }}
                               className={[
                                 "group transition-colors duration-200 ease-out",
-                                hasDebt ? "bg-red-50/40 hover:bg-red-50/70" : "hover:bg-teal-50/60",
+                                "hover:bg-teal-50/60",
                                 "md:hover:shadow-lg md:hover:-translate-y-0.5 md:hover:z-10",
                                 !isLast && "border-b border-zinc-100",
                               ].join(" ")}
@@ -289,19 +284,6 @@ function ClientsPageContent() {
                               {/* Buildings */}
                               <td className="px-2 py-2 align-middle md:px-4 md:py-4">
                                 <BuildingsCell buildings={c.buildings ?? []} />
-                              </td>
-
-                              {/* Balance */}
-                              <td className="px-2 py-2 align-middle md:px-4 md:py-4">
-                                <span className={`inline-flex items-center rounded-lg px-2 py-1.5 text-sm font-semibold tabular-nums ring-1 md:rounded-2xl md:px-3 md:py-2 ${
-                                  hasDebt
-                                    ? "bg-red-50 text-red-700 ring-red-200"
-                                    : bal > 0
-                                    ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-                                    : "bg-zinc-50 text-zinc-600 ring-zinc-200"
-                                }`}>
-                                  {bal.toFixed(2)}
-                                </span>
                               </td>
 
                               {/* Client ID */}
