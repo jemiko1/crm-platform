@@ -38,8 +38,12 @@ const payload = JSON.stringify({
   ],
 });
 
-const secret = process.env.TELEPHONY_INGEST_SECRET || "tel-ingest-Km8v!QzWr42pXbNcL6";
-const baseUrl = process.env.CRM_BASE_URL || "https://api-crm28.asg.ge";
+const secret = process.env.TELEPHONY_INGEST_SECRET;
+const baseUrl = process.env.CRM_BASE_URL;
+if (!secret || !baseUrl) {
+  console.error("Required env vars: TELEPHONY_INGEST_SECRET, CRM_BASE_URL");
+  process.exit(1);
+}
 const url = new URL("/v1/telephony/events", baseUrl);
 
 const options = {

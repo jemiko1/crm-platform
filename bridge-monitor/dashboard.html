@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bridge Monitor — CRM28</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+    .header {
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      border-bottom: 1px solid #334155;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header h1 {
+      font-size: 20px;
+      font-weight: 600;
+      color: #f1f5f9;
+    }
+    .header h1 span { color: #38bdf8; }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+      color: #94a3b8;
+    }
+    .refresh-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .container { padding: 24px; max-width: 1200px; margin: 0 auto; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+    /* Bridge Card */
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #334155;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .card-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .status-online { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
+    .status-stopped { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .status-degraded { background: rgba(234, 179, 8, 0.15); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.3); }
+    .status-unknown { background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.3); }
+    .status-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .card-body { padding: 16px 20px; }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 12px;
+    }
+    .stat-box {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+    .stat-label {
+      font-size: 11px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .stat-value {
+      font-size: 22px;
+      font-weight: 700;
+      color: #f1f5f9;
+    }
+    .stat-value.green { color: #4ade80; }
+    .stat-value.red { color: #f87171; }
+    .stat-value.yellow { color: #facc15; }
+    .stat-value.blue { color: #38bdf8; }
+
+    /* Controls */
+    .card-actions {
+      padding: 12px 20px;
+      border-top: 1px solid #334155;
+      display: flex;
+      gap: 8px;
+    }
+    .btn {
+      padding: 6px 14px;
+      border: 1px solid #475569;
+      background: #334155;
+      color: #e2e8f0;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn:hover { background: #475569; }
+    .btn:active { transform: scale(0.97); }
+    .btn-restart { border-color: #38bdf8; color: #38bdf8; }
+    .btn-restart:hover { background: rgba(56, 189, 248, 0.15); }
+    .btn-stop { border-color: #f87171; color: #f87171; }
+    .btn-stop:hover { background: rgba(248, 113, 113, 0.15); }
+    .btn-start { border-color: #4ade80; color: #4ade80; }
+    .btn-start:hover { background: rgba(74, 222, 128, 0.15); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid #334155;
+    }
+    .tab {
+      padding: 8px 16px;
+      font-size: 13px;
+      color: #64748b;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .tab:hover { color: #94a3b8; }
+    .tab.active { color: #38bdf8; border-bottom-color: #38bdf8; }
+
+    /* Logs */
+    .log-panel {
+      margin-top: 20px;
+    }
+    .log-viewer {
+      background: #020617;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: 12px;
+      font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      max-height: 400px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: #94a3b8;
+    }
+    .log-viewer .log-error { color: #f87171; }
+    .log-viewer .log-warn { color: #facc15; }
+    .log-viewer .log-info { color: #4ade80; }
+
+    /* Time display */
+    .time-ago { font-size: 12px; color: #64748b; }
+    .time-ago.stale { color: #f87171; }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 12px 20px;
+      background: #334155;
+      border: 1px solid #475569;
+      border-radius: 8px;
+      font-size: 14px;
+      color: #e2e8f0;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s;
+      z-index: 1000;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.success { border-color: #4ade80; }
+    .toast.error { border-color: #f87171; }
+
+    @media (max-width: 768px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1><span>CRM28</span> Bridge Monitor</h1>
+    <div class="header-right">
+      <div class="refresh-dot"></div>
+      <span>Auto-refresh 5s</span>
+      <span id="clock"></span>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="grid">
+      <!-- AMI Bridge Card -->
+      <div class="card" id="ami-card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            AMI Bridge
+          </div>
+          <span class="status-badge status-unknown" id="ami-status">
+            <span class="status-dot"></span>
+            Loading...
+          </span>
+        </div>
+        <div class="card-body">
+          <div class="stats-grid" id="ami-stats">
+            <div class="stat-box"><div class="stat-label">AMI</div><div class="stat-value" id="ami-connected">--</div></div>
+            <div class="stat-box"><div class="stat-label">Active Calls</div><div class="stat-value blue" id="ami-calls">--</div></div>
+            <div class="stat-box"><div class="stat-label">Events Posted</div><div class="stat-value green" id="ami-posted">--</div></div>
+            <div class="stat-box"><div class="stat-label">Errors</div><div class="stat-value red" id="ami-errors">--</div></div>
+            <div class="stat-box"><div class="stat-label">Buffer</div><div class="stat-value" id="ami-buffer">--</div></div>
+            <div class="stat-box"><div class="stat-label">Uptime</div><div class="stat-value" id="ami-uptime">--</div></div>
+            <div class="stat-box"><div class="stat-label">Memory</div><div class="stat-value" id="ami-memory">--</div></div>
+            <div class="stat-box"><div class="stat-label">Restarts</div><div class="stat-value" id="ami-restarts">--</div></div>
+          </div>
+          <div class="time-ago" id="ami-last-success" style="margin-top: 12px;"></div>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-restart" onclick="bridgeAction('ami-bridge','restart')">Restart</button>
+          <button class="btn btn-stop" onclick="bridgeAction('ami-bridge','stop')">Stop</button>
+          <button class="btn btn-start" onclick="bridgeAction('ami-bridge','start')">Start</button>
+        </div>
+      </div>
+
+      <!-- Core Sync Bridge Card -->
+      <div class="card" id="core-card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+            Core Sync Bridge
+          </div>
+          <span class="status-badge status-unknown" id="core-status">
+            <span class="status-dot"></span>
+            Loading...
+          </span>
+        </div>
+        <div class="card-body">
+          <div class="stats-grid" id="core-stats">
+            <div class="stat-box"><div class="stat-label">Records Synced</div><div class="stat-value green" id="core-posted">--</div></div>
+            <div class="stat-box"><div class="stat-label">Errors</div><div class="stat-value red" id="core-errors">--</div></div>
+            <div class="stat-box"><div class="stat-label">Uptime</div><div class="stat-value" id="core-uptime">--</div></div>
+            <div class="stat-box"><div class="stat-label">Memory</div><div class="stat-value" id="core-memory">--</div></div>
+            <div class="stat-box"><div class="stat-label">Restarts</div><div class="stat-value" id="core-restarts">--</div></div>
+            <div class="stat-box"><div class="stat-label">PID</div><div class="stat-value" id="core-pid">--</div></div>
+          </div>
+          <div id="core-checkpoint" style="margin-top: 12px; font-size: 12px; color: #64748b;"></div>
+          <div class="time-ago" id="core-last-success" style="margin-top: 8px;"></div>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-restart" onclick="bridgeAction('core-sync-bridge','restart')">Restart</button>
+          <button class="btn btn-stop" onclick="bridgeAction('core-sync-bridge','stop')">Stop</button>
+          <button class="btn btn-start" onclick="bridgeAction('core-sync-bridge','start')">Start</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Logs Section -->
+    <div class="log-panel">
+      <div class="card" style="margin-top: 20px;">
+        <div class="tabs">
+          <div class="tab active" onclick="switchLog('ami-bridge','out',this)">AMI Logs</div>
+          <div class="tab" onclick="switchLog('ami-bridge','error',this)">AMI Errors</div>
+          <div class="tab" onclick="switchLog('core-sync-bridge','out',this)">Core Sync Logs</div>
+          <div class="tab" onclick="switchLog('core-sync-bridge','error',this)">Core Sync Errors</div>
+        </div>
+        <div style="padding: 16px;">
+          <div class="log-viewer" id="log-viewer">Select a log tab above...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let currentLogBridge = 'ami-bridge';
+    let currentLogType = 'out';
+
+    // ── Formatters ──────────────────────────────────────
+
+    function formatUptime(seconds) {
+      if (!seconds || seconds <= 0) return '--';
+      const d = Math.floor(seconds / 86400);
+      const h = Math.floor((seconds % 86400) / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      if (d > 0) return `${d}d ${h}h`;
+      if (h > 0) return `${h}h ${m}m`;
+      return `${m}m`;
+    }
+
+    function formatMemory(bytes) {
+      if (!bytes) return '--';
+      return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+    }
+
+    function formatNumber(n) {
+      if (n === null || n === undefined) return '--';
+      return n.toLocaleString();
+    }
+
+    function timeAgo(isoString) {
+      if (!isoString) return 'Never';
+      const diff = Date.now() - new Date(isoString).getTime();
+      const mins = Math.floor(diff / 60000);
+      if (mins < 1) return 'Just now';
+      if (mins < 60) return `${mins}m ago`;
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return `${hrs}h ${mins % 60}m ago`;
+      return `${Math.floor(hrs / 24)}d ago`;
+    }
+
+    // ── Status Update ───────────────────────────────────
+
+    function getStatusClass(pm2Status, healthData) {
+      if (!pm2Status) return { cls: 'status-stopped', label: 'Not in PM2' };
+      if (pm2Status.status === 'stopped') return { cls: 'status-stopped', label: 'Stopped' };
+      if (pm2Status.status !== 'online') return { cls: 'status-degraded', label: pm2Status.status };
+      if (healthData?.error) return { cls: 'status-degraded', label: 'Degraded' };
+      if (healthData?.status === 'degraded') return { cls: 'status-degraded', label: 'Degraded' };
+      return { cls: 'status-online', label: 'Online' };
+    }
+
+    function updateAmiBridge(data) {
+      const pm2 = data.pm2;
+      const h = data.health;
+      const { cls, label } = getStatusClass(pm2, h);
+
+      const badge = document.getElementById('ami-status');
+      badge.className = `status-badge ${cls}`;
+      badge.innerHTML = `<span class="status-dot"></span>${label}`;
+
+      if (h && !h.error) {
+        document.getElementById('ami-connected').textContent = h.ami?.connected ? 'Yes' : 'No';
+        document.getElementById('ami-connected').className = `stat-value ${h.ami?.connected ? 'green' : 'red'}`;
+        document.getElementById('ami-calls').textContent = formatNumber(h.ami?.activeCalls);
+        document.getElementById('ami-posted').textContent = formatNumber(h.poster?.totalPosted);
+        document.getElementById('ami-errors').textContent = formatNumber(h.poster?.totalErrors);
+        document.getElementById('ami-buffer').textContent = formatNumber(h.buffer?.size);
+        document.getElementById('ami-uptime').textContent = formatUptime(h.uptime);
+
+        const lastSuccess = h.poster?.lastSuccessAt;
+        const el = document.getElementById('ami-last-success');
+        el.textContent = `Last successful POST: ${timeAgo(lastSuccess)}`;
+        el.className = `time-ago${h.poster?.minutesSinceSuccess > 5 ? ' stale' : ''}`;
+      }
+
+      if (pm2) {
+        document.getElementById('ami-memory').textContent = formatMemory(pm2.memory);
+        document.getElementById('ami-restarts').textContent = formatNumber(pm2.restarts);
+      }
+    }
+
+    function updateCoreBridge(data) {
+      const pm2 = data.pm2;
+      const h = data.health;
+      const { cls, label } = getStatusClass(pm2, h);
+
+      const badge = document.getElementById('core-status');
+      badge.className = `status-badge ${cls}`;
+      badge.innerHTML = `<span class="status-dot"></span>${label}`;
+
+      if (h && !h.error) {
+        document.getElementById('core-posted').textContent = formatNumber(h.poster?.totalPosted);
+        document.getElementById('core-errors').textContent = formatNumber(h.poster?.totalErrors);
+        document.getElementById('core-uptime').textContent = formatUptime(h.uptime);
+
+        const lastSuccess = h.poster?.lastSuccessAt;
+        const el = document.getElementById('core-last-success');
+        el.textContent = `Last successful POST: ${timeAgo(lastSuccess)}`;
+        el.className = `time-ago${h.poster?.minutesSinceSuccess > 15 ? ' stale' : ''}`;
+
+        // Checkpoint info
+        if (h.checkpoint) {
+          const cp = h.checkpoint;
+          const parts = ['building', 'client', 'asset', 'contact', 'gateDevice']
+            .filter(k => cp[k] && cp[k] !== '2000-01-01T00:00:00Z')
+            .map(k => `${k}: ${timeAgo(cp[k])}`);
+          document.getElementById('core-checkpoint').textContent =
+            parts.length > 0 ? `Last polls: ${parts.join(' | ')}` : 'No polls yet';
+        }
+      }
+
+      if (pm2) {
+        document.getElementById('core-memory').textContent = formatMemory(pm2.memory);
+        document.getElementById('core-restarts').textContent = formatNumber(pm2.restarts);
+        document.getElementById('core-pid').textContent = pm2.pid || '--';
+      }
+    }
+
+    async function refresh() {
+      try {
+        const resp = await fetch('/api/status');
+        const data = await resp.json();
+
+        updateAmiBridge(data.bridges['ami-bridge']);
+        updateCoreBridge(data.bridges['core-sync-bridge']);
+      } catch (err) {
+        console.error('Status fetch error:', err);
+      }
+    }
+
+    // ── Actions ─────────────────────────────────────────
+
+    async function bridgeAction(bridge, action) {
+      const label = `${action} ${bridge}`;
+      try {
+        const resp = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bridge, action }),
+        });
+        const result = await resp.json();
+        showToast(result.ok ? `${label}: OK` : `${label}: ${result.error}`, result.ok ? 'success' : 'error');
+        setTimeout(refresh, 1500);
+      } catch (err) {
+        showToast(`${label}: ${err.message}`, 'error');
+      }
+    }
+
+    // ── Logs ────────────────────────────────────────────
+
+    function switchLog(bridge, type, tabEl) {
+      currentLogBridge = bridge;
+      currentLogType = type;
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tabEl.classList.add('active');
+      refreshLogs();
+    }
+
+    async function refreshLogs() {
+      try {
+        const resp = await fetch(`/api/logs?bridge=${currentLogBridge}&type=${currentLogType}`);
+        const text = await resp.text();
+        const viewer = document.getElementById('log-viewer');
+
+        // Color code log lines
+        viewer.innerHTML = text.split('\n').map(line => {
+          if (line.includes('[ERROR]')) return `<span class="log-error">${escapeHtml(line)}</span>`;
+          if (line.includes('[WARN')) return `<span class="log-warn">${escapeHtml(line)}</span>`;
+          if (line.includes('[INFO')) return `<span class="log-info">${escapeHtml(line)}</span>`;
+          return escapeHtml(line);
+        }).join('\n');
+
+        // Auto-scroll to bottom
+        viewer.scrollTop = viewer.scrollHeight;
+      } catch (err) {
+        document.getElementById('log-viewer').textContent = `Error loading logs: ${err.message}`;
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // ── Toast ───────────────────────────────────────────
+
+    function showToast(msg, type = 'success') {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.className = `toast show ${type}`;
+      setTimeout(() => { toast.className = 'toast'; }, 3000);
+    }
+
+    // ── Clock ───────────────────────────────────────────
+
+    function updateClock() {
+      document.getElementById('clock').textContent = new Date().toLocaleTimeString();
+    }
+
+    // ── Init ────────────────────────────────────────────
+
+    refresh();
+    refreshLogs();
+    setInterval(refresh, 5000);
+    setInterval(refreshLogs, 10000);
+    setInterval(updateClock, 1000);
+    updateClock();
+  </script>
+</body>
+</html>

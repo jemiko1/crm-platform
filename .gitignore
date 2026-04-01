@@ -11,6 +11,8 @@ backend/.env
 backend/crm-backend/.env
 frontend/crm-frontend/.env.local
 core-sync-bridge/.env
+ami-bridge/.env
+bridge-monitor/.env
 
 # Build outputs
 dist/
@@ -76,6 +78,12 @@ backups/*.bundle
 
 # Bug report video uploads
 uploads/
+
+# Screenshots and temp images
+bridge-monitor-*.png
+
+# Playwright MCP
+.playwright-mcp/
 
 # Local MCP config (may contain paths or secrets)
 .mcp.json

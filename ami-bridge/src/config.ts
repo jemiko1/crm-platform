@@ -44,6 +44,7 @@ export const config = {
     maxSize: optionalInt("BUFFER_MAX_SIZE", 20),
     flushIntervalMs: optionalInt("BUFFER_FLUSH_INTERVAL_MS", 3000),
   },
+  healthPort: optionalInt("HEALTH_PORT", 3100),
   logLevel: optional("LOG_LEVEL", "INFO"),
 } as const;
 

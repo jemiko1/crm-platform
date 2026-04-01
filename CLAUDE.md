@@ -13,12 +13,13 @@ Manages buildings, residents, work orders, incidents, sales leads, inventory, te
 - **Frontend**: Next.js 16 App Router, React 19 — `frontend/crm-frontend/`, port 4002, `pnpm dev --port 4002`
 - **Database**: PostgreSQL 16 via Prisma 7 ORM in Docker (`crm-prod-db`, port 5433)
 - **Real-time**: Socket.IO — namespaces: `/messenger`, `/telephony`, `/ws/clientchats`
-- **Telephony**: Asterisk/FreePBX 16 + AMI Bridge (`ami-bridge/`, separate VM) + Electron softphone (`crm-phone/`)
+- **Telephony**: Asterisk/FreePBX 16 + AMI Bridge (`ami-bridge/`, VM 192.168.65.110, port 3100 health) + Electron softphone (`crm-phone/`)
 - **Auth**: JWT in httpOnly cookie (`access_token`), Passport, 24h expiry
 - **AI**: OpenAI GPT-4o + Whisper (call quality reviews)
 - **Chat Channels**: Viber, Facebook, Telegram, WebChat (WhatsApp planned) — adapter pattern
 - **CSS**: Tailwind CSS v4 (PostCSS plugin, theme in `globals.css`, NO `tailwind.config` file)
-- **Core Sync**: One-way sync from legacy MySQL → CRM via webhook bridge (`core-sync-bridge/`, VM 192.168.65.110). See `docs/CORE_INTEGRATION.md`
+- **Core Sync**: One-way sync from legacy MySQL → CRM via webhook bridge (`core-sync-bridge/`, VM 192.168.65.110, port 3101 health). See `docs/CORE_INTEGRATION.md`
+- **Bridge Monitor**: Dashboard for both bridges (`bridge-monitor/`, VM 192.168.65.110, port 3200). See `docs/BRIDGE_MONITOR.md`
 - **CI/CD**: GitHub Actions → Railway (auto-deploy from master). **Planned migration to local VM** for performance.
 - **Deployment**: Railway auto-deploys on master merge. Build: `pnpm install && pnpm build`. Start: `prisma migrate deploy && seed-permissions && node dist/main`
 
@@ -264,14 +265,15 @@ When working as a subagent, read this file first. Key rules:
 
 **Frontend (.env.local):** NEXT_PUBLIC_API_BASE (default http://localhost:3000), API_BACKEND_URL
 
+**AMI Bridge (.env on VM):** AMI_HOST, AMI_PORT, AMI_USER, AMI_SECRET, CRM_BASE_URL, TELEPHONY_INGEST_SECRET, BUFFER_MAX_SIZE, BUFFER_FLUSH_INTERVAL_MS, HEALTH_PORT, LOG_LEVEL
+
 **Core Sync Bridge (.env on VM):** CORE_MYSQL_HOST, CORE_MYSQL_PORT, CORE_MYSQL_USER, CORE_MYSQL_PASSWORD, CORE_MYSQL_DATABASE, CRM_WEBHOOK_URL, CRM_WEBHOOK_SECRET, POLL_INTERVAL_MINUTES, COUNT_CHECK_INTERVAL_MINUTES, NIGHTLY_REPAIR_HOUR, LOG_LEVEL
 
 ### Remote Access
 | Server | Access | VPN Required |
 |--------|--------|-------------|
 | Asterisk/FreePBX | `ssh asterisk` | Yes |
-| AMI Bridge (Windows VM) | Via Asterisk network | Yes |
-| Core Sync Bridge VM | `ssh -i ~/.ssh/id_ed25519_vm Administrator@192.168.65.110` | Yes |
+| Bridge VM (192.168.65.110) | `ssh -i ~/.ssh/id_ed25519_vm Administrator@192.168.65.110` | Yes |
 | Core MySQL (READ-ONLY) | 192.168.65.97:3306, user `asg_tablau`, db `tttt` | Yes (via VM only) |
 | Railway (production) | `railway logs`, `railway status` | No |
 | Production DB | `railway connect postgres` or `railway variables -s Postgres` for public URL | No |
@@ -279,6 +281,21 @@ When working as a subagent, read this file first. Key rules:
 OpenVPN is always-on (TAP adapter). If Asterisk SSH times out, check OpenVPN GUI.
 
 `psql` is NOT installed locally. Use `npx prisma studio` or `docker exec -it crm-prod-db psql -U postgres`.
+
+### VM Infrastructure (192.168.65.110)
+Windows Server running three services under PM2:
+
+| Service | Path on VM | Health Port | Description |
+|---------|-----------|-------------|-------------|
+| AMI Bridge | `C:\ami-bridge\` | 3100 | Asterisk AMI → CRM events |
+| Core Sync Bridge | `C:\core-sync-bridge\` | 3101 | Core MySQL → CRM sync |
+| Bridge Monitor | `C:\bridge-monitor\` | 3200 | Dashboard for both bridges |
+
+- **Deploy**: `.\deploy-bridges.ps1 -Component all|ami|core|monitor` from repo root
+- **Dashboard**: `http://192.168.65.110:3200` (VPN required)
+- **SSH tunnel**: AMI bridge reaches Asterisk (5.10.34.153:5038) via SSH tunnel on VM — port 5038 blocked at network level
+- **PM2 persistence**: Windows Scheduled Tasks "PM2 Keeper" + "PM2 Resurrect" keep PM2 alive across reboots/SSH disconnects
+- **Docs**: `docs/AMI_BRIDGE.md`, `docs/BRIDGE_MONITOR.md`, `docs/CORE_INTEGRATION.md`
 
 ---
 
@@ -325,3 +342,5 @@ When building access-controlled features: add to seed-permissions.ts → backend
 - docs/TELEPHONY_INTEGRATION.md — full telephony architecture
 - docs/LOCAL_DEVELOPMENT.md — troubleshooting, health checks, Prisma enum workaround
 - docs/CORE_INTEGRATION.md — core MySQL → CRM sync architecture, field mappings, bridge operations, troubleshooting
+- docs/AMI_BRIDGE.md — AMI bridge architecture, deployment, troubleshooting, network topology
+- docs/BRIDGE_MONITOR.md — bridge monitor dashboard, API, deployment
