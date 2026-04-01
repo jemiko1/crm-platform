@@ -23,6 +23,7 @@ interface CallState {
   answered: boolean;
   recordingFile: string | null;
   recordingStarted: boolean;
+  createdAt: number;
 }
 
 const AMI_EVENTS_OF_INTEREST = new Set([
@@ -82,6 +83,18 @@ export class EventMapper {
     return this.calls.size;
   }
 
+  purgeStale(maxAgeMs: number): number {
+    const cutoff = Date.now() - maxAgeMs;
+    let purged = 0;
+    for (const [linkedId, state] of this.calls) {
+      if (state.createdAt < cutoff) {
+        this.calls.delete(linkedId);
+        purged++;
+      }
+    }
+    return purged;
+  }
+
   // ── Event Handlers ──────────────────────────────────────
 
   private onNewchannel(evt: AmiEvent, linkedId: string): CrmEvent[] {
@@ -93,6 +106,7 @@ export class EventMapper {
       answered: false,
       recordingFile: null,
       recordingStarted: false,
+      createdAt: Date.now(),
     });
 
     log.debug(`call_start: ${linkedId}, caller=${evt.CallerIDNum}`);

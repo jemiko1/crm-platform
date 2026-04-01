@@ -3,6 +3,7 @@ import { AmiClient, AmiEvent } from "./ami-client";
 import { EventMapper } from "./event-mapper";
 import { EventBuffer } from "./event-buffer";
 import { CrmPoster } from "./crm-poster";
+import { startHealthServer } from "./health-server";
 import { createLogger } from "./logger";
 
 const log = createLogger("Main");
@@ -58,7 +59,23 @@ async function main(): Promise<void> {
     log.warn("AMI disconnected — will reconnect automatically");
   });
 
+  // Health endpoint
+  const healthServer = startHealthServer(config.healthPort, () => {
+    const stats = poster.getStats();
+    return {
+      ami: { connected: ami.isConnected(), activeCalls: mapper.getActiveCallCount() },
+      buffer: { size: buffer.size },
+      poster: {
+        totalPosted: stats.totalPosted,
+        totalErrors: stats.totalErrors,
+        lastSuccessAt: stats.lastSuccessAt?.toISOString() ?? null,
+        minutesSinceSuccess: stats.minutesSinceSuccess,
+      },
+    };
+  });
+
   const STALE_INGEST_THRESHOLD_MINS = 5;
+  const STALE_CALL_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
 
   const statusInterval = setInterval(() => {
     const stats = poster.getStats();
@@ -73,12 +90,17 @@ async function main(): Promise<void> {
           `Check CRM backend health or TELEPHONY_INGEST_SECRET mismatch.`,
       );
     }
+    const purged = mapper.purgeStale(STALE_CALL_TTL_MS);
+    if (purged > 0) {
+      log.warn(`Purged ${purged} stale call(s) older than 4 hours (missed Hangup)`);
+    }
   }, 60_000);
 
   // Graceful shutdown
   async function shutdown(signal: string): Promise<void> {
     log.info(`${signal} received, shutting down...`);
     clearInterval(statusInterval);
+    healthServer.close();
     buffer.stop();
 
     try {

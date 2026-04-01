@@ -8,6 +8,7 @@ const MAX_QUEUE_LIMIT = 5000;
 export class EventBuffer {
   private queue: CrmEvent[] = [];
   private timer: ReturnType<typeof setInterval> | null = null;
+  private flushing = false;
 
   constructor(
     private readonly maxSize: number,
@@ -58,7 +59,8 @@ export class EventBuffer {
   }
 
   private async flush(): Promise<void> {
-    if (this.queue.length === 0) return;
+    if (this.flushing || this.queue.length === 0) return;
+    this.flushing = true;
 
     const batch = this.queue.splice(0);
     log.info(`Flushing ${batch.length} event(s) to CRM`);
@@ -68,6 +70,8 @@ export class EventBuffer {
     } catch (err: any) {
       log.error(`Flush failed, re-queuing ${batch.length} event(s): ${err.message}`);
       this.queue.unshift(...batch);
+    } finally {
+      this.flushing = false;
     }
   }
 }
