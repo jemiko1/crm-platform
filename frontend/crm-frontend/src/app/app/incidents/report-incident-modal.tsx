@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useListItems } from "@/hooks/useListItems";
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGetList, apiPost } from "@/lib/api";
 
 const BRAND = "rgb(0, 86, 83)";
 
@@ -169,7 +169,16 @@ export default function ReportIncidentModal({
     }
   }, [open, isClientLocked, presetClient, isBuildingLocked, presetBuilding]);
 
-  // Fetch buildings on open
+  // Debounced building search state
+  const [debouncedBuildingSearch, setDebouncedBuildingSearch] = useState("");
+
+  useEffect(() => {
+    if (!open) return;
+    const timer = setTimeout(() => setDebouncedBuildingSearch(buildingSearch), 300);
+    return () => clearTimeout(timer);
+  }, [buildingSearch, open]);
+
+  // Fetch buildings: restricted mode loads once, normal mode uses server-side search
   useEffect(() => {
     if (!open) return;
 
@@ -177,19 +186,28 @@ export default function ReportIncidentModal({
 
     async function loadBuildings() {
       try {
-        const data = await apiGet<Building[]>("/v1/buildings");
-        const all: Building[] = Array.isArray(data) ? data : [];
+        let results: Building[];
 
-        const filtered = hasBuildingRestriction
-          ? all.filter((b) => allowedBuildingSet.has(Number(b.coreId)))
-          : all;
+        if (hasBuildingRestriction) {
+          // Client-locked: fetch all allowed buildings (usually 1-5)
+          const all = await apiGetList<Building>("/v1/buildings?pageSize=100");
+          results = all.filter((b) => allowedBuildingSet.has(Number(b.coreId)));
+        } else {
+          // Normal mode: server-side search
+          const params = new URLSearchParams();
+          params.set("pageSize", "10");
+          if (debouncedBuildingSearch.trim()) {
+            params.set("search", debouncedBuildingSearch.trim());
+          }
+          results = await apiGetList<Building>(`/v1/buildings?${params}`);
+        }
 
         if (!alive) return;
-        setBuildings(filtered);
+        setBuildings(results);
 
         // If client-locked and only 1 allowed building => auto-select and skip to products
-        if (isClientLocked && filtered.length === 1) {
-          const only = filtered[0];
+        if (isClientLocked && results.length === 1) {
+          const only = results[0];
           setSelectedBuilding(only);
           setBuildingSearch(`${only.name} - ${only.city}`);
           setFormData((prev) => ({ ...prev, buildingId: only.coreId }));
@@ -206,7 +224,7 @@ export default function ReportIncidentModal({
     return () => {
       alive = false;
     };
-  }, [open, hasBuildingRestriction, allowedBuildingSet, isClientLocked]);
+  }, [open, hasBuildingRestriction, allowedBuildingSet, isClientLocked, debouncedBuildingSearch]);
 
   // Fetch clients when building selected (only when client is NOT locked)
   useEffect(() => {
@@ -218,9 +236,9 @@ export default function ReportIncidentModal({
 
     async function loadClients() {
       try {
-        const data = await apiGet<Client[]>(`/v1/buildings/${b.coreId}/clients`);
+        const clients = await apiGetList<Client>(`/v1/buildings/${b.coreId}/clients?pageSize=100`);
         if (!alive) return;
-        setBuildingClients(Array.isArray(data) ? data : []);
+        setBuildingClients(clients);
       } catch (e) {
         if (!alive) return;
         console.error("Failed to load clients:", e);
@@ -243,9 +261,9 @@ export default function ReportIncidentModal({
 
     async function loadAssets() {
       try {
-        const data = await apiGet<Asset[]>(`/v1/buildings/${b.coreId}/assets`);
+        const assets = await apiGetList<Asset>(`/v1/buildings/${b.coreId}/assets?pageSize=100`);
         if (!alive) return;
-        setBuildingAssets(Array.isArray(data) ? data : []);
+        setBuildingAssets(assets);
       } catch (e) {
         if (!alive) return;
         console.error("Failed to load assets:", e);
@@ -259,7 +277,11 @@ export default function ReportIncidentModal({
     };
   }, [selectedBuilding]);
 
+  // In normal mode, buildings are already server-side filtered.
+  // In restricted mode, do client-side filtering on the small allowed set.
   const filteredBuildings = useMemo(() => {
+    if (!hasBuildingRestriction) return buildings.slice(0, 10);
+
     const query = buildingSearch.trim().toLowerCase();
     if (!query) return buildings.slice(0, 10);
 
@@ -272,7 +294,7 @@ export default function ReportIncidentModal({
         return name.includes(query) || address.includes(query) || city.includes(query) || id.includes(query);
       })
       .slice(0, 10);
-  }, [buildings, buildingSearch]);
+  }, [buildings, buildingSearch, hasBuildingRestriction]);
 
   const filteredClients = useMemo(() => {
     const query = clientSearch.trim().toLowerCase();

@@ -323,11 +323,11 @@ function BuildingsPageContent() {
                         <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.building", "Building")}</th>
                         <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.branch", "Branch")}</th>
                         <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.status", "Status")}</th>
-                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.source", "Source")}</th>
                         <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.clients", "Clients")}</th>
                         <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.devices", "Devices")}</th>
                         <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.workOrders", "Work Orders")}</th>
                         <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.lastUpdate", "Last Update")}</th>
+                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.source", "Source")}</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white">
@@ -387,25 +387,12 @@ function BuildingsPageContent() {
                                 )}
                               </td>
 
-                              {/* Status (Active/Inactive) */}
+                              {/* Status (dot only) */}
                               <td className="px-2 py-2 align-middle md:px-4 md:py-4">
-                                <span className="inline-flex items-center gap-1.5">
-                                  <span className={`h-2 w-2 rounded-full ${isActive ? "bg-emerald-500" : "bg-red-400"}`} />
-                                  <span className={`text-xs font-medium ${isActive ? "text-emerald-700" : "text-red-600"}`}>
-                                    {isActive ? t("common.active", "Active") : t("common.inactive", "Inactive")}
-                                  </span>
-                                </span>
-                              </td>
-
-                              {/* Source */}
-                              <td className="px-2 py-2 align-middle md:px-4 md:py-4">
-                                <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${
-                                  b.source === "core"
-                                    ? "bg-sky-50 text-sky-700 ring-sky-200"
-                                    : "bg-amber-50 text-amber-700 ring-amber-200"
-                                }`}>
-                                  {b.source === "core" ? t("buildings.sourceCore", "Core Sync") : t("buildings.sourceManual", "Manual")}
-                                </span>
+                                <span
+                                  className={`inline-block h-2.5 w-2.5 rounded-full ${isActive ? "bg-emerald-500" : "bg-red-400"}`}
+                                  title={isActive ? t("common.active", "Active") : t("common.inactive", "Inactive")}
+                                />
                               </td>
 
                               {/* Clients */}
@@ -484,6 +471,17 @@ function BuildingsPageContent() {
                                   </div>
                                   <div className="mt-0.5 text-[12px] leading-snug text-zinc-500 md:mt-1 md:text-xs">{t("buildings.latestSync", "latest core sync")}</div>
                                 </button>
+                              </td>
+
+                              {/* Source */}
+                              <td className="px-2 py-2 align-middle md:px-4 md:py-4">
+                                <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${
+                                  b.source === "core"
+                                    ? "bg-sky-50 text-sky-700 ring-sky-200"
+                                    : "bg-amber-50 text-amber-700 ring-amber-200"
+                                }`}>
+                                  {b.source === "core" ? t("buildings.sourceCore", "Core Sync") : t("buildings.sourceManual", "Manual")}
+                                </span>
                               </td>
                             </tr>
                           );
