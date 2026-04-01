@@ -11,6 +11,11 @@ const BRAND = "rgb(0, 86, 83)";
 type ClientBuildingRef = {
   coreId: number;
   name: string;
+  paymentId: string | null;
+  balance: number | null;
+  apartmentNumber: string | null;
+  entranceNumber: string | null;
+  floorNumber: string | null;
 };
 
 type Client = {

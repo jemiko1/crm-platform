@@ -18,10 +18,14 @@ export class BuildingsController {
     queries: [
       { name: "page", description: "Page number (1-based)" },
       { name: "pageSize", description: "Page size" },
+      { name: "search", description: "Search by name, address, city, or core ID" },
     ],
   })
-  list(@Query() pagination: PaginationDto) {
-    return this.buildingsService.list(pagination.page, pagination.pageSize);
+  list(
+    @Query() pagination: PaginationDto,
+    @Query("search") search?: string,
+  ) {
+    return this.buildingsService.list(pagination.page, pagination.pageSize, search);
   }
 
   @Get("statistics/summary")
