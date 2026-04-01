@@ -75,6 +75,7 @@ async function main(): Promise<void> {
   });
 
   const STALE_INGEST_THRESHOLD_MINS = 5;
+  const STALE_CALL_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
 
   const statusInterval = setInterval(() => {
     const stats = poster.getStats();
@@ -88,6 +89,10 @@ async function main(): Promise<void> {
         `ALERT: No successful CRM ingest for ${stats.minutesSinceSuccess} minute(s). ` +
           `Check CRM backend health or TELEPHONY_INGEST_SECRET mismatch.`,
       );
+    }
+    const purged = mapper.purgeStale(STALE_CALL_TTL_MS);
+    if (purged > 0) {
+      log.warn(`Purged ${purged} stale call(s) older than 4 hours (missed Hangup)`);
     }
   }, 60_000);
 
