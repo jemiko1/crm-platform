@@ -1,0 +1,25 @@
+{
+  "name": "core-sync-bridge",
+  "version": "1.0.0",
+  "description": "Core MySQL to CRM sync bridge — reads core DB (READ-ONLY), pushes changes to CRM webhook",
+  "private": true,
+  "scripts": {
+    "start": "node dist/main.js",
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "bulk-load": "tsx src/bulk-loader.ts"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "mysql2": "^3.11.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
