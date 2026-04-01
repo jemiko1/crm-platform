@@ -142,11 +142,23 @@ export class BuildingsService {
     });
   }
 
-  async list(page = 1, pageSize = 20) {
+  async list(page = 1, pageSize = 20, search?: string) {
     const { skip, take } = paginate(page, pageSize);
+
+    const where = search?.trim()
+      ? {
+          OR: [
+            { name: { contains: search.trim(), mode: 'insensitive' as const } },
+            { address: { contains: search.trim(), mode: 'insensitive' as const } },
+            { city: { contains: search.trim(), mode: 'insensitive' as const } },
+            ...(/^\d+$/.test(search.trim()) ? [{ coreId: parseInt(search.trim(), 10) }] : []),
+          ],
+        }
+      : {};
 
     const [buildings, total] = await Promise.all([
       this.prisma.building.findMany({
+        where,
         orderBy: { coreId: "asc" },
         include: {
           _count: { select: { clientBuildings: true, assets: true, workOrders: true } },
@@ -154,7 +166,7 @@ export class BuildingsService {
         skip,
         take,
       }),
-      this.prisma.building.count(),
+      this.prisma.building.count({ where }),
     ]);
 
     const buildingIds = buildings.map((b) => b.id);
@@ -179,6 +191,9 @@ export class BuildingsService {
       name: b.name,
       city: b.city,
       address: b.address,
+      branchId: b.branchId,
+      disableCrons: b.disableCrons,
+      source: b.lastSyncedAt ? "core" : "manual",
       clientCount: b._count.clientBuildings,
       workOrderCount: b._count.workOrders,
       products: countsByBuilding.get(b.id) ?? {},

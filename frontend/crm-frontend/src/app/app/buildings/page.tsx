@@ -1,9 +1,8 @@
 "use client";
 
-import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import React, { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { apiGet, apiGetList } from "@/lib/api";
+import { apiGet, apiGetPaginated } from "@/lib/api";
 import AddBuildingModal from "./add-building-modal";
 import BuildingStatistics from "./building-statistics";
 import { PermissionGuard } from "@/lib/permission-guard";
@@ -16,6 +15,9 @@ type Building = {
   name: string;
   address: string;
   city: string;
+  branchId: number | null;
+  disableCrons: boolean;
+  source: "core" | "manual";
   clientCount: number;
   workOrderCount: number;
   products: Record<string, number>;
@@ -45,10 +47,19 @@ type BuildingRow = {
   name: string;
   address: string;
   city: string;
+  branchId: number | null;
+  disableCrons: boolean;
+  source: "core" | "manual";
   clientCount: number;
   products: BuildingProductCounts;
   openWorkOrders: number;
   updatedAt: string;
+};
+
+const BRANCH_MAP: Record<number, { label: string; color: string; bg: string; ring: string }> = {
+  162: { label: "ASG", color: "text-teal-800", bg: "bg-teal-50", ring: "ring-teal-200" },
+  285898: { label: "Benec", color: "text-zinc-700", bg: "bg-zinc-50", ring: "ring-zinc-200" },
+  1963171: { label: "გაუქმებული", color: "text-red-700", bg: "bg-red-50", ring: "ring-red-200" },
 };
 
 const BRAND = "rgb(0, 86, 83)";
@@ -121,16 +132,19 @@ function BuildingsPageContent() {
   const searchParams = useSearchParams();
   const { hasPermission } = usePermissions();
   const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [buildings, setBuildings] = useState<BuildingRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [statistics, setStatistics] = useState<StatisticsData | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [statsError, setStatsError] = useState<string | null>(null);
 
-  const pageSize = 10;
+  const pageSize = 20;
 
   const { openModal } = useModalContext();
 
@@ -138,7 +152,16 @@ function BuildingsPageContent() {
     openModal("building", String(buildingId));
   }
 
-  // Fetch buildings from API
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQ(q);
+      setPage(1);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [q]);
+
+  // Fetch buildings from API (server-side pagination + search)
   useEffect(() => {
     let cancelled = false;
 
@@ -147,20 +170,30 @@ function BuildingsPageContent() {
         setLoading(true);
         setError(null);
 
-        const list = await apiGetList<Building>("/v1/buildings");
+        const params = new URLSearchParams();
+        params.set("page", String(page));
+        params.set("pageSize", String(pageSize));
+        if (debouncedQ.trim()) params.set("search", debouncedQ.trim());
+
+        const result = await apiGetPaginated<Building>(`/v1/buildings?${params}`);
 
         if (!cancelled) {
-          const rows: BuildingRow[] = list.map((b) => ({
+          const rows: BuildingRow[] = result.data.map((b) => ({
             coreId: b.coreId,
             name: b.name,
             address: b.address,
             city: b.city,
+            branchId: b.branchId,
+            disableCrons: b.disableCrons,
+            source: b.source,
             clientCount: b.clientCount,
             products: normalizeProductCounts(b.products),
             openWorkOrders: b.workOrderCount,
             updatedAt: b.updatedAt,
           }));
           setBuildings(rows);
+          setTotal(result.meta.total);
+          setTotalPages(result.meta.totalPages);
         }
       } catch (err) {
         if (!cancelled) {
@@ -178,7 +211,7 @@ function BuildingsPageContent() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [page, debouncedQ]);
 
   // Fetch statistics
   const fetchStatistics = useCallback(() => {
@@ -203,22 +236,8 @@ function BuildingsPageContent() {
     fetchStatistics();
   }, [fetchStatistics]);
 
-  const filtered = useMemo(() => {
-    const query = q.trim().toLowerCase();
-    return buildings
-      .filter((b) => {
-        if (!query) return true;
-        const hay = [b.coreId.toString(), b.name, b.address, b.city ?? ""]
-          .join(" ")
-          .toLowerCase();
-        return hay.includes(query);
-      })
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-  }, [buildings, q]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages);
-  const paged = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const paged = buildings;
 
   return (
     <PermissionGuard permission="buildings.menu">
@@ -280,10 +299,7 @@ function BuildingsPageContent() {
               <div className="mb-3 flex flex-col gap-2 md:mb-4 md:flex-row md:flex-wrap md:items-center md:justify-between md:gap-4">
                 <input
                   value={q}
-                  onChange={(e) => {
-                    setQ(e.target.value);
-                    setPage(1);
-                  }}
+                  onChange={(e) => setQ(e.target.value)}
                   placeholder={t("buildings.searchPlaceholder", "Search by ID, name, address, city...")}
                   className="min-w-0 w-full rounded-lg bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-sm ring-2 ring-teal-500/40 border border-teal-500/30 hover:ring-teal-500/60 hover:border-teal-500/50 focus:outline-none focus:ring-2 focus:ring-teal-500/70 focus:border-teal-500/60 transition-all md:max-w-md md:flex-1 md:rounded-2xl md:px-4 md:py-2.5 md:shadow-md"
                 />
@@ -301,10 +317,13 @@ function BuildingsPageContent() {
 
               <div className="overflow-x-auto overflow-y-visible rounded-none ring-0 md:overflow-clip md:rounded-2xl md:ring-1 md:ring-zinc-200">
                 <div>
-                  <table className="min-w-[980px] w-full border-separate border-spacing-0">
+                  <table className="min-w-[1180px] w-full border-separate border-spacing-0">
                     <thead className="bg-zinc-50 relative z-10 shadow-[0_1px_0_rgba(0,0,0,0.08)] md:sticky md:top-[52px] md:z-20">
                       <tr className="text-left text-[11px] text-zinc-600 md:text-xs">
                         <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.building", "Building")}</th>
+                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.branch", "Branch")}</th>
+                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.status", "Status")}</th>
+                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.source", "Source")}</th>
                         <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.clients", "Clients")}</th>
                         <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.devices", "Devices")}</th>
                         <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.workOrders", "Work Orders")}</th>
@@ -314,8 +333,8 @@ function BuildingsPageContent() {
                     <tbody className="bg-white">
                       {paged.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="px-4 py-10 text-center text-sm text-zinc-600">
-                            {filtered.length === 0 && buildings.length > 0
+                          <td colSpan={8} className="px-4 py-10 text-center text-sm text-zinc-600">
+                            {debouncedQ.trim()
                               ? t("buildings.noMatch", "No buildings match your search.")
                               : t("buildings.noBuildings", "No buildings found. Click 'Add Building' to create one.")}
                           </td>
@@ -324,6 +343,8 @@ function BuildingsPageContent() {
                         paged.map((b, index) => {
                           const open = b.openWorkOrders ?? 0;
                           const isLast = index === paged.length - 1;
+                          const branch = b.branchId != null ? BRANCH_MAP[b.branchId] : null;
+                          const isActive = !b.disableCrons;
                           return (
                             <tr
                               key={b.coreId}
@@ -353,6 +374,38 @@ function BuildingsPageContent() {
                                     </div>
                                   </div>
                                 </button>
+                              </td>
+
+                              {/* Branch */}
+                              <td className="px-2 py-2 align-middle md:px-4 md:py-4">
+                                {branch ? (
+                                  <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${branch.bg} ${branch.color} ${branch.ring}`}>
+                                    {branch.label}
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-zinc-400">—</span>
+                                )}
+                              </td>
+
+                              {/* Status (Active/Inactive) */}
+                              <td className="px-2 py-2 align-middle md:px-4 md:py-4">
+                                <span className="inline-flex items-center gap-1.5">
+                                  <span className={`h-2 w-2 rounded-full ${isActive ? "bg-emerald-500" : "bg-red-400"}`} />
+                                  <span className={`text-xs font-medium ${isActive ? "text-emerald-700" : "text-red-600"}`}>
+                                    {isActive ? t("common.active", "Active") : t("common.inactive", "Inactive")}
+                                  </span>
+                                </span>
+                              </td>
+
+                              {/* Source */}
+                              <td className="px-2 py-2 align-middle md:px-4 md:py-4">
+                                <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${
+                                  b.source === "core"
+                                    ? "bg-sky-50 text-sky-700 ring-sky-200"
+                                    : "bg-amber-50 text-amber-700 ring-amber-200"
+                                }`}>
+                                  {b.source === "core" ? t("buildings.sourceCore", "Core Sync") : t("buildings.sourceManual", "Manual")}
+                                </span>
                               </td>
 
                               {/* Clients */}
@@ -442,11 +495,12 @@ function BuildingsPageContent() {
               </div>
 
               {/* Pagination */}
-              {filtered.length > 0 && (
+              {total > 0 && (
                 <div className="mt-3 flex flex-col gap-2 pb-1 md:mt-5 md:flex-row md:items-center md:justify-between md:gap-3">
                   <div className="text-[11px] text-zinc-600 md:text-xs">
                     {t("common.page", "Page")} <span className="font-semibold text-zinc-900">{safePage}</span> {t("common.of", "of")}{" "}
                     <span className="font-semibold text-zinc-900">{totalPages}</span>
+                    <span className="ml-2 text-zinc-400">({total} {t("common.total", "total")})</span>
                   </div>
                   <div className="flex items-center gap-1.5 md:gap-2">
                     <button

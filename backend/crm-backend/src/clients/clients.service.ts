@@ -57,6 +57,11 @@ export class ClientsService {
         clientBuildings: {
           select: {
             building: { select: { coreId: true, name: true } },
+            paymentId: true,
+            balance: true,
+            apartmentNumber: true,
+            entranceNumber: true,
+            floorNumber: true,
           },
         },
       },
@@ -76,6 +81,11 @@ export class ClientsService {
       buildings: client.clientBuildings.map((cb) => ({
         coreId: cb.building.coreId,
         name: cb.building.name,
+        paymentId: cb.paymentId,
+        balance: cb.balance,
+        apartmentNumber: cb.apartmentNumber,
+        entranceNumber: cb.entranceNumber,
+        floorNumber: cb.floorNumber,
       })),
     };
   }
@@ -160,6 +170,8 @@ export class ClientsService {
             { primaryPhone: { contains: search.trim() } },
             { secondaryPhone: { contains: search.trim() } },
             { idNumber: { contains: search.trim(), mode: 'insensitive' as const } },
+            { paymentId: { contains: search.trim(), mode: 'insensitive' as const } },
+            ...(/^\d+$/.test(search.trim()) ? [{ coreId: parseInt(search.trim(), 10) }] : []),
           ],
         }
       : { isActive: true };
@@ -177,6 +189,7 @@ export class ClientsService {
       clientBuildings: {
         select: {
           building: { select: { coreId: true, name: true } },
+          balance: true,
         },
       },
     } as const;
@@ -206,8 +219,78 @@ export class ClientsService {
         coreId: cb.building.coreId,
         name: cb.building.name,
       })),
+      consolidatedBalance: c.clientBuildings.reduce((sum, cb) => sum + (cb.balance ?? 0), 0),
     }));
 
     return buildPaginatedResponse(data, total, page, pageSize);
+  }
+
+  async getStatistics() {
+    const clients = await this.prisma.client.findMany({
+      where: { isActive: true },
+      select: { createdAt: true },
+      orderBy: { createdAt: "asc" },
+    });
+
+    if (clients.length === 0) {
+      return {
+        totalClientsCount: 0,
+        currentMonthCount: 0,
+        currentMonthPercentageChange: 0,
+        averagePercentageChange: 0,
+        monthlyBreakdown: {},
+      };
+    }
+
+    const monthlyBreakdown: Record<number, Record<number, number>> = {};
+    clients.forEach((client) => {
+      const date = new Date(client.createdAt);
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1;
+      if (!monthlyBreakdown[year]) monthlyBreakdown[year] = {};
+      if (!monthlyBreakdown[year][month]) monthlyBreakdown[year][month] = 0;
+      monthlyBreakdown[year][month]++;
+    });
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+    const currentMonthCount = monthlyBreakdown[currentYear]?.[currentMonth] ?? 0;
+
+    let lastMonth = currentMonth - 1;
+    let lastMonthYear = currentYear;
+    if (lastMonth === 0) { lastMonth = 12; lastMonthYear = currentYear - 1; }
+    const lastMonthCount = monthlyBreakdown[lastMonthYear]?.[lastMonth] ?? 0;
+
+    let currentMonthPercentageChange = 0;
+    if (lastMonthCount > 0) {
+      currentMonthPercentageChange = ((currentMonthCount - lastMonthCount) / lastMonthCount) * 100;
+    } else if (currentMonthCount > 0) {
+      currentMonthPercentageChange = 100;
+    }
+
+    const allMonthCounts: number[] = [];
+    Object.values(monthlyBreakdown).forEach((yearData) => {
+      Object.values(yearData).forEach((count) => allMonthCounts.push(count));
+    });
+
+    const average = allMonthCounts.length > 0
+      ? allMonthCounts.reduce((sum, count) => sum + count, 0) / allMonthCounts.length
+      : 0;
+
+    let averagePercentageChange = 0;
+    if (average > 0) {
+      averagePercentageChange = ((currentMonthCount - average) / average) * 100;
+    } else if (currentMonthCount > 0) {
+      averagePercentageChange = 100;
+    }
+
+    return {
+      totalClientsCount: clients.length,
+      currentMonthCount,
+      currentMonthPercentageChange: Math.round(currentMonthPercentageChange * 10) / 10,
+      averagePercentageChange: Math.round(averagePercentageChange * 10) / 10,
+      monthlyBreakdown,
+    };
   }
 }
