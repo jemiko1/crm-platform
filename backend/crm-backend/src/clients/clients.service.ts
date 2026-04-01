@@ -161,20 +161,39 @@ export class ClientsService {
   async listDirectory(page = 1, pageSize = 20, search?: string) {
     const { skip, take } = paginate(page, pageSize);
 
-    const where = search?.trim()
-      ? {
-          isActive: true,
-          OR: [
-            { firstName: { contains: search.trim(), mode: 'insensitive' as const } },
-            { lastName: { contains: search.trim(), mode: 'insensitive' as const } },
-            { primaryPhone: { contains: search.trim() } },
-            { secondaryPhone: { contains: search.trim() } },
-            { idNumber: { contains: search.trim(), mode: 'insensitive' as const } },
-            { paymentId: { contains: search.trim(), mode: 'insensitive' as const } },
-            ...(/^\d+$/.test(search.trim()) ? [{ coreId: parseInt(search.trim(), 10) }] : []),
-          ],
-        }
-      : { isActive: true };
+    const q = search?.trim() ?? "";
+    let where: any = { isActive: true };
+
+    if (q) {
+      const parts = q.split(/\s+/).filter(Boolean);
+
+      const singleTermConditions = [
+        { firstName: { contains: q, mode: 'insensitive' as const } },
+        { lastName: { contains: q, mode: 'insensitive' as const } },
+        { primaryPhone: { contains: q } },
+        { secondaryPhone: { contains: q } },
+        { idNumber: { contains: q, mode: 'insensitive' as const } },
+        { paymentId: { contains: q, mode: 'insensitive' as const } },
+        ...(/^\d+$/.test(q) ? [{ coreId: parseInt(q, 10) }] : []),
+      ];
+
+      // Multi-word search: "John Smith" → each word must match firstName or lastName
+      const multiWordCondition = parts.length > 1
+        ? [{
+            AND: parts.map((part) => ({
+              OR: [
+                { firstName: { contains: part, mode: 'insensitive' as const } },
+                { lastName: { contains: part, mode: 'insensitive' as const } },
+              ],
+            })),
+          }]
+        : [];
+
+      where = {
+        isActive: true,
+        OR: [...singleTermConditions, ...multiWordCondition],
+      };
+    }
 
     const select = {
       id: true,
@@ -185,6 +204,8 @@ export class ClientsService {
       paymentId: true,
       primaryPhone: true,
       secondaryPhone: true,
+      createdAt: true,
+      coreCreatedAt: true,
       updatedAt: true,
       clientBuildings: {
         select: {
@@ -197,7 +218,7 @@ export class ClientsService {
     const [rows, total] = await Promise.all([
       this.prisma.client.findMany({
         where,
-        orderBy: [{ updatedAt: "desc" }, { coreId: "asc" }],
+        orderBy: [{ createdAt: "desc" }, { coreId: "desc" }],
         select,
         skip,
         take,
@@ -214,6 +235,7 @@ export class ClientsService {
       paymentId: c.paymentId,
       primaryPhone: c.primaryPhone,
       secondaryPhone: c.secondaryPhone,
+      createdAt: c.coreCreatedAt ?? c.createdAt,
       updatedAt: c.updatedAt,
       buildings: c.clientBuildings.map((cb) => ({
         coreId: cb.building.coreId,
