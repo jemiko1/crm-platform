@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useCallback, useEffect, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet, apiGetPaginated } from "@/lib/api";
 import ClientStatistics from "./client-statistics";
@@ -25,6 +25,7 @@ type ClientRow = {
   primaryPhone: string | null;
   secondaryPhone: string | null;
   consolidatedBalance: number;
+  createdAt: string;
   updatedAt: string;
   buildings: ClientBuildingRef[];
 };
@@ -65,6 +66,8 @@ function ClientsPageContent() {
   const pageSize = 20;
 
   const [loading, setLoading] = useState(true);
+  const [searching, setSearching] = useState(false);
+  const hasLoadedOnce = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<ClientRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -106,7 +109,8 @@ function ClientsPageContent() {
 
     async function load() {
       try {
-        setLoading(true);
+        if (!hasLoadedOnce.current) setLoading(true);
+        else setSearching(true);
         setError(null);
 
         const params = new URLSearchParams();
@@ -126,7 +130,9 @@ function ClientsPageContent() {
         setRows([]);
       } finally {
         if (!alive) return;
+        hasLoadedOnce.current = true;
         setLoading(false);
+        setSearching(false);
       }
     }
 
@@ -194,19 +200,25 @@ function ClientsPageContent() {
             <>
               {/* Search Input - EXACT like Buildings */}
               <div className="mb-3 md:mb-4">
-                <input
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder={t("clients.searchPlaceholder", "Search by name, ID number, payment id, phone, building...")}
-                  className="w-full rounded-lg bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-sm ring-2 ring-teal-500/40 border border-teal-500/30 hover:ring-teal-500/60 hover:border-teal-500/50 focus:outline-none focus:ring-2 focus:ring-teal-500/70 focus:border-teal-500/60 transition-all md:max-w-md md:rounded-2xl md:px-4 md:py-2.5 md:shadow-md"
-                />
+                <div className="relative md:max-w-md">
+                  <input
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    placeholder={t("clients.searchPlaceholder", "Search by name, ID number, payment id, phone, building...")}
+                    className="w-full rounded-lg bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-sm ring-2 ring-teal-500/40 border border-teal-500/30 hover:ring-teal-500/60 hover:border-teal-500/50 focus:outline-none focus:ring-2 focus:ring-teal-500/70 focus:border-teal-500/60 transition-all md:rounded-2xl md:px-4 md:py-2.5 md:shadow-md"
+                  />
+                  {searching && (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin rounded-full border-2 border-teal-500 border-t-transparent" />
+                  )}
+                </div>
               </div>
 
               <div className="overflow-x-auto overflow-y-visible rounded-none ring-0 md:overflow-clip md:rounded-2xl md:ring-1 md:ring-zinc-200">
                 <div>
                   <table className="min-w-[1120px] w-full border-separate border-spacing-0">
                     <colgroup>
-                      <col style={{ width: "300px" }} />
+                      <col style={{ width: "280px" }} />
+                      <col />
                       <col />
                       <col />
                       <col />
@@ -221,6 +233,7 @@ function ClientsPageContent() {
                         </th>
                         <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("clients.columns.phone", "Phone")}</th>
                         <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("clients.columns.buildings", "Buildings")}</th>
+                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("clients.columns.createdOn", "Created On")}</th>
                         <th className="px-2 py-2 font-medium text-right bg-zinc-50 md:px-4 md:py-3">{t("clients.columns.clientId", "Client ID")}</th>
                       </tr>
                     </thead>
@@ -228,7 +241,7 @@ function ClientsPageContent() {
                     <tbody className="bg-white">
                       {paged.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="px-4 py-10 text-center text-sm text-zinc-600">
+                          <td colSpan={6} className="px-4 py-10 text-center text-sm text-zinc-600">
                             {debouncedQ.trim()
                               ? t("clients.noMatch", "No clients match your search.")
                               : t("clients.noClientsFound", "No clients found.")}
@@ -284,6 +297,13 @@ function ClientsPageContent() {
                               {/* Buildings */}
                               <td className="px-2 py-2 align-middle md:px-4 md:py-4">
                                 <BuildingsCell buildings={c.buildings ?? []} />
+                              </td>
+
+                              {/* Created On */}
+                              <td className="px-2 py-2 align-middle md:px-4 md:py-4">
+                                <div className="text-sm leading-snug text-zinc-700 tabular-nums">
+                                  {new Date(c.createdAt).toLocaleDateString()}
+                                </div>
                               </td>
 
                               {/* Client ID */}

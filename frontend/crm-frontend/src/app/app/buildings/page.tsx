@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useCallback, useEffect, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet, apiGetPaginated } from "@/lib/api";
 import AddBuildingModal from "./add-building-modal";
@@ -21,6 +21,7 @@ type Building = {
   clientCount: number;
   workOrderCount: number;
   products: Record<string, number>;
+  createdAt: string;
   updatedAt: string;
 };
 
@@ -53,6 +54,7 @@ type BuildingRow = {
   clientCount: number;
   products: BuildingProductCounts;
   openWorkOrders: number;
+  createdAt: string;
   updatedAt: string;
 };
 
@@ -81,23 +83,43 @@ function formatUtcCompact(iso: string) {
 }
 
 function normalizeProductCounts(products: Record<string, number>): BuildingProductCounts {
+  // Build an uppercase lookup for case-insensitive matching
+  const upper: Record<string, number> = {};
+  for (const [k, v] of Object.entries(products)) {
+    const key = k.toUpperCase();
+    upper[key] = (upper[key] ?? 0) + v;
+  }
+
+  // Map known aliases (core system may send "LIFT" instead of "ELEVATOR")
+  const elevator = (upper.ELEVATOR ?? 0) + (upper.LIFT ?? 0);
+  const entranceDoor = (upper.ENTRANCE_DOOR ?? 0);
+  const intercom = (upper.INTERCOM ?? 0);
+  const smartGsmGate = (upper.SMART_GSM_GATE ?? 0);
+  const smartDoorGsm = (upper.SMART_DOOR_GSM ?? 0);
+  const boomBarrier = (upper.BOOM_BARRIER ?? 0);
+
+  // Sum known types and subtract from total to get OTHER
+  const knownTotal = elevator + entranceDoor + intercom + smartGsmGate + smartDoorGsm + boomBarrier;
+  const totalAll = Object.values(products).reduce((s, v) => s + v, 0);
+  const other = (upper.OTHER ?? 0) + Math.max(0, totalAll - knownTotal - (upper.OTHER ?? 0));
+
   return {
-    ELEVATOR: products.ELEVATOR ?? 0,
-    ENTRANCE_DOOR: products.ENTRANCE_DOOR ?? 0,
-    INTERCOM: products.INTERCOM ?? 0,
-    SMART_GSM_GATE: products.SMART_GSM_GATE ?? 0,
-    SMART_DOOR_GSM: products.SMART_DOOR_GSM ?? 0,
-    BOOM_BARRIER: products.BOOM_BARRIER ?? 0,
-    OTHER: products.OTHER ?? 0,
+    ELEVATOR: elevator,
+    ENTRANCE_DOOR: entranceDoor,
+    INTERCOM: intercom,
+    SMART_GSM_GATE: smartGsmGate,
+    SMART_DOOR_GSM: smartDoorGsm,
+    BOOM_BARRIER: boomBarrier,
+    OTHER: other,
   };
 }
 
 const ProductIcons = React.memo(function ProductIcons({ p }: { p: BuildingProductCounts }) {
   const items = [
-    { key: "ELEVATOR", label: "Elevators", count: p.ELEVATOR, icon: <IconLift /> },
-    { key: "ENTRANCE_DOOR", label: "Entrance Doors", count: p.ENTRANCE_DOOR, icon: <IconDoor /> },
-    { key: "INTERCOM", label: "Intercoms", count: p.INTERCOM, icon: <IconIntercom /> },
-    { key: "SMART_GSM_GATE", label: "Smart GSM Gates", count: p.SMART_GSM_GATE, icon: <IconGate /> },
+    { key: "ELEVATOR", label: "Lift", count: p.ELEVATOR, icon: <IconLift /> },
+    { key: "ENTRANCE_DOOR", label: "Entrance Door", count: p.ENTRANCE_DOOR, icon: <IconDoor /> },
+    { key: "INTERCOM", label: "Intercom", count: p.INTERCOM, icon: <IconIntercom /> },
+    { key: "SMART_GSM_GATE", label: "Smart GSM Gate", count: p.SMART_GSM_GATE, icon: <IconGate /> },
     { key: "SMART_DOOR_GSM", label: "Smart Door GSM", count: p.SMART_DOOR_GSM, icon: <IconSmartDoor /> },
   ];
 
@@ -135,6 +157,8 @@ function BuildingsPageContent() {
   const [debouncedQ, setDebouncedQ] = useState("");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [searching, setSearching] = useState(false);
+  const hasLoadedOnce = useRef(false);
   const [buildings, setBuildings] = useState<BuildingRow[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -167,7 +191,8 @@ function BuildingsPageContent() {
 
     async function fetchBuildings() {
       try {
-        setLoading(true);
+        if (!hasLoadedOnce.current) setLoading(true);
+        else setSearching(true);
         setError(null);
 
         const params = new URLSearchParams();
@@ -189,6 +214,7 @@ function BuildingsPageContent() {
             clientCount: b.clientCount,
             products: normalizeProductCounts(b.products),
             openWorkOrders: b.workOrderCount,
+            createdAt: b.createdAt,
             updatedAt: b.updatedAt,
           }));
           setBuildings(rows);
@@ -201,7 +227,9 @@ function BuildingsPageContent() {
         }
       } finally {
         if (!cancelled) {
+          hasLoadedOnce.current = true;
           setLoading(false);
+          setSearching(false);
         }
       }
     }
@@ -297,12 +325,17 @@ function BuildingsPageContent() {
             <>
               {/* Search + Add Building - above table */}
               <div className="mb-3 flex flex-col gap-2 md:mb-4 md:flex-row md:flex-wrap md:items-center md:justify-between md:gap-4">
-                <input
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder={t("buildings.searchPlaceholder", "Search by ID, name, address, city...")}
-                  className="min-w-0 w-full rounded-lg bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-sm ring-2 ring-teal-500/40 border border-teal-500/30 hover:ring-teal-500/60 hover:border-teal-500/50 focus:outline-none focus:ring-2 focus:ring-teal-500/70 focus:border-teal-500/60 transition-all md:max-w-md md:flex-1 md:rounded-2xl md:px-4 md:py-2.5 md:shadow-md"
-                />
+                <div className="relative min-w-0 w-full md:max-w-md md:flex-1">
+                  <input
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    placeholder={t("buildings.searchPlaceholder", "Search by ID, name, address, city...")}
+                    className="w-full rounded-lg bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-sm ring-2 ring-teal-500/40 border border-teal-500/30 hover:ring-teal-500/60 hover:border-teal-500/50 focus:outline-none focus:ring-2 focus:ring-teal-500/70 focus:border-teal-500/60 transition-all md:rounded-2xl md:px-4 md:py-2.5 md:shadow-md"
+                  />
+                  {searching && (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin rounded-full border-2 border-teal-500 border-t-transparent" />
+                  )}
+                </div>
                 {hasPermission("buildings.create") && (
                   <button
                     type="button"
@@ -322,18 +355,17 @@ function BuildingsPageContent() {
                       <tr className="text-left text-[11px] text-zinc-600 md:text-xs">
                         <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.building", "Building")}</th>
                         <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.branch", "Branch")}</th>
-                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.status", "Status")}</th>
                         <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.clients", "Clients")}</th>
                         <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.devices", "Devices")}</th>
                         <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.workOrders", "Work Orders")}</th>
-                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.lastUpdate", "Last Update")}</th>
+                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.createdOn", "Created On")}</th>
                         <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.source", "Source")}</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white">
                       {paged.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="px-4 py-10 text-center text-sm text-zinc-600">
+                          <td colSpan={7} className="px-4 py-10 text-center text-sm text-zinc-600">
                             {debouncedQ.trim()
                               ? t("buildings.noMatch", "No buildings match your search.")
                               : t("buildings.noBuildings", "No buildings found. Click 'Add Building' to create one.")}
@@ -355,7 +387,7 @@ function BuildingsPageContent() {
                                 !isLast && "border-b border-zinc-100",
                               ].join(" ")}
                             >
-                              {/* Building */}
+                              {/* Building (with active/inactive dot) */}
                               <td className="px-2 py-2 align-middle md:px-4 md:py-4">
                                 <button
                                   type="button"
@@ -369,7 +401,11 @@ function BuildingsPageContent() {
                                       </span>
                                       <span className="text-zinc-400">→</span>
                                     </div>
-                                    <div className="mt-0.5 text-[12px] leading-snug text-zinc-500 md:mt-1 md:text-xs">
+                                    <div className="mt-0.5 flex items-center gap-1.5 text-[12px] leading-snug text-zinc-500 md:mt-1 md:text-xs">
+                                      <span
+                                        className={`inline-block h-2 w-2 shrink-0 rounded-full ${isActive ? "bg-emerald-500" : "bg-red-400"}`}
+                                        title={isActive ? t("common.active", "Active") : t("common.inactive", "Inactive")}
+                                      />
                                       ID {b.coreId} · {b.city ?? "—"}
                                     </div>
                                   </div>
@@ -385,14 +421,6 @@ function BuildingsPageContent() {
                                 ) : (
                                   <span className="text-xs text-zinc-400">—</span>
                                 )}
-                              </td>
-
-                              {/* Status (dot only) */}
-                              <td className="px-2 py-2 align-middle md:px-4 md:py-4">
-                                <span
-                                  className={`inline-block h-2.5 w-2.5 rounded-full ${isActive ? "bg-emerald-500" : "bg-red-400"}`}
-                                  title={isActive ? t("common.active", "Active") : t("common.inactive", "Inactive")}
-                                />
                               </td>
 
                               {/* Clients */}
@@ -456,21 +484,13 @@ function BuildingsPageContent() {
                                 </button>
                               </td>
 
-                              {/* Last Update */}
+                              {/* Created On */}
                               <td className="px-2 py-2 align-middle md:px-4 md:py-4">
-                                <button
-                                  type="button"
-                                  onClick={() => openBuildingModal(b.coreId)}
-                                  className="block w-full text-left"
-                                  title={t("buildings.openBuilding", "Open building")}
-                                >
-                                  <div className="text-sm leading-snug text-zinc-900">
-                                    {hasMounted
-                                      ? new Date(b.updatedAt).toLocaleString()
-                                      : formatUtcCompact(b.updatedAt)}
-                                  </div>
-                                  <div className="mt-0.5 text-[12px] leading-snug text-zinc-500 md:mt-1 md:text-xs">{t("buildings.latestSync", "latest core sync")}</div>
-                                </button>
+                                <div className="text-sm leading-snug text-zinc-900 tabular-nums">
+                                  {hasMounted
+                                    ? new Date(b.createdAt).toLocaleDateString()
+                                    : formatUtcCompact(b.createdAt).split(" ")[0]}
+                                </div>
                               </td>
 
                               {/* Source */}
