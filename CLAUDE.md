@@ -21,7 +21,7 @@ Manages buildings, residents, work orders, incidents, sales leads, inventory, te
 - **Core Sync**: One-way sync from legacy MySQL → CRM via webhook bridge (`core-sync-bridge/`, VM 192.168.65.110, port 3101 health). See `docs/CORE_INTEGRATION.md`
 - **Operations Dashboard**: Integrated monitoring at `/admin/monitor/` (password-protected, port 9090 on VM). See `vm-configs/crm-monitor/`
 - **CI/CD**: GitHub Actions self-hosted runner on VM → auto-deploy on push to master (`.github/workflows/deploy-vm.yml`). Railway is staging only (`crm28demo.asg.ge`, deploys from `dev` branch).
-- **Deployment**: VM auto-deploys on master merge via GitHub Actions. Steps: pull → install → prisma generate → migrate → seed-permissions → build → PM2 restart. Railway serves as staging environment.
+- **Deployment**: VM auto-deploys on master merge via GitHub Actions. Steps: pull → **stop backend** → install deps (--prefer-offline, shared pnpm store) → prisma generate → migrate → seed-permissions → build → restart backend + frontend → health check. Backend is stopped before `pnpm install` to release Windows file locks on native modules (bcrypt.node). Railway serves as staging environment.
 
 ### Quick Start
 ```powershell

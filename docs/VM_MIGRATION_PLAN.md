@@ -160,10 +160,11 @@ Before starting the cutover, ensure:
     - Follow Windows installation instructions
     - Install as Windows service for auto-start
 
-21. **Create deploy workflow** (`.github/workflows/deploy-vm.yml`):
+21. **Create deploy workflow** (`.github/workflows/deploy-vm.yml`) ✅ IMPLEMENTED:
     - Trigger: push to master
-    - Steps: pull code, install deps, build, run migrations, restart PM2 services
-    - Include health check verification after deploy
+    - Shell: `powershell` (not `pwsh` — PowerShell Core may not be in LocalSystem PATH)
+    - Steps: setup PATH → pull code → **stop backend** (release native module locks) → pnpm install (`--frozen-lockfile --prefer-offline`, shared store with Administrator) → prisma generate → migrate deploy → seed-permissions → build backend → install+build frontend → restart PM2 → health check → summary
+    - Key fix: backend must be stopped before `pnpm install` because Windows locks `.node` native modules (bcrypt) while loaded by running process
 
 22. **Test deployment**:
     - Push a small change to master
