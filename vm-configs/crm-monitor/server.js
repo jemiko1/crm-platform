@@ -269,40 +269,66 @@ app.get('/api/logs/:service', (req, res) => {
   }
 });
 
-// ── API: Restart Service ─────────────────────────────────
+// ── API: Service Action (restart/stop/start) ─────────────
 
-app.post('/api/restart/:service', (req, res) => {
-  const { service } = req.params;
+app.post('/api/service/:service/:action', (req, res) => {
+  const { service, action } = req.params;
 
+  if (!['restart', 'stop', 'start'].includes(action)) {
+    return res.status(400).json({ success: false, error: 'Invalid action. Use restart, stop, or start.' });
+  }
+
+  // PostgreSQL — native pg_ctl commands
   if (service === 'postgresql') {
+    const pgCtl = 'C:\\postgresql17\\pgsql\\bin\\pg_ctl.exe';
+    const pgData = 'C:\\postgresql17\\data';
+    const pgLog = 'C:\\postgresql17\\pg.log';
     try {
-      execSync('C:\\postgresql17\\pgsql\\bin\\pg_ctl.exe restart -D C:\\postgresql17\\data -l C:\\postgresql17\\pg.log -m fast', {
-        encoding: 'utf8', timeout: 30000, windowsHide: true,
-      });
-      return res.json({ success: true, message: 'PostgreSQL restarted' });
+      if (action === 'stop') {
+        execSync(`${pgCtl} stop -D ${pgData} -m fast`, { encoding: 'utf8', timeout: 30000, windowsHide: true });
+      } else if (action === 'start') {
+        execSync(`${pgCtl} start -D ${pgData} -l ${pgLog}`, { encoding: 'utf8', timeout: 30000, windowsHide: true });
+      } else {
+        execSync(`${pgCtl} restart -D ${pgData} -l ${pgLog} -m fast`, { encoding: 'utf8', timeout: 30000, windowsHide: true });
+      }
+      return res.json({ success: true, message: `PostgreSQL ${action}: OK` });
     } catch (e) {
       return res.status(500).json({ success: false, error: e.message });
     }
   }
 
+  // Nginx — Windows service commands
   if (service === 'nginx') {
+    const cmdMap = { stop: 'Stop-Service', start: 'Start-Service', restart: 'Restart-Service' };
     try {
-      execSync('powershell -Command "Restart-Service nginx"', { encoding: 'utf8', timeout: 15000, windowsHide: true });
-      return res.json({ success: true, message: 'Nginx restarted' });
+      execSync(`powershell -Command "${cmdMap[action]} nginx"`, { encoding: 'utf8', timeout: 15000, windowsHide: true });
+      return res.json({ success: true, message: `Nginx ${action}: OK` });
     } catch (e) {
       return res.status(500).json({ success: false, error: e.message });
     }
   }
 
+  // PM2-managed services
   const allowed = ['crm-backend', 'crm-frontend', 'ami-bridge', 'core-sync-bridge', 'bridge-monitor', 'crm-monitor'];
   if (!allowed.includes(service)) return res.status(400).json({ error: 'invalid service' });
 
   try {
-    execSync(`pm2 restart ${service}`, { encoding: 'utf8', timeout: 15000, windowsHide: true });
-    res.json({ success: true, message: `${service} restarted` });
+    execSync(`pm2 ${action} ${service}`, { encoding: 'utf8', timeout: 15000, windowsHide: true });
+    res.json({ success: true, message: `${service} ${action}: OK` });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
+});
+
+// Backwards-compatible restart endpoint (bridge-monitor dashboard uses this)
+app.post('/api/restart/:service', (req, res) => {
+  const { service } = req.params;
+  const allowed = ['crm-backend', 'crm-frontend', 'ami-bridge', 'core-sync-bridge', 'bridge-monitor', 'crm-monitor', 'postgresql', 'nginx'];
+  if (!allowed.includes(service)) return res.status(400).json({ error: 'invalid service' });
+  // Forward internally by rewriting URL
+  req.url = `/api/service/${service}/restart`;
+  req.params = { service, action: 'restart' };
+  app._router.handle(req, res, () => res.status(404).end());
 });
 
 // ── API: Trigger Backup ──────────────────────────────────

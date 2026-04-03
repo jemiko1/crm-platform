@@ -1,0 +1,133 @@
+name: Deploy to VM
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  deploy:
+    name: Deploy to Production VM
+    runs-on: [self-hosted, windows, crm]
+    timeout-minutes: 15
+
+    steps:
+      - name: Setup PATH
+        shell: pwsh
+        run: |
+          $extraPaths = @(
+            "C:\Users\Administrator\AppData\Roaming\npm",
+            "C:\Program Files\nodejs",
+            "C:\Program Files\Git\cmd"
+          )
+          foreach ($p in $extraPaths) {
+            if ($env:PATH -notlike "*$p*") {
+              $env:PATH = "$p;$env:PATH"
+            }
+          }
+          echo "PATH=$env:PATH" >> $env:GITHUB_ENV
+          Write-Output "node: $(node --version)"
+          Write-Output "pnpm: $(pnpm --version)"
+          Write-Output "pm2: $(pm2 --version)"
+          Write-Output "git: $(git --version)"
+
+      - name: Pull latest code
+        shell: pwsh
+        run: |
+          cd C:\crm
+          git fetch origin master
+          git reset --hard origin/master
+          Write-Output "Checked out: $(git rev-parse --short HEAD)"
+
+      - name: Install backend dependencies
+        shell: pwsh
+        run: |
+          cd C:\crm\backend\crm-backend
+          pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        shell: pwsh
+        run: |
+          cd C:\crm\backend\crm-backend
+          npx prisma generate
+
+      - name: Run database migrations
+        shell: pwsh
+        run: |
+          cd C:\crm\backend\crm-backend
+          npx prisma migrate deploy
+
+      - name: Seed permissions
+        shell: pwsh
+        run: |
+          cd C:\crm\backend\crm-backend
+          npx tsx prisma/seed-permissions.ts
+
+      - name: Build backend
+        shell: pwsh
+        run: |
+          cd C:\crm\backend\crm-backend
+          pnpm build
+
+      - name: Install frontend dependencies
+        shell: pwsh
+        run: |
+          cd C:\crm\frontend\crm-frontend
+          pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        shell: pwsh
+        run: |
+          cd C:\crm\frontend\crm-frontend
+          pnpm build
+
+      - name: Restart backend
+        shell: pwsh
+        run: |
+          pm2 restart crm-backend
+          Start-Sleep -Seconds 10
+
+      - name: Restart frontend
+        shell: pwsh
+        run: |
+          pm2 restart crm-frontend
+          Start-Sleep -Seconds 5
+
+      - name: Save PM2 state
+        shell: pwsh
+        run: pm2 save
+
+      - name: Health check
+        shell: pwsh
+        run: |
+          $maxRetries = 5
+          $retryDelay = 5
+          for ($i = 1; $i -le $maxRetries; $i++) {
+            try {
+              $response = Invoke-WebRequest -Uri http://127.0.0.1:3000/health -UseBasicParsing -TimeoutSec 10
+              if ($response.StatusCode -eq 200) {
+                $body = $response.Content | ConvertFrom-Json
+                if ($body.status -eq "ok") {
+                  Write-Output "Health check passed: $($response.Content)"
+                  exit 0
+                }
+              }
+            } catch {
+              Write-Output "Attempt $i/$maxRetries failed: $_"
+            }
+            if ($i -lt $maxRetries) {
+              Write-Output "Retrying in ${retryDelay}s..."
+              Start-Sleep -Seconds $retryDelay
+            }
+          }
+          Write-Error "Health check failed after $maxRetries attempts"
+          exit 1
+
+      - name: Deployment summary
+        if: success()
+        shell: pwsh
+        run: |
+          $commit = git -C C:\crm rev-parse --short HEAD
+          $msg = git -C C:\crm log -1 --pretty=format:"%s"
+          Write-Output "Deployed $commit to production: $msg"
+          Write-Output "Backend: https://crm28.asg.ge/health"
+          Write-Output "Frontend: https://crm28.asg.ge"

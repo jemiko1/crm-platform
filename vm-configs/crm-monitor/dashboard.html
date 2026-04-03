@@ -102,6 +102,10 @@
   .btn:disabled { opacity: 0.4; cursor: not-allowed; }
   .btn-restart { background: #1d4ed8; color: white; }
   .btn-restart:hover { background: #2563eb; }
+  .btn-stop { background: #991b1b; color: #fca5a5; }
+  .btn-stop:hover { background: #b91c1c; }
+  .btn-start { background: #065f46; color: #6ee7b7; }
+  .btn-start:hover { background: #047857; }
   .btn-logs { background: #334155; color: #e2e8f0; }
   .btn-logs:hover { background: #475569; }
   .btn-backup { background: #065f46; color: #6ee7b7; }
@@ -427,17 +431,19 @@ async function loadStatus() {
     document.getElementById('services').innerHTML = allSvc.map(s =>
       '<div class="svc-row"><div><div class="svc-name">' + s.name + '</div><div class="svc-detail">' + s.detail + '</div></div><div class="svc-actions">' + statusBadge(s.status) +
       (s.pm2 ? ' <button class="btn btn-logs" onclick="showInfraLogs(\'' + s.key + '\')">Logs</button>' : '') +
-      ' <button class="btn btn-restart" onclick="restartService(\'' + s.key + '\')">Restart</button></div></div>'
+      ' <button class="btn btn-start" onclick="serviceAction(\'' + s.key + '\',\'start\')">Start</button>' +
+      ' <button class="btn btn-stop" onclick="serviceAction(\'' + s.key + '\',\'stop\')">Stop</button>' +
+      ' <button class="btn btn-restart" onclick="serviceAction(\'' + s.key + '\',\'restart\')">Restart</button></div></div>'
     ).join('');
   } catch(e) {
     toast('Failed to load status: ' + e.message, 'error');
   }
 }
 
-async function restartService(service) {
-  if (!confirm('Restart ' + service + '?')) return;
+async function serviceAction(service, action) {
+  if (!confirm(action.charAt(0).toUpperCase() + action.slice(1) + ' ' + service + '?')) return;
   try {
-    const r = await fetch(BASE + '/api/restart/' + service, { method: 'POST' });
+    const r = await fetch(BASE + '/api/service/' + service + '/' + action, { method: 'POST' });
     const d = await r.json();
     toast(d.message || d.error, d.success ? 'success' : 'error');
     setTimeout(loadStatus, 2000);
