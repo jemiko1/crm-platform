@@ -14,7 +14,5 @@ nsis:
   perMachine: true
   allowToChangeInstallationDirectory: false
 publish:
-  provider: github
-  owner: jemiko1
-  repo: crm-platform
-  releaseType: release
+  provider: generic
+  url: https://crm28.asg.ge/downloads/phone
