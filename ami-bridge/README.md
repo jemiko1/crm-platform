@@ -6,8 +6,8 @@ call events to the CRM backend telephony ingestion API.
 ## Architecture
 
 ```
-FreePBX/Asterisk ──AMI TCP:5038──▶ AMI Bridge ──HTTPS POST──▶ Railway CRM Backend
-                                   (Windows VM)                POST /v1/telephony/events
+FreePBX/Asterisk ──AMI TCP:5038──▶ AMI Bridge ──HTTP POST──▶ CRM Backend (localhost)
+                                   (Windows VM)               POST /v1/telephony/events
 ```
 
 ## Requirements
@@ -34,8 +34,8 @@ copy .env.example .env
 
 Edit `.env` with your actual values:
 - `AMI_HOST` / `AMI_PORT` / `AMI_USER` / `AMI_SECRET` — Asterisk AMI credentials
-- `CRM_BASE_URL` — Railway backend URL (e.g. `https://crm-backend.up.railway.app`)
-- `TELEPHONY_INGEST_SECRET` — must match the value set in Railway backend environment
+- `CRM_BASE_URL` — CRM backend URL (`http://127.0.0.1:3000` on VM since both services are co-located)
+- `TELEPHONY_INGEST_SECRET` — must match the value set in CRM backend environment
 
 ### 3. Run (Development)
 
@@ -103,7 +103,7 @@ Asterisk AMI Event     →  Event Mapper    →  Event Buffer  →  CRM Poster
 - Verify AMI user exists: `asterisk -rx "manager show user crm_ami"`
 
 ### Events not reaching CRM
-- Check `TELEPHONY_INGEST_SECRET` matches between `.env` and Railway
+- Check `TELEPHONY_INGEST_SECRET` matches between `.env` and backend `.env`
 - Check `CRM_BASE_URL` is correct and accessible from VM
 - Set `LOG_LEVEL=DEBUG` for verbose output
 - Verify with: `curl -X POST <CRM_BASE_URL>/v1/telephony/events -H "x-telephony-secret: <secret>" -H "Content-Type: application/json" -d '{"events":[]}'`

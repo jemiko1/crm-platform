@@ -10,7 +10,7 @@ Read CLAUDE.md first for project context and silent override risks.
 ## Important Rules
 - **Verify before flagging**: If you suspect dead code or missing wiring, check with Bash (run `pnpm build`, check imports, grep for usage) before calling it broken.
 - **Next.js 16 uses `proxy.ts`** (not `middleware.ts`) for edge middleware. The export is `proxy`, not `middleware`.
-- **Check Railway env vars** when reviewing config-dependent code: run `railway variables 2>/dev/null | grep RELEVANT_VAR` to see production values.
+- **Check VM production env vars** when reviewing config-dependent code: SSH to VM and check backend .env, or check vm-configs/backend.env for the template. For Railway staging: `railway link -e dev && railway variables`.
 - **Don't flag existing patterns** as issues — only flag things introduced or changed in the current diff.
 
 ## Review Checklist

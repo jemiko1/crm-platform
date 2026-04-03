@@ -3,6 +3,7 @@ const { execSync, exec } = require('child_process');
 const os = require('os');
 const basicAuth = require('basic-auth');
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
@@ -83,6 +84,41 @@ function readLogTail(filePath, lines = 100) {
   } catch (err) {
     return `[Error reading log: ${err.message}]`;
   }
+}
+
+function fetchGitHub(url, token) {
+  return new Promise((resolve) => {
+    const opts = {
+      headers: {
+        'User-Agent': 'CRM28-Monitor',
+        'Accept': 'application/vnd.github+json',
+      },
+      timeout: 10000,
+    };
+    if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+
+    https.get(url, opts, (res) => {
+      let data = '';
+      res.on('data', (chunk) => (data += chunk));
+      res.on('end', () => {
+        try { resolve({ ok: res.statusCode === 200, status: res.statusCode, data: JSON.parse(data) }); }
+        catch { resolve({ ok: false, status: res.statusCode, error: 'Invalid JSON' }); }
+      });
+    }).on('error', (err) => resolve({ ok: false, error: err.message }));
+  });
+}
+
+function loadGitHubToken() {
+  if (process.env.GITHUB_TOKEN) return process.env.GITHUB_TOKEN;
+  try {
+    const envPath = 'C:\\crm\\backend\\crm-backend\\.env';
+    if (fs.existsSync(envPath)) {
+      const content = fs.readFileSync(envPath, 'utf-8');
+      const match = content.match(/^GITHUB_TOKEN=(.+)$/m);
+      if (match) return match[1].trim();
+    }
+  } catch {}
+  return null;
 }
 
 // ── API: Infrastructure Status ───────────────────────────
@@ -269,40 +305,66 @@ app.get('/api/logs/:service', (req, res) => {
   }
 });
 
-// ── API: Restart Service ─────────────────────────────────
+// ── API: Service Action (restart/stop/start) ─────────────
 
-app.post('/api/restart/:service', (req, res) => {
-  const { service } = req.params;
+app.post('/api/service/:service/:action', (req, res) => {
+  const { service, action } = req.params;
 
+  if (!['restart', 'stop', 'start'].includes(action)) {
+    return res.status(400).json({ success: false, error: 'Invalid action. Use restart, stop, or start.' });
+  }
+
+  // PostgreSQL — native pg_ctl commands
   if (service === 'postgresql') {
+    const pgCtl = 'C:\\postgresql17\\pgsql\\bin\\pg_ctl.exe';
+    const pgData = 'C:\\postgresql17\\data';
+    const pgLog = 'C:\\postgresql17\\pg.log';
     try {
-      execSync('C:\\postgresql17\\pgsql\\bin\\pg_ctl.exe restart -D C:\\postgresql17\\data -l C:\\postgresql17\\pg.log -m fast', {
-        encoding: 'utf8', timeout: 30000, windowsHide: true,
-      });
-      return res.json({ success: true, message: 'PostgreSQL restarted' });
+      if (action === 'stop') {
+        execSync(`${pgCtl} stop -D ${pgData} -m fast`, { encoding: 'utf8', timeout: 30000, windowsHide: true });
+      } else if (action === 'start') {
+        execSync(`${pgCtl} start -D ${pgData} -l ${pgLog}`, { encoding: 'utf8', timeout: 30000, windowsHide: true });
+      } else {
+        execSync(`${pgCtl} restart -D ${pgData} -l ${pgLog} -m fast`, { encoding: 'utf8', timeout: 30000, windowsHide: true });
+      }
+      return res.json({ success: true, message: `PostgreSQL ${action}: OK` });
     } catch (e) {
       return res.status(500).json({ success: false, error: e.message });
     }
   }
 
+  // Nginx — Windows service commands
   if (service === 'nginx') {
+    const cmdMap = { stop: 'Stop-Service', start: 'Start-Service', restart: 'Restart-Service' };
     try {
-      execSync('powershell -Command "Restart-Service nginx"', { encoding: 'utf8', timeout: 15000, windowsHide: true });
-      return res.json({ success: true, message: 'Nginx restarted' });
+      execSync(`powershell -Command "${cmdMap[action]} nginx"`, { encoding: 'utf8', timeout: 15000, windowsHide: true });
+      return res.json({ success: true, message: `Nginx ${action}: OK` });
     } catch (e) {
       return res.status(500).json({ success: false, error: e.message });
     }
   }
 
+  // PM2-managed services
   const allowed = ['crm-backend', 'crm-frontend', 'ami-bridge', 'core-sync-bridge', 'bridge-monitor', 'crm-monitor'];
   if (!allowed.includes(service)) return res.status(400).json({ error: 'invalid service' });
 
   try {
-    execSync(`pm2 restart ${service}`, { encoding: 'utf8', timeout: 15000, windowsHide: true });
-    res.json({ success: true, message: `${service} restarted` });
+    execSync(`pm2 ${action} ${service}`, { encoding: 'utf8', timeout: 15000, windowsHide: true });
+    res.json({ success: true, message: `${service} ${action}: OK` });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
+});
+
+// Backwards-compatible restart endpoint (bridge-monitor dashboard uses this)
+app.post('/api/restart/:service', (req, res) => {
+  const { service } = req.params;
+  const allowed = ['crm-backend', 'crm-frontend', 'ami-bridge', 'core-sync-bridge', 'bridge-monitor', 'crm-monitor', 'postgresql', 'nginx'];
+  if (!allowed.includes(service)) return res.status(400).json({ error: 'invalid service' });
+  // Forward internally by rewriting URL
+  req.url = `/api/service/${service}/restart`;
+  req.params = { service, action: 'restart' };
+  app._router.handle(req, res, () => res.status(404).end());
 });
 
 // ── API: Trigger Backup ──────────────────────────────────
@@ -324,6 +386,60 @@ app.post('/api/backup', (req, res) => {
 app.get('/api/health-log', (req, res) => {
   const content = readLogTail('C:\\crm\\logs\\health-check.log', 50);
   res.type('text/plain').send(content);
+});
+
+// ── API: GitHub Deployments ──────────────────────────────
+
+app.get('/api/github-deploys', async (req, res) => {
+  const token = loadGitHubToken();
+  if (!token) {
+    return res.status(500).json({ error: 'GITHUB_TOKEN not configured' });
+  }
+  const url = 'https://api.github.com/repos/jemiko1/crm-platform/actions/workflows/deploy-vm.yml/runs?per_page=10';
+  const result = await fetchGitHub(url, token);
+  if (!result.ok) {
+    return res.status(502).json({ error: 'GitHub API error', status: result.status, details: result.data || result.error });
+  }
+  const runs = (result.data.workflow_runs || []).map(r => ({
+    id: r.id,
+    status: r.status,
+    conclusion: r.conclusion,
+    headBranch: r.head_branch,
+    commitMessage: r.head_commit?.message || '',
+    commitSha: r.head_sha?.substring(0, 7) || '',
+    event: r.event,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+    runStartedAt: r.run_started_at,
+    htmlUrl: r.html_url,
+    duration: r.updated_at && r.run_started_at
+      ? Math.round((new Date(r.updated_at) - new Date(r.run_started_at)) / 1000)
+      : null,
+  }));
+  res.json({ runs, totalCount: result.data.total_count || 0 });
+});
+
+// ── API: Git Status ──────────────────────────────────────
+
+app.get('/api/git-status', (req, res) => {
+  try {
+    const logRaw = execSync('git -C C:\\crm log -1 --pretty=format:"%H|%s|%ai"', {
+      encoding: 'utf8', timeout: 5000, windowsHide: true,
+    }).trim().replace(/^"|"$/g, '');
+    const parts = logRaw.split('|');
+    const branch = execSync('git -C C:\\crm branch --show-current', {
+      encoding: 'utf8', timeout: 5000, windowsHide: true,
+    }).trim();
+    res.json({
+      branch,
+      commit: parts[0] || '',
+      commitShort: (parts[0] || '').substring(0, 7),
+      commitMessage: parts[1] || '',
+      commitDate: parts[2] || '',
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ── Dashboard HTML ───────────────────────────────────────

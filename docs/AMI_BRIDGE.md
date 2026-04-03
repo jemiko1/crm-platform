@@ -34,7 +34,7 @@ FreePBX/Asterisk  ────────────────────�
                       │                         └────┬──────┘
                       │                              │
                       │                              ▼
-                      │                    Railway CRM Backend
+                      │                    CRM Backend (localhost:3000)
                       │                    POST /v1/telephony/events
                       │                    (x-telephony-secret header)
 ```
@@ -143,7 +143,7 @@ PM2 daemon dies when SSH session disconnects. Solved with:
 | AMI_RECONNECT_MAX_MS | No | 60000 | Max reconnect delay |
 | AMI_PING_INTERVAL_MS | No | 30000 | Keepalive ping interval |
 | CRM_BASE_URL | No | - | CRM backend URL |
-| TELEPHONY_INGEST_SECRET | Yes | - | Must match Railway backend |
+| TELEPHONY_INGEST_SECRET | Yes | - | Must match CRM backend env |
 | CRM_TIMEOUT_MS | No | 15000 | HTTP request timeout |
 | CRM_RETRY_ATTEMPTS | No | 3 | Max retry attempts |
 | CRM_RETRY_BASE_MS | No | 1000 | Base retry delay |
@@ -182,15 +182,15 @@ Config: /etc/asterisk/manager_custom.conf
 4. Check Asterisk fail2ban hasn't banned VM IP
 
 ### Events not reaching CRM
-1. Check `TELEPHONY_INGEST_SECRET` matches Railway env
-2. Check `CRM_BASE_URL` is `https://api-crm28.asg.ge`
+1. Check `TELEPHONY_INGEST_SECRET` matches backend `.env` on VM
+2. Check `CRM_BASE_URL` is `http://127.0.0.1:3000` (localhost since both are on same VM)
 3. Check health endpoint: `http://192.168.65.110:3100/health`
 4. Set `LOG_LEVEL=DEBUG` for verbose output
 
 ### High buffer / no flushes
-1. CRM backend may be down — check Railway logs
-2. Secret mismatch — compare .env with Railway TELEPHONY_INGEST_SECRET
-3. Network issue — test HTTPS from VM: `curl https://api-crm28.asg.ge/health`
+1. CRM backend may be down — check PM2 logs: `pm2 logs crm-backend`
+2. Secret mismatch — compare bridge `.env` with backend `.env` on VM
+3. Network issue — test locally: `curl http://127.0.0.1:3000/health`
 
 ### Memory leak suspicion
 1. Check PM2 memory: `pm2 monit`

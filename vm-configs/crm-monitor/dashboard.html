@@ -27,6 +27,8 @@
   .header-right { display: flex; align-items: center; gap: 12px; font-size: 13px; color: #94a3b8; }
   .refresh-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; animation: pulse 2s infinite; }
   @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .git-badge { font-size: 12px; color: #64748b; background: #1e293b; border: 1px solid #334155; padding: 3px 10px; border-radius: 6px; }
+  .git-badge code { color: #38bdf8; font-family: 'Cascadia Code', 'Consolas', monospace; }
 
   /* ── Nav Tabs ────────────────────────────────────── */
   .nav {
@@ -34,6 +36,7 @@
     background: #1e293b;
     border-bottom: 1px solid #334155;
     padding: 0 24px;
+    overflow-x: auto;
   }
   .nav-tab {
     padding: 12px 20px;
@@ -44,6 +47,7 @@
     border-bottom: 2px solid transparent;
     transition: all 0.2s;
     user-select: none;
+    white-space: nowrap;
   }
   .nav-tab:hover { color: #94a3b8; }
   .nav-tab.active { color: #38bdf8; border-bottom-color: #38bdf8; }
@@ -94,7 +98,7 @@
   .svc-row:last-child { border-radius: 0 0 12px 12px; margin-bottom: 0; }
   .svc-name { font-weight: 600; font-size: 15px; }
   .svc-detail { color: #64748b; font-size: 13px; margin-top: 2px; }
-  .svc-actions { display: flex; gap: 8px; align-items: center; }
+  .svc-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
   /* ── Buttons ─────────────────────────────────────── */
   .btn { padding: 6px 14px; border-radius: 8px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
@@ -102,6 +106,10 @@
   .btn:disabled { opacity: 0.4; cursor: not-allowed; }
   .btn-restart { background: #1d4ed8; color: white; }
   .btn-restart:hover { background: #2563eb; }
+  .btn-stop { background: #991b1b; color: #fca5a5; }
+  .btn-stop:hover { background: #b91c1c; }
+  .btn-start { background: #065f46; color: #6ee7b7; }
+  .btn-start:hover { background: #047857; }
   .btn-logs { background: #334155; color: #e2e8f0; }
   .btn-logs:hover { background: #475569; }
   .btn-backup { background: #065f46; color: #6ee7b7; }
@@ -156,9 +164,246 @@
   .toast-success { background: #064e3b; color: #34d399; border: 1px solid #065f46; }
   .toast-error { background: #7f1d1d; color: #fca5a5; border: 1px solid #991b1b; }
 
+  /* ── Topology View ───────────────────────────────── */
+  .topology-container {
+    position: relative;
+    width: 100%;
+    min-height: 520px;
+    margin-bottom: 24px;
+  }
+  .topology-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .topology-grid {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto auto auto auto;
+    gap: 24px 40px;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  .topo-node {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 14px;
+    padding: 18px 20px;
+    position: relative;
+    transition: all 0.3s;
+    cursor: default;
+  }
+  .topo-node:hover {
+    border-color: #475569;
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.08);
+  }
+  .topo-node.status-green { border-left: 3px solid #22c55e; }
+  .topo-node.status-red { border-left: 3px solid #ef4444; }
+  .topo-node.status-yellow { border-left: 3px solid #eab308; }
+  .topo-node.status-gray { border-left: 3px solid #64748b; }
+
+  .topo-node-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .topo-node-name {
+    font-weight: 700;
+    font-size: 15px;
+    color: #f1f5f9;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .topo-node-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .topo-node-dot.green { background: #22c55e; box-shadow: 0 0 8px rgba(34, 197, 94, 0.5); }
+  .topo-node-dot.red { background: #ef4444; box-shadow: 0 0 8px rgba(239, 68, 68, 0.5); }
+  .topo-node-dot.yellow { background: #eab308; box-shadow: 0 0 8px rgba(234, 179, 8, 0.5); }
+  .topo-node-dot.gray { background: #64748b; }
+
+  .topo-node-port {
+    font-size: 12px;
+    color: #64748b;
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    background: #0f172a;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .topo-node-metrics {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .topo-metric {
+    font-size: 12px;
+    color: #94a3b8;
+  }
+  .topo-metric-val {
+    color: #e2e8f0;
+    font-weight: 600;
+  }
+  .topo-node-label {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 6px;
+  }
+
+  /* Deploying pulse animation */
+  .topo-node.deploying {
+    animation: deployPulse 1.5s ease-in-out infinite;
+  }
+  @keyframes deployPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.3); }
+    50% { box-shadow: 0 0 20px 4px rgba(56, 189, 248, 0.15); }
+  }
+
+  /* Grid placement */
+  .topo-nginx { grid-column: 2; grid-row: 1; }
+  .topo-frontend { grid-column: 1; grid-row: 2; }
+  .topo-backend { grid-column: 2; grid-row: 2; }
+  .topo-pg { grid-column: 3; grid-row: 2; }
+  .topo-ami { grid-column: 1; grid-row: 3; }
+  .topo-core { grid-column: 3; grid-row: 3; }
+  .topo-monitor { grid-column: 2; grid-row: 3; }
+
+  /* Topology summary strip */
+  .topo-summary {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .topo-summary-card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 14px 20px;
+    flex: 1;
+    min-width: 180px;
+  }
+  .topo-summary-label {
+    font-size: 11px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+  .topo-summary-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: #f1f5f9;
+  }
+
+  /* ── Deployments Tab ─────────────────────────────── */
+  .deploy-list { display: flex; flex-direction: column; gap: 8px; }
+  .deploy-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 20px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    transition: border-color 0.2s;
+  }
+  .deploy-row:hover { border-color: #475569; }
+  .deploy-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .deploy-icon.success { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+  .deploy-icon.failure { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+  .deploy-icon.in-progress { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+  .deploy-icon.cancelled { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
+
+  .deploy-body { flex: 1; min-width: 0; }
+  .deploy-commit {
+    font-size: 14px;
+    font-weight: 600;
+    color: #f1f5f9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .deploy-meta {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 3px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .deploy-meta code {
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    background: #0f172a;
+    padding: 1px 6px;
+    border-radius: 3px;
+    color: #94a3b8;
+  }
+  .deploy-link {
+    color: #38bdf8;
+    text-decoration: none;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .deploy-link:hover { text-decoration: underline; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(56, 189, 248, 0.3);
+    border-top-color: #38bdf8;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  .deploy-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: #64748b;
+    font-size: 14px;
+  }
+
+  @media (max-width: 900px) {
+    .topology-grid {
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .topo-nginx { grid-column: 1 / -1; grid-row: auto; }
+    .topo-frontend { grid-column: auto; grid-row: auto; }
+    .topo-backend { grid-column: auto; grid-row: auto; }
+    .topo-pg { grid-column: auto; grid-row: auto; }
+    .topo-ami { grid-column: auto; grid-row: auto; }
+    .topo-core { grid-column: auto; grid-row: auto; }
+    .topo-monitor { grid-column: 1 / -1; grid-row: auto; }
+  }
+
   @media (max-width: 768px) {
     .bridge-grid { grid-template-columns: 1fr; }
     .grid { grid-template-columns: 1fr; }
+    .topology-grid { grid-template-columns: 1fr; }
+    .topo-nginx, .topo-monitor { grid-column: auto; }
+    .topo-summary { flex-direction: column; }
   }
 </style>
 </head>
@@ -168,6 +413,7 @@
 <div class="header">
   <h1><span>CRM28</span> Operations Dashboard</h1>
   <div class="header-right">
+    <span class="git-badge" id="git-badge" style="display:none;"></span>
     <div class="refresh-dot"></div>
     <span>VM 192.168.65.110</span>
     <span id="clock"></span>
@@ -176,8 +422,14 @@
 
 <!-- ── Navigation ──────────────────────────────────── -->
 <div class="nav">
-  <div class="nav-tab active" onclick="switchTab('infra', this)">
-    <span class="tab-icon">&#9881;</span> Infrastructure
+  <div class="nav-tab active" onclick="switchTab('topology', this)">
+    <span class="tab-icon">&#9673;</span> Topology
+  </div>
+  <div class="nav-tab" onclick="switchTab('deploys', this)">
+    <span class="tab-icon">&#9658;</span> Deployments
+  </div>
+  <div class="nav-tab" onclick="switchTab('infra', this)">
+    <span class="tab-icon">&#9881;</span> Services
   </div>
   <div class="nav-tab" onclick="switchTab('bridges', this)">
     <span class="tab-icon">&#8644;</span> Bridges
@@ -188,10 +440,172 @@
 </div>
 
 <!-- ────────────────────────────────────────────────── -->
-<!-- TAB 1: Infrastructure                              -->
+<!-- TAB 0: Topology                                    -->
 <!-- ────────────────────────────────────────────────── -->
 <div class="container">
-<div id="tab-infra" class="tab-content active">
+<div id="tab-topology" class="tab-content active">
+
+  <!-- Summary strip -->
+  <div class="topo-summary" id="topo-summary">
+    <div class="topo-summary-card">
+      <div class="topo-summary-label">Services Online</div>
+      <div class="topo-summary-value" id="topo-online">--</div>
+    </div>
+    <div class="topo-summary-card">
+      <div class="topo-summary-label">Memory Used</div>
+      <div class="topo-summary-value" id="topo-mem">--</div>
+    </div>
+    <div class="topo-summary-card">
+      <div class="topo-summary-label">System Uptime</div>
+      <div class="topo-summary-value" id="topo-uptime">--</div>
+    </div>
+    <div class="topo-summary-card">
+      <div class="topo-summary-label">Disk Free</div>
+      <div class="topo-summary-value" id="topo-disk">--</div>
+    </div>
+    <div class="topo-summary-card">
+      <div class="topo-summary-label">Last Deploy</div>
+      <div class="topo-summary-value" id="topo-deploy" style="font-size:15px;">--</div>
+    </div>
+  </div>
+
+  <!-- Topology graph -->
+  <div class="topology-container" id="topology-container">
+    <svg class="topology-svg" id="topology-svg"></svg>
+    <div class="topology-grid" id="topology-grid">
+
+      <!-- Nginx -->
+      <div class="topo-node topo-nginx status-gray" id="node-nginx" data-node="nginx">
+        <div class="topo-node-header">
+          <div class="topo-node-name">
+            <span class="topo-node-dot gray" id="dot-nginx"></span>
+            Nginx
+          </div>
+          <span class="topo-node-port">:443</span>
+        </div>
+        <div class="topo-node-metrics">
+          <span class="topo-metric">Status: <span class="topo-metric-val" id="tval-nginx-status">--</span></span>
+        </div>
+        <div class="topo-node-label">Reverse Proxy / SSL Termination</div>
+      </div>
+
+      <!-- Frontend -->
+      <div class="topo-node topo-frontend status-gray" id="node-frontend" data-node="frontend">
+        <div class="topo-node-header">
+          <div class="topo-node-name">
+            <span class="topo-node-dot gray" id="dot-frontend"></span>
+            CRM Frontend
+          </div>
+          <span class="topo-node-port">:4002</span>
+        </div>
+        <div class="topo-node-metrics">
+          <span class="topo-metric">Status: <span class="topo-metric-val" id="tval-frontend-status">--</span></span>
+          <span class="topo-metric">Mem: <span class="topo-metric-val" id="tval-frontend-mem">--</span></span>
+          <span class="topo-metric">PID: <span class="topo-metric-val" id="tval-frontend-pid">--</span></span>
+        </div>
+        <div class="topo-node-label">Next.js 16 App Router</div>
+      </div>
+
+      <!-- Backend -->
+      <div class="topo-node topo-backend status-gray" id="node-backend" data-node="backend">
+        <div class="topo-node-header">
+          <div class="topo-node-name">
+            <span class="topo-node-dot gray" id="dot-backend"></span>
+            CRM Backend
+          </div>
+          <span class="topo-node-port">:3000</span>
+        </div>
+        <div class="topo-node-metrics">
+          <span class="topo-metric">Status: <span class="topo-metric-val" id="tval-backend-status">--</span></span>
+          <span class="topo-metric">Mem: <span class="topo-metric-val" id="tval-backend-mem">--</span></span>
+          <span class="topo-metric">PID: <span class="topo-metric-val" id="tval-backend-pid">--</span></span>
+        </div>
+        <div class="topo-node-label">NestJS 11 API Server</div>
+      </div>
+
+      <!-- PostgreSQL -->
+      <div class="topo-node topo-pg status-gray" id="node-pg" data-node="pg">
+        <div class="topo-node-header">
+          <div class="topo-node-name">
+            <span class="topo-node-dot gray" id="dot-pg"></span>
+            PostgreSQL 17
+          </div>
+          <span class="topo-node-port">:5432</span>
+        </div>
+        <div class="topo-node-metrics">
+          <span class="topo-metric">Status: <span class="topo-metric-val" id="tval-pg-status">--</span></span>
+        </div>
+        <div class="topo-node-label">Primary Database</div>
+      </div>
+
+      <!-- AMI Bridge -->
+      <div class="topo-node topo-ami status-gray" id="node-ami" data-node="ami">
+        <div class="topo-node-header">
+          <div class="topo-node-name">
+            <span class="topo-node-dot gray" id="dot-ami"></span>
+            AMI Bridge
+          </div>
+          <span class="topo-node-port">:3100</span>
+        </div>
+        <div class="topo-node-metrics">
+          <span class="topo-metric">Status: <span class="topo-metric-val" id="tval-ami-status">--</span></span>
+          <span class="topo-metric">Mem: <span class="topo-metric-val" id="tval-ami-mem">--</span></span>
+        </div>
+        <div class="topo-node-label">Asterisk AMI Events</div>
+      </div>
+
+      <!-- Monitor -->
+      <div class="topo-node topo-monitor status-gray" id="node-monitor" data-node="monitor">
+        <div class="topo-node-header">
+          <div class="topo-node-name">
+            <span class="topo-node-dot gray" id="dot-monitor"></span>
+            CRM Monitor
+          </div>
+          <span class="topo-node-port">:9090</span>
+        </div>
+        <div class="topo-node-metrics">
+          <span class="topo-metric">Status: <span class="topo-metric-val green">online</span></span>
+        </div>
+        <div class="topo-node-label">This Dashboard</div>
+      </div>
+
+      <!-- Core Sync Bridge -->
+      <div class="topo-node topo-core status-gray" id="node-core" data-node="core">
+        <div class="topo-node-header">
+          <div class="topo-node-name">
+            <span class="topo-node-dot gray" id="dot-core"></span>
+            Core Sync Bridge
+          </div>
+          <span class="topo-node-port">:3101</span>
+        </div>
+        <div class="topo-node-metrics">
+          <span class="topo-metric">Status: <span class="topo-metric-val" id="tval-core-status">--</span></span>
+          <span class="topo-metric">Mem: <span class="topo-metric-val" id="tval-core-mem">--</span></span>
+        </div>
+        <div class="topo-node-label">Core MySQL Sync</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ────────────────────────────────────────────────── -->
+<!-- TAB 1: Deployments                                 -->
+<!-- ────────────────────────────────────────────────── -->
+<div id="tab-deploys" class="tab-content">
+  <div class="section-title" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+    <span>GitHub Deployments (deploy-vm.yml)</span>
+    <button class="btn btn-logs" onclick="loadDeploys()">Refresh</button>
+  </div>
+  <div id="deploy-list" class="deploy-list">
+    <div class="deploy-empty">Loading deployments...</div>
+  </div>
+</div>
+
+<!-- ────────────────────────────────────────────────── -->
+<!-- TAB 2: Services (was Infrastructure)               -->
+<!-- ────────────────────────────────────────────────── -->
+<div id="tab-infra" class="tab-content">
 
   <div class="grid" id="metrics"></div>
 
@@ -213,7 +627,7 @@
 </div>
 
 <!-- ────────────────────────────────────────────────── -->
-<!-- TAB 2: Bridges                                     -->
+<!-- TAB 3: Bridges                                     -->
 <!-- ────────────────────────────────────────────────── -->
 <div id="tab-bridges" class="tab-content">
 
@@ -287,7 +701,7 @@
 </div>
 
 <!-- ────────────────────────────────────────────────── -->
-<!-- TAB 3: Health Log                                  -->
+<!-- TAB 4: Health Log                                  -->
 <!-- ────────────────────────────────────────────────── -->
 <div id="tab-health-log" class="tab-content">
   <div class="section-title">Health Check Log (last 50 entries)</div>
@@ -306,10 +720,12 @@
 const BASE = getBasePath();
 let currentBridgeLogBridge = 'ami-bridge';
 let currentBridgeLogType = 'out';
-let activeTab = 'infra';
+let activeTab = 'topology';
+let cachedStatus = null;
+let cachedBridges = null;
+let deploying = false;
 
 function getBasePath() {
-  // Support both direct :9090 and proxied /admin/monitor/
   const p = window.location.pathname;
   if (p.includes('/admin/monitor')) return '/admin/monitor';
   return '';
@@ -324,6 +740,9 @@ function switchTab(tab, el) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
 
+  if (tab === 'topology') { loadStatus(); loadBridges(); }
+  if (tab === 'deploys') { loadDeploys(); }
+  if (tab === 'infra') { loadStatus(); }
   if (tab === 'bridges') { loadBridges(); refreshBridgeLogs(); }
   if (tab === 'health-log') { loadHealthLog(); }
 }
@@ -371,6 +790,14 @@ function timeAgo(isoString) {
   return Math.floor(hrs / 24) + 'd ago';
 }
 
+function formatDuration(seconds) {
+  if (!seconds) return '--';
+  if (seconds < 60) return seconds + 's';
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return m + 'm ' + s + 's';
+}
+
 function statusBadge(status) {
   const s = (status === 'running' || status === 'online' || status === 'healthy' || status === 'up') ? 'up' :
     status === 'unknown' ? 'unknown' : 'down';
@@ -390,14 +817,196 @@ function toast(msg, type) {
   setTimeout(() => t.className = 'toast', 3000);
 }
 
+// ── Topology View ────────────────────────────────────
+
+function getNodeColor(status) {
+  if (status === 'running' || status === 'online' || status === 'healthy') return 'green';
+  if (status === 'stopped' || status === 'down' || status === 'unhealthy') return 'red';
+  if (status === 'degraded') return 'yellow';
+  return 'gray';
+}
+
+function updateTopology() {
+  const d = cachedStatus;
+  if (!d) return;
+
+  // Count online services
+  let online = 0, total = 0;
+  const checks = [
+    d.services.postgresql.status === 'running',
+    d.services.nginx.status === 'running',
+    d.services.backend.http === 'healthy',
+    d.services.frontend.http === 'healthy',
+  ];
+  // Add PM2 services count
+  const pm2Map = {};
+  d.pm2.forEach(p => { pm2Map[p.name] = p; });
+
+  checks.forEach(c => { total++; if (c) online++; });
+  // Bridges
+  ['ami-bridge', 'core-sync-bridge'].forEach(name => {
+    total++;
+    if (pm2Map[name] && pm2Map[name].status === 'online') online++;
+  });
+  // Monitor is always online (it's serving this page)
+  total++;
+  online++;
+
+  document.getElementById('topo-online').textContent = online + ' / ' + total;
+  document.getElementById('topo-online').style.color = online === total ? '#4ade80' : (online > total / 2 ? '#facc15' : '#f87171');
+  document.getElementById('topo-mem').textContent = d.system.usedMemoryGB + ' / ' + d.system.totalMemoryGB + ' GB';
+  document.getElementById('topo-uptime').textContent = formatUptime(d.system.uptime);
+  document.getElementById('topo-disk').textContent = d.system.diskFreeGB + ' GB';
+
+  // Nginx node
+  const nginxColor = getNodeColor(d.services.nginx.status);
+  setNodeStatus('nginx', nginxColor, d.services.nginx.status);
+  document.getElementById('tval-nginx-status').textContent = d.services.nginx.status;
+
+  // Frontend node
+  const feProc = pm2Map['crm-frontend'];
+  const feColor = getNodeColor(d.services.frontend.http);
+  setNodeStatus('frontend', feColor, d.services.frontend.http);
+  document.getElementById('tval-frontend-status').textContent = d.services.frontend.http;
+  document.getElementById('tval-frontend-mem').textContent = feProc ? formatBytes(feProc.memory) : '--';
+  document.getElementById('tval-frontend-pid').textContent = feProc ? feProc.pid : '--';
+
+  // Backend node
+  const beProc = pm2Map['crm-backend'];
+  const beColor = getNodeColor(d.services.backend.http);
+  setNodeStatus('backend', beColor, d.services.backend.http);
+  document.getElementById('tval-backend-status').textContent = d.services.backend.http;
+  document.getElementById('tval-backend-mem').textContent = beProc ? formatBytes(beProc.memory) : '--';
+  document.getElementById('tval-backend-pid').textContent = beProc ? beProc.pid : '--';
+
+  // PostgreSQL node
+  const pgColor = getNodeColor(d.services.postgresql.status);
+  setNodeStatus('pg', pgColor, d.services.postgresql.status);
+  document.getElementById('tval-pg-status').textContent = d.services.postgresql.status;
+
+  // AMI Bridge node
+  const amiProc = pm2Map['ami-bridge'];
+  const amiColor = amiProc ? getNodeColor(amiProc.status) : 'red';
+  setNodeStatus('ami', amiColor, amiProc ? amiProc.status : 'stopped');
+  document.getElementById('tval-ami-status').textContent = amiProc ? amiProc.status : 'stopped';
+  document.getElementById('tval-ami-mem').textContent = amiProc ? formatBytes(amiProc.memory) : '--';
+
+  // Core Sync Bridge node
+  const coreProc = pm2Map['core-sync-bridge'];
+  const coreColor = coreProc ? getNodeColor(coreProc.status) : 'red';
+  setNodeStatus('core', coreColor, coreProc ? coreProc.status : 'stopped');
+  document.getElementById('tval-core-status').textContent = coreProc ? coreProc.status : 'stopped';
+  document.getElementById('tval-core-mem').textContent = coreProc ? formatBytes(coreProc.memory) : '--';
+
+  // Monitor is always green
+  setNodeStatus('monitor', 'green', 'online');
+
+  // Draw SVG lines
+  drawTopologyLines();
+}
+
+function setNodeStatus(id, color, status) {
+  const node = document.getElementById('node-' + id);
+  const dot = document.getElementById('dot-' + id);
+  if (!node || !dot) return;
+
+  node.className = node.className.replace(/status-\w+/g, '').trim() + ' status-' + color;
+  // Re-add topo-* class
+  const topoClass = node.getAttribute('data-node');
+  if (!node.className.includes('topo-')) {
+    // Re-check and add topo class if stripped
+  }
+  dot.className = 'topo-node-dot ' + color;
+
+  if (deploying && (id === 'backend' || id === 'frontend')) {
+    node.classList.add('deploying');
+  } else {
+    node.classList.remove('deploying');
+  }
+}
+
+function drawTopologyLines() {
+  const svg = document.getElementById('topology-svg');
+  const container = document.getElementById('topology-container');
+  if (!svg || !container) return;
+
+  const cRect = container.getBoundingClientRect();
+  svg.setAttribute('width', cRect.width);
+  svg.setAttribute('height', cRect.height);
+
+  // Define connections: [from, to]
+  const connections = [
+    ['nginx', 'frontend'],
+    ['nginx', 'backend'],
+    ['frontend', 'backend'],
+    ['backend', 'pg'],
+    ['ami', 'backend'],
+    ['core', 'backend'],
+    ['monitor', 'backend'],
+  ];
+
+  let paths = '';
+  const defs = '<defs><marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#334155"/></marker></defs>';
+
+  connections.forEach(([fromId, toId]) => {
+    const fromEl = document.getElementById('node-' + fromId);
+    const toEl = document.getElementById('node-' + toId);
+    if (!fromEl || !toEl) return;
+
+    const fromRect = fromEl.getBoundingClientRect();
+    const toRect = toEl.getBoundingClientRect();
+
+    // Calculate center points relative to container
+    const fx = fromRect.left + fromRect.width / 2 - cRect.left;
+    const fy = fromRect.top + fromRect.height / 2 - cRect.top;
+    const tx = toRect.left + toRect.width / 2 - cRect.left;
+    const ty = toRect.top + toRect.height / 2 - cRect.top;
+
+    // Edge points (from border, not center)
+    const angle = Math.atan2(ty - fy, tx - fx);
+    const fromX = fx + Math.cos(angle) * (fromRect.width / 2);
+    const fromY = fy + Math.sin(angle) * (fromRect.height / 2);
+    const toX = tx - Math.cos(angle) * (toRect.width / 2);
+    const toY = ty - Math.sin(angle) * (toRect.height / 2);
+
+    // Determine line color based on both endpoints' status
+    const fromColor = getNodeColorFromEl(fromId);
+    const toColor = getNodeColorFromEl(toId);
+    let lineColor = '#334155';
+    if (fromColor === 'green' && toColor === 'green') lineColor = 'rgba(34, 197, 94, 0.3)';
+    else if (fromColor === 'red' || toColor === 'red') lineColor = 'rgba(239, 68, 68, 0.2)';
+    else if (fromColor === 'yellow' || toColor === 'yellow') lineColor = 'rgba(234, 179, 8, 0.2)';
+
+    paths += '<line x1="' + fromX + '" y1="' + fromY + '" x2="' + toX + '" y2="' + toY + '" stroke="' + lineColor + '" stroke-width="2" stroke-dasharray="6,4" marker-end="url(#arrowhead)"/>';
+  });
+
+  svg.innerHTML = defs + paths;
+}
+
+function getNodeColorFromEl(id) {
+  const node = document.getElementById('node-' + id);
+  if (!node) return 'gray';
+  if (node.className.includes('status-green')) return 'green';
+  if (node.className.includes('status-red')) return 'red';
+  if (node.className.includes('status-yellow')) return 'yellow';
+  return 'gray';
+}
+
 // ── Infrastructure ───────────────────────────────────
 
 async function loadStatus() {
   try {
     const r = await fetch(BASE + '/api/status');
     const d = await r.json();
+    cachedStatus = d;
     document.getElementById('clock').textContent = new Date(d.timestamp).toLocaleTimeString();
 
+    // Update topology if on that tab
+    if (activeTab === 'topology') {
+      updateTopology();
+    }
+
+    // Always update Services tab data
     const memPct = parseInt(d.system.memoryUsagePercent);
     const diskPct = d.system.diskTotalGB > 0 ? ((d.system.diskTotalGB - d.system.diskFreeGB) / d.system.diskTotalGB * 100).toFixed(0) : 0;
 
@@ -427,17 +1036,19 @@ async function loadStatus() {
     document.getElementById('services').innerHTML = allSvc.map(s =>
       '<div class="svc-row"><div><div class="svc-name">' + s.name + '</div><div class="svc-detail">' + s.detail + '</div></div><div class="svc-actions">' + statusBadge(s.status) +
       (s.pm2 ? ' <button class="btn btn-logs" onclick="showInfraLogs(\'' + s.key + '\')">Logs</button>' : '') +
-      ' <button class="btn btn-restart" onclick="restartService(\'' + s.key + '\')">Restart</button></div></div>'
+      ' <button class="btn btn-start" onclick="serviceAction(\'' + s.key + '\',\'start\')">Start</button>' +
+      ' <button class="btn btn-stop" onclick="serviceAction(\'' + s.key + '\',\'stop\')">Stop</button>' +
+      ' <button class="btn btn-restart" onclick="serviceAction(\'' + s.key + '\',\'restart\')">Restart</button></div></div>'
     ).join('');
   } catch(e) {
     toast('Failed to load status: ' + e.message, 'error');
   }
 }
 
-async function restartService(service) {
-  if (!confirm('Restart ' + service + '?')) return;
+async function serviceAction(service, action) {
+  if (!confirm(action.charAt(0).toUpperCase() + action.slice(1) + ' ' + service + '?')) return;
   try {
-    const r = await fetch(BASE + '/api/restart/' + service, { method: 'POST' });
+    const r = await fetch(BASE + '/api/service/' + service + '/' + action, { method: 'POST' });
     const d = await r.json();
     toast(d.message || d.error, d.success ? 'success' : 'error');
     setTimeout(loadStatus, 2000);
@@ -546,6 +1157,7 @@ async function loadBridges() {
   try {
     const r = await fetch(BASE + '/api/bridges');
     const data = await r.json();
+    cachedBridges = data;
     updateAmiBridge(data.bridges['ami-bridge']);
     updateCoreBridge(data.bridges['core-sync-bridge']);
   } catch (err) {
@@ -615,23 +1227,120 @@ async function loadHealthLog() {
   }
 }
 
+// ── Deployments ──────────────────────────────────────
+
+async function loadDeploys() {
+  const container = document.getElementById('deploy-list');
+  try {
+    const r = await fetch(BASE + '/api/github-deploys');
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      container.innerHTML = '<div class="deploy-empty">Failed to load deployments: ' + escapeHtml(err.error || 'Unknown error') + '</div>';
+      return;
+    }
+    const data = await r.json();
+    const runs = data.runs || [];
+
+    if (runs.length === 0) {
+      container.innerHTML = '<div class="deploy-empty">No deployment runs found.</div>';
+      return;
+    }
+
+    // Check if any deployment is in progress
+    deploying = runs.some(r => r.status === 'in_progress' || r.status === 'queued');
+
+    // Update topology deploy summary
+    const lastRun = runs[0];
+    const topoDeployEl = document.getElementById('topo-deploy');
+    if (topoDeployEl && lastRun) {
+      const ago = timeAgo(lastRun.createdAt);
+      const icon = lastRun.conclusion === 'success' ? '&#10003; ' : lastRun.conclusion === 'failure' ? '&#10007; ' : lastRun.status === 'in_progress' ? '... ' : '';
+      topoDeployEl.innerHTML = icon + ago;
+      topoDeployEl.style.color = lastRun.conclusion === 'success' ? '#4ade80' : lastRun.conclusion === 'failure' ? '#f87171' : lastRun.status === 'in_progress' ? '#38bdf8' : '#94a3b8';
+    }
+
+    container.innerHTML = runs.map(run => {
+      let iconClass, iconContent;
+      if (run.status === 'in_progress' || run.status === 'queued') {
+        iconClass = 'in-progress';
+        iconContent = '<span class="spinner"></span>';
+      } else if (run.conclusion === 'success') {
+        iconClass = 'success';
+        iconContent = '&#10003;';
+      } else if (run.conclusion === 'failure') {
+        iconClass = 'failure';
+        iconContent = '&#10007;';
+      } else if (run.conclusion === 'cancelled') {
+        iconClass = 'cancelled';
+        iconContent = '&#9632;';
+      } else {
+        iconClass = 'cancelled';
+        iconContent = '?';
+      }
+
+      const commitMsg = escapeHtml((run.commitMessage || '').split('\n')[0]).substring(0, 80);
+      const createdDate = new Date(run.createdAt);
+      const dateStr = createdDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + createdDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+      return '<div class="deploy-row">' +
+        '<div class="deploy-icon ' + iconClass + '">' + iconContent + '</div>' +
+        '<div class="deploy-body">' +
+          '<div class="deploy-commit">' + commitMsg + '</div>' +
+          '<div class="deploy-meta">' +
+            '<span><code>' + escapeHtml(run.commitSha) + '</code></span>' +
+            '<span>' + escapeHtml(run.headBranch) + '</span>' +
+            '<span>' + dateStr + '</span>' +
+            (run.duration ? '<span>' + formatDuration(run.duration) + '</span>' : '') +
+            '<span>' + escapeHtml(run.event) + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<a class="deploy-link" href="' + escapeHtml(run.htmlUrl) + '" target="_blank" rel="noopener">View &rarr;</a>' +
+      '</div>';
+    }).join('');
+
+  } catch (err) {
+    container.innerHTML = '<div class="deploy-empty">Error: ' + escapeHtml(err.message) + '</div>';
+  }
+}
+
+// ── Git Status Badge ─────────────────────────────────
+
+async function loadGitStatus() {
+  try {
+    const r = await fetch(BASE + '/api/git-status');
+    if (!r.ok) return;
+    const data = await r.json();
+    const badge = document.getElementById('git-badge');
+    badge.style.display = 'inline';
+    badge.innerHTML = '<code>' + escapeHtml(data.branch) + '</code> @ <code>' + escapeHtml(data.commitShort) + '</code>';
+    badge.title = data.commitMessage + ' (' + data.commitDate + ')';
+  } catch {}
+}
+
 // ── Clock & Auto-refresh ─────────────────────────────
 
 function updateClock() {
   document.getElementById('clock').textContent = new Date().toLocaleTimeString();
 }
 
+// Redraw SVG lines on resize
+window.addEventListener('resize', () => {
+  if (activeTab === 'topology') drawTopologyLines();
+});
+
 // Initial load
 loadStatus();
+loadBridges();
+loadGitStatus();
 updateClock();
 
-// Auto-refresh: infrastructure every 30s, bridges every 5s (only when tab active)
+// Auto-refresh: status every 30s, bridges every 5s, deploys every 15s
 setInterval(() => {
   loadStatus();
 }, 30000);
 
 setInterval(() => {
-  if (activeTab === 'bridges') {
+  if (activeTab === 'bridges' || activeTab === 'topology') {
     loadBridges();
   }
 }, 5000);
@@ -642,7 +1351,20 @@ setInterval(() => {
   }
 }, 10000);
 
+setInterval(() => {
+  if (activeTab === 'deploys') {
+    loadDeploys();
+  }
+}, 15000);
+
+setInterval(() => {
+  loadGitStatus();
+}, 60000);
+
 setInterval(updateClock, 1000);
+
+// Draw topology lines after initial render
+setTimeout(() => { if (activeTab === 'topology') drawTopologyLines(); }, 500);
 </script>
 </body>
 </html>

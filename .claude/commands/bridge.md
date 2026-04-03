@@ -15,7 +15,7 @@ Bridge operations — manage AMI Bridge, Core Sync Bridge, and Bridge Monitor on
 |---------|------|--------|----------|
 | AMI Bridge | C:\ami-bridge\ | :3100/health | ami-bridge |
 | Core Sync Bridge | C:\core-sync-bridge\ | :3101/health | core-sync-bridge |
-| Bridge Monitor | C:\bridge-monitor\ | :3200 (dashboard) | bridge-monitor |
+| Ops Dashboard | C:\crm\crm-monitor\ | :9090 (/admin/monitor/) | crm-monitor |
 
 ## Available Operations
 
@@ -88,7 +88,7 @@ GET /v1/integrations/core/checkpoints — polling checkpoints
 ## Safety Rules
 - NEVER write to core MySQL — all bridge queries are SELECT only
 - Full bulk load: OFF-HOURS ONLY (4-5 hours, stresses both databases)
-- Always verify webhook URL points to api-crm28.asg.ge (NOT crm28.asg.ge)
+- Verify webhook URLs point to http://127.0.0.1:3000 (localhost, since bridges and backend are on same VM)
 - After deploying code, PM2 auto-restarts via ecosystem.config.js
 - AMI Bridge connects via SSH tunnel — if AMI is down, check tunnel first
 - If Asterisk blocks connections, check fail2ban before repeated retries
