@@ -4,6 +4,11 @@ on:
   push:
     branches: [master]
 
+env:
+  # Share pnpm store with Administrator account so cache is warm
+  PNPM_HOME: "C:\\Users\\Administrator\\AppData\\Local\\pnpm"
+  PNPM_STORE: "C:\\Users\\Administrator\\AppData\\Local\\pnpm\\store"
+
 jobs:
   deploy:
     name: Deploy to Production VM
@@ -12,10 +17,11 @@ jobs:
 
     steps:
       - name: Setup PATH
-        shell: pwsh
+        shell: powershell
         run: |
           $extraPaths = @(
             "C:\Users\Administrator\AppData\Roaming\npm",
+            "C:\Users\Administrator\AppData\Local\pnpm",
             "C:\Program Files\nodejs",
             "C:\Program Files\Git\cmd"
           )
@@ -25,13 +31,15 @@ jobs:
             }
           }
           echo "PATH=$env:PATH" >> $env:GITHUB_ENV
+          # Point pnpm to Administrator's store
+          pnpm config set store-dir "C:\Users\Administrator\AppData\Local\pnpm\store" --global
           Write-Output "node: $(node --version)"
           Write-Output "pnpm: $(pnpm --version)"
           Write-Output "pm2: $(pm2 --version)"
           Write-Output "git: $(git --version)"
 
       - name: Pull latest code
-        shell: pwsh
+        shell: powershell
         run: |
           cd C:\crm
           git fetch origin master
@@ -39,65 +47,53 @@ jobs:
           Write-Output "Checked out: $(git rev-parse --short HEAD)"
 
       - name: Install backend dependencies
-        shell: pwsh
+        shell: powershell
         run: |
           cd C:\crm\backend\crm-backend
-          pnpm install --frozen-lockfile
+          pnpm install --frozen-lockfile --prefer-offline
 
       - name: Generate Prisma client
-        shell: pwsh
+        shell: powershell
         run: |
           cd C:\crm\backend\crm-backend
           npx prisma generate
 
       - name: Run database migrations
-        shell: pwsh
+        shell: powershell
         run: |
           cd C:\crm\backend\crm-backend
           npx prisma migrate deploy
 
       - name: Seed permissions
-        shell: pwsh
+        shell: powershell
         run: |
           cd C:\crm\backend\crm-backend
           npx tsx prisma/seed-permissions.ts
 
       - name: Build backend
-        shell: pwsh
+        shell: powershell
         run: |
           cd C:\crm\backend\crm-backend
           pnpm build
 
-      - name: Install frontend dependencies
-        shell: pwsh
+      - name: Install and build frontend
+        shell: powershell
         run: |
           cd C:\crm\frontend\crm-frontend
-          pnpm install --frozen-lockfile
-
-      - name: Build frontend
-        shell: pwsh
-        run: |
-          cd C:\crm\frontend\crm-frontend
+          pnpm install --frozen-lockfile --prefer-offline
           pnpm build
 
-      - name: Restart backend
-        shell: pwsh
+      - name: Restart services
+        shell: powershell
         run: |
           pm2 restart crm-backend
           Start-Sleep -Seconds 10
-
-      - name: Restart frontend
-        shell: pwsh
-        run: |
           pm2 restart crm-frontend
           Start-Sleep -Seconds 5
-
-      - name: Save PM2 state
-        shell: pwsh
-        run: pm2 save
+          pm2 save
 
       - name: Health check
-        shell: pwsh
+        shell: powershell
         run: |
           $maxRetries = 5
           $retryDelay = 5
@@ -124,7 +120,7 @@ jobs:
 
       - name: Deployment summary
         if: success()
-        shell: pwsh
+        shell: powershell
         run: |
           $commit = git -C C:\crm rev-parse --short HEAD
           $msg = git -C C:\crm log -1 --pretty=format:"%s"
