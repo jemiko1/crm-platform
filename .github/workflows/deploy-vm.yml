@@ -12,7 +12,7 @@ jobs:
 
     steps:
       - name: Setup PATH
-        shell: pwsh
+        shell: powershell
         run: |
           $extraPaths = @(
             "C:\Users\Administrator\AppData\Roaming\npm",
@@ -31,7 +31,7 @@ jobs:
           Write-Output "git: $(git --version)"
 
       - name: Pull latest code
-        shell: pwsh
+        shell: powershell
         run: |
           cd C:\crm
           git fetch origin master
@@ -39,65 +39,65 @@ jobs:
           Write-Output "Checked out: $(git rev-parse --short HEAD)"
 
       - name: Install backend dependencies
-        shell: pwsh
+        shell: powershell
         run: |
           cd C:\crm\backend\crm-backend
           pnpm install --frozen-lockfile
 
       - name: Generate Prisma client
-        shell: pwsh
+        shell: powershell
         run: |
           cd C:\crm\backend\crm-backend
           npx prisma generate
 
       - name: Run database migrations
-        shell: pwsh
+        shell: powershell
         run: |
           cd C:\crm\backend\crm-backend
           npx prisma migrate deploy
 
       - name: Seed permissions
-        shell: pwsh
+        shell: powershell
         run: |
           cd C:\crm\backend\crm-backend
           npx tsx prisma/seed-permissions.ts
 
       - name: Build backend
-        shell: pwsh
+        shell: powershell
         run: |
           cd C:\crm\backend\crm-backend
           pnpm build
 
       - name: Install frontend dependencies
-        shell: pwsh
+        shell: powershell
         run: |
           cd C:\crm\frontend\crm-frontend
           pnpm install --frozen-lockfile
 
       - name: Build frontend
-        shell: pwsh
+        shell: powershell
         run: |
           cd C:\crm\frontend\crm-frontend
           pnpm build
 
       - name: Restart backend
-        shell: pwsh
+        shell: powershell
         run: |
           pm2 restart crm-backend
           Start-Sleep -Seconds 10
 
       - name: Restart frontend
-        shell: pwsh
+        shell: powershell
         run: |
           pm2 restart crm-frontend
           Start-Sleep -Seconds 5
 
       - name: Save PM2 state
-        shell: pwsh
+        shell: powershell
         run: pm2 save
 
       - name: Health check
-        shell: pwsh
+        shell: powershell
         run: |
           $maxRetries = 5
           $retryDelay = 5
@@ -124,7 +124,7 @@ jobs:
 
       - name: Deployment summary
         if: success()
-        shell: pwsh
+        shell: powershell
         run: |
           $commit = git -C C:\crm rev-parse --short HEAD
           $msg = git -C C:\crm log -1 --pretty=format:"%s"
