@@ -5,11 +5,11 @@
 CRM28 syncs data **one-way** from a legacy core system (Java/Hibernate, MySQL) into the CRM (NestJS, PostgreSQL). The core system manages the company's main operations — buildings, clients, devices, billing. The CRM adds modern UI, work orders, incidents, telephony, and chat.
 
 ```
-Local Network (VPN)                              Railway (Cloud) ��� planned VM migration
+Local Network (VPN)                              Production VM (192.168.65.110) ��� planned VM migration
 ┌─────────────────────────────────────┐         ┌──────────────────────────┐
 │                                     │         │                          │
 │  Core MySQL (192.168.65.97:3306)    │         │  CRM Backend (NestJS)    │
-│  Database: tttt                     │         │  api-crm28.asg.ge        │
+│  Database: tttt                     │         │  localhost:3000        │
 │  User: asg_tablau (READ-ONLY)       │         │                          │
 │  ⛔ NEVER WRITE TO THIS DATABASE    │         │  ┌────────────────────��  │
 │       ▲                             │         │  │ Webhook Receiver   │  │
@@ -22,7 +22,7 @@ Local Network (VPN)                              Railway (Cloud) ��� plann
 │  │  192.168.65.110          │       │         │           │              │
 │  │                          │       │         │  ┌────────▼───────────┐  │
 │  │  Delta poll: every 5 min │       │         │  │ CRM PostgreSQL     │  │
-│  │  Count check: hourly     │       │         │  │ (Railway / Docker) │  │
+│  │  Count check: hourly     │       │         │  │ (VM / Docker dev) │  │
 │  │  Gap repair: 3 AM        │       │         │  └────────────────────┘  │
 │  └──────────────────────────┘       │         │                          │
 └─────────────────────────────────────┘         └──────────────────────────┘
@@ -222,8 +222,8 @@ CORE_MYSQL_PASSWORD=<password>
 CORE_MYSQL_DATABASE=tttt
 
 # CRM Backend
-CRM_WEBHOOK_URL=https://api-crm28.asg.ge/v1/integrations/core/webhook
-CRM_WEBHOOK_SECRET=<must-match-CORE_WEBHOOK_SECRET-on-Railway>
+CRM_WEBHOOK_URL=http://127.0.0.1:3000/v1/integrations/core/webhook
+CRM_WEBHOOK_SECRET=<must-match-CORE_WEBHOOK_SECRET-on-VM-backend>
 
 # Polling
 POLL_INTERVAL_MINUTES=5
@@ -310,27 +310,22 @@ Every webhook carries a UUID `eventId`. The backend stores it in `SyncEvent` tab
 
 ### Production Deploy Crash (Prisma Migration Failed)
 
-If Railway deploy fails with `P3009 — migrate found failed migrations`:
+If VM deploy fails with `P3009 — migrate found failed migrations`:
 
-1. Get Railway Postgres public URL:
-   ```bash
-   railway variables -s Postgres | grep DATABASE_PUBLIC_URL
-   # → postgresql://postgres:<pw>@metro.proxy.rlwy.net:<port>/railway
+1. SSH to VM and check what failed:
+   ```powershell
+   C:\postgresql17\pgsql\bin\psql.exe -U postgres -d crm -c "SELECT migration_name, logs FROM _prisma_migrations WHERE finished_at IS NULL;"
    ```
 
-2. Check what failed:
-   ```bash
-   docker exec -i crm-prod-db psql "<public_url>" -c \
-     "SELECT migration_name, logs FROM _prisma_migrations WHERE finished_at IS NULL;"
+2. Mark the migration as applied:
+   ```powershell
+   cd C:\crm\backend\crm-backend
+   npx prisma migrate resolve --applied <migration_name>
    ```
 
-3. Apply remaining SQL manually, then mark resolved:
-   ```bash
-   docker exec -i crm-prod-db psql "<public_url>" -c \
-     "UPDATE _prisma_migrations SET finished_at=NOW(), logs=NULL, applied_steps_count=1 WHERE migration_name='<name>';"
-   ```
+3. Re-run the deploy: `pm2 restart crm-backend`
 
-4. Trigger redeploy: `railway redeploy --yes`
+For **staging** (Railway), use `railway` CLI with `--environment dev`.
 
 ### Bridge Can't Connect to MySQL
 - Verify VPN is connected (OpenVPN TAP adapter)
@@ -353,11 +348,11 @@ If Railway deploy fails with `P3009 — migrate found failed migrations`:
 
 ## Planned Improvements
 
-### Railway → VM Migration
-The CRM backend is planned to move from Railway (cloud) to the VM at `192.168.65.110` (or a dedicated local server) for:
-- Better performance (same network as core MySQL — no internet roundtrip)
-- Lower latency for webhook processing
-- Cost reduction (no Railway hosting fees)
+### ~~Railway → VM Migration~~ ✅ COMPLETED (April 2026)
+CRM backend moved from Railway to VM 192.168.65.110. Benefits realized:
+- Same-network access to core MySQL (no internet roundtrip)
+- Lower latency for webhook processing (bridge → backend is localhost)
+- No Railway hosting fees
 - Direct database access without public proxy
 
 ### Sync Health Monitoring

@@ -88,8 +88,8 @@ if ($frontend.Status -eq "DOWN") {
     }
 }
 
-# 5. Check Nginx proxy (end-to-end)
-$proxy = Test-Http "http://127.0.0.1:8080/health" "Nginx Proxy"
+# 5. Check Nginx proxy (end-to-end via HTTPS)
+$proxy = Test-Http "https://crm28.asg.ge/health" "Nginx Proxy"
 if ($proxy.Status -eq "DOWN" -and $backend.Status -eq "UP") {
     Log "ALERT: Nginx proxy broken (backend UP but proxy DOWN). Restarting Nginx..."
     Restart-Service nginx -ErrorAction SilentlyContinue

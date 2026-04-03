@@ -12,7 +12,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
-    "start:railway": "prisma migrate deploy && npx tsx prisma/seed-permissions.ts && node dist/main",
+    "start:deploy": "prisma migrate deploy && npx tsx prisma/seed-permissions.ts && node dist/main",
     "seed:permissions": "npx tsx prisma/seed-permissions.ts",
     "seed:all": "npx tsx prisma/seed-all.ts",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\"",

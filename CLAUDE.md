@@ -11,7 +11,7 @@ Manages buildings, residents, work orders, incidents, sales leads, inventory, te
 
 - **Backend**: NestJS 11 (TypeScript) — `backend/crm-backend/`, port 3000, `npm run start:dev`
 - **Frontend**: Next.js 16 App Router, React 19 — `frontend/crm-frontend/`, port 4002, `pnpm dev --port 4002`
-- **Database**: PostgreSQL 16 via Prisma 7 ORM in Docker (`crm-prod-db`, port 5433)
+- **Database**: PostgreSQL 17 (production VM 192.168.65.110, port 5432) / PostgreSQL 16 (local dev Docker `crm-prod-db`, port 5433) via Prisma 7 ORM
 - **Real-time**: Socket.IO — namespaces: `/messenger`, `/telephony`, `/ws/clientchats`
 - **Telephony**: Asterisk/FreePBX 16 + AMI Bridge (`ami-bridge/`, VM 192.168.65.110, port 3100 health) + Electron softphone (`crm-phone/`)
 - **Auth**: JWT in httpOnly cookie (`access_token`), Passport, 24h expiry
@@ -19,9 +19,9 @@ Manages buildings, residents, work orders, incidents, sales leads, inventory, te
 - **Chat Channels**: Viber, Facebook, Telegram, WebChat (WhatsApp planned) — adapter pattern
 - **CSS**: Tailwind CSS v4 (PostCSS plugin, theme in `globals.css`, NO `tailwind.config` file)
 - **Core Sync**: One-way sync from legacy MySQL → CRM via webhook bridge (`core-sync-bridge/`, VM 192.168.65.110, port 3101 health). See `docs/CORE_INTEGRATION.md`
-- **Bridge Monitor**: Dashboard for both bridges (`bridge-monitor/`, VM 192.168.65.110, port 3200). See `docs/BRIDGE_MONITOR.md`
-- **CI/CD**: GitHub Actions → Railway (auto-deploy from master). **Planned migration to local VM** for performance.
-- **Deployment**: Railway auto-deploys on master merge. Build: `pnpm install && pnpm build`. Start: `prisma migrate deploy && seed-permissions && node dist/main`
+- **Operations Dashboard**: Integrated monitoring at `/admin/monitor/` (password-protected, port 9090 on VM). See `vm-configs/crm-monitor/`
+- **CI/CD**: GitHub Actions self-hosted runner on VM → auto-deploy on push to master (`.github/workflows/deploy-vm.yml`). Railway is staging only (`crm28demo.asg.ge`, deploys from `dev` branch).
+- **Deployment**: VM auto-deploys on master merge via GitHub Actions. Steps: pull → install → prisma generate → migrate → seed-permissions → build → PM2 restart. Railway serves as staging environment.
 
 ### Quick Start
 ```powershell
@@ -55,22 +55,22 @@ pnpm install ; pnpm prisma generate ; npx prisma migrate dev ; pnpm seed:all
 4. `git push origin feature/my-feature`
 5. `gh pr create --base master --title "feat(scope): description"`
 6. Tell me: "Ready to test on localhost"
-7. I test → merge PR → Railway auto-deploys
+7. I test → merge PR → VM auto-deploys via GitHub Actions
 
 ### Stop Conditions — ASK Before Doing
 1. Database schema breaking changes (dropping columns, renaming)
 2. API contract changes (removing endpoints, incompatible changes)
 3. Asterisk/FreePBX config changes (ALWAYS apply via GUI too)
 4. Deleting files or large refactors
-5. Changing environment variables (both local and Railway may need updates)
-6. Changing seed scripts (affects Railway deployment)
+5. Changing environment variables (both local and VM production may need updates; Railway staging may also need updates)
+6. Changing seed scripts (affects VM production deployment)
 
 ### ⛔ ABSOLUTE RULE: Core MySQL Database is READ-ONLY
 **NEVER, under ANY circumstances, execute INSERT, UPDATE, DELETE, ALTER, DROP, CREATE, TRUNCATE, or any data-modifying statement against the core MySQL database (192.168.65.97:3306).** This applies to:
 - All Claude agents and subagents working on this project
 - The Core Sync Bridge service
 - CRM backend code
-- Railway deployment
+- VM production deployment
 - Any script, migration, or tool
 
 **Read queries MUST use non-locking reads** (`SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED` or explicit `LOCK IN SHARE MODE` avoidance). Never use `SELECT ... FOR UPDATE` or any locking SELECT. The core database serves critical production applications — CRM must never cause slowdowns, locks, or data corruption. Violation of this rule can halt company operations.
@@ -131,16 +131,16 @@ Flag any situation where a value lives in more than one place. Known risks:
 
 0. **⛔ Core MySQL is READ-ONLY** — The core database at 192.168.65.97:3306 must NEVER be written to. All queries must be non-locking SELECTs. Use `SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED` on every connection. Never use `FOR UPDATE`, `LOCK IN SHARE MODE`, or any write statement. This database serves multiple critical production applications.
 1. **JWT secret fallback** — `JWT_SECRET` is required, app crashes if missing. Ensure no hardcoded default exists anywhere.
-2. **Telephony ingest secret sync** — `TELEPHONY_INGEST_SECRET` must match between Railway backend env and AMI Bridge VM env. Changing one without the other silently breaks telephony ingestion.
-2b. **Core webhook secret sync** — `CRM_WEBHOOK_SECRET` on the bridge VM must match `CORE_WEBHOOK_SECRET` on Railway. Changing one without the other silently breaks core sync.
+2. **Telephony ingest secret sync** — `TELEPHONY_INGEST_SECRET` must match between VM backend env and AMI Bridge env (both on same VM). Changing one without the other silently breaks telephony ingestion.
+2b. **Core webhook secret sync** — `CRM_WEBHOOK_SECRET` on the bridge must match `CORE_WEBHOOK_SECRET` on VM backend. Changing one without the other silently breaks core sync.
 3. **Hardcoded cookie names** — All gateways (telephony + messenger) use `COOKIE_NAME` env var for cookie extraction. Frontend and backend must agree.
 4. **Prisma enum migration behavior** — PostgreSQL CANNOT use a new enum value in the same transaction that adds it. If migration fails with "unsafe use of new value", either use fresh DB or apply `ALTER TYPE` manually outside transaction, then `npx prisma migrate resolve --applied <name>`. Always check existing data before enum changes.
-5. **AMI Bridge buffer risks under load** — AMI event relay runs on separate VM with PM2. High call volume can cause event buffering/loss if the bridge falls behind.
+5. **AMI Bridge buffer risks under load** — AMI event relay runs on same VM as CRM backend under PM2. High call volume can cause event buffering/loss if the bridge falls behind.
 6. **Rate limiter vs webhook conflict** — Global ThrottlerGuard (60 req/60s per IP) applies to most routes. Webhooks, health, and telephony ingestion have `@SkipThrottle()`. New webhook endpoints MUST add `@SkipThrottle()` or external services will get 429'd.
 7. **Unwired HealthModule** — `/health` endpoint exists with DB + memory checks. Verify it's imported in `app.module.ts` and actually responding.
 8. **Dual RBAC systems** — Legacy `RolesModule` exists alongside Position-based RBAC (`RoleGroups → Permissions`). Both are imported in `app.module.ts`. Position RBAC is authoritative. Legacy module is technical debt — do not build new features on it.
 9. **Seed script ordering dependencies** — `seed:all` orchestrates 8 scripts in dependency order (permissions first). Running individual seeds out of order can cause foreign key violations. `seed-permissions.ts` is canonical for production; never run `seed-rbac.ts` in production.
-10. **Frontend API rewrite localhost default** — `next.config.ts` rewrites `/auth/*`, `/v1/*`, `/public/*` to backend. `NEXT_PUBLIC_API_BASE` defaults to `http://localhost:3000`. Production must set this correctly or API calls silently hit localhost.
+10. **Frontend API rewrite localhost default** — `next.config.ts` rewrites `/auth/*`, `/v1/*`, `/public/*` to backend. Falls back to `http://localhost:3000` which is correct on VM (co-located). On Railway staging, `API_BACKEND_URL` must be set explicitly.
 11. **Message deduplication race condition** — `clientchats-core.service.ts processInbound()` pipeline order is load-bearing: dedup → upsert → save → match → emit. Changing this order can cause duplicate messages or lost customer name data (`isBetterName()` guard).
 
 ---
@@ -272,30 +272,38 @@ When working as a subagent, read this file first. Key rules:
 ### Remote Access
 | Server | Access | VPN Required |
 |--------|--------|-------------|
+| Production VM (192.168.65.110) | `ssh -i ~/.ssh/id_ed25519_vm Administrator@192.168.65.110` | Yes |
 | Asterisk/FreePBX | `ssh asterisk` | Yes |
-| Bridge VM (192.168.65.110) | `ssh -i ~/.ssh/id_ed25519_vm Administrator@192.168.65.110` | Yes |
 | Core MySQL (READ-ONLY) | 192.168.65.97:3306, user `asg_tablau`, db `tttt` | Yes (via VM only) |
-| Railway (production) | `railway logs`, `railway status` | No |
-| Production DB | `railway connect postgres` or `railway variables -s Postgres` for public URL | No |
+| Railway (staging) | `railway logs`, `railway status` (link to dev environment) | No |
+| Production DB | `psql -U postgres -h 192.168.65.110` (from VM) or via Prisma Studio | Yes |
+| Staging DB | `railway variables -s Postgres` for public URL (dev environment) | No |
 
 OpenVPN is always-on (TAP adapter). If Asterisk SSH times out, check OpenVPN GUI.
 
-`psql` is NOT installed locally. Use `npx prisma studio` or `docker exec -it crm-prod-db psql -U postgres`.
+`psql` is NOT installed locally. Use `npx prisma studio` or `docker exec -it crm-prod-db psql -U postgres` (local dev). For production: SSH to VM, then `C:\postgresql17\pgsql\bin\psql.exe -U postgres -d crm`.
 
-### VM Infrastructure (192.168.65.110)
-Windows Server running three services under PM2:
+### VM Infrastructure (192.168.65.110) — PRODUCTION
+Windows Server 2022, public IP 5.10.36.43, domain crm28.asg.ge. Full CRM stack under PM2 + Windows services:
 
-| Service | Path on VM | Health Port | Description |
-|---------|-----------|-------------|-------------|
-| AMI Bridge | `C:\ami-bridge\` | 3100 | Asterisk AMI → CRM events |
-| Core Sync Bridge | `C:\core-sync-bridge\` | 3101 | Core MySQL → CRM sync |
-| Bridge Monitor | `C:\bridge-monitor\` | 3200 | Dashboard for both bridges |
+| Service | Path on VM | Port | Description |
+|---------|-----------|------|-------------|
+| PostgreSQL 17 | `C:\postgresql17\` | 5432 | Production database (Windows service) |
+| Nginx 1.27 | `C:\nginx\` | 80/443 | HTTPS reverse proxy (Windows service) |
+| CRM Backend | `C:\crm\backend\crm-backend\` | 3000 | NestJS API (PM2) |
+| CRM Frontend | `C:\crm\frontend\crm-frontend\` | 4002 | Next.js app (PM2) |
+| AMI Bridge | `C:\ami-bridge\` | 3100 (health) | Asterisk AMI → CRM events (PM2) |
+| Core Sync Bridge | `C:\core-sync-bridge\` | 3101 (health) | Core MySQL → CRM sync (PM2) |
+| Operations Dashboard | `C:\crm\crm-monitor\` | 9090 | Monitoring UI at `/admin/monitor/` (PM2) |
+| GitHub Actions Runner | `C:\actions-runner\` | — | Self-hosted runner for auto-deploy |
 
-- **Deploy**: `.\deploy-bridges.ps1 -Component all|ami|core|monitor` from repo root
-- **Dashboard**: `http://192.168.65.110:3200` (VPN required)
+- **Auto-deploy**: Push to master → GitHub Actions → pulls, builds, migrates, restarts PM2
+- **Dashboard**: `https://crm28.asg.ge/admin/monitor/` (password-protected)
+- **SSL**: Let's Encrypt via win-acme, auto-renews
 - **SSH tunnel**: AMI bridge reaches Asterisk (5.10.34.153:5038) via SSH tunnel on VM — port 5038 blocked at network level
-- **PM2 persistence**: Windows Scheduled Tasks "PM2 Keeper" + "PM2 Resurrect" keep PM2 alive across reboots/SSH disconnects
-- **Docs**: `docs/AMI_BRIDGE.md`, `docs/BRIDGE_MONITOR.md`, `docs/CORE_INTEGRATION.md`
+- **Auto-start**: Windows Scheduled Task "PM2 Startup - CRM28" runs `pm2-startup.ps1` on boot (starts PostgreSQL → Nginx → PM2 resurrect)
+- **Health check**: Scheduled task runs `health-check.ps1` every 2 minutes with auto-recovery
+- **Docs**: `docs/AMI_BRIDGE.md`, `docs/CORE_INTEGRATION.md`, `docs/VM_MIGRATION_PLAN.md`
 
 ---
 
@@ -328,7 +336,7 @@ When building access-controlled features: add to seed-permissions.ts → backend
 - Both `bcrypt` AND `bcryptjs` installed — check which is imported before changing auth
 - Core sync bridge count-verification/gap-repair require CRM health endpoint access, but endpoint needs JWT — bridge can't authenticate yet (degrades gracefully — delta polling still works)
 - `smartgsmgate` and `contactperson` tables have no timestamps — can't be delta-polled, only bulk-loaded
-- **Planned**: Railway → VM migration for CRM backend (better performance, same-network access to core MySQL)
+- Railway → VM migration complete (April 2026). Railway is staging only at crm28demo.asg.ge
 
 ---
 

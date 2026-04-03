@@ -13,11 +13,10 @@ Monitors health of all bridges on VM 192.168.65.110: AMI Bridge, Core Sync Bridg
 Read, Grep, Glob, Bash
 
 ## Prerequisites
-Get the Railway Postgres public URL first (NEVER hardcode credentials in files):
+Production database is on the VM at localhost:5432. Access via SSH:
 ```bash
-railway variables -s Postgres 2>&1 | grep DATABASE_PUBLIC_URL
+ssh -i ~/.ssh/id_ed25519_vm Administrator@192.168.65.110 "C:\postgresql17\pgsql\bin\psql.exe -U postgres -d crm -c 'SELECT 1'"
 ```
-Store the URL in a shell variable: `RAILWAY_DB_PUBLIC_URL="<the url from above>"`
 
 ## Steps
 
@@ -25,7 +24,7 @@ Store the URL in a shell variable: `RAILWAY_DB_PUBLIC_URL="<the url from above>"
 ```bash
 ssh -i ~/.ssh/id_ed25519_vm Administrator@192.168.65.110 "pm2 status"
 ```
-All three should be "online": ami-bridge, core-sync-bridge, bridge-monitor.
+Expected online: crm-backend, crm-frontend, ami-bridge, core-sync-bridge, crm-monitor.
 
 ### 2. Check Health Endpoints
 ```bash
@@ -56,23 +55,14 @@ ssh -i ~/.ssh/id_ed25519_vm Administrator@192.168.65.110 "pm2 logs core-sync-bri
 ```
 Look for: connection errors, webhook failures, timeout errors, ALERT lines.
 
-### 5. Check CRM Sync Events via Railway Database
+### 5. Check CRM Sync Events via VM Database
 ```bash
-docker exec -i crm-prod-db psql "$RAILWAY_DB_PUBLIC_URL" -c "
-SELECT status, COUNT(*) FROM \"SyncEvent\"
-WHERE \"receivedAt\" > NOW() - INTERVAL '24 hours'
-GROUP BY status ORDER BY status;
-"
+ssh -i ~/.ssh/id_ed25519_vm Administrator@192.168.65.110 "C:\postgresql17\pgsql\bin\psql.exe -U postgres -d crm -c \"SELECT status, COUNT(*) FROM \\\"SyncEvent\\\" WHERE \\\"receivedAt\\\" > NOW() - INTERVAL '24 hours' GROUP BY status ORDER BY status;\""
 ```
 
 ### 6. Check for Failed Events
 ```bash
-docker exec -i crm-prod-db psql "$RAILWAY_DB_PUBLIC_URL" -c "
-SELECT \"entityType\", \"entityCoreId\", error, \"receivedAt\"
-FROM \"SyncEvent\"
-WHERE status = 'FAILED'
-ORDER BY \"receivedAt\" DESC LIMIT 10;
-"
+ssh -i ~/.ssh/id_ed25519_vm Administrator@192.168.65.110 "C:\postgresql17\pgsql\bin\psql.exe -U postgres -d crm -c \"SELECT \\\"entityType\\\", \\\"entityCoreId\\\", error, \\\"receivedAt\\\" FROM \\\"SyncEvent\\\" WHERE status = 'FAILED' ORDER BY \\\"receivedAt\\\" DESC LIMIT 10;\""
 ```
 
 ### 7. Compare Entity Counts (Core vs CRM)
@@ -83,12 +73,7 @@ ssh -i ~/.ssh/id_ed25519_vm Administrator@192.168.65.110 "cd C:\core-sync-bridge
 
 CRM counts:
 ```bash
-docker exec -i crm-prod-db psql "$RAILWAY_DB_PUBLIC_URL" -c "
-SELECT
-  (SELECT COUNT(*) FROM \"Building\" WHERE \"coreId\" IS NOT NULL AND \"isActive\"=true) AS buildings,
-  (SELECT COUNT(*) FROM \"Client\" WHERE \"coreId\" IS NOT NULL AND \"isActive\"=true) AS clients,
-  (SELECT COUNT(*) FROM \"Asset\" WHERE \"coreId\" IS NOT NULL AND \"isActive\"=true) AS assets;
-"
+ssh -i ~/.ssh/id_ed25519_vm Administrator@192.168.65.110 "C:\postgresql17\pgsql\bin\psql.exe -U postgres -d crm -c \"SELECT (SELECT COUNT(*) FROM \\\"Building\\\" WHERE \\\"coreId\\\" IS NOT NULL AND \\\"isActive\\\"=true) AS buildings, (SELECT COUNT(*) FROM \\\"Client\\\" WHERE \\\"coreId\\\" IS NOT NULL AND \\\"isActive\\\"=true) AS clients, (SELECT COUNT(*) FROM \\\"Asset\\\" WHERE \\\"coreId\\\" IS NOT NULL AND \\\"isActive\\\"=true) AS assets;\""
 ```
 
 ### 8. Auto-Fix Strategies
@@ -98,7 +83,7 @@ SELECT
 - **Webhook URL wrong**: Check `.env` on VM, fix URL, restart PM2
 - **Failed events**: Check error messages, re-sync specific entities
 - **Count mismatch**: If small (<10), re-sync individual entities. If large, schedule bulk re-load.
-- **No successful ingest for 5+ min**: Check TELEPHONY_INGEST_SECRET matches Railway env
+- **No successful ingest for 5+ min**: Check TELEPHONY_INGEST_SECRET matches backend env on VM
 
 ## Report Format
 ```

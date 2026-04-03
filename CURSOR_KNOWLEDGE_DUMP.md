@@ -21,11 +21,11 @@ PostgreSQL cannot use a new enum value in the same transaction that adds it. If 
 2. Apply the failing `ALTER TYPE` manually outside a transaction, then `npx prisma migrate resolve --applied <migration_name>`
 
 **Seed scripts have an orchestrator:**
-There are 8 seed scripts (`seed.ts` + 7 `seed-*.ts`) plus `seed-all.ts` which runs them all in the correct dependency order. Use `pnpm seed:all` to run everything. The `start:railway` script only runs `seed-permissions.ts` (idempotent, safe for prod).
+There are 8 seed scripts (`seed.ts` + 7 `seed-*.ts`) plus `seed-all.ts` which runs them all in the correct dependency order. Use `pnpm seed:all` to run everything. The `start:deploy` script only runs `seed-permissions.ts` (idempotent, safe for prod).
 The others (`seed-employees.ts`, `seed-rbac.ts`, `seed-position-settings.ts`) are optional/one-time.
 
 **`seed-rbac.ts` vs `seed-permissions.ts`:**
-These overlap. `seed-permissions.ts` is the canonical one (used in `start:railway`). `seed-rbac.ts` is an older comprehensive seed that also creates role groups and positions. Don't run both — `seed-permissions.ts` is authoritative.
+These overlap. `seed-permissions.ts` is the canonical one (used in `start:deploy`). `seed-rbac.ts` is an older comprehensive seed that also creates role groups and positions. Don't run both — `seed-permissions.ts` is authoritative.
 
 **Schema is one 2125-line file:**
 All 70+ models in a single `schema.prisma`. No multi-file schema setup. This makes `prisma format` slow and diffs noisy. Breaking it up would require Prisma's `prismaSchemaFolder` preview feature.
@@ -113,7 +113,7 @@ The `pnpm build` script does: `prisma generate && nest build`
 
 **Start command:**
 ```
-cd backend/crm-backend && pnpm start:railway
+cd backend/crm-backend && pnpm start:deploy
 ```
 Which expands to: `prisma migrate deploy && npx tsx prisma/seed-permissions.ts && node dist/main`
 

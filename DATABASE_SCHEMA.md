@@ -2,7 +2,7 @@
 
 > **ORM**: Prisma 7.x
 > **Schema file**: `backend/crm-backend/prisma/schema.prisma` (2125 lines)
-> **Database**: PostgreSQL 16+ (Docker container `crm-prod-db`, port 5433)
+> **Database**: PostgreSQL 17 (production VM 192.168.65.110, port 5432) / PostgreSQL 16 (local dev Docker `crm-prod-db`, port 5433)
 > **Last Updated**: 2026-03-24
 
 ---

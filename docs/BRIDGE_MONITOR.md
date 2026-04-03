@@ -1,8 +1,10 @@
-# Bridge Monitor Dashboard
+# Bridge Monitor Dashboard (SUPERSEDED)
 
-## Overview
+> **NOTE**: The standalone bridge-monitor has been replaced by the integrated Operations Dashboard at `https://crm28.asg.ge/admin/monitor/` (password-protected). The new dashboard provides topology view, GitHub Actions deployment status, service management, bridge monitoring, and health logs — all in one place. See `vm-configs/crm-monitor/`.
 
-The Bridge Monitor is a lightweight web dashboard that runs on VM 192.168.65.110 alongside the AMI Bridge and Core Sync Bridge. It provides real-time status monitoring, log viewing, and process control for both bridges.
+## Overview (Historical)
+
+The Bridge Monitor was a lightweight web dashboard that ran on VM 192.168.65.110 alongside the AMI Bridge and Core Sync Bridge. It provided real-time status monitoring, log viewing, and process control for both bridges.
 
 **Dashboard URL**: `http://192.168.65.110:3200`
 **Location**: `bridge-monitor/` (source), `C:\bridge-monitor\` (deployed on VM)

@@ -35,7 +35,7 @@ Last Updated: 2026-03-03 | CRM28 Phone v1.2.2 | Asterisk 16 (PJSIP)
         │                                │          ▼          │
         │                         ┌──────┴──────────────┐      │
         │                         │  CRM BACKEND        │      │
-        │                         │  (Railway cloud)    │      │
+        │                         │  (VM 192.168.65.110)    │      │
         │                         │  NestJS             │      │
         │                         │                     │      │
         │                         │  POST /v1/telephony │      │
@@ -53,7 +53,7 @@ Last Updated: 2026-03-03 | CRM28 Phone v1.2.2 | Asterisk 16 (PJSIP)
         │                                ▼                     │
         │                         ┌─────────────────┐          │
         │                         │  CRM FRONTEND   │          │
-        │                         │  (Railway/Next)  │          │
+        │                         │  (VM/Next.js)  │          │
         │                         │                 │          │
         │                         │  Call Center UI │          │
         │                         │  Live Dashboard │          │
@@ -171,7 +171,7 @@ Asterisk AMI Event (TCP:5038)
         │
         ▼
    CRM Poster
-   - POST https://api-crm28.asg.ge/v1/telephony/events
+   - POST http://127.0.0.1:3000/v1/telephony/events
    - Header: x-telephony-secret: <shared secret>
    - Retry with exponential backoff on failure
 ```
@@ -200,7 +200,7 @@ AMI_HOST=127.0.0.1
 AMI_PORT=5038
 AMI_USER=crm_ami
 AMI_SECRET=<ami-password>
-CRM_BASE_URL=https://api-crm28.asg.ge
+CRM_BASE_URL=http://127.0.0.1:3000
 TELEPHONY_INGEST_SECRET=<shared-secret-matching-backend>
 LOG_LEVEL=INFO
 ```
@@ -218,7 +218,7 @@ pm2 start dist/main.js --name ami-bridge
 
 ### 3. CRM Backend (Telephony Module)
 
-**Location**: Railway cloud (NestJS application)
+**Location**: VM 192.168.65.110 (NestJS application, PM2)
 **Source**: `backend/crm-backend/src/telephony/`
 **Full documentation**: `docs/CALL_CENTER.md`
 
@@ -479,7 +479,7 @@ Release: Upload to GitHub Releases, update download link in `header-settings.tsx
 
 ### 5. CRM Frontend (Call Center UI)
 
-**Location**: Railway cloud (Next.js)
+**Location**: VM 192.168.65.110 (Next.js, PM2)
 **Source**: `frontend/crm-frontend/src/app/app/call-center/`
 
 #### Pages
@@ -624,7 +624,7 @@ SIP.js registers with those credentials to Asterisk
 | Local HTTP bridge (port 19876) | Allows CRM web frontend to detect and communicate with desktop app without complex protocols |
 | Self-signed TLS cert bypass | Production Asterisk uses self-signed cert; `setCertificateVerifyProc` in Electron bypasses validation |
 | electron-store for settings | Simple, file-based persistence for user preferences; separate from encrypted session store |
-| AMI Bridge as separate service | CRM backend runs on Railway (cloud); AMI requires TCP access to Asterisk which is on-premise |
+| AMI Bridge as separate PM2 process | CRM backend and AMI bridge both run on VM 192.168.65.110; AMI reaches Asterisk via SSH tunnel |
 
 ---
 

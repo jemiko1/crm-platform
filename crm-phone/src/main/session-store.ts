@@ -11,7 +11,7 @@ const store = new Store<StoreSchema>({
   encryptionKey: "crm-phone-v1",
   defaults: {
     session: null,
-    crmBaseUrl: process.env.CRM_BASE_URL || "https://api-crm28.asg.ge",
+    crmBaseUrl: process.env.CRM_BASE_URL || "https://crm28.asg.ge",
   },
 });
 

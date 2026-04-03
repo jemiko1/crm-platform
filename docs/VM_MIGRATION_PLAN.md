@@ -1,7 +1,8 @@
-# VM Migration Plan — Post-DNS Resolution
+# VM Migration Plan — COMPLETED ✅
 
-> **IMPORTANT**: Do NOT execute any of these steps until the public IP is provided by IT and DNS is resolved.
-> Railway is STILL production. Local VM is NOT live yet. Bridges still point to Railway.
+> **Migration completed April 3, 2026.** VM is production (crm28.asg.ge, public IP 5.10.36.43).
+> Railway is staging only (crm28demo.asg.ge, deploys from `dev` branch).
+> The plan below is kept as a historical reference.
 
 ## Current State (as of 2026-04-01)
 
