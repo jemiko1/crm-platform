@@ -41,6 +41,13 @@ jobs:
           git reset --hard origin/master
           Write-Output "Checked out: $(git rev-parse --short HEAD)"
 
+      - name: Stop backend (prevent native module locks)
+        shell: powershell
+        run: |
+          pm2 stop crm-backend
+          Start-Sleep -Seconds 3
+          Write-Output "Backend stopped to release file locks on native modules"
+
       - name: Install backend dependencies
         shell: powershell
         run: |
