@@ -3,6 +3,7 @@ const { execSync, exec } = require('child_process');
 const os = require('os');
 const basicAuth = require('basic-auth');
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
@@ -83,6 +84,41 @@ function readLogTail(filePath, lines = 100) {
   } catch (err) {
     return `[Error reading log: ${err.message}]`;
   }
+}
+
+function fetchGitHub(url, token) {
+  return new Promise((resolve) => {
+    const opts = {
+      headers: {
+        'User-Agent': 'CRM28-Monitor',
+        'Accept': 'application/vnd.github+json',
+      },
+      timeout: 10000,
+    };
+    if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+
+    https.get(url, opts, (res) => {
+      let data = '';
+      res.on('data', (chunk) => (data += chunk));
+      res.on('end', () => {
+        try { resolve({ ok: res.statusCode === 200, status: res.statusCode, data: JSON.parse(data) }); }
+        catch { resolve({ ok: false, status: res.statusCode, error: 'Invalid JSON' }); }
+      });
+    }).on('error', (err) => resolve({ ok: false, error: err.message }));
+  });
+}
+
+function loadGitHubToken() {
+  if (process.env.GITHUB_TOKEN) return process.env.GITHUB_TOKEN;
+  try {
+    const envPath = 'C:\\crm\\backend\\crm-backend\\.env';
+    if (fs.existsSync(envPath)) {
+      const content = fs.readFileSync(envPath, 'utf-8');
+      const match = content.match(/^GITHUB_TOKEN=(.+)$/m);
+      if (match) return match[1].trim();
+    }
+  } catch {}
+  return null;
 }
 
 // ── API: Infrastructure Status ───────────────────────────
@@ -350,6 +386,60 @@ app.post('/api/backup', (req, res) => {
 app.get('/api/health-log', (req, res) => {
   const content = readLogTail('C:\\crm\\logs\\health-check.log', 50);
   res.type('text/plain').send(content);
+});
+
+// ── API: GitHub Deployments ──────────────────────────────
+
+app.get('/api/github-deploys', async (req, res) => {
+  const token = loadGitHubToken();
+  if (!token) {
+    return res.status(500).json({ error: 'GITHUB_TOKEN not configured' });
+  }
+  const url = 'https://api.github.com/repos/jemiko1/crm-platform/actions/workflows/deploy-vm.yml/runs?per_page=10';
+  const result = await fetchGitHub(url, token);
+  if (!result.ok) {
+    return res.status(502).json({ error: 'GitHub API error', status: result.status, details: result.data || result.error });
+  }
+  const runs = (result.data.workflow_runs || []).map(r => ({
+    id: r.id,
+    status: r.status,
+    conclusion: r.conclusion,
+    headBranch: r.head_branch,
+    commitMessage: r.head_commit?.message || '',
+    commitSha: r.head_sha?.substring(0, 7) || '',
+    event: r.event,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+    runStartedAt: r.run_started_at,
+    htmlUrl: r.html_url,
+    duration: r.updated_at && r.run_started_at
+      ? Math.round((new Date(r.updated_at) - new Date(r.run_started_at)) / 1000)
+      : null,
+  }));
+  res.json({ runs, totalCount: result.data.total_count || 0 });
+});
+
+// ── API: Git Status ──────────────────────────────────────
+
+app.get('/api/git-status', (req, res) => {
+  try {
+    const logRaw = execSync('git -C C:\\crm log -1 --pretty=format:"%H|%s|%ai"', {
+      encoding: 'utf8', timeout: 5000, windowsHide: true,
+    }).trim().replace(/^"|"$/g, '');
+    const parts = logRaw.split('|');
+    const branch = execSync('git -C C:\\crm branch --show-current', {
+      encoding: 'utf8', timeout: 5000, windowsHide: true,
+    }).trim();
+    res.json({
+      branch,
+      commit: parts[0] || '',
+      commitShort: (parts[0] || '').substring(0, 7),
+      commitMessage: parts[1] || '',
+      commitDate: parts[2] || '',
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ── Dashboard HTML ───────────────────────────────────────
