@@ -22,7 +22,7 @@ const OLD_URLS = [
   "https://api-crm28.asg.ge",
   "https://crm28.up.railway.app",
 ];
-const stored = store.get("crmBaseUrl");
+const stored = store.get("crmBaseUrl").replace(/\/+$/, "");
 if (OLD_URLS.includes(stored)) {
   store.set("crmBaseUrl", CRM_BASE_URL);
 }
