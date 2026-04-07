@@ -136,7 +136,7 @@ export default function InventoryPage() {
 
   const fetchTransactions = useCallback(async () => {
     try {
-      const res = await apiGet<{ data: GroupedTransaction[]; meta: any }>("/v1/inventory/transactions/grouped?pageSize=200");
+      const res = await apiGet<{ data: GroupedTransaction[]; meta: any }>("/v1/inventory/transactions/grouped?pageSize=100");
       if (res && Array.isArray(res.data)) {
         setTransactions(res.data);
       } else {
