@@ -783,7 +783,7 @@ model PurchaseOrderItem {
 model StockBatch {
   id                  String                  @id @default(uuid())
   productId           String
-  purchaseOrderItemId String                  @unique
+  purchaseOrderItemId String?                 @unique
   initialQuantity     Int
   remainingQuantity   Int
   purchasePrice       Decimal                 @db.Decimal(10, 2)
@@ -792,7 +792,7 @@ model StockBatch {
   updatedAt           DateTime                @updatedAt
   sellPrice           Decimal                 @db.Decimal(10, 2)
   product             InventoryProduct        @relation(fields: [productId], references: [id], onDelete: Cascade)
-  purchaseOrderItem   PurchaseOrderItem       @relation(fields: [purchaseOrderItemId], references: [id])
+  purchaseOrderItem   PurchaseOrderItem?      @relation(fields: [purchaseOrderItemId], references: [id])
   transactions        StockTransaction[]
   workOrderUsages     WorkOrderProductUsage[]
 

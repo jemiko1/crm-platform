@@ -331,13 +331,22 @@
       "lowStock": "დაბალი მარაგი",
       "inStock": "მარაგშია"
     },
+    "stock": "მარაგი",
+    "reserved": "დაჯავშნილი",
+    "status": "სტატუსი",
+    "threshold": "ზღვარი",
+    "available": "ხელმისაწვდომი",
+    "transactionHistory": "ტრანზაქციების ისტორია",
     "transactionTypes": {
       "PURCHASE_IN": "შესყიდვა",
       "WORK_ORDER_OUT": "გამოძახებით გატანა",
       "ADJUSTMENT_IN": "კორექტირება შემოტანა",
       "ADJUSTMENT_OUT": "კორექტირება გატანა",
       "RETURN_IN": "დაბრუნება",
-      "DAMAGED_OUT": "დაზიანებული გატანა"
+      "DAMAGED_OUT": "დაზიანებული გატანა",
+      "RESERVATION_HOLD": "დაჯავშნილი",
+      "RESERVATION_RELEASE": "ჯავშანი მოხსნილი",
+      "REVERSAL_IN": "გაუქმება"
     },
     "poStatus": {
       "DRAFT": "პროექტი",

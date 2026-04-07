@@ -9,6 +9,7 @@ import EditPurchaseOrderModal from "./edit-purchase-order-modal";
 import { PermissionGuard } from "@/lib/permission-guard";
 import { usePermissions } from "@/lib/use-permissions";
 import { useI18n } from "@/hooks/useI18n";
+import { useModalContext } from "../modal-stack-context";
 
 const BRAND = "rgb(0, 86, 83)";
 
@@ -22,6 +23,7 @@ type Product = {
   category: string;
   unit: string;
   currentStock: number;
+  reservedStock: number;
   lowStockThreshold: number;
   defaultPurchasePrice: string;
   isActive: boolean;
@@ -70,6 +72,25 @@ type StockTransaction = {
   createdAt: string;
 };
 
+type GroupedTransaction = {
+  groupId: string;
+  groupType: "work_order" | "standalone";
+  workOrder?: {
+    id: string;
+    workOrderNumber: number;
+    title: string;
+    type: string;
+    status: string;
+    buildingName?: string;
+  };
+  summary: {
+    netEffect: { productId: string; productName: string; productSku: string; quantity: number }[];
+    date: string;
+    performedBy?: string;
+  };
+  transactions: StockTransaction[];
+};
+
 export default function InventoryPage() {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<Tab>("products");
@@ -78,7 +99,7 @@ export default function InventoryPage() {
 
   const [products, setProducts] = useState<Product[]>([]);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
-  const [transactions, setTransactions] = useState<StockTransaction[]>([]);
+  const [transactions, setTransactions] = useState<GroupedTransaction[]>([]);
 
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [showEditProductModal, setShowEditProductModal] = useState(false);
@@ -115,8 +136,12 @@ export default function InventoryPage() {
 
   const fetchTransactions = useCallback(async () => {
     try {
-      const data = await apiGetList<StockTransaction>("/v1/inventory/transactions?limit=200");
-      setTransactions(data);
+      const res = await apiGet<{ data: GroupedTransaction[]; meta: any }>("/v1/inventory/transactions/grouped?pageSize=200");
+      if (res && Array.isArray(res.data)) {
+        setTransactions(res.data);
+      } else {
+        setTransactions([]);
+      }
     } catch (err) {
       console.error("Failed to load transactions:", err);
       setTransactions([]);
@@ -397,10 +422,13 @@ function ProductsTab({
                 Category
               </th>
               <th className="pb-3 text-xs font-semibold uppercase tracking-wide text-zinc-600">
-                Stock
+                {t("inventory.stock", "Stock")}
               </th>
               <th className="pb-3 text-xs font-semibold uppercase tracking-wide text-zinc-600">
-                Status
+                {t("inventory.reserved", "Reserved")}
+              </th>
+              <th className="pb-3 text-xs font-semibold uppercase tracking-wide text-zinc-600">
+                {t("inventory.status", "Status")}
               </th>
               <th className="pb-3 text-xs font-semibold uppercase tracking-wide text-zinc-600">
                 Actions
@@ -439,8 +467,22 @@ function ProductsTab({
                       {product.currentStock} {product.unit}
                     </div>
                     <div className="text-xs text-zinc-500">
-                      Threshold: {product.lowStockThreshold}
+                      {t("inventory.threshold", "Threshold")}: {product.lowStockThreshold}
                     </div>
+                  </td>
+                  <td className="py-4">
+                    {(product.reservedStock ?? 0) > 0 ? (
+                      <div>
+                        <div className="text-sm font-semibold text-amber-700">
+                          {product.reservedStock} {product.unit}
+                        </div>
+                        <div className="text-xs text-zinc-500">
+                          {t("inventory.available", "Available")}: {product.currentStock - (product.reservedStock ?? 0)}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-zinc-400">—</div>
+                    )}
                   </td>
                   <td className="py-4">
                     <span
@@ -628,8 +670,23 @@ function PurchaseOrdersTab({
 }
 
 /* ========== TRANSACTIONS TAB ========== */
-function TransactionsTab({ transactions }: { transactions: StockTransaction[] }) {
+function TransactionsTab({ transactions }: { transactions: GroupedTransaction[] }) {
   const { t } = useI18n();
+  const { openModal } = useModalContext();
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+  function toggleExpand(groupId: string) {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+      return next;
+    });
+  }
+
   function getTypeBadge(type: string) {
     const styles: Record<string, string> = {
       PURCHASE_IN: "bg-teal-50 text-teal-900 ring-teal-200",
@@ -638,18 +695,46 @@ function TransactionsTab({ transactions }: { transactions: StockTransaction[] })
       ADJUSTMENT_OUT: "bg-amber-50 text-amber-700 ring-amber-200",
       RETURN_IN: "bg-cyan-50 text-cyan-700 ring-cyan-200",
       DAMAGED_OUT: "bg-rose-50 text-rose-700 ring-rose-200",
+      RESERVATION_HOLD: "bg-orange-50 text-orange-700 ring-orange-200",
+      RESERVATION_RELEASE: "bg-lime-50 text-lime-700 ring-lime-200",
+      REVERSAL_IN: "bg-indigo-50 text-indigo-700 ring-indigo-200",
     };
     return styles[type] || "bg-zinc-50 text-zinc-700 ring-zinc-200";
   }
 
   function getTypeLabel(type: string) {
-    const labels: Record<string, string> = {
+    return t(`inventory.transactionTypes.${type}`, {
       PURCHASE_IN: "Purchase",
       WORK_ORDER_OUT: "Work Order",
       ADJUSTMENT_IN: "Adjustment In",
       ADJUSTMENT_OUT: "Adjustment Out",
       RETURN_IN: "Return",
       DAMAGED_OUT: "Damaged",
+      RESERVATION_HOLD: "Reserved",
+      RESERVATION_RELEASE: "Reservation Released",
+      REVERSAL_IN: "Reversal",
+    }[type] || type);
+  }
+
+  function getGroupTypeBadge(group: GroupedTransaction) {
+    if (group.groupType === "work_order") return "bg-blue-50 text-blue-700 ring-blue-200";
+    const type = group.transactions[0]?.type;
+    return getTypeBadge(type);
+  }
+
+  function getGroupTypeLabel(group: GroupedTransaction) {
+    if (group.groupType === "work_order") return t("inventory.transactionTypes.WORK_ORDER_OUT", "Work Order");
+    return getTypeLabel(group.transactions[0]?.type);
+  }
+
+  function getWoTypeLabel(type: string) {
+    const labels: Record<string, string> = {
+      INSTALLATION: t("workOrders.types.INSTALLATION", "Installation"),
+      DIAGNOSTIC: t("workOrders.types.DIAGNOSTIC", "Diagnostic"),
+      RESEARCH: t("workOrders.types.RESEARCH", "Research"),
+      DEACTIVATE: t("workOrders.types.DEACTIVATE", "Deactivation"),
+      REPAIR_CHANGE: t("workOrders.types.REPAIR_CHANGE", "Repair/Change"),
+      ACTIVATE: t("workOrders.types.ACTIVATE", "Activation"),
     };
     return labels[type] || type;
   }
@@ -663,7 +748,7 @@ function TransactionsTab({ transactions }: { transactions: StockTransaction[] })
   if (transactions.length === 0) {
     return (
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-zinc-900">Transaction History</h2>
+        <h2 className="text-lg font-semibold text-zinc-900">{t("inventory.transactionHistory", "Transaction History")}</h2>
         <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
           <div className="text-sm text-zinc-600">{t("inventory.noTransactions", "No transactions recorded yet.")}</div>
         </div>
@@ -674,45 +759,126 @@ function TransactionsTab({ transactions }: { transactions: StockTransaction[] })
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold text-zinc-900">
-        Transaction History ({transactions.length})
+        {t("inventory.transactionHistory", "Transaction History")} ({transactions.length})
       </h2>
 
       <div className="space-y-2">
-        {transactions.map((txn) => (
-          <div
-            key={txn.id}
-            className="rounded-2xl bg-white p-4 ring-1 ring-zinc-200 transition hover:bg-zinc-50"
-          >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${getTypeBadge(txn.type)}`}
-                  >
-                    {getTypeLabel(txn.type)}
-                  </span>
-                  <span className="text-sm font-semibold text-zinc-900">
-                    {txn.product.name} ({txn.product.sku})
-                  </span>
+        {transactions.map((group) => {
+          const isExpanded = expandedGroups.has(group.groupId);
+          const isWorkOrder = group.groupType === "work_order";
+          const hasMultipleTxns = group.transactions.length > 1;
+
+          return (
+            <div
+              key={group.groupId}
+              className="rounded-2xl bg-white ring-1 ring-zinc-200 transition overflow-hidden"
+            >
+              {/* Summary row */}
+              <div
+                className={`p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between ${hasMultipleTxns ? "cursor-pointer hover:bg-zinc-50" : ""}`}
+                onClick={hasMultipleTxns ? () => toggleExpand(group.groupId) : undefined}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${getGroupTypeBadge(group)}`}
+                    >
+                      {getGroupTypeLabel(group)}
+                    </span>
+
+                    {isWorkOrder && group.workOrder ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openModal("workOrder", group.workOrder!.id);
+                        }}
+                        className="text-sm font-semibold text-teal-700 hover:text-teal-900 hover:underline text-left"
+                      >
+                        ID-{group.workOrder.workOrderNumber} — {group.workOrder.title}
+                      </button>
+                    ) : (
+                      <span className="text-sm font-semibold text-zinc-900">
+                        {group.summary.netEffect.map((e) => e.productName).join(", ")}
+                      </span>
+                    )}
+
+                    {isWorkOrder && group.workOrder && (
+                      <span className="inline-flex items-center rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-600">
+                        {getWoTypeLabel(group.workOrder.type)}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Net effect per product */}
+                  <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
+                    {group.summary.netEffect.map((effect) => (
+                      <span key={effect.productId} className="text-xs text-zinc-600">
+                        <span className="font-medium text-zinc-800">{effect.productName}</span>
+                        {" "}
+                        <span className={effect.quantity < 0 ? "text-rose-600 font-semibold" : effect.quantity > 0 ? "text-teal-600 font-semibold" : "text-zinc-400"}>
+                          {effect.quantity > 0 ? "+" : ""}{effect.quantity}
+                        </span>
+                      </span>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="mt-1 text-xs text-zinc-600">
-                  {txn.quantity > 0 ? "+" : ""}
-                  {txn.quantity} {txn.product.unit} • {txn.balanceBefore} → {txn.balanceAfter}
+                <div className="shrink-0 flex items-center gap-3">
+                  <div className="text-right">
+                    <div className="text-xs text-zinc-500">{formatDateTime(group.summary.date)}</div>
+                    {group.summary.performedBy && (
+                      <div className="mt-0.5 text-xs font-medium text-zinc-700">{group.summary.performedBy}</div>
+                    )}
+                  </div>
+                  {hasMultipleTxns && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="inline-flex items-center justify-center rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-600">
+                        {group.transactions.length}
+                      </span>
+                      <svg
+                        className={`h-4 w-4 text-zinc-400 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  )}
                 </div>
-
-                {txn.notes && <div className="mt-1 text-xs text-zinc-500">{txn.notes}</div>}
               </div>
 
-              <div className="shrink-0 text-right">
-                <div className="text-xs text-zinc-500">{formatDateTime(txn.createdAt)}</div>
-                {txn.performedBy && (
-                  <div className="mt-0.5 text-xs font-medium text-zinc-700">{txn.performedBy}</div>
-                )}
-              </div>
+              {/* Expanded detail rows */}
+              {isExpanded && hasMultipleTxns && (
+                <div className="border-t border-zinc-100 bg-zinc-50/50">
+                  {group.transactions.map((txn) => (
+                    <div
+                      key={txn.id}
+                      className="flex flex-col gap-1 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between border-b border-zinc-100 last:border-b-0"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${getTypeBadge(txn.type)}`}
+                          >
+                            {getTypeLabel(txn.type)}
+                          </span>
+                          <span className="text-xs font-medium text-zinc-800">
+                            {txn.product?.name || ""} ({txn.product?.sku || ""})
+                          </span>
+                        </div>
+                        <div className="mt-0.5 text-xs text-zinc-500">
+                          {txn.quantity > 0 ? "+" : ""}{txn.quantity} • {txn.balanceBefore} → {txn.balanceAfter}
+                          {txn.notes && <span className="ml-2 text-zinc-400">— {txn.notes}</span>}
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-xs text-zinc-400">{formatDateTime(txn.createdAt)}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

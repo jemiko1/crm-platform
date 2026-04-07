@@ -204,6 +204,20 @@ export class InventoryController {
     return this.inventoryService.getTransactions(productId, pagination?.page, pagination?.pageSize);
   }
 
+  @Get('transactions/grouped')
+  @Doc({
+    summary: 'Grouped stock transactions',
+    ok: 'Transactions grouped by work order with expandable details',
+    queries: [
+      { name: 'productId', description: 'Filter by product' },
+      { name: 'page', description: 'Page number' },
+      { name: 'pageSize', description: 'Page size' },
+    ],
+  })
+  getGroupedTransactions(@Query('productId') productId?: string, @Query() pagination?: PaginationDto) {
+    return this.inventoryService.getGroupedTransactions(productId, pagination?.page, pagination?.pageSize);
+  }
+
   @Get('reports/low-stock')
   @Doc({
     summary: 'Low-stock report',
