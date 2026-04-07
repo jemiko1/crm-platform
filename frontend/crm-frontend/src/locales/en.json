@@ -331,13 +331,22 @@
       "lowStock": "Low Stock",
       "inStock": "In Stock"
     },
+    "stock": "Stock",
+    "reserved": "Reserved",
+    "status": "Status",
+    "threshold": "Threshold",
+    "available": "Available",
+    "transactionHistory": "Transaction History",
     "transactionTypes": {
       "PURCHASE_IN": "Purchase In",
       "WORK_ORDER_OUT": "Work Order Out",
       "ADJUSTMENT_IN": "Adjustment In",
       "ADJUSTMENT_OUT": "Adjustment Out",
       "RETURN_IN": "Return In",
-      "DAMAGED_OUT": "Damaged Out"
+      "DAMAGED_OUT": "Damaged Out",
+      "RESERVATION_HOLD": "Reserved",
+      "RESERVATION_RELEASE": "Reservation Released",
+      "REVERSAL_IN": "Reversal"
     },
     "poStatus": {
       "DRAFT": "Draft",

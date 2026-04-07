@@ -412,9 +412,26 @@ export class InventoryService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      // For stock increases, create a StockBatch so FIFO deduction works
+      let batchId: string | undefined;
+      if (isIncrease) {
+        const batch = await tx.stockBatch.create({
+          data: {
+            productId: dto.productId,
+            initialQuantity: dto.quantity,
+            remainingQuantity: dto.quantity,
+            purchasePrice: 0,
+            sellPrice: 0,
+            receivedDate: new Date(),
+          },
+        });
+        batchId = batch.id;
+      }
+
       const transaction = await tx.stockTransaction.create({
         data: {
           productId: dto.productId,
+          batchId: batchId ?? null,
           type: dto.type,
           quantity: isIncrease ? dto.quantity : -dto.quantity,
           balanceBefore,
@@ -454,9 +471,11 @@ export class InventoryService {
         throw new NotFoundException(`Product with ID ${item.productId} not found`);
       }
 
-      if (product.currentStock < item.quantity) {
+      // Check availableStock (currentStock minus other WOs' reservations) — not just currentStock
+      const availableForDeduction = product.currentStock - product.reservedStock;
+      if (availableForDeduction < item.quantity) {
         throw new BadRequestException(
-          `Insufficient stock for ${product.name}. Available: ${product.currentStock}, Requested: ${item.quantity}`,
+          `Insufficient available stock for ${product.name}. Available: ${availableForDeduction} (total: ${product.currentStock}, reserved: ${product.reservedStock}), Requested: ${item.quantity}`,
         );
       }
 
@@ -498,7 +517,7 @@ export class InventoryService {
             balanceBefore,
             balanceAfter,
             performedBy: dto.performedBy,
-            notes: dto.notes || `Used for work order ${dto.workOrderId}`,
+            notes: dto.notes || `Deducted for work order`,
           },
         });
 
@@ -508,6 +527,13 @@ export class InventoryService {
         });
 
         currentStock = balanceAfter;
+      }
+
+      // CRITICAL: Verify all stock was actually deducted from batches
+      if (remainingToDeduct > 0) {
+        throw new BadRequestException(
+          `Stock batch mismatch for ${product.name}: currentStock shows ${product.currentStock} but batches only cover ${item.quantity - remainingToDeduct} units. Run inventory reconciliation.`,
+        );
       }
 
       results.push({
@@ -677,6 +703,155 @@ export class InventoryService {
     ]);
 
     return buildPaginatedResponse(data, total, page, pageSize);
+  }
+
+  /**
+   * Get transactions grouped by work order / event.
+   * Each group has a summary row + expandable child transactions.
+   */
+  async getGroupedTransactions(productId?: string, page = 1, pageSize = 50) {
+    const where: any = {};
+    if (productId) {
+      where.productId = productId;
+    }
+
+    // Fetch transactions with work order details (capped to prevent memory issues)
+    const { skip, take } = paginate(page, pageSize);
+    const MAX_TRANSACTIONS = 5000;
+
+    const allTransactions = await this.prisma.stockTransaction.findMany({
+      where,
+      include: {
+        product: true,
+        batch: { include: { purchaseOrderItem: { include: { purchaseOrder: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: MAX_TRANSACTIONS,
+    });
+
+    // Group transactions by workOrderId (or standalone if no workOrderId)
+    const groups: Map<string, typeof allTransactions> = new Map();
+    const standaloneTransactions: typeof allTransactions = [];
+
+    for (const txn of allTransactions) {
+      if (txn.workOrderId) {
+        const key = txn.workOrderId;
+        if (!groups.has(key)) {
+          groups.set(key, []);
+        }
+        groups.get(key)!.push(txn);
+      } else {
+        standaloneTransactions.push(txn);
+      }
+    }
+
+    // Fetch work order details for all grouped transactions
+    const workOrderIds = [...groups.keys()];
+    const workOrders = workOrderIds.length > 0
+      ? await this.prisma.workOrder.findMany({
+          where: { id: { in: workOrderIds } },
+          select: {
+            id: true,
+            workOrderNumber: true,
+            title: true,
+            type: true,
+            status: true,
+            building: { select: { name: true } },
+          },
+        })
+      : [];
+    const woMap = new Map(workOrders.map((wo) => [wo.id, wo]));
+
+    // Build grouped results
+    type GroupedTransaction = {
+      groupId: string;
+      groupType: 'work_order' | 'standalone';
+      workOrder?: { id: string; workOrderNumber: number; title: string; type: string; status: string; buildingName?: string };
+      summary: {
+        netEffect: { productId: string; productName: string; productSku: string; quantity: number }[];
+        date: string;
+        performedBy?: string;
+      };
+      transactions: typeof allTransactions;
+    };
+
+    const result: GroupedTransaction[] = [];
+
+    // Work order groups
+    for (const [woId, txns] of groups) {
+      const wo = woMap.get(woId);
+      // Calculate net effect per product — only stock-affecting types (not reservations)
+      const STOCK_AFFECTING_TYPES = new Set(['WORK_ORDER_OUT', 'REVERSAL_IN', 'PURCHASE_IN', 'ADJUSTMENT_IN', 'ADJUSTMENT_OUT', 'RETURN_IN', 'DAMAGED_OUT']);
+      const effectMap = new Map<string, { productId: string; productName: string; productSku: string; quantity: number }>();
+      for (const txn of txns) {
+        if (!STOCK_AFFECTING_TYPES.has(txn.type)) continue;
+        if (!effectMap.has(txn.productId)) {
+          effectMap.set(txn.productId, {
+            productId: txn.productId,
+            productName: txn.product.name,
+            productSku: txn.product.sku,
+            quantity: 0,
+          });
+        }
+        effectMap.get(txn.productId)!.quantity += txn.quantity;
+      }
+
+      // Sort transactions within group: WORK_ORDER_OUT first, then others
+      const sortedTxns = [...txns].sort((a, b) => {
+        const typeOrder: Record<string, number> = { WORK_ORDER_OUT: 0, RESERVATION_HOLD: 1, RESERVATION_RELEASE: 2, REVERSAL_IN: 3 };
+        return (typeOrder[a.type] ?? 99) - (typeOrder[b.type] ?? 99);
+      });
+
+      result.push({
+        groupId: woId,
+        groupType: 'work_order',
+        workOrder: wo ? {
+          id: wo.id,
+          workOrderNumber: wo.workOrderNumber,
+          title: wo.title,
+          type: wo.type,
+          status: wo.status,
+          buildingName: wo.building?.name,
+        } : undefined,
+        summary: {
+          netEffect: [...effectMap.values()],
+          date: txns[0]?.createdAt?.toISOString() || new Date().toISOString(),
+          performedBy: txns.find((t) => t.performedBy && t.performedBy !== 'system')?.performedBy ?? undefined,
+        },
+        transactions: sortedTxns,
+      });
+    }
+
+    // Standalone transactions (adjustments, purchases, etc.)
+    for (const txn of standaloneTransactions) {
+      result.push({
+        groupId: txn.id,
+        groupType: 'standalone',
+        summary: {
+          netEffect: [{
+            productId: txn.productId,
+            productName: txn.product.name,
+            productSku: txn.product.sku,
+            quantity: txn.quantity,
+          }],
+          date: txn.createdAt.toISOString(),
+          performedBy: txn.performedBy ?? undefined,
+        },
+        transactions: [txn],
+      });
+    }
+
+    // Sort all groups by most recent transaction date
+    result.sort((a, b) => new Date(b.summary.date).getTime() - new Date(a.summary.date).getTime());
+
+    // Paginate groups
+    const total = result.length;
+    const paginatedResult = result.slice(skip, skip + take);
+
+    return {
+      data: paginatedResult,
+      meta: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
+    };
   }
 
   // ===== REPORTING =====
