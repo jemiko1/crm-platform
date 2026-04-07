@@ -190,20 +190,7 @@ export class InventoryController {
   }
 
   // ===== TRANSACTIONS & REPORTING =====
-  @Get('transactions')
-  @Doc({
-    summary: 'Stock transactions',
-    ok: 'Paged transaction log',
-    queries: [
-      { name: 'productId', description: 'Filter by product' },
-      { name: 'page', description: 'Page number' },
-      { name: 'pageSize', description: 'Page size' },
-    ],
-  })
-  getTransactions(@Query('productId') productId?: string, @Query() pagination?: PaginationDto) {
-    return this.inventoryService.getTransactions(productId, pagination?.page, pagination?.pageSize);
-  }
-
+  // NOTE: /grouped must be declared BEFORE /transactions so NestJS matches the more specific route first
   @Get('transactions/grouped')
   @Doc({
     summary: 'Grouped stock transactions',
@@ -216,6 +203,20 @@ export class InventoryController {
   })
   getGroupedTransactions(@Query('productId') productId?: string, @Query() pagination?: PaginationDto) {
     return this.inventoryService.getGroupedTransactions(productId, pagination?.page, pagination?.pageSize);
+  }
+
+  @Get('transactions')
+  @Doc({
+    summary: 'Stock transactions',
+    ok: 'Paged transaction log',
+    queries: [
+      { name: 'productId', description: 'Filter by product' },
+      { name: 'page', description: 'Page number' },
+      { name: 'pageSize', description: 'Page size' },
+    ],
+  })
+  getTransactions(@Query('productId') productId?: string, @Query() pagination?: PaginationDto) {
+    return this.inventoryService.getTransactions(productId, pagination?.page, pagination?.pageSize);
   }
 
   @Get('reports/low-stock')
