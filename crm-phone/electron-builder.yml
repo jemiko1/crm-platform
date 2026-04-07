@@ -8,7 +8,7 @@ files:
   - package.json
 win:
   target: nsis
-  signAndEditExecutable: false
+  icon: resources/icon.ico
 nsis:
   oneClick: true
   perMachine: true

@@ -1,6 +1,6 @@
 {
   "name": "crm28-phone",
-  "version": "1.5.6",
+  "version": "1.6.0",
   "description": "CRM28 Desktop Softphone",
   "main": "dist/main/index.js",
   "author": "ASG",
@@ -17,7 +17,7 @@
     "build:renderer": "vite build",
     "build": "npm run build:main && npm run build:preload && npm run build:renderer",
     "start": "electron dist/main/index.js",
-    "pack": "npm run build && electron-builder --win --config.win.signAndEditExecutable=false",
+    "pack": "npm run build && electron-builder --win",
     "release": "npm run build && electron-builder --win --publish always",
     "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json --noEmit"
   },
@@ -54,7 +54,8 @@
       "package.json"
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "resources/icon.ico"
     },
     "nsis": {
       "oneClick": true,
