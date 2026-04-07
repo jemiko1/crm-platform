@@ -633,6 +633,7 @@ model SyncEvent {
   status       String    @default("RECEIVED")
   error        String?
   payload      Json?
+  retryCount   Int       @default(0)
 
   @@index([status])
   @@index([entityType, entityCoreId])

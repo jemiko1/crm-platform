@@ -10,6 +10,7 @@ export interface CheckpointData {
   building: string; // ISO-8601 timestamp
   client: string;
   asset: string;
+  apartment: string;
   contact: string;
   gateDevice: string;
   lastCountCheck: string;
@@ -25,6 +26,7 @@ const DEFAULT: CheckpointData = {
   building: "2000-01-01T00:00:00Z",
   client: "2000-01-01T00:00:00Z",
   asset: "2000-01-01T00:00:00Z",
+  apartment: "2000-01-01T00:00:00Z",
   contact: "2000-01-01T00:00:00Z",
   gateDevice: "2000-01-01T00:00:00Z",
   lastCountCheck: "2000-01-01T00:00:00Z",
