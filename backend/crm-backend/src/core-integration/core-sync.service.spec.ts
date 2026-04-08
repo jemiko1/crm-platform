@@ -152,13 +152,16 @@ describe("CoreSyncService", () => {
       expect(prisma.clientBuilding.upsert).toHaveBeenCalled();
     });
 
-    it("should remove stale apartment links", async () => {
+    it("should remove stale apartment links only for incoming buildings", async () => {
       prisma.client.upsert.mockResolvedValue({ id: "c1", coreId: 10 });
       prisma.building.findMany.mockResolvedValue([
         { id: "b-uuid", coreId: 100 },
       ]);
+      // old-link is in same building (b-uuid) but different apartment — should be deleted
+      // other-building-link is in a different building — should NOT be deleted
       prisma.clientBuilding.findMany.mockResolvedValue([
-        { id: "old-link", buildingId: "b-old", apartmentCoreId: 999 },
+        { id: "old-link", buildingId: "b-uuid", apartmentCoreId: 999 },
+        { id: "other-building-link", buildingId: "b-other", apartmentCoreId: 555 },
       ]);
       prisma.clientBuilding.upsert.mockResolvedValue({});
       prisma.clientBuilding.deleteMany.mockResolvedValue({ count: 1 });
@@ -170,6 +173,8 @@ describe("CoreSyncService", () => {
         ],
       });
 
+      // Only old-link should be deleted (same building, stale apartment)
+      // other-building-link should be kept (different building not in payload)
       expect(prisma.clientBuilding.deleteMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: { in: ["old-link"] } },

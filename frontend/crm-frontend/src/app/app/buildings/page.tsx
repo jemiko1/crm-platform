@@ -16,6 +16,7 @@ type Building = {
   address: string;
   city: string;
   branchId: number | null;
+  isActive: boolean;
   disableCrons: boolean;
   source: "core" | "manual";
   clientCount: number;
@@ -49,6 +50,7 @@ type BuildingRow = {
   address: string;
   city: string;
   branchId: number | null;
+  isActive: boolean;
   disableCrons: boolean;
   source: "core" | "manual";
   clientCount: number;
@@ -90,9 +92,9 @@ function normalizeProductCounts(products: Record<string, number>): BuildingProdu
     upper[key] = (upper[key] ?? 0) + v;
   }
 
-  // Map known aliases (core system may send "LIFT" instead of "ELEVATOR")
+  // Map known aliases (core system sends LIFT/DOOR/INTERCOM instead of ELEVATOR/ENTRANCE_DOOR)
   const elevator = (upper.ELEVATOR ?? 0) + (upper.LIFT ?? 0);
-  const entranceDoor = (upper.ENTRANCE_DOOR ?? 0);
+  const entranceDoor = (upper.ENTRANCE_DOOR ?? 0) + (upper.DOOR ?? 0);
   const intercom = (upper.INTERCOM ?? 0);
   const smartGsmGate = (upper.SMART_GSM_GATE ?? 0);
   const smartDoorGsm = (upper.SMART_DOOR_GSM ?? 0);
@@ -209,6 +211,7 @@ function BuildingsPageContent() {
             address: b.address,
             city: b.city,
             branchId: b.branchId,
+            isActive: b.isActive,
             disableCrons: b.disableCrons,
             source: b.source,
             clientCount: b.clientCount,
@@ -376,7 +379,7 @@ function BuildingsPageContent() {
                           const open = b.openWorkOrders ?? 0;
                           const isLast = index === paged.length - 1;
                           const branch = b.branchId != null ? BRANCH_MAP[b.branchId] : null;
-                          const isActive = !b.disableCrons;
+                          const isActive = b.isActive ?? !b.disableCrons;
                           return (
                             <tr
                               key={b.coreId}
