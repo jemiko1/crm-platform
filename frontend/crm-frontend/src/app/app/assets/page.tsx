@@ -20,7 +20,7 @@ type DeviceRow = {
   source: "core" | "manual";
   createdAt: string;
   updatedAt: string;
-  building: { coreId: number; name: string } | null;
+  building: { coreId: number | null; name: string } | null;
 };
 
 type StatisticsData = {
@@ -291,7 +291,7 @@ function DevicesPageContent() {
                                 {d.building ? (
                                   <button
                                     type="button"
-                                    onClick={() => openModal("building", String(d.building!.coreId))}
+                                    onClick={() => d.building?.coreId != null && openModal("building", String(d.building.coreId))}
                                     className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50"
                                   >
                                     <span className="h-2 w-2 rounded-full" style={{ backgroundColor: BRAND }} />
@@ -437,6 +437,7 @@ function DeviceStatistics({
         loading={loading}
         variant="change"
         sinceLabel={t("devices.stats.sinceLastMonth", "Since last month")}
+        neutralLabel={t("devices.stats.noChange", "No change")}
       />
       <StatBox
         title={t("devices.stats.changeVsAverage", "Change vs Average")}
@@ -451,6 +452,7 @@ function DeviceStatistics({
         loading={loading}
         variant="average"
         sinceLabel={t("devices.stats.vsMonthlyAvg", "Vs monthly avg")}
+        neutralLabel={t("devices.stats.noChange", "No change")}
       />
     </div>
   );
@@ -465,6 +467,7 @@ function StatBox({
   loading,
   variant = "primary",
   sinceLabel,
+  neutralLabel,
 }: {
   title: string;
   value: string | number;
@@ -473,6 +476,7 @@ function StatBox({
   loading?: boolean;
   variant?: "primary" | "change" | "average" | "total";
   sinceLabel?: string;
+  neutralLabel?: string;
 }) {
   const hasChange = changeValue !== undefined;
   const isPositive = hasChange && changeValue > 0;
@@ -510,7 +514,7 @@ function StatBox({
             <div className="flex items-center gap-1.5">
               {isPositive && <span className="font-semibold text-teal-800">+{changeValue!.toFixed(1)}%</span>}
               {isNegative && <span className="font-semibold text-red-600">{changeValue!.toFixed(1)}%</span>}
-              {isNeutral && <span className="font-semibold text-zinc-500">No change</span>}
+              {isNeutral && <span className="font-semibold text-zinc-500">{neutralLabel}</span>}
             </div>
             <span className="text-zinc-400">
               {sinceLabel ?? (variant === "change" ? "Since last month" : "Vs monthly avg")}
