@@ -10,11 +10,20 @@ export class BuildingsService {
     private readonly ids: IdGeneratorService,
   ) {}
 
-  async getStatistics() {
-    // Get all buildings with their creation dates
+  async getStatistics(source?: "core" | "crm") {
+    // Build where clause based on source filter
+    const where = source === "core"
+      ? { lastSyncedAt: { not: null } }
+      : source === "crm"
+      ? { lastSyncedAt: null }
+      : {};
+
+    // Get all buildings with their creation dates (prefer coreCreatedAt)
     const buildings = await this.prisma.building.findMany({
+      where,
       select: {
         createdAt: true,
+        coreCreatedAt: true,
       },
       orderBy: {
         createdAt: "asc",
@@ -31,11 +40,11 @@ export class BuildingsService {
       };
     }
 
-    // Group buildings by year and month
+    // Group buildings by year and month (use core creation date when available)
     const monthlyBreakdown: Record<number, Record<number, number>> = {};
 
     buildings.forEach((building) => {
-      const date = new Date(building.createdAt);
+      const date = new Date(building.coreCreatedAt ?? building.createdAt);
       const year = date.getFullYear();
       const month = date.getMonth() + 1; // 1-12
 
@@ -142,19 +151,28 @@ export class BuildingsService {
     });
   }
 
-  async list(page = 1, pageSize = 20, search?: string) {
+  async list(page = 1, pageSize = 20, search?: string, source?: "core" | "crm") {
     const { skip, take } = paginate(page, pageSize);
 
-    const where = search?.trim()
-      ? {
-          OR: [
-            { name: { contains: search.trim(), mode: 'insensitive' as const } },
-            { address: { contains: search.trim(), mode: 'insensitive' as const } },
-            { city: { contains: search.trim(), mode: 'insensitive' as const } },
-            ...(/^\d+$/.test(search.trim()) ? [{ coreId: parseInt(search.trim(), 10) }] : []),
-          ],
-        }
+    const sourceFilter = source === "core"
+      ? { lastSyncedAt: { not: null } }
+      : source === "crm"
+      ? { lastSyncedAt: null }
       : {};
+
+    const where = {
+      ...sourceFilter,
+      ...(search?.trim()
+        ? {
+            OR: [
+              { name: { contains: search.trim(), mode: 'insensitive' as const } },
+              { address: { contains: search.trim(), mode: 'insensitive' as const } },
+              { city: { contains: search.trim(), mode: 'insensitive' as const } },
+              ...(/^\d+$/.test(search.trim()) ? [{ coreId: parseInt(search.trim(), 10) }] : []),
+            ],
+          }
+        : {}),
+    };
 
     const [buildings, total] = await Promise.all([
       this.prisma.building.findMany({

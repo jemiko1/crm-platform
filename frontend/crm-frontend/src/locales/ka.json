@@ -73,15 +73,19 @@
     "title": "შენობების დირექტორია",
     "subtitle": "შენობები",
     "description": "API-დან სინქრონიზებული. შენობები და მოწყობილობები CRM-ში მხოლოდ წასაკითხია.",
+    "descriptionCrm": "CRM28-ში ხელით შექმნილი შენობები.",
     "loading": "შენობები იტვირთება API-დან...",
     "errorLoading": "შენობების ჩატვირთვის შეცდომა",
     "searchPlaceholder": "ძიება ID-ით, სახელით, მისამართით, ქალაქით...",
     "columns": {
       "building": "შენობა",
+      "branch": "ფილიალი",
       "clients": "კლიენტები",
       "devices": "მოწყობილობები",
       "workOrders": "გამოძახებები",
-      "lastUpdate": "ბოლო განახლება"
+      "lastUpdate": "ბოლო განახლება",
+      "createdOn": "შექმნის თარიღი",
+      "source": "წყარო"
     },
     "openClients": "კლიენტების სიის გახსნა",
     "openDevices": "მოწყობილობების გახსნა",
@@ -91,12 +95,19 @@
     "addBuilding": "შენობის დამატება",
     "noMatch": "შენობები ძიებას არ შეესაბამება.",
     "noBuildings": "შენობები ვერ მოიძებნა.",
-    "open": "გახსნა:"
+    "open": "გახსნა:",
+    "sourceCore": "ძირითადი სისტემა",
+    "sourceManual": "ხელით შეყვანილი",
+    "tabs": {
+      "core": "ძირითადი შენობები",
+      "crm": "CRM28 შენობები"
+    }
   },
   "clients": {
     "title": "კლიენტების დირექტორია",
     "subtitle": "კლიენტები",
     "description": "ცენტრალური კლიენტების სია შენობების მიხედვით.",
+    "descriptionCrm": "CRM28-ში ხელით შექმნილი კლიენტები.",
     "loading": "კლიენტები იტვირთება API-დან...",
     "errorLoading": "კლიენტების ჩატვირთვის შეცდომა",
     "searchPlaceholder": "ძიება სახელით, პირადი ნომრით, გადახდის ID-ით, ტელეფონით...",
@@ -106,11 +117,70 @@
       "paymentId": "გადახდის ID",
       "primaryPhone": "ძირითადი ტელეფონი",
       "secondaryPhone": "დამატებითი ტელეფონი",
+      "phone": "ტელეფონი",
       "buildings": "შენობები",
-      "clientId": "კლიენტის ID"
+      "clientId": "კლიენტის ID",
+      "createdOn": "შექმნის თარიღი"
     },
     "assignedBuildings": "მინიჭებული შენობები",
-    "openBuilding": "შენობის გახსნა"
+    "openBuilding": "შენობის გახსნა",
+    "noMatch": "კლიენტები ძიებას არ შეესაბამება.",
+    "noClientsFound": "კლიენტები ვერ მოიძებნა.",
+    "tabs": {
+      "core": "ძირითადი კლიენტები",
+      "crm": "CRM28 კლიენტები"
+    }
+  },
+  "devices": {
+    "title": "მოწყობილობების დირექტორია",
+    "subtitle": "მოწყობილობები",
+    "description": "ძირითადი სისტემიდან სინქრონიზებული მოწყობილობები.",
+    "descriptionCrm": "CRM28-ში ხელით შექმნილი მოწყობილობები.",
+    "loading": "მოწყობილობები იტვირთება...",
+    "errorLoading": "მოწყობილობების ჩატვირთვის შეცდომა",
+    "searchPlaceholder": "ძიება სახელით, ტიპით, IP-ით, შენობით...",
+    "addDevice": "მოწყობილობის დამატება",
+    "noMatch": "მოწყობილობები ძიებას არ შეესაბამება.",
+    "noDevices": "მოწყობილობები ვერ მოიძებნა.",
+    "columns": {
+      "device": "მოწყობილობა",
+      "type": "ტიპი",
+      "building": "შენობა",
+      "ip": "IP მისამართი",
+      "status": "სტატუსი",
+      "createdOn": "შექმნის თარიღი"
+    },
+    "tabs": {
+      "core": "ძირითადი მოწყობილობები",
+      "crm": "CRM28 მოწყობილობები"
+    },
+    "statuses": {
+      "ONLINE": "ონლაინ",
+      "OFFLINE": "ოფლაინ",
+      "UNKNOWN": "უცნობი"
+    },
+    "types": {
+      "LIFT": "ლიფტი",
+      "ELEVATOR": "ლიფტი",
+      "DOOR": "კარი",
+      "ENTRANCE_DOOR": "სადარბაზოს კარი",
+      "INTERCOM": "დომოფონი",
+      "SMART_GSM_GATE": "Smart GSM ჭიშკარი",
+      "SMART_DOOR_GSM": "Smart Door GSM",
+      "BOOM_BARRIER": "შლაგბაუმი"
+    },
+    "stats": {
+      "totalDevices": "სულ მოწყობილობები",
+      "addedThisMonth": "ამ თვეში დამატებული",
+      "changeVsLastMonth": "ცვლილება წინა თვესთან",
+      "changeVsAverage": "ცვლილება საშუალოსთან",
+      "allTime": "ყველა დროის",
+      "noChange": "ცვლილება არ არის",
+      "onAverage": "საშუალოზე",
+      "statsUnavailable": "სტატისტიკა მიუწვდომელია",
+      "sinceLastMonth": "წინა თვიდან",
+      "vsMonthlyAvg": "თვიურ საშუალოსთან"
+    }
   },
   "employees": {
     "title": "თანამშრომლები",
