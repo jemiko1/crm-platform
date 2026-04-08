@@ -237,7 +237,10 @@ export class CoreSyncService {
       else added++;
     }
 
-    // Remove links no longer present
+    // Remove links no longer present — but ONLY for buildings that appear
+    // in the incoming payload. If the payload only has apartments for
+    // building A, don't delete the client's links to building B/C/D.
+    const incomingBuildingIds = new Set(targetLinks.map((l) => l.buildingId));
     const targetKeys = new Set(
       targetLinks.map(
         (l) => `${l.buildingId}:${l.apartmentCoreId}`,
@@ -246,6 +249,7 @@ export class CoreSyncService {
     const toRemoveIds = currentLinks
       .filter(
         (cl) =>
+          incomingBuildingIds.has(cl.buildingId) &&
           !targetKeys.has(`${cl.buildingId}:${cl.apartmentCoreId ?? 0}`),
       )
       .map((cl) => cl.id);

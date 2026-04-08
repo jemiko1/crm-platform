@@ -159,7 +159,7 @@ export class BuildingsService {
     const [buildings, total] = await Promise.all([
       this.prisma.building.findMany({
         where,
-        orderBy: [{ createdAt: "desc" }, { coreId: "desc" }],
+        orderBy: [{ coreCreatedAt: "desc" }, { createdAt: "desc" }],
         include: {
           _count: { select: { clientBuildings: true, assets: true, workOrders: true } },
         },
@@ -192,6 +192,7 @@ export class BuildingsService {
       city: b.city,
       address: b.address,
       branchId: b.branchId,
+      isActive: b.isActive,
       disableCrons: b.disableCrons,
       source: b.lastSyncedAt ? "core" : "manual",
       clientCount: b._count.clientBuildings,
