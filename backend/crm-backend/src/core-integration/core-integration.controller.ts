@@ -57,7 +57,7 @@ export class CoreIntegrationController {
         entityType,
         entityCoreId: dto.payload.coreId ?? null,
         status: "RECEIVED",
-        payload: dto.payload as any,
+        payload: { ...dto.payload, __eventType: dto.eventType } as any,
       },
     });
 
@@ -187,11 +187,129 @@ export class CoreIntegrationController {
     ok: "Sync health summary",
   })
   async getHealth() {
+    return this.buildHealthResponse();
+  }
+
+  // ─── Bridge-authenticated endpoints (shared secret, no JWT) ───
+
+  @Get("bridge-health")
+  @SkipThrottle()
+  @UseGuards(CoreWebhookGuard)
+  @Doc({
+    summary: "Core sync health for bridge (shared secret auth)",
+    ok: "Entity counts and sync health",
+    noAuth: true,
+  })
+  async getBridgeHealth() {
+    return this.buildHealthResponse();
+  }
+
+  @Get("entity-ids")
+  @SkipThrottle()
+  @UseGuards(CoreWebhookGuard)
+  @Doc({
+    summary: "CRM entity coreIds for gap repair (shared secret auth)",
+    ok: "Array of coreId integers",
+    noAuth: true,
+    queries: [
+      { name: "type", description: "Entity type: building, client, or asset" },
+    ],
+  })
+  async getEntityIds(@Query("type") type?: string) {
+    switch (type) {
+      case "building": {
+        const rows = await this.prisma.building.findMany({
+          where: { coreId: { not: null } },
+          select: { coreId: true },
+        });
+        return { ids: rows.map((r) => r.coreId) };
+      }
+      case "client": {
+        const rows = await this.prisma.client.findMany({
+          where: { coreId: { not: null } },
+          select: { coreId: true },
+        });
+        return { ids: rows.map((r) => r.coreId) };
+      }
+      case "asset": {
+        const rows = await this.prisma.asset.findMany({
+          where: { coreId: { not: null } },
+          select: { coreId: true },
+        });
+        return { ids: rows.map((r) => r.coreId) };
+      }
+      default:
+        return { ids: [], error: "type must be building, client, or asset" };
+    }
+  }
+
+  @Post("retry-failed")
+  @SkipThrottle()
+  @UseGuards(CoreWebhookGuard)
+  @Doc({
+    summary: "Retry failed sync events (shared secret auth)",
+    ok: "Retry results",
+    noAuth: true,
+  })
+  async retryFailed() {
+    const failedEvents = await this.prisma.syncEvent.findMany({
+      where: {
+        status: "FAILED",
+        retryCount: { lt: 3 },
+      },
+      orderBy: { receivedAt: "asc" },
+      take: 50,
+    });
+
+    if (failedEvents.length === 0) {
+      return { retried: 0, succeeded: 0, failed: 0 };
+    }
+
+    let succeeded = 0;
+    let failed = 0;
+
+    for (const event of failedEvents) {
+      try {
+        const payload = event.payload as Record<string, any>;
+        const eventType =
+          payload?.__eventType ?? `${event.entityType}.upsert`;
+        await this.syncService.process(eventType, payload);
+
+        await this.prisma.syncEvent.update({
+          where: { id: event.id },
+          data: {
+            status: "PROCESSED",
+            processedAt: new Date(),
+            retryCount: (event.retryCount ?? 0) + 1,
+          },
+        });
+        succeeded++;
+      } catch (err: any) {
+        await this.prisma.syncEvent.update({
+          where: { id: event.id },
+          data: {
+            retryCount: (event.retryCount ?? 0) + 1,
+            error: String(err.message).slice(0, 2000),
+          },
+        });
+        failed++;
+      }
+    }
+
+    this.logger.log(
+      `Retry batch: ${failedEvents.length} attempted, ${succeeded} succeeded, ${failed} failed`,
+    );
+
+    return { retried: failedEvents.length, succeeded, failed };
+  }
+
+  // ─── Shared helpers ───
+
+  private async buildHealthResponse() {
     const now = new Date();
     const fiveMinAgo = new Date(now.getTime() - 5 * 60 * 1000);
     const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
 
-    // Check recent sync activity
     const recentEvents = await this.prisma.syncEvent.count({
       where: { receivedAt: { gte: fiveMinAgo } },
     });
@@ -200,7 +318,6 @@ export class CoreIntegrationController {
       where: { status: "FAILED", receivedAt: { gte: oneHourAgo } },
     });
 
-    // Entity counts (core-sourced only)
     const [buildingCount, clientCount, assetCount, contactCount] =
       await Promise.all([
         this.prisma.building.count({
@@ -215,7 +332,6 @@ export class CoreIntegrationController {
         this.prisma.buildingContact.count({ where: { isActive: true } }),
       ]);
 
-    // Checkpoints
     const checkpoints = await this.prisma.syncCheckpoint.findMany();
 
     return {
