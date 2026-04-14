@@ -20,6 +20,10 @@ export interface CheckpointData {
     crmCount: number;
     detectedAt: string;
   }>;
+  // Max entity IDs — catch new records with NULL lastModifiedDate
+  maxClientId: number;
+  maxBuildingId: number;
+  maxAssetId: number;
 }
 
 const DEFAULT: CheckpointData = {
@@ -31,6 +35,9 @@ const DEFAULT: CheckpointData = {
   gateDevice: "2000-01-01T00:00:00Z",
   lastCountCheck: "2000-01-01T00:00:00Z",
   countMismatches: [],
+  maxClientId: 0,
+  maxBuildingId: 0,
+  maxAssetId: 0,
 };
 
 let cached: CheckpointData | null = null;

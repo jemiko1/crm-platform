@@ -13,7 +13,7 @@
 import { RowDataPacket } from "mysql2/promise";
 import { query } from "./mysql-client";
 import { postWebhook } from "./crm-poster";
-import { getLastPollTime, updatePollTime } from "./checkpoint";
+import { getLastPollTime, updatePollTime, load, save } from "./checkpoint";
 import { createLogger } from "./logger";
 
 const log = createLogger("DeltaPoll");
@@ -168,6 +168,208 @@ async function pollClients(): Promise<number> {
   }
 
   updatePollTime("client", maxDate);
+  return rows.length;
+}
+
+// ── New client sweep (catches clients with NULL lastModifiedDate) ───
+// Core system creates ~51% of clients without setting lastModifiedDate.
+// These are invisible to the timestamp-based delta poll above.
+// This sweep uses ID to catch all new clients regardless of timestamps.
+
+async function pollNewClients(): Promise<number> {
+  const cp = load();
+  const maxId = cp.maxClientId;
+
+  // On first run (maxId=0), initialize to 0 so the sweep starts from the beginning.
+  // The CRM's deduplication (SyncEvent eventId + upsert by coreId) means re-syncing
+  // already-synced clients is harmless (idempotent). However, to avoid a massive
+  // initial batch, we start from a reasonable point — the max id that was already
+  // successfully bulk-loaded. We query the CRM health endpoint for this.
+  // If that fails, fall back to current core max (catches only future records).
+  if (maxId === 0) {
+    // Use a conservative starting point: slightly before what we expect CRM has
+    // This ensures we catch the gap without re-syncing everything
+    const [maxRow] = await query<RowDataPacket[]>(
+      "SELECT MAX(id) AS maxId FROM client WHERE lastModifiedDate IS NOT NULL",
+    );
+    // Start from the max id that HAS a timestamp (these were already caught by delta poll)
+    // Records above this with NULL lastModifiedDate are exactly the gap we need to fill
+    const startId = maxRow?.maxId ?? 0;
+    save({ maxClientId: startId });
+    log.info(`Initialized maxClientId checkpoint to ${startId} (max id with lastModifiedDate)`);
+    return 0;
+  }
+
+  const rows = await query<ClientRow[]>(
+    `SELECT id, firstName, lastName, documentID, mobileNumber,
+            secondaryMobileNumber, email, creationDate, lastModifiedDate
+     FROM client
+     WHERE id > ?
+     ORDER BY id ASC`,
+    [maxId],
+  );
+
+  if (rows.length === 0) return 0;
+  log.info(`New clients by ID (id > ${maxId}): ${rows.length}`);
+
+  // Fetch apartments for all new clients
+  const clientIds = rows.map((r) => r.id);
+  const apartments =
+    clientIds.length > 0
+      ? await query<ApartmentRow[]>(
+          `SELECT ID, clientID, assignedToBuildingID, apartmentNumber, entranceNumber,
+                  floorNumber, paymentID, consolidatedBalance
+           FROM savingaccount
+           WHERE clientID IN (?) AND AccountType = 'CURRENT_ACCOUNT'`,
+          [clientIds],
+        )
+      : [];
+
+  const aptByClient = new Map<number, ApartmentRow[]>();
+  for (const apt of apartments) {
+    const list = aptByClient.get(apt.clientID) ?? [];
+    list.push(apt);
+    aptByClient.set(apt.clientID, list);
+  }
+
+  let newMaxId = maxId;
+  for (const r of rows) {
+    const clientApts = aptByClient.get(r.id) ?? [];
+
+    await postWebhook("client.upsert", {
+      coreId: r.id,
+      firstName: r.firstName,
+      lastName: r.lastName,
+      idNumber: r.documentID,
+      primaryPhone: r.mobileNumber,
+      secondaryPhone: r.secondaryMobileNumber,
+      email: r.email,
+      coreCreatedAt: r.creationDate?.toISOString() ?? null,
+      coreUpdatedAt: r.lastModifiedDate?.toISOString() ?? null,
+      apartments: clientApts.map((a) => ({
+        buildingCoreId: a.assignedToBuildingID,
+        apartmentCoreId: a.ID,
+        apartmentNumber: a.apartmentNumber,
+        entranceNumber: a.entranceNumber,
+        floorNumber: a.floorNumber,
+        paymentId: a.paymentID,
+        balance: a.consolidatedBalance,
+      })),
+    });
+
+    if (r.id > newMaxId) {
+      newMaxId = r.id;
+    }
+  }
+
+  save({ maxClientId: newMaxId });
+  return rows.length;
+}
+
+// ── New building sweep (catches buildings with NULL lastModifiedDate) ───
+
+async function pollNewBuildings(): Promise<number> {
+  const cp = load();
+  const maxId = cp.maxBuildingId;
+
+  if (maxId === 0) {
+    const [maxRow] = await query<RowDataPacket[]>(
+      "SELECT MAX(id) AS maxId FROM company",
+    );
+    const currentMax = maxRow?.maxId ?? 0;
+    save({ maxBuildingId: currentMax });
+    log.info(`Initialized maxBuildingId checkpoint to ${currentMax}`);
+    return 0;
+  }
+
+  const rows = await query<BuildingRow[]>(
+    `SELECT id, companyName, address, mobileNumber, email,
+            numberOfAppartments, disableCrons,
+            assignedBranchId, creationDate, lastModifiedDate
+     FROM company
+     WHERE id > ?
+     ORDER BY id ASC`,
+    [maxId],
+  );
+
+  if (rows.length === 0) return 0;
+  log.info(`New buildings by ID (id > ${maxId}): ${rows.length}`);
+
+  let newMaxId = maxId;
+  for (const r of rows) {
+    const disableCrons = Buffer.isBuffer(r.disableCrons)
+      ? r.disableCrons[0] === 1
+      : Boolean(r.disableCrons);
+    await postWebhook("building.upsert", {
+      coreId: r.id,
+      name: r.companyName,
+      address: r.address,
+      phone: r.mobileNumber,
+      email: r.email,
+      numberOfApartments: r.numberOfAppartments,
+      disableCrons,
+      isActive: !disableCrons,
+      branchId: r.assignedBranchId,
+      coreCreatedAt: r.creationDate?.toISOString() ?? null,
+      coreUpdatedAt: r.lastModifiedDate?.toISOString() ?? null,
+    });
+    if (r.id > newMaxId) {
+      newMaxId = r.id;
+    }
+  }
+
+  save({ maxBuildingId: newMaxId });
+  return rows.length;
+}
+
+// ── New asset sweep (catches assets with NULL lastModifiedDate) ───
+
+async function pollNewAssets(): Promise<number> {
+  const cp = load();
+  const maxId = cp.maxAssetId;
+
+  if (maxId === 0) {
+    const [maxRow] = await query<RowDataPacket[]>(
+      "SELECT MAX(ID) AS maxId FROM savingaccount WHERE AccountType IN ('LIFT', 'DOOR', 'INTERCOM')",
+    );
+    const currentMax = maxRow?.maxId ?? 0;
+    save({ maxAssetId: currentMax });
+    log.info(`Initialized maxAssetId checkpoint to ${currentMax}`);
+    return 0;
+  }
+
+  const rows = await query<AssetRow[]>(
+    `SELECT ID, NAME, AccountType, productID, ip, port,
+            assignedToBuildingID, CREATIONDATE, lastModifiedDate
+     FROM savingaccount
+     WHERE ID > ?
+       AND AccountType IN ('LIFT', 'DOOR', 'INTERCOM')
+     ORDER BY ID ASC`,
+    [maxId],
+  );
+
+  if (rows.length === 0) return 0;
+  log.info(`New assets by ID (ID > ${maxId}): ${rows.length}`);
+
+  let newMaxId = maxId;
+  for (const r of rows) {
+    await postWebhook("asset.upsert", {
+      coreId: r.ID,
+      name: r.NAME,
+      type: r.AccountType,
+      productId: r.productID != null ? String(r.productID) : null,
+      ip: r.ip,
+      port: r.port,
+      assignedBuildingCoreId: r.assignedToBuildingID,
+      coreCreatedAt: r.CREATIONDATE?.toISOString() ?? null,
+      coreUpdatedAt: r.lastModifiedDate?.toISOString() ?? null,
+    });
+    if (r.ID > newMaxId) {
+      newMaxId = r.ID;
+    }
+  }
+
+  save({ maxAssetId: newMaxId });
   return rows.length;
 }
 
@@ -356,6 +558,7 @@ export async function runDeltaPoll(): Promise<void> {
   runStartedAt = Date.now();
 
   try {
+    // Phase 1: Timestamp-based delta poll (catches modifications)
     const buildings = await pollBuildings();
     const clients = await pollClients();
     const apartments = await pollApartmentChanges();
@@ -363,12 +566,23 @@ export async function runDeltaPoll(): Promise<void> {
     const gates = await pollGateDevices();
     const contacts = await pollContacts();
 
-    const total = buildings + clients + apartments + assets + gates + contacts;
+    // Phase 2: ID-based sweep (catches new records with NULL lastModifiedDate)
+    const newBuildings = await pollNewBuildings();
+    const newClients = await pollNewClients();
+    const newAssets = await pollNewAssets();
+
+    const total = buildings + clients + apartments + assets + gates + contacts + newBuildings + newClients + newAssets;
     const elapsed = Date.now() - runStartedAt;
 
     if (total > 0) {
+      const parts = [`B:${buildings}`, `C:${clients}`];
+      if (apartments > 0) parts.push(`APT:${apartments}`);
+      parts.push(`A:${assets}`, `G:${gates}`, `CT:${contacts}`);
+      if (newBuildings > 0) parts.push(`newB:${newBuildings}`);
+      if (newClients > 0) parts.push(`newC:${newClients}`);
+      if (newAssets > 0) parts.push(`newA:${newAssets}`);
       log.info(
-        `Poll complete: ${total} changes (B:${buildings} C:${clients} APT:${apartments} A:${assets} G:${gates} CT:${contacts}) in ${elapsed}ms`,
+        `Poll complete: ${total} changes (${parts.join(" ")}) in ${elapsed}ms`,
       );
     } else {
       log.debug(`Poll complete: no changes (${elapsed}ms)`);

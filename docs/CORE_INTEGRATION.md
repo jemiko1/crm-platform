@@ -43,18 +43,93 @@ The core database at `192.168.65.97:3306` must **NEVER** be written to. This is 
 
 | Layer | Schedule | What | DB Load | Code |
 |---|---|---|---|---|
-| **Delta Poll** | Every 5 min, 24/7 | `WHERE lastModifiedDate > checkpoint` | 5 tiny indexed queries | `delta-poller.ts` |
-| **Count Verification** | Every hour | `SELECT COUNT(*)` per entity | 3 queries, <5ms | `count-verifier.ts` |
-| **Gap Repair** | 3 AM nightly | Fix mismatches found during day | Only if gaps exist | `gap-repairer.ts` |
+| **Delta Poll (timestamp)** | Every 5 min, 24/7 | `WHERE lastModifiedDate > checkpoint` | 5 tiny indexed queries | `delta-poller.ts` |
+| **Delta Poll (ID sweep)** | Every 5 min, 24/7 | `WHERE id > maxCheckpoint` — catches records with NULL lastModifiedDate | 3 queries per cycle | `delta-poller.ts` |
+| **Count Verification** | Every hour | `SELECT COUNT(*)` per entity vs CRM | 3 core queries + 1 CRM API call | `count-verifier.ts` |
+| **Gap Repair** | 3 AM nightly | ID-set diff between core and CRM, sync missing | Only if count check found mismatches | `gap-repairer.ts` |
+| **Daily Reload** | 4 AM daily | Full reload of `smartgsmgate` + `contactperson` | These tables have no timestamps | `main.ts` → `reloadGatesAndContacts()` |
+| **Failed Event Retry** | Every 30 min | Re-process FAILED SyncEvents (max 3 retries) | Only if failures exist | `main.ts` → `retryFailed()` |
 | **Bulk Load** | Once, manual | Load all existing data | Batched with pauses | `bulk-loader.ts` |
 
 ### How Data Flows
 
-1. **Bridge** reads from core MySQL (SELECT only)
-2. Bridge posts HTTPS webhook to CRM backend: `POST /v1/integrations/core/webhook`
-3. Webhook authenticated via `x-core-secret` header (HMAC shared secret)
-4. `CoreSyncService` upserts data into CRM PostgreSQL
-5. Each event is deduplicated by `eventId` in the `SyncEvent` table
+```
+Every 5 minutes:
+  Phase 1 — Timestamp-based delta poll (catches modifications)
+    pollBuildings()     → WHERE lastModifiedDate > checkpoint
+    pollClients()       → WHERE lastModifiedDate > checkpoint
+    pollApartmentChanges() → WHERE savingaccount.lastModifiedDate > checkpoint (CURRENT_ACCOUNT)
+    pollAssets()         → WHERE lastModifiedDate > checkpoint (LIFT/DOOR/INTERCOM)
+    pollGateDevices()    → skipped (no timestamps)
+    pollContacts()       → skipped (no timestamps)
+
+  Phase 2 — ID-based sweep (catches new records with NULL lastModifiedDate)
+    pollNewBuildings()   → WHERE id > maxBuildingId
+    pollNewClients()     → WHERE id > maxClientId
+    pollNewAssets()      → WHERE ID > maxAssetId
+```
+
+1. **Bridge** reads from core MySQL (SELECT only, READ UNCOMMITTED)
+2. Bridge posts webhook to CRM backend: `POST /v1/integrations/core/webhook`
+3. Webhook authenticated via `x-core-secret` header (timing-safe comparison)
+4. CRM creates `SyncEvent` record (status: RECEIVED), deduplicates by `eventId`
+5. `CoreSyncService` upserts data into CRM PostgreSQL inside a Prisma transaction
+6. On success: SyncEvent → PROCESSED. On failure: SyncEvent → FAILED (retried later)
+
+### Why Two Polling Phases?
+
+**~51% of core MySQL clients have `NULL lastModifiedDate`**. The timestamp-based query `WHERE lastModifiedDate > ?` silently skips NULL values because `NULL > anything` evaluates to NULL (falsy) in SQL. The same issue affects some buildings and assets.
+
+The ID-based sweep tracks `maxClientId` / `maxBuildingId` / `maxAssetId` in `checkpoint.json`. On each cycle, it queries `WHERE id > maxId` to catch ALL new records regardless of timestamps. This is efficient because it only looks at records above the last-seen maximum.
+
+**Initialization**: On first run (maxId = 0), the client sweep initializes from `MAX(id) WHERE lastModifiedDate IS NOT NULL` — this catches the gap between the last timestamp-polled record and any newer NULL-timestamp records. Buildings and assets initialize from `MAX(id)` in their respective tables.
+
+### Checkpoint File
+
+`checkpoint.json` (in bridge root) persists polling state:
+
+```json
+{
+  "building": "2026-04-14T19:23:23.000Z",   // lastModifiedDate checkpoint
+  "client": "2026-04-14T20:18:05.000Z",
+  "asset": "2026-04-14T19:43:05.000Z",
+  "apartment": "2026-04-14T20:21:07.000Z",
+  "contact": "2000-01-01T00:00:00Z",
+  "gateDevice": "2000-01-01T00:00:00Z",
+  "lastCountCheck": "2026-04-14T08:34:41.000Z",
+  "countMismatches": [],
+  "maxClientId": 526825,                     // ID sweep checkpoints
+  "maxBuildingId": 1354,
+  "maxAssetId": 526730
+}
+```
+
+If this file is deleted, all checkpoints reset to defaults (epoch for timestamps, 0 for IDs). The ID sweep re-initializes safely; the timestamp poll replays from epoch (slow but harmless — upserts are idempotent).
+
+### Safety Nets — How Gaps Are Detected and Fixed
+
+```
+Delta Poll (5 min)
+  └─ Catches: modifications (timestamp) + new records (ID sweep)
+  └─ Misses: older records with NULL lastModifiedDate and low IDs (already below maxId)
+
+Count Check (hourly)
+  └─ Compares: SELECT COUNT(*) from core vs CRM bridge-health endpoint
+  └─ If mismatch: saves to countMismatches in checkpoint.json
+  └─ Requires: bridge-health endpoint to return 200 (uses shared secret, not JWT)
+  └─ If 401 (backend restarting): logs warning, skips — resumes next cycle
+
+Gap Repair (3 AM)
+  └─ Runs only if countMismatches is non-empty
+  └─ Fetches ALL IDs from core (SELECT id FROM entity)
+  └─ Fetches ALL coreIds from CRM (GET /v1/integrations/core/entity-ids?type=client)
+  └─ Computes set difference → syncs missing, deactivates orphans
+  └─ Clears countMismatches on success
+
+Failed Event Retry (30 min)
+  └─ Re-processes up to 50 FAILED SyncEvents (max 3 retries each)
+  └─ POST /v1/integrations/core/retry-failed (shared secret auth)
+```
 
 ---
 
@@ -83,7 +158,7 @@ There is no `source` field. Instead:
 | *(derived)* | | `isActive` | Boolean | `!disableCrons` — if crons disabled, building is inactive |
 | `assignedBranchId` | int | `branchId` | Int? | Core branch reference |
 | `creationDate` | datetime | `coreCreatedAt` | DateTime? | |
-| `lastModifiedDate` | datetime | `coreUpdatedAt` | DateTime? | Used for delta polling checkpoint |
+| `lastModifiedDate` | datetime | `coreUpdatedAt` | DateTime? | Delta polling checkpoint. Some buildings may have NULL — caught by ID sweep |
 
 **NOT synced**: `identificationCode` (not needed per business decision)
 
@@ -101,7 +176,7 @@ There is no `source` field. Instead:
 | `secondaryMobileNumber` | varchar | `secondaryPhone` | String? | |
 | `email` | varchar | `email` | String? | |
 | `creationDate` | datetime | `coreCreatedAt` | DateTime? | |
-| `lastModifiedDate` | datetime | `coreUpdatedAt` | DateTime? | Delta polling checkpoint |
+| `lastModifiedDate` | datetime | `coreUpdatedAt` | DateTime? | **~51% of clients have NULL** — caught by ID-based sweep, not timestamp poll |
 
 **NOT synced**: `state` (not needed per business decision)
 
@@ -205,7 +280,7 @@ The core system uses Java/Hibernate conventions:
 | `checkpoint.ts` | JSON file-based polling checkpoint persistence |
 | `logger.ts` | Structured logger with levels |
 | `main.ts` | Entry point — starts polling loops |
-| `delta-poller.ts` | Every 5 min: query changed records, post webhooks |
+| `delta-poller.ts` | Every 5 min: timestamp-based delta poll + ID-based sweep for NULL timestamps |
 | `count-verifier.ts` | Hourly: compare counts, log mismatches |
 | `gap-repairer.ts` | 3 AM: fix mismatches from count verifier |
 | `bulk-loader.ts` | One-time full data load (batched, with pauses) |
@@ -344,6 +419,26 @@ For **staging** (Railway), use `railway` CLI with `--environment dev`.
   - Single client: `npx tsx src/resync-client.ts <clientCoreId>`
   - Full reload: `npx tsx src/bulk-loader.ts` (off-hours only)
 
+### Missing Clients Despite Bridge Running
+Root cause is almost always `NULL lastModifiedDate` in core MySQL. Check:
+```sql
+-- On core MySQL (READ-ONLY!)
+SELECT id, lastModifiedDate FROM client WHERE id = <coreId>;
+```
+If `lastModifiedDate` is NULL, the timestamp-based poll can't see it. The ID-based sweep should catch new records automatically. For older records with NULL timestamps:
+1. Check if the ID sweep maxClientId is above this client's ID (it won't catch records below its checkpoint)
+2. Force a count check: the hourly count check will detect the mismatch
+3. Set `countMismatches` in `checkpoint.json` manually to trigger gap repair at 3 AM
+4. Or use the manual resync: `npx tsx src/resync-client.ts <coreId>`
+
+### Bridge-Health Returns 401
+The `bridge-health` endpoint uses shared-secret auth (`x-core-secret` header), not JWT. A 401 typically means the backend was restarting (deploy). This is transient — the count check retries every hour. Verify:
+```powershell
+# On VM:
+Invoke-WebRequest -Uri 'http://127.0.0.1:3000/v1/integrations/core/bridge-health' -Headers @{'x-core-secret'='<secret>'} -UseBasicParsing
+```
+If consistently failing, verify `CORE_WEBHOOK_SECRET` in backend `.env` matches `CRM_WEBHOOK_SECRET` in bridge `.env`.
+
 ---
 
 ## Planned Improvements
@@ -359,18 +454,41 @@ CRM backend moved from Railway to VM 192.168.65.110. Benefits realized:
 Currently planned:
 - Sync health agent that monitors webhook success rates
 - Alerting when sync failures exceed threshold
-- Auto-retry failed events
 - Dashboard widget showing sync status
 
-### Missing Delta Polling
-`smartgsmgate` and `contactperson` tables have no timestamp columns, so they can't be delta-polled. Options:
+### ~~NULL lastModifiedDate Gap~~ ✅ FIXED (April 2026)
+~51% of core MySQL clients had `NULL lastModifiedDate`, making them invisible to timestamp-based delta polling. Fixed by adding an ID-based sweep (`WHERE id > maxCheckpoint`) that runs alongside the timestamp poll every 5 minutes. The same fix applies to buildings and assets.
+
+### Missing Delta Polling for Gates/Contacts
+`smartgsmgate` and `contactperson` tables have no timestamp columns, so they can't be delta-polled. Currently handled by daily 4 AM full reload. Options for improvement:
 - Request timestamp columns from core system team
-- Periodic full reload of these tables (e.g., weekly)
 - Hash-based change detection (compare row hashes)
 
 ---
 
-## Sync Statistics (Building 20 Test)
+## Sync Statistics
+
+### Current Counts (April 2026)
+
+| Entity | Core MySQL | CRM (synced) | Notes |
+|---|---|---|---|
+| Buildings | 1,287 | 1,287 (1,133 active) | 154 have `disableCrons=true` (inactive) |
+| Clients | 86,425 | ~85,960 | ~51% have NULL lastModifiedDate in core |
+| Devices | 2,936 | 3,003 | Includes LIFT, DOOR, INTERCOM |
+| Smart GSM Gates | 1,972 | synced | Only 43 have non-null companyID |
+| Building Contacts | varies | 2,452 | No timestamps — daily reload |
+
+### Typical Poll Cycle
+
+```
+Poll complete: 5 changes (B:0 C:2 A:1 G:0 CT:0 newC:2) in 200ms
+```
+
+- `B/C/A/G/CT` = timestamp-based changes (buildings/clients/assets/gates/contacts)
+- `newB/newC/newA` = ID-based sweep catches (only logged when > 0)
+- Each poll cycle: 5-8 MySQL queries, <500ms total, 0-20 webhooks
+
+### Building 20 Test (Single Building Bulk Load)
 
 | Entity | Count | Time |
 |---|---|---|
@@ -382,4 +500,4 @@ Currently planned:
 | Building Contacts | 3 | <1s |
 | **Total webhooks** | **103** | **12s** |
 
-Full bulk load estimate: ~1,277 buildings × 12s ≈ 4-5 hours (with batch pauses).
+Full bulk load (all buildings): 1,287 buildings, 93,778 webhooks, 0 errors — completed in ~2 hours.
