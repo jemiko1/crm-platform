@@ -1111,8 +1111,22 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
         setShowSimpleDeleteConfirm(true);
       }
     } catch (err) {
-      // If check fails, show simple styled confirmation
-      setShowSimpleDeleteConfirm(true);
+      // If check fails but user has revert permission, still show full dialog
+      // so they can choose between revert and keep
+      if (canDeleteRevertInventory) {
+        setInventoryImpact({
+          hasImpact: true,
+          workOrderNumber: workOrder.workOrderNumber,
+          approvedProductUsages: 0,
+          productUsages: [],
+          inventoryTransactionsCount: 0,
+          transferredDevices: 0,
+          deactivatedDevices: [],
+        });
+        setShowDeleteConfirm(true);
+      } else {
+        setShowSimpleDeleteConfirm(true);
+      }
     }
   }
 
