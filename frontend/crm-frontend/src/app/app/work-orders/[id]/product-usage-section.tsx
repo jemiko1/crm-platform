@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { apiGet, apiPost, ApiError } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
+import { usePermissions } from "@/lib/use-permissions";
 
 const BRAND = "rgb(0, 86, 83)";
 
@@ -62,7 +63,14 @@ export default function ProductUsageSection({
   onUpdate,
 }: ProductUsageSectionProps) {
   const { t } = useI18n();
+  const { hasPermission } = usePermissions();
   const stock = availableStockOf;
+
+  // Permission checks: tech employee needs execute, head needs approve
+  const hasExecutePerm = hasPermission("work_orders.execute");
+  const hasApprovePerm = hasPermission("work_orders.approve");
+  const canSubmitProducts = isAssignedEmployee && hasExecutePerm;
+  const canApproveProducts = isHeadOfTechnical && hasApprovePerm;
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
@@ -151,7 +159,8 @@ export default function ProductUsageSection({
   }
 
   // Unified view for both tech employee and tech head when work order is IN_PROGRESS
-  if (workOrderStatus === "IN_PROGRESS" && (isAssignedEmployee || isHeadOfTechnical)) {
+  // Gated by permissions: tech employee needs execute, head needs approve
+  if (workOrderStatus === "IN_PROGRESS" && (canSubmitProducts || canApproveProducts)) {
     const unapprovedUsages = existingUsages.filter((u) => !u.isApproved);
     const hasUnapproved = unapprovedUsages.length > 0;
     const isModifying = isHeadOfTechnical && hasUnapproved && usages.length > 0;

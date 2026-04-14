@@ -32,38 +32,25 @@ const DEFAULT_PERMISSIONS = [
   { resource: "incidents", action: "delete", category: PermissionCategory.INCIDENTS, description: "Delete incidents" },
 
   // Work Orders - Basic CRUD
-  { resource: "work_orders", action: "read", category: PermissionCategory.WORK_ORDERS, description: "View work orders list and details" },
+  { resource: "work_orders", action: "read", category: PermissionCategory.WORK_ORDERS, description: "View work orders list, details, and activity" },
   { resource: "work_orders", action: "create", category: PermissionCategory.WORK_ORDERS, description: "Create new work orders" },
-  { resource: "work_orders", action: "update", category: PermissionCategory.WORK_ORDERS, description: "Update work order information" },
-  { resource: "work_orders", action: "delete", category: PermissionCategory.WORK_ORDERS, description: "Delete work orders (basic - no inventory impact)" },
+  { resource: "work_orders", action: "update", category: PermissionCategory.WORK_ORDERS, description: "Update work order information and comments" },
+  { resource: "work_orders", action: "delete", category: PermissionCategory.WORK_ORDERS, description: "Delete work orders (inventory stays as-is)" },
+  { resource: "work_orders", action: "delete_revert_inventory", category: PermissionCategory.WORK_ORDERS, description: "Delete work orders and revert inventory to stock" },
   { resource: "work_orders", action: "export", category: PermissionCategory.WORK_ORDERS, description: "Export work orders data" },
 
-  // Work Orders - Deletion with Inventory Control
-  { resource: "work_orders", action: "delete_keep_inventory", category: PermissionCategory.WORK_ORDERS, description: "Delete work orders and keep inventory changes" },
-  { resource: "work_orders", action: "delete_revert_inventory", category: PermissionCategory.WORK_ORDERS, description: "Delete work orders and revert inventory to stock" },
-
-  // Work Orders - Assignment & Workflow
-  { resource: "work_orders", action: "assign", category: PermissionCategory.WORK_ORDERS, description: "Assign employees to work orders" },
-  { resource: "work_orders", action: "reassign", category: PermissionCategory.WORK_ORDERS, description: "Reassign work orders to different employees" },
-  { resource: "work_orders", action: "start", category: PermissionCategory.WORK_ORDERS, description: "Start work on assigned orders" },
-  { resource: "work_orders", action: "complete", category: PermissionCategory.WORK_ORDERS, description: "Submit work for review/approval" },
-  { resource: "work_orders", action: "approve", category: PermissionCategory.WORK_ORDERS, description: "Approve or reject completed work orders" },
+  // Work Orders - Lifecycle
+  { resource: "work_orders", action: "assign", category: PermissionCategory.WORK_ORDERS, description: "Assign and reassign employees to work orders" },
+  { resource: "work_orders", action: "execute", category: PermissionCategory.WORK_ORDERS, description: "Start work, submit products, submit completion, request repair (technician actions)" },
+  { resource: "work_orders", action: "approve", category: PermissionCategory.WORK_ORDERS, description: "Approve completed work orders" },
   { resource: "work_orders", action: "cancel", category: PermissionCategory.WORK_ORDERS, description: "Cancel work orders" },
-
-  // Work Orders - Products & Inventory
-  { resource: "work_orders", action: "manage_products", category: PermissionCategory.WORK_ORDERS, description: "Add/modify product usage in work orders" },
   { resource: "work_orders", action: "manage_devices", category: PermissionCategory.WORK_ORDERS, description: "Add deactivated devices to work orders" },
-  { resource: "work_orders", action: "request_repair", category: PermissionCategory.WORK_ORDERS, description: "Convert diagnostic to repair work order" },
 
-  // Work Orders - Viewing & Comments
-  { resource: "work_orders", action: "view_activity", category: PermissionCategory.WORK_ORDERS, description: "View work order activity timeline" },
-  { resource: "work_orders", action: "view_workflow", category: PermissionCategory.WORK_ORDERS, description: "View workflow debug info (admin only)" },
+  // Work Orders - Viewing
   { resource: "work_orders", action: "view_sensitive", category: PermissionCategory.WORK_ORDERS, description: "View sensitive data (costs, amounts)" },
-  { resource: "work_orders", action: "add_comment", category: PermissionCategory.WORK_ORDERS, description: "Add comments to work orders" },
 
   // Work Orders - Admin
-  { resource: "work_orders", action: "manage_workflow", category: PermissionCategory.WORK_ORDERS, description: "Configure workflow settings in admin panel" },
-  { resource: "work_orders", action: "manage", category: PermissionCategory.WORK_ORDERS, description: "Full work order management (all permissions)" },
+  { resource: "work_orders", action: "manage", category: PermissionCategory.WORK_ORDERS, description: "Full work order management including workflow config (all permissions)" },
 
   // Assets
   { resource: "assets", action: "read", category: PermissionCategory.GENERAL, description: "View assets" },
@@ -244,18 +231,38 @@ async function main() {
     { resource: "buildings", action: "read" },
     { resource: "clients", action: "read" },
     { resource: "incidents", action: "read" },
+    // Work order permissions consolidated in April 2026
+    { resource: "work_orders", action: "delete_keep_inventory" },
+    { resource: "work_orders", action: "reassign" },
+    { resource: "work_orders", action: "start" },
+    { resource: "work_orders", action: "complete" },
+    { resource: "work_orders", action: "manage_products" },
+    { resource: "work_orders", action: "request_repair" },
+    { resource: "work_orders", action: "view_activity" },
+    { resource: "work_orders", action: "view_workflow" },
+    { resource: "work_orders", action: "add_comment" },
+    { resource: "work_orders", action: "manage_workflow" },
   ];
 
   let removed = 0;
   for (const dep of DEPRECATED_PERMISSIONS) {
     try {
-      await prisma.permission.delete({
+      // First remove any role group references to this permission
+      const perm = await prisma.permission.findUnique({
         where: { resource_action: { resource: dep.resource, action: dep.action } },
       });
-      removed++;
-      console.log(`🗑️  Removed deprecated permission: ${dep.resource}.${dep.action}`);
+      if (perm) {
+        await prisma.roleGroupPermission.deleteMany({
+          where: { permissionId: perm.id },
+        });
+        await prisma.permission.delete({
+          where: { id: perm.id },
+        });
+        removed++;
+        console.log(`🗑️  Removed deprecated permission: ${dep.resource}.${dep.action}`);
+      }
     } catch {
-      // Permission doesn't exist or is still referenced — skip silently
+      // Permission doesn't exist — skip silently
     }
   }
   if (removed > 0) {

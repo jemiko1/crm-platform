@@ -9,6 +9,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { useListItems } from "@/hooks/useListItems";
 import AssignEmployeesModal from "../../work-orders/[id]/assign-employees-modal";
 import { PermissionGuard } from "@/lib/permission-guard";
+import { usePermissions } from "@/lib/use-permissions";
 import { getStatusLabel, getStatusBadge, STAGE_LABELS, resolveDisplayStatus, getProgressWidth } from "@/lib/work-order-status";
 
 const BRAND = "rgb(0, 86, 83)";
@@ -124,6 +125,7 @@ export default function TaskDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { t, language } = useI18n();
+  const { hasPermission } = usePermissions();
   const { getLabel: getTypeLabel } = useListItems("WORK_ORDER_TYPE");
   const taskId = params?.taskId as string | undefined;
 
@@ -625,20 +627,25 @@ export default function TaskDetailPage() {
     );
   }
 
-  const canStartWork = isAssigned && task.status === "LINKED_TO_GROUP";
-  const canWorkOnTask = isAssigned && task.status === "IN_PROGRESS" && !task.techEmployeeComment;
+  // Permission-gated workflow checks: role logic (workflow step) AND permission
+  const hasExecutePerm = hasPermission("work_orders.execute");
+  const hasAssignPerm = hasPermission("work_orders.assign");
+  const hasApprovePerm = hasPermission("work_orders.approve");
+  const hasCancelPerm = hasPermission("work_orders.cancel");
+  const canStartWork = isAssigned && task.status === "LINKED_TO_GROUP" && hasExecutePerm;
+  const canWorkOnTask = isAssigned && task.status === "IN_PROGRESS" && !task.techEmployeeComment && hasExecutePerm;
   const needsProducts = task.type === "INSTALLATION" || task.type === "REPAIR_CHANGE";
   const needsDeactivatedDevices = task.type === "DEACTIVATE";
-  const canRequestRepair = task.type === "DIAGNOSTIC";
+  const canRequestRepair = task.type === "DIAGNOSTIC" && hasExecutePerm;
   const isCompleted = task.status === "COMPLETED" || task.status === "CANCELED";
-  
+
   // Workflow step permissions:
   // Step 1 positions - can assign employees for CREATED tasks
   // Step 5 positions - can approve/reject IN_PROGRESS tasks with techEmployeeComment
-  const showAssignSection = canAssignEmployees && task.status === "CREATED";
-  const needsHeadReview = canApprove && task.status === "IN_PROGRESS" && !!task.techEmployeeComment;
+  const showAssignSection = canAssignEmployees && task.status === "CREATED" && hasAssignPerm;
+  const needsHeadReview = canApprove && task.status === "IN_PROGRESS" && !!task.techEmployeeComment && hasApprovePerm;
   // Step 1 positions can cancel/reassign tasks in LINKED_TO_GROUP or IN_PROGRESS
-  const canCancelOrReassign = canAssignEmployees && (task.status === "LINKED_TO_GROUP" || task.status === "IN_PROGRESS");
+  const canCancelOrReassign = canAssignEmployees && (task.status === "LINKED_TO_GROUP" || task.status === "IN_PROGRESS") && (hasCancelPerm || hasAssignPerm);
   const techEmployeeSubmitted = task.status === "IN_PROGRESS" && !!task.techEmployeeComment;
 
   return (
