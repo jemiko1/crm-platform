@@ -45,7 +45,7 @@
     "buildings": "Buildings",
     "clients": "Clients",
     "incidents": "Incidents",
-    "assets": "Assets",
+    "assets": "Devices",
     "workOrders": "Work Orders",
     "sales": "Sales",
     "inventory": "Inventory",
@@ -73,15 +73,19 @@
     "title": "Buildings Directory",
     "subtitle": "Buildings",
     "description": "Synced from your core system via API. Buildings and devices are read-only in this CRM.",
+    "descriptionCrm": "Manually created buildings in CRM28.",
     "loading": "Loading buildings from API...",
     "errorLoading": "Error loading buildings",
     "searchPlaceholder": "Search by ID, name, address, city...",
     "columns": {
       "building": "Building",
+      "branch": "Branch",
       "clients": "Clients",
       "devices": "Devices",
       "workOrders": "Work Orders",
-      "lastUpdate": "Last Update"
+      "lastUpdate": "Last Update",
+      "createdOn": "Created On",
+      "source": "Source"
     },
     "openClients": "Open clients list",
     "openDevices": "Open devices",
@@ -91,12 +95,19 @@
     "addBuilding": "Add Building",
     "noMatch": "No buildings match your search.",
     "noBuildings": "No buildings found. Click 'Add Building' to create one.",
-    "open": "Open:"
+    "open": "Open:",
+    "sourceCore": "Core Sync",
+    "sourceManual": "Manual",
+    "tabs": {
+      "core": "Core Buildings",
+      "crm": "CRM28 Buildings"
+    }
   },
   "clients": {
     "title": "Clients Directory",
     "subtitle": "Clients",
     "description": "Central client list across buildings. Assignment is mapped by building coreId.",
+    "descriptionCrm": "Manually created clients in CRM28.",
     "loading": "Loading clients from API...",
     "errorLoading": "Error loading clients",
     "searchPlaceholder": "Search by name, ID number, payment id, phone, building...",
@@ -106,11 +117,70 @@
       "paymentId": "Payment ID",
       "primaryPhone": "Primary Phone",
       "secondaryPhone": "Secondary Phone",
+      "phone": "Phone",
       "buildings": "Buildings",
-      "clientId": "Client ID"
+      "clientId": "Client ID",
+      "createdOn": "Created On"
     },
     "assignedBuildings": "Assigned Buildings",
-    "openBuilding": "Open building"
+    "openBuilding": "Open building",
+    "noMatch": "No clients match your search.",
+    "noClientsFound": "No clients found.",
+    "tabs": {
+      "core": "Core Clients",
+      "crm": "CRM28 Clients"
+    }
+  },
+  "devices": {
+    "title": "Devices Directory",
+    "subtitle": "Devices",
+    "description": "All devices synced from core system across buildings.",
+    "descriptionCrm": "Manually created devices in CRM28.",
+    "loading": "Loading devices...",
+    "errorLoading": "Error loading devices",
+    "searchPlaceholder": "Search by name, type, IP, building...",
+    "addDevice": "Add Device",
+    "noMatch": "No devices match your search.",
+    "noDevices": "No devices found.",
+    "columns": {
+      "device": "Device",
+      "type": "Type",
+      "building": "Building",
+      "ip": "IP Address",
+      "status": "Status",
+      "createdOn": "Created On"
+    },
+    "tabs": {
+      "core": "Core Devices",
+      "crm": "CRM28 Devices"
+    },
+    "statuses": {
+      "ONLINE": "Online",
+      "OFFLINE": "Offline",
+      "UNKNOWN": "Unknown"
+    },
+    "types": {
+      "LIFT": "Lift",
+      "ELEVATOR": "Elevator",
+      "DOOR": "Door",
+      "ENTRANCE_DOOR": "Entrance Door",
+      "INTERCOM": "Intercom",
+      "SMART_GSM_GATE": "Smart GSM Gate",
+      "SMART_DOOR_GSM": "Smart Door GSM",
+      "BOOM_BARRIER": "Boom Barrier"
+    },
+    "stats": {
+      "totalDevices": "Total Devices",
+      "addedThisMonth": "Devices Added This Month",
+      "changeVsLastMonth": "Change vs Last Month",
+      "changeVsAverage": "Change vs Average",
+      "allTime": "All time",
+      "noChange": "No change",
+      "onAverage": "On average",
+      "statsUnavailable": "Statistics unavailable",
+      "sinceLastMonth": "Since last month",
+      "vsMonthlyAvg": "Vs monthly avg"
+    }
   },
   "employees": {
     "title": "Employees",

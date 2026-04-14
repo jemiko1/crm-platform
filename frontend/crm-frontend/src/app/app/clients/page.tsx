@@ -8,6 +8,7 @@ import { PermissionGuard } from "@/lib/permission-guard";
 import { usePermissions } from "@/lib/use-permissions";
 import { useModalContext } from "../modal-manager";
 import { useI18n } from "@/hooks/useI18n";
+import SourceTabs from "@/components/source-tabs";
 
 const BRAND = "rgb(0, 86, 83)";
 
@@ -60,6 +61,7 @@ function ClientsPageContent() {
   const searchParams = useSearchParams();
   const { hasPermission } = usePermissions();
   const { t } = useI18n();
+  const [sourceTab, setSourceTab] = useState<"core" | "crm">("core");
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
   const [page, setPage] = useState(1);
@@ -76,6 +78,14 @@ function ClientsPageContent() {
   const [statsLoading, setStatsLoading] = useState(true);
   const [statsError, setStatsError] = useState<string | null>(null);
 
+  function handleTabSwitch(tab: "core" | "crm") {
+    setSourceTab(tab);
+    setPage(1);
+    setQ("");
+    setDebouncedQ("");
+    hasLoadedOnce.current = false;
+  }
+
   const { openModal } = useModalContext();
 
   function openClientModal(clientId: number) {
@@ -86,11 +96,11 @@ function ClientsPageContent() {
   const fetchStatistics = useCallback(() => {
     setStatsError(null);
     setStatsLoading(true);
-    apiGet<ClientStatisticsData>("/v1/clients/statistics/summary", { cache: "no-store" })
+    apiGet<ClientStatisticsData>(`/v1/clients/statistics/summary?source=${sourceTab}`, { cache: "no-store" })
       .then((data) => setStatistics(data))
       .catch((err) => setStatsError(err instanceof Error ? err.message : "Failed to load statistics"))
       .finally(() => setStatsLoading(false));
-  }, []);
+  }, [sourceTab]);
 
   useEffect(() => { fetchStatistics(); }, [fetchStatistics]);
 
@@ -116,6 +126,7 @@ function ClientsPageContent() {
         const params = new URLSearchParams();
         params.set("page", String(page));
         params.set("pageSize", String(pageSize));
+        params.set("source", sourceTab);
         if (debouncedQ.trim()) params.set("search", debouncedQ.trim());
 
         const result = await apiGetPaginated<ClientRow>(`/v1/clients?${params}`);
@@ -140,7 +151,7 @@ function ClientsPageContent() {
     return () => {
       alive = false;
     };
-  }, [page, debouncedQ]);
+  }, [page, debouncedQ, sourceTab]);
 
   const safePage = Math.min(page, totalPages);
   const paged = rows;
@@ -161,10 +172,20 @@ function ClientsPageContent() {
               {t("clients.title", "Clients Directory")}
             </h1>
             <p className="mt-0.5 text-xs leading-snug text-zinc-600 md:mt-1 md:text-sm md:leading-normal">
-              {t("clients.description", "Central client list across buildings. Assignment is mapped by building coreId.")}
+              {sourceTab === "core"
+                ? t("clients.description", "Central client list across buildings. Assignment is mapped by building coreId.")
+                : t("clients.descriptionCrm", "Manually created clients in CRM28.")}
             </p>
           </div>
         </div>
+
+        {/* Source Tabs */}
+        <SourceTabs
+          active={sourceTab}
+          onSwitch={handleTabSwitch}
+          coreLabel={t("clients.tabs.core", "Core Clients")}
+          crmLabel={t("clients.tabs.crm", "CRM28 Clients")}
+        />
 
         {/* Statistics Section */}
         <ClientStatistics

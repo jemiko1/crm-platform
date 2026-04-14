@@ -159,11 +159,16 @@ export class ClientsService {
    * Returns clients with their associated buildings (many-to-many).
    * Supports optional search by name, phone, or ID number.
    */
-  async listDirectory(page = 1, pageSize = 20, search?: string) {
+  async listDirectory(page = 1, pageSize = 20, search?: string, source?: "core" | "crm") {
     const { skip, take } = paginate(page, pageSize);
 
     const q = search?.trim() ?? "";
-    let where: Prisma.ClientWhereInput = { isActive: true };
+    const sourceFilter: Prisma.ClientWhereInput = source === "core"
+      ? { lastSyncedAt: { not: null } }
+      : source === "crm"
+      ? { lastSyncedAt: null }
+      : {};
+    let where: Prisma.ClientWhereInput = { isActive: true, ...sourceFilter };
 
     if (q) {
       const parts = q.split(/\s+/).filter(Boolean);
@@ -192,6 +197,7 @@ export class ClientsService {
 
       where = {
         isActive: true,
+        ...sourceFilter,
         OR: [...singleTermConditions, ...multiWordCondition],
       };
     }
@@ -248,10 +254,16 @@ export class ClientsService {
     return buildPaginatedResponse(data, total, page, pageSize);
   }
 
-  async getStatistics() {
+  async getStatistics(source?: "core" | "crm") {
+    const sourceFilter = source === "core"
+      ? { lastSyncedAt: { not: null } }
+      : source === "crm"
+      ? { lastSyncedAt: null }
+      : {};
+
     const clients = await this.prisma.client.findMany({
-      where: { isActive: true },
-      select: { createdAt: true },
+      where: { isActive: true, ...sourceFilter },
+      select: { createdAt: true, coreCreatedAt: true },
       orderBy: { createdAt: "asc" },
     });
 
@@ -267,7 +279,7 @@ export class ClientsService {
 
     const monthlyBreakdown: Record<number, Record<number, number>> = {};
     clients.forEach((client) => {
-      const date = new Date(client.createdAt);
+      const date = new Date(client.coreCreatedAt ?? client.createdAt);
       const year = date.getFullYear();
       const month = date.getMonth() + 1;
       if (!monthlyBreakdown[year]) monthlyBreakdown[year] = {};

@@ -24,7 +24,7 @@ const ALL_ITEMS: NavItemDef[] = [
   { href: "/app/buildings", label: "Buildings", labelKey: "sidebar.buildings", iconKey: "building", requiredPermission: "buildings.menu" },
   { href: "/app/clients", label: "Clients", labelKey: "sidebar.clients", iconKey: "clients", requiredPermission: "clients.menu" },
   { href: "/app/incidents", label: "Incidents", labelKey: "sidebar.incidents", iconKey: "incident", requiredPermission: "incidents.menu" },
-  { href: "/app/assets", label: "Assets", labelKey: "sidebar.assets", iconKey: "wrench", requiredPermission: "assets.menu" },
+  { href: "/app/assets", label: "Devices", labelKey: "sidebar.assets", iconKey: "wrench", requiredPermission: "assets.menu" },
   { href: "/app/work-orders", label: "Work Orders", labelKey: "sidebar.workOrders", iconKey: "clipboard", requiredPermission: "work_orders.menu" },
   { href: "/app/sales/dashboard", label: "Sales", labelKey: "sidebar.sales", iconKey: "sales", requiredPermission: "sales.menu" },
   { href: "/app/inventory", label: "Inventory", labelKey: "sidebar.inventory", iconKey: "box", requiredPermission: "inventory.menu" },

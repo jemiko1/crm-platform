@@ -25,19 +25,21 @@ export class PublicController {
     queries: [
       { name: "page", description: "Page number" },
       { name: "pageSize", description: "Page size" },
+      { name: "source", description: "Filter by source: core or crm" },
     ],
   })
   listBuildings(
     @Query() pagination: PaginationDto,
     @Query("search") search?: string,
+    @Query("source") source?: "core" | "crm",
   ) {
-    return this.buildings.list(pagination.page, pagination.pageSize, search);
+    return this.buildings.list(pagination.page, pagination.pageSize, search, source);
   }
 
   @Get("buildings/statistics/summary")
   @Doc({ summary: "Building statistics (v1)", ok: "Aggregate building metrics" })
-  getBuildingsStatistics() {
-    return this.buildings.getStatistics();
+  getBuildingsStatistics(@Query("source") source?: "core" | "crm") {
+    return this.buildings.getStatistics(source);
   }
 
   @Get("buildings/:buildingCoreId")
@@ -89,13 +91,38 @@ export class PublicController {
     return this.assets.listByBuilding(buildingId, pagination.page, pagination.pageSize);
   }
 
+  @Get("assets/statistics/summary")
+  @Doc({ summary: "Device statistics (v1)", ok: "Aggregate device metrics" })
+  getDeviceStatistics(@Query("source") source?: "core" | "crm") {
+    return this.assets.getStatistics(source);
+  }
+
+  @Get("assets")
+  @Doc({
+    summary: "Device directory (v1)",
+    ok: "Paged devices with building info",
+    queries: [
+      { name: "page", description: "Page number" },
+      { name: "pageSize", description: "Page size" },
+      { name: "search", description: "Search string" },
+      { name: "source", description: "Filter by source: core or crm" },
+    ],
+  })
+  listDevices(
+    @Query() pagination: PaginationDto,
+    @Query("search") search?: string,
+    @Query("source") source?: "core" | "crm",
+  ) {
+    return this.assets.listDirectory(pagination.page, pagination.pageSize, search, source);
+  }
+
   @Get("clients/statistics/summary")
   @Doc({
     summary: "Client statistics summary",
     ok: "Aggregate counts and metrics for clients",
   })
-  clientStatistics() {
-    return this.clients.getStatistics();
+  clientStatistics(@Query("source") source?: "core" | "crm") {
+    return this.clients.getStatistics(source);
   }
 
   @Get("clients")
@@ -106,13 +133,15 @@ export class PublicController {
       { name: "page", description: "Page number" },
       { name: "pageSize", description: "Page size" },
       { name: "search", description: "Search string" },
+      { name: "source", description: "Filter by source: core or crm" },
     ],
   })
   listClients(
     @Query() pagination: PaginationDto,
     @Query("search") search?: string,
+    @Query("source") source?: "core" | "crm",
   ) {
-    return this.clients.listDirectory(pagination.page, pagination.pageSize, search);
+    return this.clients.listDirectory(pagination.page, pagination.pageSize, search, source);
   }
 
   @Get("clients/:coreId")

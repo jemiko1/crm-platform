@@ -9,6 +9,7 @@ import { PermissionGuard } from "@/lib/permission-guard";
 import { usePermissions } from "@/lib/use-permissions";
 import { useModalContext } from "../modal-manager";
 import { useI18n } from "@/hooks/useI18n";
+import SourceTabs from "@/components/source-tabs";
 
 type Building = {
   coreId: number;
@@ -155,6 +156,7 @@ function BuildingsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { hasPermission } = usePermissions();
+  const [sourceTab, setSourceTab] = useState<"core" | "crm">("core");
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
   const [page, setPage] = useState(1);
@@ -169,6 +171,15 @@ function BuildingsPageContent() {
   const [statistics, setStatistics] = useState<StatisticsData | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [statsError, setStatsError] = useState<string | null>(null);
+
+  // Reset page and search when switching tabs
+  function handleTabSwitch(tab: "core" | "crm") {
+    setSourceTab(tab);
+    setPage(1);
+    setQ("");
+    setDebouncedQ("");
+    hasLoadedOnce.current = false;
+  }
 
   const pageSize = 20;
 
@@ -200,6 +211,7 @@ function BuildingsPageContent() {
         const params = new URLSearchParams();
         params.set("page", String(page));
         params.set("pageSize", String(pageSize));
+        params.set("source", sourceTab);
         if (debouncedQ.trim()) params.set("search", debouncedQ.trim());
 
         const result = await apiGetPaginated<Building>(`/v1/buildings?${params}`);
@@ -242,14 +254,14 @@ function BuildingsPageContent() {
     return () => {
       cancelled = true;
     };
-  }, [page, debouncedQ]);
+  }, [page, debouncedQ, sourceTab]);
 
   // Fetch statistics
   const fetchStatistics = useCallback(() => {
     setStatsError(null);
     setStatsLoading(true);
 
-    apiGet<StatisticsData>("/v1/buildings/statistics/summary", {
+    apiGet<StatisticsData>(`/v1/buildings/statistics/summary?source=${sourceTab}`, {
       cache: "no-store",
     })
       .then((data) => {
@@ -261,7 +273,7 @@ function BuildingsPageContent() {
       .finally(() => {
         setStatsLoading(false);
       });
-  }, []);
+  }, [sourceTab]);
 
   useEffect(() => {
     fetchStatistics();
@@ -275,7 +287,7 @@ function BuildingsPageContent() {
       <div className="w-full">
       <div className="mx-auto w-full px-2 py-4 md:px-6 md:py-8">
         {/* Header */}
-        <div className="mb-3 flex flex-col gap-2 md:mb-8 md:flex-row md:items-end md:justify-between md:gap-4">
+        <div className="mb-3 flex flex-col gap-2 md:mb-6 md:gap-3">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs text-zinc-700 shadow-sm ring-1 ring-zinc-200 md:shadow-sm">
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: BRAND }} />
@@ -285,11 +297,20 @@ function BuildingsPageContent() {
               {t("buildings.title", "Buildings Directory")}
             </h1>
             <p className="mt-0.5 text-xs leading-snug text-zinc-600 md:mt-1 md:text-sm md:leading-normal">
-              {t("buildings.description", "Synced from your core system via API. Buildings and devices are read-only in this CRM.")}
+              {sourceTab === "core"
+                ? t("buildings.description", "Synced from your core system via API. Buildings and devices are read-only in this CRM.")
+                : t("buildings.descriptionCrm", "Manually created buildings in CRM28.")}
             </p>
           </div>
-
         </div>
+
+        {/* Source Tabs */}
+        <SourceTabs
+          active={sourceTab}
+          onSwitch={handleTabSwitch}
+          coreLabel={t("buildings.tabs.core", "Core Buildings")}
+          crmLabel={t("buildings.tabs.crm", "CRM28 Buildings")}
+        />
 
         {/* Statistics Section */}
         <BuildingStatistics
@@ -339,7 +360,7 @@ function BuildingsPageContent() {
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin rounded-full border-2 border-teal-500 border-t-transparent" />
                   )}
                 </div>
-                {hasPermission("buildings.create") && (
+                {sourceTab === "crm" && hasPermission("buildings.create") && (
                   <button
                     type="button"
                     onClick={() => setShowAddModal(true)}
@@ -362,13 +383,12 @@ function BuildingsPageContent() {
                         <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.devices", "Devices")}</th>
                         <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.workOrders", "Work Orders")}</th>
                         <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.createdOn", "Created On")}</th>
-                        <th className="px-2 py-2 font-medium bg-zinc-50 md:px-4 md:py-3">{t("buildings.columns.source", "Source")}</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white">
                       {paged.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="px-4 py-10 text-center text-sm text-zinc-600">
+                          <td colSpan={6} className="px-4 py-10 text-center text-sm text-zinc-600">
                             {debouncedQ.trim()
                               ? t("buildings.noMatch", "No buildings match your search.")
                               : t("buildings.noBuildings", "No buildings found. Click 'Add Building' to create one.")}
@@ -496,16 +516,6 @@ function BuildingsPageContent() {
                                 </div>
                               </td>
 
-                              {/* Source */}
-                              <td className="px-2 py-2 align-middle md:px-4 md:py-4">
-                                <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${
-                                  b.source === "core"
-                                    ? "bg-sky-50 text-sky-700 ring-sky-200"
-                                    : "bg-amber-50 text-amber-700 ring-amber-200"
-                                }`}>
-                                  {b.source === "core" ? t("buildings.sourceCore", "Core Sync") : t("buildings.sourceManual", "Manual")}
-                                </span>
-                              </td>
                             </tr>
                           );
                         })
