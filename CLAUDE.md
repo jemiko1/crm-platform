@@ -256,6 +256,15 @@ When working as a subagent, read this file first. Key rules:
 | `asterisk-sync.service.ts` | Every 5 min | Sync extension/queue state | — |
 | `quality-pipeline.service.ts` | Every 2 min | OpenAI call reviews | Overlap-guarded |
 
+### Core Sync Bridge Schedules (PM2, separate process)
+| Task | Schedule | What it does | Concern |
+|---------|----------|-------------|---------|
+| Delta poll (timestamp + ID sweep) | Every 5 min | Sync changed/new buildings, clients, assets from core MySQL | Overlap-guarded (10 min timeout) |
+| Count check | Every 60 min | Compare entity counts core vs CRM, log mismatches | Requires bridge-health endpoint (shared secret) |
+| Gap repair | 3 AM daily | Fix mismatches via ID-set diff | Only runs if countMismatches non-empty |
+| Gates/contacts reload | 4 AM daily | Full reload of tables without timestamps | — |
+| Failed event retry | Every 30 min | Re-process FAILED SyncEvents (max 3 retries) | — |
+
 ---
 
 ## Environment & Access
@@ -334,8 +343,9 @@ When building access-controlled features: add to seed-permissions.ts → backend
 - Single 2125-line Prisma schema
 - `rawBody: true` enabled globally (only needed for webhook HMAC)
 - Both `bcrypt` AND `bcryptjs` installed — check which is imported before changing auth
-- Core sync bridge count-verification/gap-repair require CRM health endpoint access, but endpoint needs JWT — bridge can't authenticate yet (degrades gracefully — delta polling still works)
-- `smartgsmgate` and `contactperson` tables have no timestamps — can't be delta-polled, only bulk-loaded
+- Core sync bridge count-verification uses `bridge-health` endpoint (shared-secret auth, no JWT). If backend restarts during deploy, count check returns 401 transiently — gap repair skips that cycle but resumes on next success
+- `smartgsmgate` and `contactperson` tables have no timestamps — can't be delta-polled, only bulk-loaded (daily 4 AM reload)
+- ~51% of core MySQL clients have `NULL lastModifiedDate` — invisible to timestamp-based delta polling. Fixed by ID-based sweep (`WHERE id > maxCheckpoint`) that runs alongside timestamp polling every 5 minutes
 - Railway → VM migration complete (April 2026). Railway is staging only at crm28demo.asg.ge
 
 ---
