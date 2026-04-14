@@ -338,9 +338,8 @@ export default function WorkOrderDetailPage() {
 
   // Delete permission checks
   const canDelete = currentUser?.isSuperAdmin || hasPermission("work_orders.delete");
-  const canDeleteKeepInventory = currentUser?.isSuperAdmin || hasPermission("work_orders.delete_keep_inventory");
   const canDeleteRevertInventory = currentUser?.isSuperAdmin || hasPermission("work_orders.delete_revert_inventory");
-  const canDeleteAny = canDelete || canDeleteKeepInventory || canDeleteRevertInventory;
+  const canDeleteAny = canDelete || canDeleteRevertInventory;
 
   // Workflow actions
   async function handleStartWork() {
@@ -951,8 +950,8 @@ export default function WorkOrderDetailPage() {
                     </div>
                   )}
 
-                  {/* Option 2: Delete & Keep - requires delete_keep_inventory permission */}
-                  {canDeleteKeepInventory ? (
+                  {/* Option 2: Delete & Keep inventory as-is - requires delete permission */}
+                  {canDelete ? (
                     <button
                       type="button"
                       onClick={() => performDelete(false)}
@@ -995,7 +994,7 @@ export default function WorkOrderDetailPage() {
                   )}
 
                   {/* No permissions warning */}
-                  {!canDeleteKeepInventory && !canDeleteRevertInventory && (
+                  {!canDelete && !canDeleteRevertInventory && (
                     <div className="mt-4 p-4 rounded-2xl bg-amber-50 ring-1 ring-amber-200">
                       <div className="flex gap-3">
                         <div className="flex-shrink-0 text-amber-500">

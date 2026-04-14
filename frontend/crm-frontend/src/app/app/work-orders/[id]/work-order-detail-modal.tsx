@@ -1025,11 +1025,9 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
   // Permission checks - superadmin always has access
   const canEdit = currentUser?.isSuperAdmin || hasPermission("work_orders.update");
   const canDelete = currentUser?.isSuperAdmin || hasPermission("work_orders.delete");
-  // New granular delete permissions for inventory control
-  const canDeleteKeepInventory = currentUser?.isSuperAdmin || hasPermission("work_orders.delete_keep_inventory");
   const canDeleteRevertInventory = currentUser?.isSuperAdmin || hasPermission("work_orders.delete_revert_inventory");
-  // User can delete if they have basic delete OR any of the granular delete permissions
-  const canDeleteAny = canDelete || canDeleteKeepInventory || canDeleteRevertInventory;
+  // User can delete if they have basic delete OR the revert-inventory delete permission
+  const canDeleteAny = canDelete || canDeleteRevertInventory;
 
   useEffect(() => {
     setMounted(true);
@@ -1357,7 +1355,7 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
                     />
                   )}
                 </button>
-                {currentUser?.isSuperAdmin && (
+                {(currentUser?.isSuperAdmin || hasPermission("work_orders.manage")) && (
                   <button
                     onClick={() => setActiveInfoTab("workflow")}
                     className={`relative px-4 py-3 text-sm font-medium transition-all whitespace-nowrap flex items-center gap-2 ${
@@ -1805,8 +1803,8 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
                 </div>
               )}
 
-              {/* Option 2: Delete & Keep - requires delete_keep_inventory permission */}
-              {canDeleteKeepInventory ? (
+              {/* Option 2: Delete & Keep inventory as-is - requires delete permission */}
+              {canDelete ? (
                 <button
                   type="button"
                   onClick={() => performDelete(false)}
@@ -1849,7 +1847,7 @@ export default function WorkOrderDetailModal({ open, onClose, workOrderId, onUpd
               )}
 
               {/* No permissions warning */}
-              {!canDeleteKeepInventory && !canDeleteRevertInventory && (
+              {!canDelete && !canDeleteRevertInventory && (
                 <div className="mt-4 p-4 rounded-2xl bg-amber-50 ring-1 ring-amber-200">
                   <div className="flex gap-3">
                     <div className="flex-shrink-0 text-amber-500">

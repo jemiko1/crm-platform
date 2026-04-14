@@ -1327,7 +1327,6 @@ export class WorkOrdersService {
     headUserId: string,
     productUsages?: ProductUsageDto[],
     comment?: string,
-    cancelReason?: string,
   ) {
     const workOrder = await this.findOne(workOrderId);
 
@@ -1342,54 +1341,6 @@ export class WorkOrdersService {
       where: { userId: headUserId },
     });
     const headEmployeeId = head?.id || headUserId;
-
-    // --- CANCEL PATH ---
-    if (cancelReason) {
-      const unapprovedUsages = workOrder.productUsages.filter((pu) => !pu.isApproved);
-      const approvedUsages = workOrder.productUsages.filter((pu) => pu.isApproved);
-
-      await this.prisma.$transaction(
-        async (tx) => {
-          // Release reservations for unapproved usages
-          if (unapprovedUsages.length > 0) {
-            await this.inventory.releaseReservationTx(
-              tx,
-              unapprovedUsages.map((pu) => ({ productId: pu.productId, quantity: pu.quantity })),
-              workOrder.id,
-            );
-          }
-
-          // Revert stock for any approved usages (edge case)
-          if (approvedUsages.length > 0) {
-            await this.inventory.revertStockForWorkOrderTx(tx, workOrder.id);
-          }
-
-          // Set status to CANCELED
-          await tx.workOrder.update({
-            where: { id: workOrder.id },
-            data: {
-              status: "CANCELED",
-              cancelReason,
-              canceledAt: new Date(),
-              techHeadComment: comment ?? null,
-            },
-          });
-        },
-        { timeout: 15000 },
-      );
-
-      // Activity logging AFTER tx commits
-      await this.activityService.logCancellation(workOrder.id, headEmployeeId, cancelReason);
-      await this.activityService.logStatusChange(workOrder.id, headEmployeeId, "IN_PROGRESS", "CANCELED");
-
-      this.triggerEngine.evaluateStatusChange(
-        { id: workOrder.id, type: workOrder.type, title: workOrder.title, workOrderNumber: workOrder.workOrderNumber },
-        "IN_PROGRESS",
-        "CANCELED",
-      ).catch(() => {});
-
-      return this.findOne(workOrder.id);
-    }
 
     // --- APPROVE PATH ---
     const existingUsages = workOrder.productUsages.filter((pu) => !pu.isApproved);

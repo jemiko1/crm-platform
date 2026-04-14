@@ -8,6 +8,7 @@ import { apiGet, apiGetList, apiPost, apiPatch, ApiError } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
 import AssignEmployeesModal from "../work-orders/[id]/assign-employees-modal";
 import { PermissionGuard } from "@/lib/permission-guard";
+import { usePermissions } from "@/lib/use-permissions";
 import { getStatusLabel, getStatusBadge, resolveDisplayStatus } from "@/lib/work-order-status";
 
 const BRAND = "rgb(0, 86, 83)";
@@ -55,6 +56,7 @@ type TaskFilter = "all" | "unassigned" | "in_progress" | "waiting_approval";
 export default function TasksPage() {
   const { t } = useI18n();
   const router = useRouter();
+  const { hasPermission } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState<WorkOrderTask[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -489,6 +491,9 @@ export default function TasksPage() {
                 onReassign={activeTab === "open" ? () => handleReassignClick(task.id) : undefined}
                 actionLoading={actionLoading === task.id}
                 getTypeLabel={getTypeLabel}
+                hasAssignPerm={hasPermission("work_orders.assign")}
+                hasExecutePerm={hasPermission("work_orders.execute")}
+                hasCancelPerm={hasPermission("work_orders.cancel")}
               />
             ))}
           </div>
@@ -559,6 +564,9 @@ function TaskCard({
   onReassign,
   actionLoading,
   getTypeLabel,
+  hasAssignPerm,
+  hasExecutePerm,
+  hasCancelPerm,
 }: {
   task: WorkOrderTask;
   canAssignEmployees: boolean;
@@ -569,6 +577,9 @@ function TaskCard({
   onReassign?: () => void;
   actionLoading?: boolean;
   getTypeLabel: (value: string) => string;
+  hasAssignPerm: boolean;
+  hasExecutePerm: boolean;
+  hasCancelPerm: boolean;
 }) {
 
   const typeIcons: Record<string, string> = {
@@ -584,12 +595,12 @@ function TaskCard({
   const statusColor = getStatusBadge(displayStatus);
   const typeIcon = typeIcons[task.type] || "📦";
 
-  // Step 1 positions can assign employees for CREATED tasks
-  const canAssign = canAssignEmployees && task.status === "CREATED";
-  // Non-workflow managers can start tasks that are LINKED_TO_GROUP
-  const canStart = !canAssignEmployees && !canApprove && task.status === "LINKED_TO_GROUP";
-  // Step 1 positions can cancel/reassign for LINKED_TO_GROUP or IN_PROGRESS
-  const canCancelOrReassign = canAssignEmployees && (task.status === "LINKED_TO_GROUP" || task.status === "IN_PROGRESS");
+  // Step 1 positions can assign employees for CREATED tasks (+ permission)
+  const canAssign = canAssignEmployees && task.status === "CREATED" && hasAssignPerm;
+  // Non-workflow managers can start tasks that are LINKED_TO_GROUP (+ permission)
+  const canStart = !canAssignEmployees && !canApprove && task.status === "LINKED_TO_GROUP" && hasExecutePerm;
+  // Step 1 positions can cancel/reassign for LINKED_TO_GROUP or IN_PROGRESS (+ permission)
+  const canCancelOrReassign = canAssignEmployees && (task.status === "LINKED_TO_GROUP" || task.status === "IN_PROGRESS") && (hasCancelPerm || hasAssignPerm);
   const waitingApproval = task.status === "IN_PROGRESS" && !!task.techEmployeeComment;
   
   // Check if deadline is overdue
