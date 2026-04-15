@@ -517,5 +517,32 @@
       "users": "მომხმარებლის ანგარიშები",
       "translations": "თარგმანები"
     }
+  },
+  "telephony": {
+    "extensionsTitle": "ტელეფონის გაფართოებები",
+    "extensionsDescription": "SIP გაფართოებების კონფიგურაცია თანამშრომლებისთვის. გაფართოებები ავტომატურად იკავშირდება FreePBX-დან Account Code-ით.",
+    "backToAdmin": "ადმინ პანელში დაბრუნება",
+    "syncFromAsterisk": "Asterisk-დან სინქრონიზაცია",
+    "syncing": "სინქრონიზაცია...",
+    "syncComplete": "სინქრონიზაცია დასრულდა",
+    "endpoints": "ენდპოინტი",
+    "linked": "დაკავშირებული",
+    "autoLinked": "ავტო-დაკავშირებული",
+    "employee": "თანამშრომელი",
+    "emailLogin": "ელ-ფოსტა / ლოგინი",
+    "sipExtension": "SIP გაფართოება",
+    "sipStatus": "SIP სტატუსი",
+    "actions": "მოქმედებები",
+    "notConfigured": "არ არის კონფიგურირებული",
+    "missingSip": "SIP აკლია",
+    "disabled": "გამორთული",
+    "ready": "მზადაა",
+    "sipOnline": "ონლაინ",
+    "sipOffline": "ოფლაინ",
+    "sipOnCall": "ზარზე",
+    "close": "დახურვა",
+    "edit": "რედაქტირება",
+    "configure": "კონფიგურაცია",
+    "sipInfoNote": "გაფართოებები ავტომატურად იკავშირდება როდესაც FreePBX-ში Account Code ემთხვევა თანამშრომლის ელ-ფოსტას. დააჭირეთ სინქრონიზაციას უახლესი მონაცემების მისაღებად."
   }
 }

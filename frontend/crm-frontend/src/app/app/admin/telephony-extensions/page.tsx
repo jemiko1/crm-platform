@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
 import Link from "next/link";
 import { PermissionGuard } from "@/lib/permission-guard";
+import { useI18nContext } from "@/contexts/i18n-context";
 
 const BRAND = "rgb(0, 86, 83)";
 
@@ -25,12 +26,24 @@ type UserRow = {
   telephonyExtension: ExtConfig | null;
 };
 
+type SyncResult = {
+  total: number;
+  linked: number;
+  autoLinked: number;
+  statuses: Record<string, string>;
+};
+
 export default function TelephonyExtensionsPage() {
+  const { t } = useI18nContext();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
+  const [sipStatuses, setSipStatuses] = useState<Record<string, string>>({});
+  const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [form, setForm] = useState({
     extension: "",
@@ -43,10 +56,12 @@ export default function TelephonyExtensionsPage() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await apiGet<UserRow[]>(
-        "/v1/telephony/extensions/users-with-config",
-      );
+      const [data, statuses] = await Promise.all([
+        apiGet<UserRow[]>("/v1/telephony/extensions/users-with-config"),
+        apiGet<Record<string, string>>("/v1/telephony/extensions/sip-statuses"),
+      ]);
       setUsers(data);
+      setSipStatuses(statuses);
       setError(null);
     } catch (err: any) {
       setError(err.message || "Failed to load");
@@ -58,6 +73,26 @@ export default function TelephonyExtensionsPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  async function handleSyncNow() {
+    try {
+      setSyncing(true);
+      setError(null);
+      const result = await apiPost<SyncResult>(
+        "/v1/telephony/extensions/sync-now",
+        {},
+      );
+      setSyncResult(result);
+      setSipStatuses(result.statuses);
+      fetchData();
+      if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+      syncTimeoutRef.current = setTimeout(() => setSyncResult(null), 8000);
+    } catch (err: any) {
+      setError(err.message || "Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   function empName(u: UserRow) {
     if (u.employee) return `${u.employee.firstName} ${u.employee.lastName}`;
@@ -159,12 +194,22 @@ export default function TelephonyExtensionsPage() {
 
   function sipBadge(u: UserRow) {
     const ext = u.telephonyExtension;
-    if (!ext) return { label: "Not configured", cls: "bg-zinc-50 text-zinc-500 ring-zinc-200", dot: "bg-zinc-400" };
-    if (!ext.sipServer || !ext.sipPassword)
-      return { label: `Ext ${ext.extension} — missing SIP`, cls: "bg-amber-50 text-amber-700 ring-amber-200", dot: "bg-amber-500" };
+    if (!ext) return { label: t("telephony.notConfigured"), cls: "bg-zinc-50 text-zinc-500 ring-zinc-200", dot: "bg-zinc-400" };
+    if (!ext.sipServer)
+      return { label: `Ext ${ext.extension} — ${t("telephony.missingSip")}`, cls: "bg-amber-50 text-amber-700 ring-amber-200", dot: "bg-amber-500" };
     if (!ext.isActive)
-      return { label: `Ext ${ext.extension} — disabled`, cls: "bg-zinc-50 text-zinc-600 ring-zinc-200", dot: "bg-zinc-400" };
-    return { label: `Ext ${ext.extension} — ready`, cls: "bg-teal-50 text-teal-900 ring-teal-200", dot: "bg-teal-500" };
+      return { label: `Ext ${ext.extension} — ${t("telephony.disabled")}`, cls: "bg-zinc-50 text-zinc-600 ring-zinc-200", dot: "bg-zinc-400" };
+    return { label: `Ext ${ext.extension} — ${t("telephony.ready")}`, cls: "bg-teal-50 text-teal-900 ring-teal-200", dot: "bg-teal-500" };
+  }
+
+  function sipStatusBadge(ext: string | undefined) {
+    if (!ext) return null;
+    const state = sipStatuses[ext];
+    if (!state || state === 'Unavailable')
+      return { label: t("telephony.sipOffline"), cls: "bg-rose-50 text-rose-700 ring-rose-200", dot: "bg-rose-500" };
+    if (state === 'In use' || state === 'Busy' || state === 'Ringing')
+      return { label: t("telephony.sipOnCall"), cls: "bg-blue-50 text-blue-700 ring-blue-200", dot: "bg-blue-500" };
+    return { label: t("telephony.sipOnline"), cls: "bg-emerald-50 text-emerald-700 ring-emerald-200", dot: "bg-emerald-500" };
   }
 
   if (loading) {
@@ -183,15 +228,45 @@ export default function TelephonyExtensionsPage() {
             href="/app/admin"
             className="mb-2 inline-flex items-center text-sm text-zinc-600 hover:text-zinc-900"
           >
-            &larr; Back to Admin Panel
+            &larr; {t("telephony.backToAdmin")}
           </Link>
-          <h1 className="text-2xl font-bold text-zinc-900">
-            Telephony Extensions
-          </h1>
-          <p className="mt-1 text-sm text-zinc-600">
-            Configure SIP extensions for employees. Click on an employee to set up their extension, SIP server, and password.
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-zinc-900">
+                {t("telephony.extensionsTitle")}
+              </h1>
+              <p className="mt-1 text-sm text-zinc-600">
+                {t("telephony.extensionsDescription")}
+              </p>
+            </div>
+            <button
+              onClick={handleSyncNow}
+              disabled={syncing}
+              className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 transition"
+              style={{ backgroundColor: BRAND }}
+            >
+              <svg
+                className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`}
+                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {syncing ? t("telephony.syncing") : t("telephony.syncFromAsterisk")}
+            </button>
+          </div>
         </div>
+
+        {syncResult && (
+          <div className="mb-4 rounded-2xl bg-teal-50 px-4 py-3 text-sm text-teal-800 ring-1 ring-teal-200 flex items-center justify-between">
+            <span>
+              {t("telephony.syncComplete")}: {syncResult.total} {t("telephony.endpoints")}, {syncResult.linked} {t("telephony.linked")}
+              {syncResult.autoLinked > 0 && (
+                <span className="font-semibold"> ({syncResult.autoLinked} {t("telephony.autoLinked")})</span>
+              )}
+            </span>
+            <button onClick={() => setSyncResult(null)} className="text-teal-600 hover:text-teal-800 ml-2">&times;</button>
+          </div>
+        )}
 
         {error && (
           <div className="mb-4 rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700 ring-1 ring-rose-200">
@@ -204,27 +279,31 @@ export default function TelephonyExtensionsPage() {
             <thead className="bg-zinc-50/50">
               <tr>
                 <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
-                  Employee
+                  {t("telephony.employee")}
                 </th>
                 <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
-                  Email / Login
+                  {t("telephony.emailLogin")}
                 </th>
                 <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
-                  SIP Extension
+                  {t("telephony.sipExtension")}
+                </th>
+                <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
+                  {t("telephony.sipStatus")}
                 </th>
                 <th className="px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-zinc-600">
-                  Actions
+                  {t("telephony.actions")}
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
               {users.map((u) => {
                 const badge = sipBadge(u);
+                const sipStatus = sipStatusBadge(u.telephonyExtension?.extension);
                 const isExpanded = expandedUserId === u.id;
 
                 return (
                   <tr key={u.id} className="group">
-                    <td colSpan={4} className="p-0">
+                    <td colSpan={5} className="p-0">
                       {/* Main row */}
                       <div
                         className={`flex items-center cursor-pointer transition hover:bg-zinc-50/80 ${isExpanded ? "bg-zinc-50" : ""}`}
@@ -250,12 +329,24 @@ export default function TelephonyExtensionsPage() {
                             {badge.label}
                           </span>
                         </div>
+                        <div className="px-5 py-4 w-32">
+                          {sipStatus ? (
+                            <span
+                              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${sipStatus.cls}`}
+                            >
+                              <span className={`h-1.5 w-1.5 rounded-full ${sipStatus.dot}`} />
+                              {sipStatus.label}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-zinc-400">—</span>
+                          )}
+                        </div>
                         <div className="px-5 py-4 text-right shrink-0">
                           <button
                             onClick={(e) => { e.stopPropagation(); toggleExpand(u); }}
                             className="rounded-lg px-3 py-1.5 text-xs font-medium text-zinc-700 bg-white border border-zinc-300 hover:bg-zinc-50"
                           >
-                            {isExpanded ? "Close" : u.telephonyExtension ? "Edit" : "Configure"}
+                            {isExpanded ? t("telephony.close") : u.telephonyExtension ? t("telephony.edit") : t("telephony.configure")}
                           </button>
                         </div>
                       </div>
@@ -364,7 +455,7 @@ export default function TelephonyExtensionsPage() {
                             </div>
 
                             <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-700">
-                              SIP registration is verified when the employee logs into the CRM Phone desktop app.
+                              {t("telephony.sipInfoNote")}
                             </div>
                           </div>
                         </div>
