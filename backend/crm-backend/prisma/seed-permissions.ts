@@ -242,6 +242,15 @@ async function main() {
     { resource: "work_orders", action: "view_workflow" },
     { resource: "work_orders", action: "add_comment" },
     { resource: "work_orders", action: "manage_workflow" },
+    // Legacy hyphenated permissions from old seed-rbac.ts (replaced by underscore variants)
+    { resource: "work-orders", action: "read" },
+    { resource: "work-orders", action: "create" },
+    { resource: "work-orders", action: "update" },
+    { resource: "work-orders", action: "delete" },
+    { resource: "work-orders", action: "assign" },
+    { resource: "work-orders", action: "manage" },
+    { resource: "role-groups", action: "read" },
+    { resource: "role-groups", action: "manage" },
   ];
 
   let removed = 0;
