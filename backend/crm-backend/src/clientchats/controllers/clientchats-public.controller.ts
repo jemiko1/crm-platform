@@ -10,7 +10,7 @@ import {
   HttpCode,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { SkipThrottle } from '@nestjs/throttler';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { JwtService } from '@nestjs/jwt';
 import type { Request, Response } from 'express';
 import { ClientChatChannelType } from '@prisma/client';
@@ -54,6 +54,8 @@ export class ClientChatsPublicController {
   // ── Web Widget ─────────────────────────────────────────
 
   @Post('start')
+  @SkipThrottle({ default: false })
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Doc({
     summary: 'Start web widget chat session',
     ok: 'conversationId, visitorId, and conversation JWT',

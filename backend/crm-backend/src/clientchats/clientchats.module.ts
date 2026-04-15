@@ -44,7 +44,7 @@ import {
     PrismaModule,
     PhoneResolverModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'dev-secret',
+      secret: process.env.JWT_SECRET,
     }),
   ],
   controllers: [

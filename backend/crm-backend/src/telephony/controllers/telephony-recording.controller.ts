@@ -9,12 +9,15 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { PositionPermissionGuard } from '../../common/guards/position-permission.guard';
+import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { RecordingAccessService } from '../recording/recording-access.service';
 import { Doc } from '../../common/openapi/doc-endpoint.decorator';
 
 @ApiTags('Telephony')
 @Controller('v1/telephony/recordings')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PositionPermissionGuard)
+@RequirePermission('telephony.menu')
 export class TelephonyRecordingController {
   constructor(private readonly recordingService: RecordingAccessService) {}
 

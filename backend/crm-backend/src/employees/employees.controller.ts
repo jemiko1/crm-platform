@@ -8,9 +8,11 @@ import {
   Delete,
   Query,
   UseGuards,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { IsString, MinLength, IsOptional, IsUUID } from 'class-validator';
+import { IsString, MinLength, IsOptional, IsUUID, IsArray, ArrayMinSize, ArrayMaxSize } from 'class-validator';
 import { EmployeesService } from './employees.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
@@ -52,6 +54,40 @@ class HardDeleteDto {
   delegateToEmployeeId?: string;
 }
 
+class BulkDismissDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(50)
+  @IsString({ each: true })
+  ids!: string[];
+
+  @IsString()
+  @IsUUID('4')
+  @IsOptional()
+  delegateToEmployeeId?: string;
+}
+
+class BulkHardDeleteDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(50)
+  @IsString({ each: true })
+  ids!: string[];
+
+  @IsString()
+  @IsUUID('4')
+  @IsOptional()
+  delegateToEmployeeId?: string;
+}
+
+class BulkCheckConstraintsDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(50)
+  @IsString({ each: true })
+  ids!: string[];
+}
+
 @ApiTags('Employees')
 @Controller('v1/employees')
 @UseGuards(JwtAuthGuard)
@@ -67,6 +103,47 @@ export class EmployeesController {
   })
   create(@Body() createEmployeeDto: CreateEmployeeDto) {
     return this.employeesService.create(createEmployeeDto);
+  }
+
+  @Post('bulk-dismiss')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('employee.dismiss')
+  @Doc({
+    summary: 'Dismiss multiple employees',
+    ok: 'Bulk dismiss results',
+    permission: true,
+    bodyType: BulkDismissDto,
+  })
+  bulkDismiss(@Body() dto: BulkDismissDto) {
+    return this.employeesService.bulkDismiss(dto.ids, dto.delegateToEmployeeId);
+  }
+
+  @Post('bulk-hard-delete')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('employee.hard_delete')
+  @Doc({
+    summary: 'Permanently delete multiple employees',
+    ok: 'Bulk delete results',
+    permission: true,
+    bodyType: BulkHardDeleteDto,
+  })
+  bulkHardDelete(@Body() dto: BulkHardDeleteDto) {
+    return this.employeesService.bulkHardDelete(dto.ids, dto.delegateToEmployeeId);
+  }
+
+  @Post('bulk-check-constraints')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('employee.hard_delete')
+  @Doc({
+    summary: 'Check deletion constraints for multiple employees',
+    ok: 'Aggregated constraint check',
+    permission: true,
+  })
+  bulkCheckConstraints(@Body() dto: BulkCheckConstraintsDto) {
+    return this.employeesService.bulkCheckConstraints(dto.ids);
   }
 
   @Get()

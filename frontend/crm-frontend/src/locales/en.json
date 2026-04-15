@@ -206,7 +206,17 @@
     },
     "accountActive": "Active login account",
     "accountDisabled": "Login account disabled",
-    "noAccount": "No login account"
+    "noAccount": "No login account",
+    "bulk": {
+      "selected": "{count} selected",
+      "dismiss": "Dismiss Selected",
+      "delete": "Delete Selected",
+      "clear": "Clear",
+      "confirmDismiss": "Dismiss {count} selected employees? They will be terminated and their login accounts disabled.",
+      "confirmDelete": "PERMANENTLY delete {count} selected employees? This cannot be undone.",
+      "dismissResult": "{dismissed} dismissed, {failed} failed",
+      "deleteResult": "{deleted} deleted, {failed} failed"
+    }
   },
   "incidents": {
     "title": "Incident Management",

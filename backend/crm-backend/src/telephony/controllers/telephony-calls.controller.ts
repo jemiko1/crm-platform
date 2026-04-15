@@ -1,6 +1,8 @@
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { PositionPermissionGuard } from '../../common/guards/position-permission.guard';
+import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { TelephonyCallsService } from '../services/telephony-calls.service';
 import { TelephonyCallbackService } from '../services/telephony-callback.service';
 import { QueryCallsDto, LookupPhoneDto } from '../dto/query-calls.dto';
@@ -8,7 +10,8 @@ import { Doc } from '../../common/openapi/doc-endpoint.decorator';
 
 @ApiTags('Telephony')
 @Controller('v1/telephony')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PositionPermissionGuard)
+@RequirePermission('telephony.menu')
 export class TelephonyCallsController {
   constructor(
     private readonly callsService: TelephonyCallsService,

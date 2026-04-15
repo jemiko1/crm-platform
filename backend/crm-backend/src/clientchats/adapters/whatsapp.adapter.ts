@@ -49,8 +49,8 @@ export class WhatsAppAdapter implements ChannelAdapter {
       '';
 
     if (!appSecret) {
-      this.logger.warn('WhatsApp/FB app secret not configured – skipping signature check');
-      return true;
+      this.logger.warn('WhatsApp/FB app secret not configured – rejecting unsigned request');
+      return false;
     }
 
     const signature = req.headers['x-hub-signature-256'] as string;

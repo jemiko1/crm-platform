@@ -49,25 +49,11 @@ const RENDERER_URL = isDev
   ? "http://localhost:5173"
   : `file://${path.join(__dirname, "../renderer/index.html")}`;
 
-function buildTrayIcon(): Electron.NativeImage {
-  const size = 16;
-  const canvas = Buffer.alloc(size * size * 4);
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const idx = (y * size + x) * 4;
-      const cx = x - 8, cy = y - 8;
-      const dist = Math.sqrt(cx * cx + cy * cy);
-      if (dist < 7) {
-        canvas[idx] = 59; canvas[idx + 1] = 130; canvas[idx + 2] = 246; canvas[idx + 3] = 255;
-      } else if (dist < 8) {
-        canvas[idx] = 30; canvas[idx + 1] = 64; canvas[idx + 2] = 175; canvas[idx + 3] = 200;
-      }
-      if (dist < 4) {
-        canvas[idx] = 255; canvas[idx + 1] = 255; canvas[idx + 2] = 255; canvas[idx + 3] = 255;
-      }
-    }
-  }
-  return nativeImage.createFromBuffer(canvas, { width: size, height: size });
+function getAppIcon(): Electron.NativeImage {
+  const iconPath = app.isPackaged
+    ? path.join(process.resourcesPath, "icon.ico")
+    : path.join(__dirname, "../../resources/icon.ico");
+  return nativeImage.createFromPath(iconPath);
 }
 
 function createWindow(): void {
@@ -81,7 +67,7 @@ function createWindow(): void {
     transparent: false,
     skipTaskbar: false,
     show: false,
-    icon: buildTrayIcon(),
+    icon: getAppIcon(),
     title: "CRM28 Phone",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -103,7 +89,7 @@ function createWindow(): void {
 }
 
 function createTray(): void {
-  const trayIcon = buildTrayIcon();
+  const trayIcon = getAppIcon().resize({ width: 16, height: 16 });
   tray = new Tray(trayIcon);
   tray.setToolTip("CRM28 Phone");
 
