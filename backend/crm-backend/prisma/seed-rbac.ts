@@ -4,13 +4,13 @@
  * Seeds the database with:
  * 1. Default Permissions (all module.action combinations)
  * 2. Default Role Groups (bundles of permissions)
- * 3. Default Positions (mapped to existing UserRole enum)
+ * 3. Default Positions
  * 
  * Run with: npx tsx prisma/seed-rbac.ts
  */
 
 import 'dotenv/config';
-import { PrismaClient, PermissionCategory, UserRole } from '@prisma/client';
+import { PrismaClient, PermissionCategory } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 
@@ -171,7 +171,7 @@ const ROLE_GROUPS: RoleGroupDef[] = [
 ];
 
 // ============================================================================
-// POSITIONS DEFINITION (Mapped to existing UserRole enum)
+// POSITIONS DEFINITION
 // ============================================================================
 
 interface PositionDef {
@@ -180,7 +180,6 @@ interface PositionDef {
   description: string;
   level: number;
   roleGroupCode: string;
-  legacyRole: UserRole; // Maps to existing User.role enum
 }
 
 const POSITIONS: PositionDef[] = [
@@ -190,7 +189,6 @@ const POSITIONS: PositionDef[] = [
     description: 'Full system administrator with complete access',
     level: 100,
     roleGroupCode: 'FULL_ACCESS',
-    legacyRole: 'ADMIN',
   },
   {
     name: 'Manager',
@@ -198,7 +196,6 @@ const POSITIONS: PositionDef[] = [
     description: 'Department or team manager with oversight capabilities',
     level: 80,
     roleGroupCode: 'MANAGEMENT',
-    legacyRole: 'MANAGER',
   },
   {
     name: 'Call Center Operator',
@@ -206,7 +203,6 @@ const POSITIONS: PositionDef[] = [
     description: 'Call center staff handling customer inquiries and incidents',
     level: 40,
     roleGroupCode: 'CALL_CENTER',
-    legacyRole: 'CALL_CENTER',
   },
   {
     name: 'Field Technician',
@@ -214,7 +210,6 @@ const POSITIONS: PositionDef[] = [
     description: 'Field technician executing work orders',
     level: 50,
     roleGroupCode: 'TECHNICIAN',
-    legacyRole: 'TECHNICIAN',
   },
   {
     name: 'Warehouse Staff',
@@ -222,7 +217,6 @@ const POSITIONS: PositionDef[] = [
     description: 'Warehouse personnel managing inventory',
     level: 30,
     roleGroupCode: 'WAREHOUSE',
-    legacyRole: 'WAREHOUSE',
   },
 ];
 
@@ -338,21 +332,15 @@ async function seedRBAC() {
 
   // 4. Backfill: Link existing employees to positions based on User.role
   console.log('🔄 Backfilling employee positions...');
-  
+
   const employees = await prisma.employee.findMany({
     where: { positionId: null },
-    include: { user: true },
   });
 
   let backfilledCount = 0;
   for (const emp of employees) {
-    if (!emp.user) continue;
-
-    // Find position that matches the user's legacy role
-    const matchingPosition = POSITIONS.find(p => p.legacyRole === emp.user!.role);
-    if (!matchingPosition) continue;
-
-    const positionId = positionMap.get(matchingPosition.code);
+    // Default unassigned employees to Field Technician position
+    const positionId = positionMap.get('TECHNICIAN');
     if (!positionId) continue;
 
     await prisma.employee.update({
@@ -360,7 +348,7 @@ async function seedRBAC() {
       data: { positionId },
     });
     backfilledCount++;
-    console.log(`  ✓ ${emp.firstName} ${emp.lastName} → ${matchingPosition.name}`);
+    console.log(`  ✓ ${emp.firstName} ${emp.lastName} → Field Technician`);
   }
   console.log(`  Backfilled: ${backfilledCount} employees\n`);
 

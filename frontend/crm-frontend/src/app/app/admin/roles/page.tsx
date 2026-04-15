@@ -12,7 +12,6 @@ type Role = {
   code: string;
   description: string | null;
   level: number | null;
-  legacyRole: string | null;
   isActive: boolean;
   _count: {
     employees: number;
@@ -123,9 +122,6 @@ export default function RolesPage() {
                   Level
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-zinc-900">
-                  Legacy Role
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-zinc-900">
                   Employees
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-zinc-900">
@@ -156,15 +152,6 @@ export default function RolesPage() {
                     {role.level ? (
                       <span className="rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-blue-200">
                         Level {role.level}
-                      </span>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-zinc-600">
-                    {role.legacyRole ? (
-                      <span className="rounded-full bg-purple-50 px-2 py-1 text-xs font-medium text-purple-700 ring-1 ring-purple-200">
-                        {role.legacyRole}
                       </span>
                     ) : (
                       "—"

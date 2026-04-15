@@ -1,5 +1,4 @@
-import { IsString, IsOptional, IsInt, IsEnum, Min, Max } from 'class-validator';
-import { UserRole } from '@prisma/client';
+import { IsString, IsOptional, IsInt, Min, Max } from 'class-validator';
 
 export class UpdateRoleDto {
   @IsString()
@@ -19,10 +18,6 @@ export class UpdateRoleDto {
   @Max(4)
   @IsOptional()
   level?: number;
-
-  @IsEnum(UserRole)
-  @IsOptional()
-  legacyRole?: UserRole;
 
   @IsOptional()
   isActive?: boolean;

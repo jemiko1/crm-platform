@@ -85,7 +85,6 @@ export class EmployeesService {
 
     // Get position to auto-generate jobTitle and validate position belongs to department
     let jobTitle: string | undefined = undefined;
-    let userRole: UserRole = UserRole.TECHNICIAN;
 
     if (createEmployeeDto.positionId) {
       const position = await this.prisma.position.findUnique({
@@ -107,18 +106,6 @@ export class EmployeesService {
       }
     }
 
-    // Get legacy role from Role if provided (for backward compatibility)
-    // Actual permissions come from Position's RoleGroup
-    if (createEmployeeDto.roleId) {
-      const role = await this.prisma.role.findUnique({
-        where: { id: createEmployeeDto.roleId },
-        select: { legacyRole: true },
-      });
-      if (role?.legacyRole) {
-        userRole = role.legacyRole;
-      }
-    }
-
     // Generate avatar URL (using UI Avatars API)
     const avatarUrl = this.generateAvatarUrl(createEmployeeDto.firstName, createEmployeeDto.lastName);
 
@@ -134,7 +121,7 @@ export class EmployeesService {
           data: {
             email: createEmployeeDto.email,
             passwordHash,
-            role: userRole,
+            role: UserRole.USER,
             isActive: createEmployeeDto.status !== 'TERMINATED',
           },
         });
@@ -398,17 +385,6 @@ export class EmployeesService {
       passwordHash = await bcrypt.hash(updateEmployeeDto.password, 10);
     }
 
-    let userRole: UserRole | undefined;
-    if (updateEmployeeDto.roleId) {
-      const role = await this.prisma.role.findUnique({
-        where: { id: updateEmployeeDto.roleId },
-        select: { legacyRole: true },
-      });
-      if (role?.legacyRole) {
-        userRole = role.legacyRole;
-      }
-    }
-
     const updateData: any = {
       firstName: updateEmployeeDto.firstName,
       lastName: updateEmployeeDto.lastName,
@@ -444,13 +420,6 @@ export class EmployeesService {
         await tx.user.update({
           where: { id: employee.userId },
           data: { passwordHash },
-        });
-      }
-
-      if (userRole && employee.userId) {
-        await tx.user.update({
-          where: { id: employee.userId },
-          data: { role: userRole },
         });
       }
 
@@ -938,27 +907,14 @@ export class EmployeesService {
       throw new BadRequestException('A user account with this email already exists');
     }
 
-    // Get legacy role from employee's Role if assigned (for backward compatibility)
-    // Actual permissions come from Position's RoleGroup
-    let userRole: UserRole = UserRole.TECHNICIAN;
-    if (employee.roleId) {
-      const role = await this.prisma.role.findUnique({
-        where: { id: employee.roleId },
-        select: { legacyRole: true },
-      });
-      if (role?.legacyRole) {
-        userRole = role.legacyRole;
-      }
-    }
-
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Create user account with role derived from position
+    // Create user account — permissions come from Position's RoleGroup
     const user = await this.prisma.user.create({
       data: {
         email: employee.email,
         passwordHash,
-        role: userRole,
+        role: UserRole.USER,
         isActive: employee.status !== 'TERMINATED',
       },
     });

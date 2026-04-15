@@ -273,7 +273,7 @@ model User {
   id                String     @id @default(uuid())
   email             String     @unique
   passwordHash      String
-  role              UserRole   @default(TECHNICIAN)
+  role              UserRole   @default(USER)
   isActive          Boolean    @default(true)
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
@@ -389,7 +389,6 @@ model Role {
   code        String           @unique
   description String?
   level       Int?
-  legacyRole  UserRole?
   isActive    Boolean          @default(true)
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
@@ -398,7 +397,6 @@ model Role {
   permissions RolePermission[]
 
   @@index([code])
-  @@index([legacyRole])
 }
 
 model Permission {
@@ -1853,10 +1851,7 @@ enum WorkOrderStatus {
 
 enum UserRole {
   ADMIN
-  CALL_CENTER
-  TECHNICIAN
-  WAREHOUSE
-  MANAGER
+  USER
 }
 
 enum EmployeeStatus {
