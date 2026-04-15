@@ -543,6 +543,25 @@
     "close": "დახურვა",
     "edit": "რედაქტირება",
     "configure": "კონფიგურაცია",
-    "sipInfoNote": "გაფართოებები ავტომატურად იკავშირდება როდესაც FreePBX-ში Account Code ემთხვევა თანამშრომლის ელ-ფოსტას. დააჭირეთ სინქრონიზაციას უახლესი მონაცემების მისაღებად."
+    "sipInfoNote": "გაფართოებები ავტომატურად იკავშირდება როდესაც FreePBX-ში Account Code ემთხვევა თანამშრომლის ელ-ფოსტას. დააჭირეთ სინქრონიზაციას უახლესი მონაცემების მისაღებად.",
+    "loading": "იტვირთება...",
+    "sipConfigFor": "SIP კონფიგურაცია —",
+    "extensionNumber": "გაფართოების ნომერი",
+    "displayName": "საჩვენებელი სახელი",
+    "sipServerLabel": "SIP სერვერი",
+    "sipServerHint": "FreePBX/Asterisk სერვერის IP ან ჰოსტის სახელი",
+    "sipPasswordLabel": "SIP პაროლი",
+    "sipPasswordPlaceholder": "გაფართოების პაროლი FreePBX-დან",
+    "sipPasswordHint": "FreePBX → გაფართოებები → Secret",
+    "queueOperator": "რიგის ოპერატორი (ღებულობს ზარებს რიგებიდან)",
+    "saving": "ინახება...",
+    "saveChanges": "ცვლილებების შენახვა",
+    "saveExtension": "გაფართოების შენახვა",
+    "disable": "გამორთვა",
+    "enable": "ჩართვა",
+    "remove": "წაშლა",
+    "confirmRemove": "წაიშალოს SIP გაფართოება",
+    "extensionRequired": "გაფართოების ნომერი აუცილებელია",
+    "displayNameRequired": "საჩვენებელი სახელი აუცილებელია"
   }
 }

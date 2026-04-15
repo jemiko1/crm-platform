@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Fragment } from "react";
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
 import Link from "next/link";
 import { PermissionGuard } from "@/lib/permission-guard";
@@ -127,11 +127,11 @@ export default function TelephonyExtensionsPage() {
 
   async function handleSave(u: UserRow) {
     if (!form.extension.trim()) {
-      setError("Extension number is required");
+      setError(t("telephony.extensionRequired"));
       return;
     }
     if (!form.displayName.trim()) {
-      setError("Display name is required");
+      setError(t("telephony.displayNameRequired"));
       return;
     }
 
@@ -169,7 +169,7 @@ export default function TelephonyExtensionsPage() {
 
   async function handleRemove(u: UserRow) {
     if (!u.telephonyExtension) return;
-    if (!confirm(`Remove SIP extension ${u.telephonyExtension.extension} from ${empName(u)}?`)) return;
+    if (!confirm(`${t("telephony.confirmRemove")} ${u.telephonyExtension.extension} — ${empName(u)}?`)) return;
     try {
       setError(null);
       await apiDelete(`/v1/telephony/extensions/${u.telephonyExtension.id}`);
@@ -215,7 +215,7 @@ export default function TelephonyExtensionsPage() {
   if (loading) {
     return (
       <div className="flex min-h-[300px] items-center justify-center">
-        <div className="text-zinc-600">Loading...</div>
+        <div className="text-zinc-600">{t("telephony.loading")}</div>
       </div>
     );
   }
@@ -275,22 +275,22 @@ export default function TelephonyExtensionsPage() {
         )}
 
         <div className="rounded-3xl bg-white shadow-sm ring-1 ring-zinc-200 overflow-hidden">
-          <table className="w-full">
+          <table className="w-full table-fixed">
             <thead className="bg-zinc-50/50">
               <tr>
-                <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
+                <th className="w-[25%] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
                   {t("telephony.employee")}
                 </th>
-                <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
+                <th className="w-[25%] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
                   {t("telephony.emailLogin")}
                 </th>
-                <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
+                <th className="w-[22%] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
                   {t("telephony.sipExtension")}
                 </th>
-                <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
+                <th className="w-[14%] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
                   {t("telephony.sipStatus")}
                 </th>
-                <th className="px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-zinc-600">
+                <th className="w-[14%] px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-zinc-600">
                   {t("telephony.actions")}
                 </th>
               </tr>
@@ -302,61 +302,58 @@ export default function TelephonyExtensionsPage() {
                 const isExpanded = expandedUserId === u.id;
 
                 return (
-                  <tr key={u.id} className="group">
-                    <td colSpan={5} className="p-0">
-                      {/* Main row */}
-                      <div
-                        className={`flex items-center cursor-pointer transition hover:bg-zinc-50/80 ${isExpanded ? "bg-zinc-50" : ""}`}
-                        onClick={() => toggleExpand(u)}
-                      >
-                        <div className="px-5 py-4 flex-1 min-w-0">
-                          <div className="text-sm font-medium text-zinc-900 truncate">
-                            {empName(u)}
-                          </div>
-                          {u.employee?.status && u.employee.status !== "ACTIVE" && (
-                            <span className="text-xs text-zinc-400">{u.employee.status}</span>
-                          )}
+                  <Fragment key={u.id}>
+                    <tr
+                      className={`cursor-pointer transition hover:bg-zinc-50/80 ${isExpanded ? "bg-zinc-50" : ""}`}
+                      onClick={() => toggleExpand(u)}
+                    >
+                      <td className="px-5 py-4">
+                        <div className="text-sm font-medium text-zinc-900 truncate">
+                          {empName(u)}
                         </div>
-                        <div className="px-5 py-4 flex-1 min-w-0">
-                          <div className="text-sm text-zinc-600 truncate">{u.email}</div>
-                          <div className="text-xs text-zinc-400">{u.role}</div>
-                        </div>
-                        <div className="px-5 py-4 flex-1">
+                        {u.employee?.status && u.employee.status !== "ACTIVE" && (
+                          <span className="text-xs text-zinc-400">{u.employee.status}</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="text-sm text-zinc-600 truncate">{u.email}</div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span
+                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${badge.cls}`}
+                        >
+                          <span className={`h-1.5 w-1.5 rounded-full ${badge.dot}`} />
+                          {badge.label}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        {sipStatus ? (
                           <span
-                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${badge.cls}`}
+                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${sipStatus.cls}`}
                           >
-                            <span className={`h-1.5 w-1.5 rounded-full ${badge.dot}`} />
-                            {badge.label}
+                            <span className={`h-1.5 w-1.5 rounded-full ${sipStatus.dot}`} />
+                            {sipStatus.label}
                           </span>
-                        </div>
-                        <div className="px-5 py-4 w-32">
-                          {sipStatus ? (
-                            <span
-                              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${sipStatus.cls}`}
-                            >
-                              <span className={`h-1.5 w-1.5 rounded-full ${sipStatus.dot}`} />
-                              {sipStatus.label}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-zinc-400">—</span>
-                          )}
-                        </div>
-                        <div className="px-5 py-4 text-right shrink-0">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); toggleExpand(u); }}
-                            className="rounded-lg px-3 py-1.5 text-xs font-medium text-zinc-700 bg-white border border-zinc-300 hover:bg-zinc-50"
-                          >
-                            {isExpanded ? t("telephony.close") : u.telephonyExtension ? t("telephony.edit") : t("telephony.configure")}
-                          </button>
-                        </div>
-                      </div>
+                        ) : (
+                          <span className="text-xs text-zinc-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-4 text-right">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleExpand(u); }}
+                          className="rounded-lg px-3 py-1.5 text-xs font-medium text-zinc-700 bg-white border border-zinc-300 hover:bg-zinc-50"
+                        >
+                          {isExpanded ? t("telephony.close") : u.telephonyExtension ? t("telephony.edit") : t("telephony.configure")}
+                        </button>
+                      </td>
+                    </tr>
 
-                      {/* Expanded SIP config panel */}
-                      {isExpanded && (
-                        <div className="border-t border-zinc-100 bg-zinc-50/50 px-5 py-5">
+                    {isExpanded && (
+                      <tr>
+                        <td colSpan={5} className="border-t border-zinc-100 bg-zinc-50/50 px-5 py-5">
                           <div className="max-w-2xl space-y-4">
                             <h4 className="text-sm font-semibold text-zinc-800">
-                              SIP Configuration for {empName(u)}
+                              {t("telephony.sipConfigFor")} {empName(u)}
                             </h4>
 
                             {error && (
@@ -367,7 +364,7 @@ export default function TelephonyExtensionsPage() {
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                               <div className="space-y-1">
-                                <label className="text-xs font-medium text-zinc-600">Extension Number</label>
+                                <label className="text-xs font-medium text-zinc-600">{t("telephony.extensionNumber")}</label>
                                 <input
                                   value={form.extension}
                                   onChange={(e) => setForm({ ...form, extension: e.target.value })}
@@ -376,7 +373,7 @@ export default function TelephonyExtensionsPage() {
                                 />
                               </div>
                               <div className="space-y-1">
-                                <label className="text-xs font-medium text-zinc-600">Display Name</label>
+                                <label className="text-xs font-medium text-zinc-600">{t("telephony.displayName")}</label>
                                 <input
                                   value={form.displayName}
                                   onChange={(e) => setForm({ ...form, displayName: e.target.value })}
@@ -385,25 +382,25 @@ export default function TelephonyExtensionsPage() {
                                 />
                               </div>
                               <div className="space-y-1">
-                                <label className="text-xs font-medium text-zinc-600">SIP Server</label>
+                                <label className="text-xs font-medium text-zinc-600">{t("telephony.sipServerLabel")}</label>
                                 <input
                                   value={form.sipServer}
                                   onChange={(e) => setForm({ ...form, sipServer: e.target.value })}
                                   placeholder="e.g. 5.10.34.153"
                                   className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm font-mono bg-white"
                                 />
-                                <p className="text-xs text-zinc-400">FreePBX/Asterisk server IP or hostname</p>
+                                <p className="text-xs text-zinc-400">{t("telephony.sipServerHint")}</p>
                               </div>
                               <div className="space-y-1">
-                                <label className="text-xs font-medium text-zinc-600">SIP Password</label>
+                                <label className="text-xs font-medium text-zinc-600">{t("telephony.sipPasswordLabel")}</label>
                                 <input
                                   type="password"
                                   value={form.sipPassword}
                                   onChange={(e) => setForm({ ...form, sipPassword: e.target.value })}
-                                  placeholder="Extension secret from FreePBX"
+                                  placeholder={t("telephony.sipPasswordPlaceholder")}
                                   className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm bg-white"
                                 />
-                                <p className="text-xs text-zinc-400">FreePBX &rarr; Extensions &rarr; Secret</p>
+                                <p className="text-xs text-zinc-400">{t("telephony.sipPasswordHint")}</p>
                               </div>
                             </div>
 
@@ -414,7 +411,7 @@ export default function TelephonyExtensionsPage() {
                                 onChange={(e) => setForm({ ...form, isOperator: e.target.checked })}
                                 className="h-4 w-4 rounded border-zinc-300 text-teal-800"
                               />
-                              Queue operator (receives calls from queues)
+                              {t("telephony.queueOperator")}
                             </label>
 
                             <div className="flex items-center gap-3 pt-1">
@@ -424,13 +421,13 @@ export default function TelephonyExtensionsPage() {
                                 className="rounded-xl px-5 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
                                 style={{ backgroundColor: BRAND }}
                               >
-                                {saving ? "Saving..." : u.telephonyExtension ? "Save Changes" : "Save Extension"}
+                                {saving ? t("telephony.saving") : u.telephonyExtension ? t("telephony.saveChanges") : t("telephony.saveExtension")}
                               </button>
                               <button
                                 onClick={() => { setExpandedUserId(null); setError(null); }}
                                 className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-100"
                               >
-                                Cancel
+                                {t("common.cancel")}
                               </button>
                               {u.telephonyExtension && (
                                 <>
@@ -442,13 +439,13 @@ export default function TelephonyExtensionsPage() {
                                         : "border-teal-200 text-teal-900 hover:bg-teal-50"
                                     }`}
                                   >
-                                    {u.telephonyExtension.isActive ? "Disable" : "Enable"}
+                                    {u.telephonyExtension.isActive ? t("telephony.disable") : t("telephony.enable")}
                                   </button>
                                   <button
                                     onClick={() => handleRemove(u)}
                                     className="rounded-xl border border-rose-200 px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
                                   >
-                                    Remove
+                                    {t("telephony.remove")}
                                   </button>
                                 </>
                               )}
@@ -458,10 +455,10 @@ export default function TelephonyExtensionsPage() {
                               {t("telephony.sipInfoNote")}
                             </div>
                           </div>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 );
               })}
             </tbody>

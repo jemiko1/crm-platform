@@ -543,6 +543,25 @@
     "close": "Close",
     "edit": "Edit",
     "configure": "Configure",
-    "sipInfoNote": "Extensions auto-link when Account Code in FreePBX matches the employee email. Click Sync to pull latest."
+    "sipInfoNote": "Extensions auto-link when Account Code in FreePBX matches the employee email. Click Sync to pull latest.",
+    "loading": "Loading...",
+    "sipConfigFor": "SIP Configuration for",
+    "extensionNumber": "Extension Number",
+    "displayName": "Display Name",
+    "sipServerLabel": "SIP Server",
+    "sipServerHint": "FreePBX/Asterisk server IP or hostname",
+    "sipPasswordLabel": "SIP Password",
+    "sipPasswordPlaceholder": "Extension secret from FreePBX",
+    "sipPasswordHint": "FreePBX → Extensions → Secret",
+    "queueOperator": "Queue operator (receives calls from queues)",
+    "saving": "Saving...",
+    "saveChanges": "Save Changes",
+    "saveExtension": "Save Extension",
+    "disable": "Disable",
+    "enable": "Enable",
+    "remove": "Remove",
+    "confirmRemove": "Remove SIP extension",
+    "extensionRequired": "Extension number is required",
+    "displayNameRequired": "Display name is required"
   }
 }
