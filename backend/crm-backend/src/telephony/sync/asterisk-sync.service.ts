@@ -226,7 +226,7 @@ export class AsteriskSyncService implements OnModuleInit {
         Command: `pjsip show endpoint ${ext}`,
       });
       const output = this.extractCommandOutput(res);
-      const match = output.match(/accountcode\s*:\s*([\w.@+\-]+)/i);
+      const match = output.match(/accountcode\s*:\s*([\w.@+-]+)/i);
       return match?.[1]?.trim() || null;
     } catch (err: any) {
       this.logger.warn(`readAccountCode(${ext}) error: ${err.message}`);
