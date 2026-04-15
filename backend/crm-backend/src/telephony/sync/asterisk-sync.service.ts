@@ -225,13 +225,11 @@ export class AsteriskSyncService implements OnModuleInit {
         Action: 'Command',
         Command: `pjsip show endpoint ${ext}`,
       });
-      const output: string =
-        typeof res === 'string'
-          ? res
-          : res?.output ?? res?.content ?? JSON.stringify(res);
-      const match = output.match(/accountcode\s*:\s*(.+)/i);
+      const output = this.extractCommandOutput(res);
+      const match = output.match(/accountcode\s*:\s*([\w.@+\-]+)/i);
       return match?.[1]?.trim() || null;
-    } catch {
+    } catch (err: any) {
+      this.logger.warn(`readAccountCode(${ext}) error: ${err.message}`);
       return null;
     }
   }
@@ -242,11 +240,8 @@ export class AsteriskSyncService implements OnModuleInit {
         Action: 'Command',
         Command: `pjsip show auth ${ext}-auth`,
       });
-      const output: string =
-        typeof res === 'string'
-          ? res
-          : res?.output ?? res?.content ?? JSON.stringify(res);
-      const match = output.match(/password\s*:\s*(\S+)/i);
+      const output = this.extractCommandOutput(res);
+      const match = output.match(/password\s*:\s*(\S+?)\s*(?:,|$)/i);
       return match?.[1]?.trim() || null;
     } catch {
       return null;
@@ -266,10 +261,7 @@ export class AsteriskSyncService implements OnModuleInit {
       Command: 'queue show',
     });
 
-    const output: string =
-      typeof res === 'string'
-        ? res
-        : res?.output ?? res?.content ?? JSON.stringify(res);
+    const output = this.extractCommandOutput(res);
 
     const queues: Array<{ name: string; strategy: string }> = [];
     // Match lines like: "100 has 0 calls (max unlimited) in 'rrmemory' strategy"
@@ -295,10 +287,7 @@ export class AsteriskSyncService implements OnModuleInit {
       Command: 'pjsip show endpoints',
     });
 
-    const output: string =
-      typeof res === 'string'
-        ? res
-        : res?.output ?? res?.content ?? JSON.stringify(res);
+    const output = this.extractCommandOutput(res);
 
     const endpoints: Array<{ extension: string; status: string }> = [];
     // Match lines like: " Endpoint:  200/200    Not in use    0 of inf"
@@ -313,6 +302,13 @@ export class AsteriskSyncService implements OnModuleInit {
     }
 
     return endpoints;
+  }
+
+  private extractCommandOutput(res: any): string {
+    const raw = res?.output ?? res?.content ?? res;
+    if (typeof raw === 'string') return raw;
+    if (Array.isArray(raw)) return raw.join('\n');
+    return JSON.stringify(raw);
   }
 
   private mapStrategy(raw: string): any {
