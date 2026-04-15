@@ -41,12 +41,8 @@ function roleLabelOf(userInfo: UserInfo) {
     return userInfo.position.name;
   }
   const r = (userInfo.role ?? "").toUpperCase();
-  if (r === "CALL_CENTER") return "Call Center";
-  if (r === "TECHNICIAN") return "Technician";
-  if (r === "WAREHOUSE") return "Warehouse";
-  if (r === "MANAGER") return "Manager";
   if (r === "ADMIN") return "Admin";
-  return r || "User";
+  return "User";
 }
 
 type MenuPos = {

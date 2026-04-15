@@ -58,7 +58,6 @@ describe("RolesService", () => {
         code: "NEW",
         description: null,
         level: 1,
-        legacyRole: null,
       };
       await expect(service.create(dto as any)).resolves.toEqual(created);
     });

@@ -32,7 +32,6 @@ export class RolesService {
         code: createRoleDto.code,
         description: createRoleDto.description,
         level: createRoleDto.level,
-        legacyRole: createRoleDto.legacyRole,
       },
       include: {
         _count: { select: { employees: true, permissions: true } },
@@ -110,7 +109,6 @@ export class RolesService {
         code: updateRoleDto.code,
         description: updateRoleDto.description,
         level: updateRoleDto.level,
-        legacyRole: updateRoleDto.legacyRole,
         isActive: updateRoleDto.isActive,
       },
       include: {

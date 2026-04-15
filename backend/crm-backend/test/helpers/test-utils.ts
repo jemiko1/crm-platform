@@ -78,7 +78,7 @@ export async function createTestUser(
   overrides: {
     email?: string;
     password?: string;
-    role?: "ADMIN" | "CALL_CENTER" | "TECHNICIAN" | "WAREHOUSE" | "MANAGER";
+    role?: "ADMIN" | "USER";
     isActive?: boolean;
     isSuperAdmin?: boolean;
   } = {},
