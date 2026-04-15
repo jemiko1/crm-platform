@@ -64,7 +64,7 @@ export default function TelephonyExtensionsPage() {
       setSipStatuses(statuses);
       setError(null);
     } catch (err: any) {
-      setError(err.message || "Failed to load");
+      setError(err.message || t("telephony.failedToLoad"));
     } finally {
       setLoading(false);
     }
@@ -88,7 +88,7 @@ export default function TelephonyExtensionsPage() {
       if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
       syncTimeoutRef.current = setTimeout(() => setSyncResult(null), 8000);
     } catch (err: any) {
-      setError(err.message || "Sync failed");
+      setError(err.message || t("telephony.syncFailed"));
     } finally {
       setSyncing(false);
     }
@@ -368,7 +368,7 @@ export default function TelephonyExtensionsPage() {
                                 <input
                                   value={form.extension}
                                   onChange={(e) => setForm({ ...form, extension: e.target.value })}
-                                  placeholder="e.g. 102"
+                                  placeholder={t("telephony.extensionPlaceholder")}
                                   className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm bg-white"
                                 />
                               </div>
@@ -377,7 +377,7 @@ export default function TelephonyExtensionsPage() {
                                 <input
                                   value={form.displayName}
                                   onChange={(e) => setForm({ ...form, displayName: e.target.value })}
-                                  placeholder="e.g. John Doe"
+                                  placeholder={t("telephony.displayNamePlaceholder")}
                                   className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm bg-white"
                                 />
                               </div>
@@ -386,7 +386,7 @@ export default function TelephonyExtensionsPage() {
                                 <input
                                   value={form.sipServer}
                                   onChange={(e) => setForm({ ...form, sipServer: e.target.value })}
-                                  placeholder="e.g. 5.10.34.153"
+                                  placeholder={t("telephony.sipServerPlaceholder")}
                                   className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm font-mono bg-white"
                                 />
                                 <p className="text-xs text-zinc-400">{t("telephony.sipServerHint")}</p>

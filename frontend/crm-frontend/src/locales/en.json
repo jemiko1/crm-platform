@@ -562,6 +562,11 @@
     "remove": "Remove",
     "confirmRemove": "Remove SIP extension",
     "extensionRequired": "Extension number is required",
-    "displayNameRequired": "Display name is required"
+    "displayNameRequired": "Display name is required",
+    "failedToLoad": "Failed to load",
+    "syncFailed": "Sync failed",
+    "extensionPlaceholder": "e.g. 102",
+    "displayNamePlaceholder": "e.g. John Doe",
+    "sipServerPlaceholder": "e.g. 5.10.34.153"
   }
 }

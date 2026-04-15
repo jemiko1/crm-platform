@@ -562,6 +562,11 @@
     "remove": "წაშლა",
     "confirmRemove": "წაიშალოს SIP გაფართოება",
     "extensionRequired": "გაფართოების ნომერი აუცილებელია",
-    "displayNameRequired": "საჩვენებელი სახელი აუცილებელია"
+    "displayNameRequired": "საჩვენებელი სახელი აუცილებელია",
+    "failedToLoad": "ჩატვირთვა ვერ მოხერხდა",
+    "syncFailed": "სინქრონიზაცია ვერ მოხერხდა",
+    "extensionPlaceholder": "მაგ. 102",
+    "displayNamePlaceholder": "მაგ. გიორგი გიორგაძე",
+    "sipServerPlaceholder": "მაგ. 5.10.34.153"
   }
 }
