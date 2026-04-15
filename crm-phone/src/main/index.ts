@@ -40,6 +40,8 @@ console.log = (...args: any[]) => { writeLog("", args); origLog(...args); };
 console.error = (...args: any[]) => { writeLog("ERROR ", args); origErr(...args); };
 console.log("[INIT] CRM28 Phone starting, log file:", logFile);
 
+app.setAppUserModelId("ge.asg.crm28-phone");
+
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let sipRegistered = false;
