@@ -517,5 +517,32 @@
       "users": "User Accounts",
       "translations": "Translations"
     }
+  },
+  "telephony": {
+    "extensionsTitle": "Telephony Extensions",
+    "extensionsDescription": "Configure SIP extensions for employees. Extensions auto-link from FreePBX via Account Code.",
+    "backToAdmin": "Back to Admin Panel",
+    "syncFromAsterisk": "Sync from Asterisk",
+    "syncing": "Syncing...",
+    "syncComplete": "Sync complete",
+    "endpoints": "endpoints",
+    "linked": "linked",
+    "autoLinked": "auto-linked",
+    "employee": "Employee",
+    "emailLogin": "Email / Login",
+    "sipExtension": "SIP Extension",
+    "sipStatus": "SIP Status",
+    "actions": "Actions",
+    "notConfigured": "Not configured",
+    "missingSip": "missing SIP",
+    "disabled": "disabled",
+    "ready": "ready",
+    "sipOnline": "Online",
+    "sipOffline": "Offline",
+    "sipOnCall": "On Call",
+    "close": "Close",
+    "edit": "Edit",
+    "configure": "Configure",
+    "sipInfoNote": "Extensions auto-link when Account Code in FreePBX matches the employee email. Click Sync to pull latest."
   }
 }

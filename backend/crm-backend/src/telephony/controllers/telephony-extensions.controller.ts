@@ -3,6 +3,8 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
@@ -14,6 +16,7 @@ import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { PositionPermissionGuard } from '../../common/guards/position-permission.guard';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AsteriskSyncService } from '../sync/asterisk-sync.service';
 import { Doc } from '../../common/openapi/doc-endpoint.decorator';
 
 class UpsertExtensionDto {
@@ -38,7 +41,35 @@ class UpdateExtensionDto {
 @Controller('v1/telephony/extensions')
 @UseGuards(JwtAuthGuard)
 export class TelephonyExtensionsController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly asteriskSync: AsteriskSyncService,
+  ) {}
+
+  @Post('sync-now')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('telephony.manage')
+  @Doc({
+    summary: 'Trigger immediate extension sync from Asterisk',
+    ok: 'Sync result with auto-link count and SIP statuses',
+    permission: true,
+  })
+  async syncNow() {
+    return this.asteriskSync.syncNow();
+  }
+
+  @Get('sip-statuses')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('telephony.manage')
+  @Doc({
+    summary: 'Get live SIP registration statuses from Asterisk',
+    ok: 'Map of extension number to device state',
+    permission: true,
+  })
+  async sipStatuses() {
+    return this.asteriskSync.getEndpointStatuses();
+  }
 
   @Get('users-with-config')
   @UseGuards(PositionPermissionGuard)
