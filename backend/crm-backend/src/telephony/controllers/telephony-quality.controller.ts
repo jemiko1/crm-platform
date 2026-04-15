@@ -10,14 +10,26 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { PositionPermissionGuard } from '../../common/guards/position-permission.guard';
+import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { TelephonyQualityService } from '../services/telephony-quality.service';
 import { QueryReviewsDto, UpdateReviewDto } from '../dto/query-reviews.dto';
 import { Doc } from '../../common/openapi/doc-endpoint.decorator';
 
+class UpsertRubricDto {
+  @IsString() @IsOptional() id?: string;
+  @IsString() name!: string;
+  @IsString() @IsOptional() description?: string;
+  @IsNumber() @Min(0) weight!: number;
+  @IsNumber() @IsOptional() maxScore?: number;
+}
+
 @ApiTags('Telephony')
 @Controller('v1/telephony/quality')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PositionPermissionGuard)
+@RequirePermission('telephony.menu')
 export class TelephonyQualityController {
   constructor(private readonly qualityService: TelephonyQualityService) {}
 
@@ -39,12 +51,14 @@ export class TelephonyQualityController {
   }
 
   @Patch('reviews/:id')
+  @RequirePermission('telephony.manage')
   @Doc({
     summary: 'Update quality review (human feedback)',
     ok: 'Updated review',
     notFound: true,
     bodyType: UpdateReviewDto,
     params: [{ name: 'id', description: 'Review UUID' }],
+    permission: true,
   })
   async updateReview(
     @Param('id') id: string,
@@ -62,13 +76,16 @@ export class TelephonyQualityController {
   }
 
   @Post('rubrics')
+  @RequirePermission('telephony.manage')
   @Doc({
     summary: 'Create or update rubric',
     ok: 'Upserted rubric',
     status: 201,
+    bodyType: UpsertRubricDto,
+    permission: true,
   })
   async upsertRubric(
-    @Body() body: { id?: string; name: string; description?: string; weight: number; maxScore?: number },
+    @Body() body: UpsertRubricDto,
   ) {
     return this.qualityService.upsertRubric(body);
   }

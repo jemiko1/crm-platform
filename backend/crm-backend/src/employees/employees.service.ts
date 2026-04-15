@@ -840,6 +840,83 @@ export class EmployeesService {
     };
   }
 
+  async bulkDismiss(ids: string[], delegateToEmployeeId?: string) {
+    const results: { id: string; name: string; success: boolean; error?: string }[] = [];
+    for (const id of ids) {
+      try {
+        const emp = await this.dismiss(id, delegateToEmployeeId);
+        results.push({ id, name: `${emp.firstName} ${emp.lastName}`, success: true });
+      } catch (err: any) {
+        const employee = await this.prisma.employee.findUnique({
+          where: { id },
+          select: { firstName: true, lastName: true },
+        });
+        results.push({
+          id,
+          name: employee ? `${employee.firstName} ${employee.lastName}` : id,
+          success: false,
+          error: err.message ?? 'Unknown error',
+        });
+      }
+    }
+    return {
+      dismissed: results.filter((r) => r.success).length,
+      failed: results.filter((r) => !r.success).length,
+      results,
+    };
+  }
+
+  async bulkHardDelete(ids: string[], delegateToEmployeeId?: string) {
+    const results: { id: string; name: string; success: boolean; error?: string }[] = [];
+    for (const id of ids) {
+      try {
+        const result = await this.hardDelete(id, delegateToEmployeeId);
+        results.push({
+          id,
+          name: result.deletedEmployee
+            ? `${result.deletedEmployee.firstName} ${result.deletedEmployee.lastName}`
+            : id,
+          success: true,
+        });
+      } catch (err: any) {
+        const employee = await this.prisma.employee.findUnique({
+          where: { id },
+          select: { firstName: true, lastName: true },
+        });
+        results.push({
+          id,
+          name: employee ? `${employee.firstName} ${employee.lastName}` : id,
+          success: false,
+          error: err.message ?? 'Unknown error',
+        });
+      }
+    }
+    return {
+      deleted: results.filter((r) => r.success).length,
+      failed: results.filter((r) => !r.success).length,
+      results,
+    };
+  }
+
+  async bulkCheckConstraints(ids: string[]) {
+    const results = await Promise.all(
+      ids.map(async (id) => {
+        try {
+          return await this.checkDeletionConstraints(id);
+        } catch {
+          return null;
+        }
+      }),
+    );
+    const valid = results.filter((r) => r !== null);
+    return {
+      employees: valid,
+      totalActiveLeads: valid.reduce((sum, r) => sum + r.activeLeadsCount, 0),
+      totalOpenWorkOrders: valid.reduce((sum, r) => sum + r.openWorkOrdersCount, 0),
+      allCanDelete: valid.every((r) => r.canDelete),
+    };
+  }
+
   async createUserAccount(id: string, password: string) {
     const employee = await this.findOne(id);
 

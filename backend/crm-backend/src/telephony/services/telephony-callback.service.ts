@@ -94,7 +94,7 @@ export class TelephonyCallbackService {
     pageSize?: number;
   }) {
     const page = params.page ?? 1;
-    const pageSize = params.pageSize ?? 25;
+    const pageSize = Math.min(params.pageSize ?? 25, 100);
     const skip = (page - 1) * pageSize;
 
     const where = params.status ? { status: params.status } : {};

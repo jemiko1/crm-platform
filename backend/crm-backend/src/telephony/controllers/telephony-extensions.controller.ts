@@ -79,7 +79,16 @@ export class TelephonyExtensionsController {
   @Doc({ summary: 'List telephony extensions', ok: 'Extensions with user info', permission: true })
   async list() {
     return this.prisma.telephonyExtension.findMany({
-      include: {
+      select: {
+        id: true,
+        extension: true,
+        displayName: true,
+        sipServer: true,
+        isOperator: true,
+        isActive: true,
+        crmUserId: true,
+        createdAt: true,
+        updatedAt: true,
         user: {
           select: {
             id: true,

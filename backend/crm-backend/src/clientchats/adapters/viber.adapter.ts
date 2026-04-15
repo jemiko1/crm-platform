@@ -27,8 +27,12 @@ export class ViberAdapter implements ChannelAdapter {
     const signature = req.headers['x-viber-content-signature'] as string;
     if (!signature) return false;
 
-    const body =
-      typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+    const rawBody = (req as any).rawBody as Buffer | undefined;
+    const body = rawBody
+      ? rawBody
+      : typeof req.body === 'string'
+        ? req.body
+        : JSON.stringify(req.body);
     const expected = crypto
       .createHmac('sha256', token)
       .update(body)

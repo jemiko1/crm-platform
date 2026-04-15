@@ -636,6 +636,7 @@ export class ClientChatsCoreService {
     page: number = 1,
     limit: number = 50,
   ) {
+    limit = Math.min(limit, 100);
     const conversation = await this.prisma.clientChatConversation.findUnique({
       where: { id: conversationId },
       select: { previousConversationId: true },
@@ -877,6 +878,7 @@ export class ClientChatsCoreService {
     page: number = 1,
     limit: number = 50,
   ) {
+    limit = Math.min(limit, 100);
     const skip = (page - 1) * limit;
 
     const [data, total] = await Promise.all([

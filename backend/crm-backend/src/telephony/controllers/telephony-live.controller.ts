@@ -1,12 +1,15 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { PositionPermissionGuard } from '../../common/guards/position-permission.guard';
+import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { TelephonyLiveService } from '../services/telephony-live.service';
 import { Doc } from '../../common/openapi/doc-endpoint.decorator';
 
 @ApiTags('Telephony')
 @Controller('v1/telephony')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PositionPermissionGuard)
+@RequirePermission('telephony.menu')
 export class TelephonyLiveController {
   constructor(private readonly liveService: TelephonyLiveService) {}
 
