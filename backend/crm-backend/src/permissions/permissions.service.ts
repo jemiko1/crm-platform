@@ -178,15 +178,16 @@ export class PermissionsService implements OnModuleInit {
       const allPermissions = await this.findAll();
       if (allPermissions.length === 0) {
         // If no permissions exist in DB, return common permissions for admin
+        // NOTE: resource names must use underscores (matching seed-permissions.ts)
         return [
           'buildings.create', 'buildings.details_read', 'buildings.update', 'buildings.delete',
           'clients.create', 'clients.details_read', 'clients.update', 'clients.delete',
           'incidents.create', 'incidents.details_read', 'incidents.update', 'incidents.delete',
-          'work-orders.create', 'work-orders.read', 'work-orders.update', 'work-orders.delete',
+          'work_orders.create', 'work_orders.read', 'work_orders.update', 'work_orders.delete',
           'employees.create', 'employees.read', 'employees.update', 'employees.delete',
           'inventory.create', 'inventory.read', 'inventory.update', 'inventory.delete',
           'assets.create', 'assets.read', 'assets.update', 'assets.delete',
-          'positions.manage', 'role-groups.manage',
+          'positions.manage', 'roles.assign_permissions',
         ];
       }
       return allPermissions.map(
