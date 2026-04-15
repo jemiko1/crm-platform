@@ -53,11 +53,14 @@ export class AsteriskSyncService implements OnModuleInit {
   }
 
   async syncQueues(): Promise<void> {
-    const response = await this.amiClient.sendAction({
-      Action: 'QueueStatus',
-    });
+    let queues: Array<{ name: string; strategy: string }> = [];
+    try {
+      queues = await this.fetchQueuesViaCli();
+    } catch (err: any) {
+      this.logger.warn(`Queue sync failed: ${err.message}`);
+      return;
+    }
 
-    const queues = this.parseQueueStatus(response);
     let upserted = 0;
 
     for (const q of queues) {
@@ -88,23 +91,16 @@ export class AsteriskSyncService implements OnModuleInit {
     }
     this.syncing = true;
 
-    let response: any;
+    let endpoints: Array<{ extension: string; status: string }> = [];
     try {
-      response = await this.amiClient.sendAction({
-        Action: 'PJSIPShowEndpoints',
-      });
-    } catch {
-      try {
-        response = await this.amiClient.sendAction({ Action: 'SIPpeers' });
-      } catch (err: any) {
-        this.logger.warn(`Extension sync: neither PJSIP nor SIP available: ${err.message}`);
-        this.syncing = false;
-        return { total: 0, linked: 0, autoLinked: 0, statuses: {} };
-      }
+      endpoints = await this.fetchEndpointsViaCli();
+    } catch (err: any) {
+      this.logger.warn(`Extension sync: failed to fetch endpoints: ${err.message}`);
+      this.syncing = false;
+      return { total: 0, linked: 0, autoLinked: 0, statuses: {} };
     }
 
     try {
-      const endpoints = this.parseEndpoints(response);
       let linked = 0;
       let autoLinked = 0;
       const statuses: Record<string, string> = {};
@@ -211,21 +207,16 @@ export class AsteriskSyncService implements OnModuleInit {
   async getEndpointStatuses(): Promise<Record<string, string>> {
     if (!this.enabled || !this.amiClient.connected) return {};
 
-    let response: any;
     try {
-      response = await this.amiClient.sendAction({
-        Action: 'PJSIPShowEndpoints',
-      });
+      const endpoints = await this.fetchEndpointsViaCli();
+      const statuses: Record<string, string> = {};
+      for (const ep of endpoints) {
+        statuses[ep.extension] = ep.status;
+      }
+      return statuses;
     } catch {
       return {};
     }
-
-    const endpoints = this.parseEndpoints(response);
-    const statuses: Record<string, string> = {};
-    for (const ep of endpoints) {
-      statuses[ep.extension] = ep.status;
-    }
-    return statuses;
   }
 
   private async readAccountCode(ext: string): Promise<string | null> {
@@ -262,45 +253,65 @@ export class AsteriskSyncService implements OnModuleInit {
     }
   }
 
-  private parseQueueStatus(
-    response: any,
-  ): Array<{ name: string; strategy: string }> {
-    if (!response) return [];
-    const events: any[] = Array.isArray(response) ? response : [response];
-    const queues: Array<{ name: string; strategy: string }> = [];
-    const seen = new Set<string>();
+  /**
+   * Fetch queues via AMI Command action (CLI text output).
+   * Parses `queue show` output lines like:
+   *   "100 has 0 calls ... in 'rrmemory' strategy ..."
+   */
+  private async fetchQueuesViaCli(): Promise<
+    Array<{ name: string; strategy: string }>
+  > {
+    const res = await this.amiClient.sendAction({
+      Action: 'Command',
+      Command: 'queue show',
+    });
 
-    for (const evt of events) {
-      if (evt.event === 'QueueParams' && evt.queue && !seen.has(evt.queue)) {
-        seen.add(evt.queue);
-        queues.push({
-          name: evt.queue,
-          strategy: evt.strategy ?? 'rrmemory',
-        });
-      }
+    const output: string =
+      typeof res === 'string'
+        ? res
+        : res?.output ?? res?.content ?? JSON.stringify(res);
+
+    const queues: Array<{ name: string; strategy: string }> = [];
+    // Match lines like: "100 has 0 calls (max unlimited) in 'rrmemory' strategy"
+    const regex = /^(\S+)\s+has\s+\d+\s+calls?\s+.*?in\s+'(\w+)'\s+strategy/gm;
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(output)) !== null) {
+      queues.push({ name: match[1], strategy: match[2] });
     }
+
     return queues;
   }
 
-  private parseEndpoints(
-    response: any,
-  ): Array<{ extension: string; status: string }> {
-    if (!response) return [];
-    const events: any[] = Array.isArray(response) ? response : [response];
-    const endpoints: Array<{ extension: string; status: string }> = [];
+  /**
+   * Fetch PJSIP endpoints via AMI Command action (CLI text output).
+   * The asterisk-manager library doesn't collect multi-event responses from
+   * PJSIPShowEndpoints, so we use the CLI command instead.
+   */
+  private async fetchEndpointsViaCli(): Promise<
+    Array<{ extension: string; status: string }>
+  > {
+    const res = await this.amiClient.sendAction({
+      Action: 'Command',
+      Command: 'pjsip show endpoints',
+    });
 
-    for (const evt of events) {
-      const ext =
-        evt.objectname ??
-        evt.objectName ??
-        evt.peer?.replace(/^SIP\//, '');
-      if (ext && /^\d+$/.test(ext)) {
-        endpoints.push({
-          extension: ext,
-          status: evt.devicestate ?? evt.status ?? 'unknown',
-        });
-      }
+    const output: string =
+      typeof res === 'string'
+        ? res
+        : res?.output ?? res?.content ?? JSON.stringify(res);
+
+    const endpoints: Array<{ extension: string; status: string }> = [];
+    // Match lines like: " Endpoint:  200/200    Not in use    0 of inf"
+    // or " Endpoint:  201        Unavailable   0 of inf"
+    const regex = /Endpoint:\s+(\d+)(?:\/\S+)?\s+(Not in use|Unavailable|In use|Busy|Ringing|On Hold|Ring, In Use|Unknown)/gi;
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(output)) !== null) {
+      endpoints.push({
+        extension: match[1],
+        status: match[2].toLowerCase().trim(),
+      });
     }
+
     return endpoints;
   }
 
