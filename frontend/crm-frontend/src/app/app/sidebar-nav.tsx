@@ -30,7 +30,7 @@ const ALL_ITEMS: NavItemDef[] = [
   { href: "/app/inventory", label: "Inventory", labelKey: "sidebar.inventory", iconKey: "box", requiredPermission: "inventory.menu" },
   { href: "/app/employees", label: "Employees", labelKey: "sidebar.employees", iconKey: "employees", requiredPermission: "employees.menu" },
   { href: "/app/client-chats", label: "Client Chats", labelKey: "sidebar.clientChats", iconKey: "clientChats", requiredPermission: "client_chats.menu" },
-  { href: "/app/call-center", label: "Call Center", labelKey: "sidebar.callCenter", iconKey: "callCenter" },
+  { href: "/app/call-center", label: "Call Center", labelKey: "sidebar.callCenter", iconKey: "callCenter", requiredPermission: "call_center.menu" },
   { href: "/app/admin", label: "Admin", labelKey: "sidebar.admin", iconKey: "admin", requiredPermission: "admin.menu" },
 ];
 

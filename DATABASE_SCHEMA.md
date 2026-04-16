@@ -3,7 +3,7 @@
 > **ORM**: Prisma 7.x
 > **Schema file**: `backend/crm-backend/prisma/schema.prisma` (2125 lines)
 > **Database**: PostgreSQL 17 (production VM 192.168.65.110, port 5432) / PostgreSQL 16 (local dev Docker `crm-prod-db`, port 5433)
-> **Last Updated**: 2026-03-24
+> **Last Updated**: 2026-04-16
 
 ---
 
@@ -133,6 +133,8 @@
 | **Recording** | Call recordings | `callSessionId`, `url?`, `filePath?`, `durationSeconds?` |
 | **QualityReview** | AI-scored call quality | `callSessionId` (unique), `status` (QualityReviewStatus), `score?`, `summary?`, `flags` (JSON) |
 | **QualityRubric** | Scoring criteria | `name`, `weight`, `maxScore` |
+| **CallReport** | Per-call operator report (1:1 with CallSession) | `id` (UUID), `callSessionId` (unique FK), `callerClientId?`, `paymentId?`, `subjectClientId?`, `clientBuildingId?`, `buildingId?`, `notes?`, `operatorUserId` (FK to User), `status` (CallReportStatus) |
+| **CallReportLabel** | Category labels on call reports (junction) | `id` (UUID), `callReportId` (FK), `categoryCode`, unique `[callReportId, categoryCode]` |
 
 ### Client Chats (Unified Inbox)
 
@@ -229,8 +231,10 @@ User ──1:1──> TelephonyExtension
 CallSession ──N:1──> TelephonyQueue (optional)
 CallSession ──N:1──> User (assignedUser, optional)
 CallSession ──1:N──> CallLeg, CallEvent, Recording
-CallSession ──1:1──> CallMetrics, MissedCall, QualityReview
+CallSession ──1:1──> CallMetrics, MissedCall, QualityReview, CallReport
 MissedCall ──1:1──> CallbackRequest
+CallReport ──N:1──> Client (callerClient), Client (subjectClient), Building, ClientBuilding, User (operator)
+CallReport ──1:N──> CallReportLabel
 ```
 
 ---
@@ -253,6 +257,7 @@ All models use UUID primary keys (except `ExternalIdCounter` which uses `entity`
 - `ClientChatConversation.externalConversationId`
 - `ClientChatParticipant.externalUserId`
 - `ClientChatMessage.externalMessageId`
+- `CallReport.callSessionId`, `CallReportLabel[callReportId, categoryCode]`
 - `SyncEvent.eventId`, `Translation.key`, `SystemListCategory.code`
 
 **Common Index Patterns**: Foreign keys, status fields, timestamp fields (createdAt, lastMessageAt), search fields (name, email, phone), and composite indexes for common query patterns (e.g., `[productId, createdAt]`, `[queueId, startAt]`).
@@ -292,6 +297,7 @@ All models use UUID primary keys (except `ExternalIdCounter` which uses `entity`
 | 26 | `add_escalation` | 2026-03-18 | Escalation config and events |
 | 27 | `add_joined_at` | 2026-03-19 | joinedAt field on conversations |
 | 28 | `add_participant_to_conversation` | 2026-03-19 | participantId on conversations |
+| 29 | `add_call_reports` | 2026-04-16 | CallReport, CallReportLabel models, CallReportStatus enum, CALL_CENTER permission category, paymentId index on ClientBuilding |
 
 ---
 
@@ -338,7 +344,7 @@ All models use UUID primary keys (except `ExternalIdCounter` which uses `entity`
 | **ConversationType** | DIRECT, GROUP | Conversation.type |
 | **ConversationParticipantRole** | MEMBER, ADMIN | ConversationParticipant.role |
 | **MessageType** | TEXT, IMAGE, FILE, SYSTEM | Message.type |
-| **PermissionCategory** | GENERAL, BUILDINGS, CLIENTS, INCIDENTS, WORK_ORDERS, INVENTORY, EMPLOYEES, REPORTS, ADMIN, SALES, MESSENGER, TELEPHONY, CLIENT_CHATS | Permission.category |
+| **PermissionCategory** | GENERAL, BUILDINGS, CLIENTS, INCIDENTS, WORK_ORDERS, INVENTORY, EMPLOYEES, REPORTS, ADMIN, SALES, MESSENGER, TELEPHONY, CLIENT_CHATS, CALL_CENTER | Permission.category |
 | **PermissionOverride** | GRANT, DENY | EmployeePermission.type |
 | **AuditAction** | CREATE, UPDATE, DELETE | AuditLog.action |
 | **AuditEntity** | BUILDING, CLIENT, ASSET, WORK_ORDER, USER, INCIDENT, LEAD, SALES_SERVICE, SALES_PLAN, CALL_SESSION | AuditLog.entity |
@@ -353,6 +359,7 @@ All models use UUID primary keys (except `ExternalIdCounter` which uses `entity`
 | **CallbackRequestStatus** | PENDING, SCHEDULED, ATTEMPTING, DONE, FAILED, CANCELED | CallbackRequest.status |
 | **RecordingStatus** | PENDING, AVAILABLE, FAILED | CallSession.recordingStatus |
 | **QualityReviewStatus** | PENDING, PROCESSING, DONE, FAILED | QualityReview.status |
+| **CallReportStatus** | DRAFT, COMPLETED | CallReport.status |
 | **ClientChatChannelType** | WEB, VIBER, FACEBOOK, TELEGRAM, WHATSAPP | ClientChat models |
 | **ClientChatStatus** | LIVE, CLOSED | ClientChatConversation.status |
 | **ClientChatDirection** | IN, OUT | ClientChatMessage.direction |

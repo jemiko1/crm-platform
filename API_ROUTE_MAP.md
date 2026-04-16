@@ -470,14 +470,37 @@ Complete API route documentation for CRM Platform backend.
 
 ---
 
+## Call Reports Module
+
+**File**: `src/call-reports/call-reports.controller.ts`  
+**Base Route**: `/v1/call-reports`  
+**Guards**: `JwtAuthGuard` (all endpoints), `PositionPermissionGuard` + `@RequirePermission('call_center.reports')` (all endpoints)
+
+**Endpoints**:
+- `POST /v1/call-reports` - Create call report (linked 1:1 to CallSession)
+- `PATCH /v1/call-reports/:id` - Update call report (owner or superadmin)
+- `GET /v1/call-reports/my-drafts` - Get current user's draft reports
+- `GET /v1/call-reports/payment-lookup?q=` - Payment ID typeahead search (ClientBuilding)
+- `GET /v1/call-reports/:id` - Get single report with relations
+- `GET /v1/call-reports` - List reports with filters (query: status, buildingId, operatorId, categoryCode, dateFrom, dateTo, page, pageSize)
+
+**Notes**:
+- All endpoints require `call_center.reports` permission
+- List endpoint uses `DataScopeService` to restrict visibility based on call_logs scope permissions (own/department/department_tree/all)
+- Reports are linked 1:1 to CallSession; can reference caller client, subject client, building, clientBuilding, and category labels
+- `DataScopeService` (`src/common/utils/data-scope.ts`) is a reusable utility that resolves permission scopes for any resource
+
+---
+
 ## Summary
 
-**Total Controllers**: 20  
+**Total Controllers**: 21  
 **Guarded Routes**: Most routes under `/v1/*` require `JwtAuthGuard`  
 **Admin-Only Routes**: Positions, Role Groups, Admin Manual, Workflow Configuration, Notifications  
 **Permission-Protected**: 
 - `POST /v1/incidents` (requires `incidents.create` permission)
 - Work Orders endpoints have granular permissions (assign, start, approve, cancel, etc.)
-- `POST /v1/messenger/conversations` with type GROUP (requires `messenger.create_group`)  
+- `POST /v1/messenger/conversations` with type GROUP (requires `messenger.create_group`)
+- All `/v1/call-reports/*` endpoints (requires `call_center.reports`)  
 **Public Routes**: `/v1/buildings/*`, `/v1/clients` (read-only via PublicController)  
 **WebSocket**: Messenger gateway at `/messenger` namespace (Socket.IO)

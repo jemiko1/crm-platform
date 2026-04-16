@@ -171,6 +171,18 @@ const DEFAULT_PERMISSIONS = [
   // Core Integration
   { resource: "core_integration", action: "view", category: PermissionCategory.ADMIN, description: "View core sync status, events, checkpoints and health" },
 
+  // Call Center
+  { resource: "call_center", action: "menu", category: PermissionCategory.CALL_CENTER, description: "Show Call Center in left menu" },
+  { resource: "call_center", action: "reports", category: PermissionCategory.CALL_CENTER, description: "Create and manage call reports" },
+  { resource: "call_logs", action: "own", category: PermissionCategory.CALL_CENTER, description: "View own call logs" },
+  { resource: "call_logs", action: "department", category: PermissionCategory.CALL_CENTER, description: "View department call logs" },
+  { resource: "call_logs", action: "department_tree", category: PermissionCategory.CALL_CENTER, description: "View department tree call logs" },
+  { resource: "call_logs", action: "all", category: PermissionCategory.CALL_CENTER, description: "View all call logs" },
+  { resource: "call_recordings", action: "own", category: PermissionCategory.CALL_CENTER, description: "Listen to own call recordings" },
+  { resource: "call_recordings", action: "department", category: PermissionCategory.CALL_CENTER, description: "Listen to department call recordings" },
+  { resource: "call_recordings", action: "department_tree", category: PermissionCategory.CALL_CENTER, description: "Listen to department tree call recordings" },
+  { resource: "call_recordings", action: "all", category: PermissionCategory.CALL_CENTER, description: "Listen to all call recordings" },
+
   // Client Chats (Unified Inbox)
   { resource: "client_chats", action: "menu", category: PermissionCategory.CLIENT_CHATS, description: "Show Client Chats in left menu and access inbox" },
   { resource: "client_chats", action: "reply", category: PermissionCategory.CLIENT_CHATS, description: "Send replies and messages to clients" },

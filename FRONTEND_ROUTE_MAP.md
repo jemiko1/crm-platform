@@ -485,10 +485,35 @@ Complete frontend route documentation for CRM Platform.
 
 ---
 
+## `/app/call-center/reports`
+
+**Files**: 
+- `call-center/reports/page.tsx` - Call Reports list page
+- `call-center/reports/call-report-modal.tsx` - Modal for creating/editing reports
+- `call-center/call-report-trigger.tsx` - Socket.IO listener that auto-opens modal on call connect
+- `call-center/audio-player.tsx` - Inline audio player for call recordings
+
+**API Calls**:
+- `GET /v1/call-reports` - List reports (with filters: status, buildingId, operatorId, categoryCode, dateFrom, dateTo, page, pageSize)
+- `POST /v1/call-reports` - Create call report
+- `PATCH /v1/call-reports/:id` - Update call report
+- `GET /v1/call-reports/my-drafts` - Get current user's draft reports
+- `GET /v1/call-reports/payment-lookup?q=` - Payment ID typeahead
+- `GET /v1/call-reports/:id` - Get single report
+
+**Status**: ✅ **Working**  
+**Notes**: 
+- Tab in call center layout, requires `call_center.reports` permission
+- `call-report-trigger.tsx` listens to Socket.IO `/telephony` events and auto-opens the report modal when a call connects
+- `audio-player.tsx` provides inline playback for call recordings
+- `building-call-reports-tab.tsx` (in `buildings/[buildingId]/`) adds a Call Reports tab to the building detail page
+
+---
+
 ## Summary
 
-**Total Routes**: 28  
-**Working**: 21 routes (Buildings, Clients, Incidents, Work Orders, Work Order Detail, Tasks, Task Detail, Inventory, Employees, Employee Detail, Admin Panel, Positions, Role Groups, Departments, Workflow Configuration, Sales Leads, Lead Detail, Sales Config)  
+**Total Routes**: 29  
+**Working**: 22 routes (Buildings, Clients, Incidents, Work Orders, Work Order Detail, Tasks, Task Detail, Inventory, Employees, Employee Detail, Admin Panel, Positions, Role Groups, Departments, Workflow Configuration, Sales Leads, Lead Detail, Sales Config, Call Center Reports)  
 **Partial**: 3 routes (Dashboard - static UI, Roles - read-only, Admin Employees - duplicate)  
 **Placeholder**: 4 routes (Users, Assets, empty directories)  
 **Global Components**: Messenger (chat bubbles + full messenger modal + header integration), Bug Reporter Widget (floating FAB + recording bar + submission modal)
