@@ -118,6 +118,25 @@ export class AsteriskSyncService implements OnModuleInit {
         });
 
         if (existing) {
+          // Backfill sipPassword if missing (e.g. manually-created extensions)
+          if (!existing.sipPassword) {
+            try {
+              const pwd = await this.readAuthPassword(ep.extension);
+              if (pwd) {
+                await this.prisma.telephonyExtension.update({
+                  where: { id: existing.id },
+                  data: {
+                    sipPassword: pwd,
+                    sipServer: existing.sipServer || this.sipServer,
+                  },
+                });
+                this.logger.log(`Backfilled sipPassword for ext ${ep.extension}`);
+              }
+            } catch (err: any) {
+              this.logger.warn(`Backfill sipPassword(${ep.extension}) failed: ${err.message}`);
+            }
+          }
+
           extensionData.push({
             extension: ep.extension,
             crmUserId: existing.crmUserId,
