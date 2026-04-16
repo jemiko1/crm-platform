@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
@@ -9,6 +9,16 @@ import { UserRole } from '@prisma/client';
 @Injectable()
 export class EmployeesService {
   constructor(private prisma: PrismaService) {}
+
+  private async assertNotSuperAdmin(employeeId: string): Promise<void> {
+    const user = await this.prisma.user.findFirst({
+      where: { employee: { id: employeeId }, isSuperAdmin: true },
+      select: { id: true },
+    });
+    if (user) {
+      throw new ForbiddenException('Superadmin account cannot be modified');
+    }
+  }
 
   async create(createEmployeeDto: CreateEmployeeDto) {
     // Check if email already exists (in Employee or User)
@@ -288,6 +298,7 @@ export class EmployeesService {
   }
 
   async update(id: string, updateEmployeeDto: UpdateEmployeeDto) {
+    await this.assertNotSuperAdmin(id);
     // Check if employee exists
     const employee = await this.findOne(id);
 
@@ -444,6 +455,7 @@ export class EmployeesService {
   }
 
   async remove(id: string) {
+    await this.assertNotSuperAdmin(id);
     // Check if employee exists
     await this.findOne(id);
 
@@ -455,6 +467,7 @@ export class EmployeesService {
   }
 
   async resetPassword(id: string, newPassword: string) {
+    await this.assertNotSuperAdmin(id);
     const employee = await this.findOne(id);
 
     if (!employee.userId) {
@@ -472,6 +485,7 @@ export class EmployeesService {
   }
 
   async dismiss(id: string, delegateToEmployeeId?: string) {
+    await this.assertNotSuperAdmin(id);
     const employee = await this.findOne(id);
     const constraints = await this.checkDeletionConstraints(id);
 
@@ -528,6 +542,7 @@ export class EmployeesService {
   }
 
   async activate(id: string) {
+    await this.assertNotSuperAdmin(id);
     const employee = await this.findOne(id);
 
     if (employee.status !== 'TERMINATED') {
@@ -626,6 +641,7 @@ export class EmployeesService {
   }
 
   async delegateItems(fromEmployeeId: string, toEmployeeId: string) {
+    await this.assertNotSuperAdmin(fromEmployeeId);
     // Verify both employees exist
     const fromEmployee = await this.findOne(fromEmployeeId);
     const toEmployee = await this.findOne(toEmployeeId);
@@ -683,6 +699,7 @@ export class EmployeesService {
   }
 
   async hardDelete(id: string, delegateToEmployeeId?: string) {
+    await this.assertNotSuperAdmin(id);
     const employee = await this.findOne(id);
 
     // For employees WITH user accounts, they must be TERMINATED first
@@ -887,6 +904,7 @@ export class EmployeesService {
   }
 
   async createUserAccount(id: string, password: string) {
+    await this.assertNotSuperAdmin(id);
     const employee = await this.findOne(id);
 
     if (employee.userId) {
