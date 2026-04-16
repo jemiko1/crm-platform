@@ -29,7 +29,7 @@ class UpsertRubricDto {
 @ApiTags('Telephony')
 @Controller('v1/telephony/quality')
 @UseGuards(JwtAuthGuard, PositionPermissionGuard)
-@RequirePermission('telephony.menu')
+@RequirePermission('call_center.menu')
 export class TelephonyQualityController {
   constructor(private readonly qualityService: TelephonyQualityService) {}
 

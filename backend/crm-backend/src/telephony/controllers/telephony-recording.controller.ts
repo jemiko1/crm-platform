@@ -17,7 +17,7 @@ import { Doc } from '../../common/openapi/doc-endpoint.decorator';
 @ApiTags('Telephony')
 @Controller('v1/telephony/recordings')
 @UseGuards(JwtAuthGuard, PositionPermissionGuard)
-@RequirePermission('telephony.menu')
+@RequirePermission('call_center.menu')
 export class TelephonyRecordingController {
   constructor(private readonly recordingService: RecordingAccessService) {}
 
