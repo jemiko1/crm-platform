@@ -29,6 +29,7 @@ model Building {
   buildingContacts   BuildingContact[]
   incidents          Incident[]
   workOrders         WorkOrder[]
+  callReports        CallReport[]
 
   @@index([name])
   @@index([city])
@@ -58,6 +59,8 @@ model Client {
   incidents            Incident[]
   chatConversations    ClientChatConversation[] @relation("ClientChatConversations")
   chatParticipants     ClientChatParticipant[]  @relation("ClientChatParticipants")
+  callerCallReports    CallReport[]             @relation("CallReportCaller")
+  subjectCallReports   CallReport[]             @relation("CallReportSubject")
 
   @@index([primaryPhone])
   @@index([idNumber])
@@ -79,10 +82,12 @@ model ClientBuilding {
   updatedAt       DateTime @updatedAt
   building        Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
   client          Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  callReports     CallReport[]
 
   @@unique([clientId, buildingId, apartmentCoreId])
   @@index([buildingId])
   @@index([clientId])
+  @@index([paymentId])
 }
 
 model Asset {
@@ -294,6 +299,7 @@ model User {
   chatQueueOverrides    ClientChatQueueOverride[] @relation("UserChatQueueOverrides")
   deviceHandshakeTokens DeviceHandshakeToken[]
   bugReports            BugReport[]               @relation("UserBugReports")
+  callReports           CallReport[]
 
   @@index([email])
   @@index([isActive])
@@ -1520,6 +1526,7 @@ model CallSession {
   resolvedMissedCalls MissedCall[]  @relation("ResolvingCallSession")
   recordings        Recording[]
   qualityReview     QualityReview?
+  callReport        CallReport?
 
   @@index([startAt])
   @@index([queueId])
@@ -1888,6 +1895,7 @@ enum PermissionCategory {
   MESSENGER
   TELEPHONY
   CLIENT_CHATS
+  CALL_CENTER
 }
 
 enum PermissionOverride {
@@ -2267,4 +2275,56 @@ enum BugReportStatus {
   FIXED
   CLOSED
   WONT_FIX
+}
+
+// ── Call Reports ──────────────────────────────────────────
+
+enum CallReportStatus {
+  DRAFT
+  COMPLETED
+}
+
+model CallReport {
+  id               String           @id @default(uuid())
+  callSessionId    String           @unique
+  callerClientId   String?
+  paymentId        String?
+  subjectClientId  String?
+  clientBuildingId String?
+  buildingId       String?
+  notes            String?
+  operatorUserId   String
+  status           CallReportStatus @default(DRAFT)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  callSession    CallSession      @relation(fields: [callSessionId], references: [id])
+  callerClient   Client?          @relation("CallReportCaller", fields: [callerClientId], references: [id])
+  subjectClient  Client?          @relation("CallReportSubject", fields: [subjectClientId], references: [id])
+  clientBuilding ClientBuilding?  @relation(fields: [clientBuildingId], references: [id])
+  building       Building?        @relation(fields: [buildingId], references: [id])
+  operatorUser   User             @relation(fields: [operatorUserId], references: [id])
+  labels         CallReportLabel[]
+
+  @@index([buildingId])
+  @@index([operatorUserId])
+  @@index([callerClientId])
+  @@index([subjectClientId])
+  @@index([clientBuildingId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([paymentId])
+}
+
+model CallReportLabel {
+  id           String   @id @default(uuid())
+  callReportId String
+  categoryCode String
+  createdAt    DateTime @default(now())
+
+  callReport CallReport @relation(fields: [callReportId], references: [id], onDelete: Cascade)
+
+  @@unique([callReportId, categoryCode])
+  @@index([callReportId])
+  @@index([categoryCode])
 }

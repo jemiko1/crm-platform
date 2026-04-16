@@ -11,6 +11,8 @@ import AddClientModal from "./add-client-modal";
 import EditBuildingModal from "./edit-building-modal";
 import ReportIncidentModal from "../../incidents/report-incident-modal";
 import CreateWorkOrderModal from "../../work-orders/create-work-order-modal";
+import { useI18n } from "@/hooks/useI18n";
+import { BuildingCallReportsTab } from "./building-call-reports-tab";
 
 const BRAND = "rgb(0, 86, 83)";
 
@@ -45,7 +47,7 @@ type Client = {
   updatedAt: string;
 };
 
-type Tab = "overview" | "devices" | "clients" | "work-orders" | "incidents" | "product-flow";
+type Tab = "overview" | "devices" | "clients" | "work-orders" | "incidents" | "product-flow" | "call-reports";
 
 type Incident = {
   id: string;
@@ -117,6 +119,8 @@ export default function BuildingDetailContent({ building, buildingId, onUpdate }
   const router = useRouter();
   const pathname = usePathname();
   const { openModal } = useModalContext();
+  const { t } = useI18n();
+  const { hasPermission } = usePermissions();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [assets, setAssets] = useState<Asset[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>([]);
@@ -299,6 +303,13 @@ export default function BuildingDetailContent({ building, buildingId, onUpdate }
             active={activeTab === "product-flow"}
             onClick={() => setActiveTab("product-flow")}
           />
+          {hasPermission('call_center.reports') && (
+          <TabButton
+            label={t("callReports.tab", "Call Reports")}
+            active={activeTab === "call-reports"}
+            onClick={() => setActiveTab("call-reports")}
+          />
+          )}
         </div>
       </div>
 
@@ -325,6 +336,7 @@ export default function BuildingDetailContent({ building, buildingId, onUpdate }
           />
         )}
         {activeTab === "product-flow" && <ProductFlowTab buildingCoreId={building.coreId} />}
+        {activeTab === "call-reports" && <BuildingCallReportsTab buildingId={buildingId} />}
       </div>
 
       {/* Modals */}

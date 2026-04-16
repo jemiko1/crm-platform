@@ -16,6 +16,7 @@ import { TelephonyStateManager } from './telephony-state.manager';
 import type { ActiveCall } from './telephony-state.manager';
 import { AmiClientService } from '../ami/ami-client.service';
 import { TelephonyCallsService } from '../services/telephony-calls.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import type { RawAmiEvent } from '../ami/ami.types';
 
 interface TelephonySocket extends Socket {
@@ -37,12 +38,14 @@ export class TelephonyGateway
 
   private readonly logger = new Logger(TelephonyGateway.name);
   private readonly connectedUsers = new Map<string, Set<string>>();
+  private readonly reportTriggerSent = new Set<string>();
 
   constructor(
     private readonly jwtService: JwtService,
     private readonly stateManager: TelephonyStateManager,
     private readonly amiClient: AmiClientService,
     private readonly callsService: TelephonyCallsService,
+    private readonly prisma: PrismaService,
   ) {}
 
   onModuleInit() {
@@ -128,7 +131,12 @@ export class TelephonyGateway
       case 'dialend':
       case 'bridgeenter': {
         const call = this.stateManager.getActiveCall(raw.linkedid ?? '');
-        if (call) this.emitCallEvent('call:answered', call);
+        if (call) {
+          this.emitCallEvent('call:answered', call);
+          this.emitReportTrigger(call).catch((err) =>
+            this.logger.error(`Report trigger error: ${err.message}`),
+          );
+        }
         break;
       }
 
@@ -193,6 +201,52 @@ export class TelephonyGateway
     } catch {
       // lookup failure is non-critical
     }
+  }
+
+  /**
+   * Emits a call:report-trigger to the assigned operator's socket room
+   * so the CRM frontend can open the call report modal.
+   */
+  private async emitReportTrigger(call: ActiveCall): Promise<void> {
+    if (!call.assignedUserId) return;
+
+    // Dedup: only emit once per linkedId
+    if (this.reportTriggerSent.has(call.linkedId)) return;
+    this.reportTriggerSent.add(call.linkedId);
+    setTimeout(() => this.reportTriggerSent.delete(call.linkedId), 60_000);
+
+    // Check if the user is an operator via TelephonyExtension.isOperator
+    const ext = await this.prisma.telephonyExtension.findFirst({
+      where: { crmUserId: call.assignedUserId, isOperator: true, isActive: true },
+      select: { crmUserId: true },
+    });
+    if (!ext) return;
+
+    // Resolve the call session to get its ID
+    const session = await this.prisma.callSession.findUnique({
+      where: { linkedId: call.linkedId },
+      select: { id: true, direction: true, callerNumber: true, calleeNumber: true },
+    });
+    if (!session) return;
+
+    // Try to resolve caller client from phone number
+    let callerClient: { id: string; firstName: string | null; lastName: string | null; primaryPhone: string | null } | null = null;
+    const phoneToLookup = session.callerNumber;
+    if (phoneToLookup && phoneToLookup !== 'unknown') {
+      const client = await this.prisma.client.findFirst({
+        where: { primaryPhone: phoneToLookup, isActive: true },
+        select: { id: true, firstName: true, lastName: true, primaryPhone: true },
+      });
+      callerClient = client;
+    }
+
+    this.server.to(`agent:${call.assignedUserId}`).emit('call:report-trigger', {
+      callSessionId: session.id,
+      direction: session.direction,
+      callerNumber: session.callerNumber,
+      calleeNumber: session.calleeNumber,
+      callerClient,
+    });
   }
 
   private authenticateSocket(

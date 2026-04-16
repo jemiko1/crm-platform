@@ -3,6 +3,7 @@ import { TelephonyGateway } from '../realtime/telephony.gateway';
 import { TelephonyStateManager } from '../realtime/telephony-state.manager';
 import { AmiClientService } from '../ami/ami-client.service';
 import { TelephonyCallsService } from '../services/telephony-calls.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 
 describe('TelephonyGateway', () => {
@@ -30,6 +31,7 @@ describe('TelephonyGateway', () => {
         { provide: TelephonyStateManager, useValue: mockStateManager },
         { provide: AmiClientService, useValue: mockAmi },
         { provide: TelephonyCallsService, useValue: mockCalls },
+        { provide: PrismaService, useValue: { telephonyExtension: { findFirst: jest.fn() }, callSession: { findUnique: jest.fn() }, client: { findFirst: jest.fn() } } },
       ],
     }).compile();
 
