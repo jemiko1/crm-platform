@@ -38,6 +38,13 @@ export class CallReportsController {
     return this.callReports.myDrafts(req.user.id);
   }
 
+  @Get('latest-session')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('call_center.reports')
+  latestSession(@Req() req: any, @Query('phone') phone?: string) {
+    return this.callReports.latestSession(req.user.id, phone);
+  }
+
   @Get('payment-lookup')
   @UseGuards(PositionPermissionGuard)
   @RequirePermission('call_center.reports')

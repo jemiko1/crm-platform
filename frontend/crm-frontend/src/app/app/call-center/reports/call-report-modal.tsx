@@ -26,6 +26,15 @@ interface CallReportData {
   status?: "DRAFT" | "COMPLETED";
 }
 
+interface LatestSession {
+  id: string;
+  direction: string;
+  callerNumber: string | null;
+  calleeNumber: string | null;
+  startAt: string;
+  disposition: string | null;
+}
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -38,9 +47,10 @@ interface Props {
     callerClient: { id: string; firstName: string | null; lastName: string | null; primaryPhone: string | null } | null;
   };
   editReport?: CallReportData;
+  phone?: string | null;
 }
 
-export function CallReportModal({ open, onClose, onSuccess, trigger, editReport }: Props) {
+export function CallReportModal({ open, onClose, onSuccess, trigger, editReport, phone }: Props) {
   const { t, language } = useI18n();
   const { items: categories } = useListItems("CALL_REPORT_CATEGORY");
   const [mounted, setMounted] = useState(false);
@@ -54,6 +64,7 @@ export function CallReportModal({ open, onClose, onSuccess, trigger, editReport 
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resolvedSession, setResolvedSession] = useState<LatestSession | null>(null);
   const lookupTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => { setMounted(true); }, []);
@@ -65,7 +76,7 @@ export function CallReportModal({ open, onClose, onSuccess, trigger, editReport 
       setPaymentIdInput(editReport.paymentId || "");
       setSelectedLabels(new Set(editReport.labels?.map((l) => l.categoryCode) || []));
       setNotes(editReport.notes || "");
-      // If paymentId exists, do a lookup to show the card
+      setResolvedSession(null);
       if (editReport.paymentId) {
         lookupPayment(editReport.paymentId).then((results) => {
           const match = results.find((r) => r.paymentId === editReport.paymentId);
@@ -80,8 +91,17 @@ export function CallReportModal({ open, onClose, onSuccess, trigger, editReport 
       setCategoryFilter("");
       setNotes("");
       setError(null);
+      setResolvedSession(null);
+
+      // Auto-resolve latest call session if no trigger provided
+      if (!trigger) {
+        const q = phone ? `?phone=${encodeURIComponent(phone)}` : "";
+        apiGet<LatestSession | null>(`/v1/call-reports/latest-session${q}`)
+          .then((s) => { if (s) setResolvedSession(s); })
+          .catch(() => {});
+      }
     }
-  }, [open, editReport]);
+  }, [open, editReport, trigger, phone]);
 
   const lookupPayment = async (q: string): Promise<PaymentResult[]> => {
     try {
@@ -121,16 +141,22 @@ export function CallReportModal({ open, onClose, onSuccess, trigger, editReport 
     });
   };
 
+  const effectiveSessionId = editReport?.callSessionId || trigger?.callSessionId || resolvedSession?.id;
+
   const save = async (status: "DRAFT" | "COMPLETED") => {
     if (status === "COMPLETED" && selectedLabels.size === 0) {
       setError(t("callReports.minOneLabel", "At least one category is required"));
+      return;
+    }
+    if (!effectiveSessionId) {
+      setError(t("callReports.noSession", "No call session found to link this report to"));
       return;
     }
     setError(null);
     setSaving(true);
 
     const body = {
-      callSessionId: editReport?.callSessionId || trigger?.callSessionId,
+      callSessionId: effectiveSessionId,
       callerClientId: trigger?.callerClient?.id || editReport?.callerClientId || undefined,
       paymentId: selectedPayment?.paymentId || paymentIdInput || undefined,
       subjectClientId: selectedPayment?.client?.id || undefined,
@@ -189,6 +215,20 @@ export function CallReportModal({ open, onClose, onSuccess, trigger, editReport 
                 <span>{t("callReports.caller", "Caller")}: <strong>{callerName || trigger.callerNumber || "—"}</strong></span>
                 <span>{t("callReports.direction", "Direction")}: <strong>{trigger.direction === "IN" ? t("callReports.inbound", "Inbound") : t("callReports.outbound", "Outbound")}</strong></span>
               </div>
+            </div>
+          )}
+          {!trigger && resolvedSession && (
+            <div className="rounded-xl bg-zinc-50 p-3 text-sm">
+              <div className="flex items-center gap-4 text-zinc-700">
+                <span>{t("callReports.caller", "Caller")}: <strong>{resolvedSession.callerNumber || "—"}</strong></span>
+                <span>{t("callReports.direction", "Direction")}: <strong>{resolvedSession.direction === "IN" ? t("callReports.inbound", "Inbound") : t("callReports.outbound", "Outbound")}</strong></span>
+                <span className="text-zinc-400">{new Date(resolvedSession.startAt).toLocaleTimeString()}</span>
+              </div>
+            </div>
+          )}
+          {!trigger && !resolvedSession && !editReport && (
+            <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-700">
+              {t("callReports.noSessionWarning", "No recent call session found. Complete a call first before creating a report.")}
             </div>
           )}
 

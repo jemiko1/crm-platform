@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsArray, ArrayMinSize, IsEnum } from 'class-validator';
+import { IsString, IsOptional, IsArray, IsEnum } from 'class-validator';
 import { CallReportStatus } from '@prisma/client';
 
 export class CreateCallReportDto {
@@ -27,7 +27,6 @@ export class CreateCallReportDto {
 
   @IsArray()
   @IsString({ each: true })
-  @ArrayMinSize(1)
   labels: string[];
 
   @IsOptional()

@@ -763,6 +763,8 @@
     "idNumber": "ID Number",
     "floor": "Floor",
     "entrance": "Entrance",
-    "tab": "Call Reports"
+    "tab": "Call Reports",
+    "noSession": "No call session found to link this report to",
+    "noSessionWarning": "No recent call session found. Complete a call first before creating a report."
   }
 }

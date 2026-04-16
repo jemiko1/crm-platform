@@ -31,8 +31,15 @@ export class CallReportsService {
       throw new BadRequestException('A report already exists for this call session');
     }
 
-    // Validate labels are valid category codes
-    await this.validateLabels(dto.labels);
+    // Validate labels are valid category codes (if any provided)
+    if (dto.labels.length > 0) {
+      await this.validateLabels(dto.labels);
+    }
+
+    // Require at least 1 label for completed reports
+    if (dto.status === CallReportStatus.COMPLETED && dto.labels.length === 0) {
+      throw new BadRequestException('At least one category label is required to complete a report');
+    }
 
     // Validate paymentId if provided
     if (dto.paymentId) {
@@ -94,18 +101,25 @@ export class CallReportsService {
       }
     }
 
-    // Validate labels if being updated
-    if (dto.labels) {
+    // Validate labels if being updated and non-empty
+    if (dto.labels && dto.labels.length > 0) {
       await this.validateLabels(dto.labels);
     }
 
-    // If completing a draft, ensure at least 1 label exists
-    if (dto.status === CallReportStatus.COMPLETED && !dto.labels) {
-      const labelCount = await this.prisma.callReportLabel.count({
-        where: { callReportId: id },
-      });
-      if (labelCount === 0) {
+    // If completing, ensure at least 1 label will exist after the update
+    if (dto.status === CallReportStatus.COMPLETED) {
+      // If labels are being replaced, the new set must be non-empty
+      if (dto.labels && dto.labels.length === 0) {
         throw new BadRequestException('At least one category label is required to complete a report');
+      }
+      // If labels are NOT being replaced, check existing labels in DB
+      if (!dto.labels) {
+        const labelCount = await this.prisma.callReportLabel.count({
+          where: { callReportId: id },
+        });
+        if (labelCount === 0) {
+          throw new BadRequestException('At least one category label is required to complete a report');
+        }
       }
     }
 
@@ -345,6 +359,40 @@ export class CallReportsService {
         building: cb.building,
       })),
     };
+  }
+
+  /**
+   * Find the most recent call session for the given user that doesn't have a report yet.
+   * Optionally filter by phone number.
+   */
+  async latestSession(userId: string, phone?: string) {
+    const where: any = {
+      callReport: null, // No report yet
+      assignedUserId: userId,
+    };
+
+    if (phone) {
+      const normalized = phone.replace(/[^\d+]/g, '');
+      where.OR = [
+        { callerNumber: { contains: normalized } },
+        { calleeNumber: { contains: normalized } },
+      ];
+    }
+
+    const session = await this.prisma.callSession.findFirst({
+      where,
+      orderBy: { startAt: 'desc' },
+      select: {
+        id: true,
+        direction: true,
+        callerNumber: true,
+        calleeNumber: true,
+        startAt: true,
+        disposition: true,
+      },
+    });
+
+    return session;
   }
 
   private async validateLabels(labels: string[]) {

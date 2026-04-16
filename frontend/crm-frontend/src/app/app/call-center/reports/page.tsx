@@ -244,6 +244,7 @@ export default function CallReportsPage() {
         open={showModal}
         onClose={() => { setShowModal(false); setEditingReport(null); }}
         onSuccess={handleSuccess}
+        phone={searchParams.get("phone")}
         editReport={editingReport ? {
           id: editingReport.id,
           callSessionId: editingReport.callSessionId,
