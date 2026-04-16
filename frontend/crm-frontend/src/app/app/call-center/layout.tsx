@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/hooks/useI18n";
+import { usePermissions } from "@/lib/use-permissions";
 
 const BRAND = "rgb(8,117,56)";
 
@@ -11,7 +12,7 @@ const TABS = [
   { href: "/app/call-center/logs", label: "Call Logs", labelKey: "callCenter.tabs.logs" },
   { href: "/app/call-center/missed", label: "Missed Calls", labelKey: "callCenter.tabs.missed" },
   { href: "/app/call-center/live", label: "Live Monitor", labelKey: "callCenter.tabs.live" },
-  { href: "/app/call-center/reports", label: "Reports", labelKey: "callCenter.tabs.reports" },
+  { href: "/app/call-center/reports", label: "Reports", labelKey: "callCenter.tabs.reports", permission: "call_center.reports" },
   { href: "/app/call-center/quality", label: "Quality", labelKey: "callCenter.tabs.quality" },
   { href: "/app/call-center/statistics", label: "Statistics", labelKey: "callCenter.tabs.statistics" },
 ];
@@ -19,6 +20,7 @@ const TABS = [
 export default function CallCenterLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { t } = useI18n();
+  const { hasPermission } = usePermissions();
 
   return (
     <div className="flex flex-col gap-6">
@@ -36,7 +38,7 @@ export default function CallCenterLayout({ children }: { children: React.ReactNo
       </div>
 
       <div className="flex items-center gap-1 rounded-2xl bg-zinc-100/80 p-1">
-        {TABS.map((tab) => {
+        {TABS.filter((tab) => !tab.permission || hasPermission(tab.permission)).map((tab) => {
           const isActive =
             tab.href === "/app/call-center"
               ? pathname === "/app/call-center"

@@ -120,6 +120,7 @@ export default function BuildingDetailContent({ building, buildingId, onUpdate }
   const pathname = usePathname();
   const { openModal } = useModalContext();
   const { t } = useI18n();
+  const { hasPermission } = usePermissions();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [assets, setAssets] = useState<Asset[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>([]);
@@ -302,11 +303,13 @@ export default function BuildingDetailContent({ building, buildingId, onUpdate }
             active={activeTab === "product-flow"}
             onClick={() => setActiveTab("product-flow")}
           />
+          {hasPermission('call_center.reports') && (
           <TabButton
             label={t("callReports.tab", "Call Reports")}
             active={activeTab === "call-reports"}
             onClick={() => setActiveTab("call-reports")}
           />
+          )}
         </div>
       </div>
 

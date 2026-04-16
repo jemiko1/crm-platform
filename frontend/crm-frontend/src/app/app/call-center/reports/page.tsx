@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { apiGet } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
 import { useListItems } from "@/hooks/useListItems";
+import { usePermissions } from "@/lib/use-permissions";
 import { CallReportModal } from "./call-report-modal";
 
 const BRAND = "rgb(8,117,56)";
@@ -41,7 +42,12 @@ function qs(params: Record<string, string | number | undefined | null>): string 
 
 export default function CallReportsPage() {
   const { t, language } = useI18n();
+  const { hasPermission, loading: permLoading } = usePermissions();
   const { items: categories, getLabel } = useListItems("CALL_REPORT_CATEGORY");
+
+  if (!permLoading && !hasPermission("call_center.reports")) {
+    return <div className="py-12 text-center text-zinc-500">{t("common.noResults", "No results found")}</div>;
+  }
 
   const [items, setItems] = useState<CallReportItem[]>([]);
   const [total, setTotal] = useState(0);
