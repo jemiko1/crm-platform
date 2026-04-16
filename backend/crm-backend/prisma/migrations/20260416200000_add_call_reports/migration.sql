@@ -34,9 +34,11 @@ CREATE TABLE "CallReportLabel" (
 
 -- CreateIndex: CallReport indexes
 CREATE UNIQUE INDEX "CallReport_callSessionId_key" ON "CallReport"("callSessionId");
-CREATE INDEX "CallReport_callSessionId_idx" ON "CallReport"("callSessionId");
 CREATE INDEX "CallReport_buildingId_idx" ON "CallReport"("buildingId");
 CREATE INDEX "CallReport_operatorUserId_idx" ON "CallReport"("operatorUserId");
+CREATE INDEX "CallReport_callerClientId_idx" ON "CallReport"("callerClientId");
+CREATE INDEX "CallReport_subjectClientId_idx" ON "CallReport"("subjectClientId");
+CREATE INDEX "CallReport_clientBuildingId_idx" ON "CallReport"("clientBuildingId");
 CREATE INDEX "CallReport_status_idx" ON "CallReport"("status");
 CREATE INDEX "CallReport_createdAt_idx" ON "CallReport"("createdAt");
 CREATE INDEX "CallReport_paymentId_idx" ON "CallReport"("paymentId");

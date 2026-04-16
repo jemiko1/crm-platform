@@ -2306,9 +2306,11 @@ model CallReport {
   operatorUser   User             @relation(fields: [operatorUserId], references: [id])
   labels         CallReportLabel[]
 
-  @@index([callSessionId])
   @@index([buildingId])
   @@index([operatorUserId])
+  @@index([callerClientId])
+  @@index([subjectClientId])
+  @@index([clientBuildingId])
   @@index([status])
   @@index([createdAt])
   @@index([paymentId])
