@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { apiGet } from "@/lib/api";
 import { useI18n } from "@/hooks/useI18n";
 import { useListItems } from "@/hooks/useListItems";
@@ -44,10 +45,7 @@ export default function CallReportsPage() {
   const { t, language } = useI18n();
   const { hasPermission, loading: permLoading } = usePermissions();
   const { items: categories, getLabel } = useListItems("CALL_REPORT_CATEGORY");
-
-  if (!permLoading && !hasPermission("call_center.reports")) {
-    return <div className="py-12 text-center text-zinc-500">{t("common.noResults", "No results found")}</div>;
-  }
+  const searchParams = useSearchParams();
 
   const [items, setItems] = useState<CallReportItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -67,6 +65,17 @@ export default function CallReportsPage() {
   // Modal
   const [showModal, setShowModal] = useState(false);
   const [editingReport, setEditingReport] = useState<CallReportItem | null>(null);
+
+  // Open modal from softphone button via ?openReport=true
+  useEffect(() => {
+    if (searchParams.get("openReport") === "true") {
+      setShowModal(true);
+    }
+  }, [searchParams]);
+
+  if (!permLoading && !hasPermission("call_center.reports")) {
+    return <div className="py-12 text-center text-zinc-500">{t("common.noResults", "No results found")}</div>;
+  }
 
   const fetchReports = useCallback(async () => {
     setLoading(true);

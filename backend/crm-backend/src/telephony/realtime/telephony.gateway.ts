@@ -222,11 +222,18 @@ export class TelephonyGateway
     });
     if (!ext) return;
 
-    // Resolve the call session to get its ID
-    const session = await this.prisma.callSession.findUnique({
+    // Resolve the call session — retry once after 1s to handle ingestion pipeline race
+    let session = await this.prisma.callSession.findUnique({
       where: { linkedId: call.linkedId },
       select: { id: true, direction: true, callerNumber: true, calleeNumber: true },
     });
+    if (!session) {
+      await new Promise((r) => setTimeout(r, 1000));
+      session = await this.prisma.callSession.findUnique({
+        where: { linkedId: call.linkedId },
+        select: { id: true, direction: true, callerNumber: true, calleeNumber: true },
+      });
+    }
     if (!session) return;
 
     // Try to resolve caller client from phone number

@@ -222,6 +222,25 @@ export class TelephonyStateManager implements OnModuleInit {
     ) {
       call.state = 'CONNECTED';
       call.answeredAt = call.answeredAt ?? new Date();
+
+      // For direct calls (non-queue), assignedUserId isn't set by onAgentConnect.
+      // Extract it from the channel field of bridgeenter/dialend events.
+      if (!call.assignedUserId) {
+        const ext =
+          extractExtensionFromChannel(raw.destchannel) ??
+          extractExtensionFromChannel(raw.channel);
+        const userId = ext ? this.extensionToUser.get(ext) ?? null : null;
+        if (userId) {
+          call.assignedExtension = ext;
+          call.assignedUserId = userId;
+          const agent = this.agents.get(userId);
+          if (agent) {
+            agent.presence = 'ON_CALL';
+            agent.currentLinkedId = call.linkedId;
+            agent.callStartedAt = new Date();
+          }
+        }
+      }
     }
   }
 
