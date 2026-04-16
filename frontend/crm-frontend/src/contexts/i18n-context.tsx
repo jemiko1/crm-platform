@@ -64,7 +64,8 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const stored = getStoredLanguage();
     if (stored !== "en") {
-      setLanguageState(stored);
+      const frame = requestAnimationFrame(() => setLanguageState(stored));
+      return () => cancelAnimationFrame(frame);
     }
   }, []);
 

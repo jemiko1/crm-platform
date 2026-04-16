@@ -3,10 +3,6 @@
 import { useState, useEffect } from "react";
 import { apiGet } from "./api";
 
-type PermissionsResponse = {
-  permissions: string[];
-};
-
 let permissionsCache: string[] | null = null;
 let permissionsPromise: Promise<string[]> | null = null;
 
@@ -15,17 +11,13 @@ let permissionsPromise: Promise<string[]> | null = null;
  * Caches permissions to avoid repeated API calls
  */
 export function usePermissions() {
-  const [permissions, setPermissions] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [permissions, setPermissions] = useState<string[]>(() => permissionsCache ?? []);
+  const [loading, setLoading] = useState(() => permissionsCache === null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // If already cached, use cache
-    if (permissionsCache !== null) {
-      setPermissions(permissionsCache);
-      setLoading(false);
-      return;
-    }
+    // If already cached, state was initialized from cache — nothing to do
+    if (permissionsCache !== null) return;
 
     // If already fetching, wait for that promise
     if (permissionsPromise) {
@@ -42,7 +34,6 @@ export function usePermissions() {
     }
 
     // Fetch permissions
-    setLoading(true);
     permissionsPromise = apiGet<string[]>("/v1/permissions/my-effective-permissions")
       .then((data) => {
         permissionsCache = Array.isArray(data) ? data : [];
@@ -54,7 +45,6 @@ export function usePermissions() {
         console.error("Failed to fetch permissions:", err);
         setError(err.message || "Failed to load permissions");
         setLoading(false);
-        // Default to empty permissions (no access) on error
         permissionsCache = [];
         setPermissions([]);
         return [];

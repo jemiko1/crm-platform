@@ -185,6 +185,17 @@ export function PhonePage(props: Props) {
                 Hang Up
               </button>
             </div>
+
+            <button
+              onClick={() => {
+                const phone = activeCall.remoteNumber;
+                const url = `https://crm28.asg.ge/app/call-center/reports?openReport=true&phone=${encodeURIComponent(phone || "")}`;
+                window.crmPhone.app.openExternal(url);
+              }}
+              style={styles.reportBtn}
+            >
+              📋 Fill Report
+            </button>
           </div>
 
           {callerLookup && (callState === "connected" || callState === "hold") && (
@@ -372,6 +383,18 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "0.8rem",
     fontWeight: 600,
     cursor: "pointer",
+  },
+  reportBtn: {
+    marginTop: "0.5rem",
+    padding: "0.5rem 1rem",
+    borderRadius: "0.5rem",
+    border: "1px solid #334155",
+    background: "#1e293b",
+    color: "#94a3b8",
+    fontSize: "0.75rem",
+    cursor: "pointer",
+    width: "100%",
+    textAlign: "center" as const,
   },
   hangupBtn: {
     padding: "0.6rem 1.5rem",
