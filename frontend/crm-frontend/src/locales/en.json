@@ -14,6 +14,7 @@
     "loading": "Loading...",
     "retry": "Retry",
     "noResults": "No results found",
+    "noPermission": "You do not have permission to access this page.",
     "error": "Error",
     "success": "Success",
     "confirm": "Confirm",

@@ -34,10 +34,10 @@ export class PositionPermissionGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    // Get the required permission from decorator
-    const requiredPermission = this.reflector.get<string>(
+    // Get the required permission from decorator (method-level overrides class-level)
+    const requiredPermission = this.reflector.getAllAndOverride<string>(
       PERMISSION_KEY,
-      context.getHandler(),
+      [context.getHandler(), context.getClass()],
     );
 
     // If no permission required, allow access
