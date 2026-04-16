@@ -66,17 +66,6 @@ export default function CallReportsPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingReport, setEditingReport] = useState<CallReportItem | null>(null);
 
-  // Open modal from softphone button via ?openReport=true
-  useEffect(() => {
-    if (searchParams.get("openReport") === "true") {
-      setShowModal(true);
-    }
-  }, [searchParams]);
-
-  if (!permLoading && !hasPermission("call_center.reports")) {
-    return <div className="py-12 text-center text-zinc-500">{t("common.noResults", "No results found")}</div>;
-  }
-
   const fetchReports = useCallback(async () => {
     setLoading(true);
     try {
@@ -100,6 +89,17 @@ export default function CallReportsPage() {
 
   useEffect(() => { fetchReports(); }, [fetchReports]);
   useEffect(() => { fetchDrafts(); }, [fetchDrafts]);
+
+  // Open modal from softphone button via ?openReport=true
+  useEffect(() => {
+    if (searchParams.get("openReport") === "true") {
+      setShowModal(true);
+    }
+  }, [searchParams]);
+
+  if (!permLoading && !hasPermission("call_center.reports")) {
+    return <div className="py-12 text-center text-zinc-500">{t("common.noResults", "No results found")}</div>;
+  }
 
   const handleSuccess = () => {
     fetchReports();
