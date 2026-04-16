@@ -98,7 +98,7 @@ export default function CallReportsPage() {
   }, [searchParams]);
 
   if (!permLoading && !hasPermission("call_center.reports")) {
-    return <div className="py-12 text-center text-zinc-500">{t("common.noResults", "No results found")}</div>;
+    return <div className="py-12 text-center text-zinc-500">{t("common.noPermission", "You do not have permission to access this page.")}</div>;
   }
 
   const handleSuccess = () => {
