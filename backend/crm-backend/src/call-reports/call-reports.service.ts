@@ -81,6 +81,11 @@ export class CallReportsService {
       throw new NotFoundException('Call report not found');
     }
 
+    // Completed reports are immutable
+    if (existing.status === CallReportStatus.COMPLETED) {
+      throw new BadRequestException('Completed reports cannot be edited');
+    }
+
     // Only the creator can update, unless user has .all scope
     if (existing.operatorUserId !== userId && !isSuperAdmin) {
       const scope = await this.dataScope.resolve(userId, 'call_logs');
@@ -285,6 +290,7 @@ export class CallReportsService {
         clientBuilding: { select: { id: true, apartmentNumber: true } },
       },
       orderBy: { createdAt: 'desc' },
+      take: 50,
     });
   }
 

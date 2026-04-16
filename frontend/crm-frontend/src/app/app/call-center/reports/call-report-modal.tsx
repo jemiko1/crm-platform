@@ -96,6 +96,7 @@ export function CallReportModal({ open, onClose, onSuccess, trigger, editReport 
     if (lookupTimer.current) clearTimeout(lookupTimer.current);
     if (val.length < 3) {
       setPaymentResults([]);
+      setLookupLoading(false);
       return;
     }
     setLookupLoading(true);
