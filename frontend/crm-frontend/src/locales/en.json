@@ -111,6 +111,136 @@
     "tabs": {
       "core": "Core Buildings",
       "crm": "CRM28 Buildings"
+    },
+    "detail": {
+      "buildingLabel": "Building #",
+      "editBuilding": "Edit building",
+      "edit": "Edit",
+      "workOrders": "Work Orders",
+      "offlineAlert": {
+        "ariaLabel": "Offline devices alert",
+        "alert": "Alert",
+        "offlineDevices": "Offline devices",
+        "needAttention": "need attention",
+        "offline": "OFFLINE",
+        "title": "Offline Devices",
+        "offlineShort": "Offline",
+        "ip": "IP:"
+      },
+      "tabs": {
+        "overview": "Overview",
+        "devices": "Devices",
+        "clients": "Clients",
+        "workOrders": "Work Orders",
+        "incidents": "Incidents",
+        "productFlow": "Product Flow"
+      },
+      "overview": {
+        "buildingInformation": "Building Information",
+        "buildingId": "Building ID",
+        "name": "Name",
+        "city": "City",
+        "address": "Address",
+        "clients": "Clients",
+        "workOrders": "Work Orders",
+        "coreSyncStatus": "Core Sync Status",
+        "lastSynced": "Last synced:"
+      },
+      "devices": {
+        "title": "Devices",
+        "useFiltersHint": "Use filters to show specific device categories. Table is grouped by type.",
+        "addDevice": "+ Add Device",
+        "markAll": "Mark all",
+        "offline": "Offline",
+        "showing": "Showing",
+        "of": "of",
+        "noMatch": "No devices match your filters.",
+        "tryMarkAll": "Try \"Mark all\", or turn off \"Offline\" filter.",
+        "columns": {
+          "name": "Name",
+          "type": "Type",
+          "status": "Status",
+          "ip": "IP",
+          "actions": "Actions"
+        },
+        "items": "items",
+        "coreId": "Core ID:",
+        "view": "View"
+      },
+      "clients": {
+        "title": "Clients",
+        "addClient": "+ Add Client",
+        "loading": "Loading clients...",
+        "empty": "No clients yet.",
+        "columns": {
+          "client": "Client",
+          "idNumber": "ID Number",
+          "paymentId": "Payment ID",
+          "primaryPhone": "Primary Phone"
+        },
+        "idLabel": "ID:",
+        "page": "Page",
+        "pageOf": "of",
+        "totalClients": "clients",
+        "previous": "← Previous",
+        "next": "Next →"
+      },
+      "workOrders": {
+        "title": "Work Orders",
+        "insufficientPermissions": "Insufficient Permissions",
+        "noPermission": "You do not have permission to view work orders.",
+        "createWorkOrder": "+ Create Work Order",
+        "loading": "Loading work orders...",
+        "empty": "No work orders found for this building.",
+        "failedToLoad": "Failed to load work orders"
+      },
+      "incidents": {
+        "title": "Incidents",
+        "insufficientPermissions": "Insufficient Permissions",
+        "noPermission": "You do not have permission to view incidents.",
+        "reportIncident": "Report Incident",
+        "loading": "Loading incidents...",
+        "empty": "No incidents reported for this building yet.",
+        "client": "Client:",
+        "created": "Created",
+        "by": "by",
+        "view": "View",
+        "statuses": {
+          "CREATED": "Created",
+          "IN_PROGRESS": "In Progress",
+          "COMPLETED": "Completed",
+          "WORK_ORDER_INITIATED": "Work Order Created"
+        }
+      },
+      "productFlow": {
+        "title": "Product Flow",
+        "description": "Approved product usages from work orders assigned to this building",
+        "loading": "Loading product flow data...",
+        "empty": "No approved product usages found for this building.",
+        "failedToLoad": "Failed to load product usages",
+        "summary": "Summary",
+        "transactions": "transaction(s)",
+        "totalProductsUsed": "Total Products Used",
+        "uniqueProducts": "Unique Products",
+        "columns": {
+          "workOrder": "Work Order",
+          "devices": "Device(s)",
+          "product": "Product",
+          "quantity": "Quantity",
+          "category": "Category",
+          "approvedAt": "Approved At"
+        },
+        "sku": "SKU:"
+      },
+      "assetTypes": {
+        "ELEVATOR": "Elevator",
+        "ENTRANCE_DOOR": "Entrance Door",
+        "INTERCOM": "Intercom",
+        "SMART_GSM_GATE": "Smart GSM Gate",
+        "SMART_DOOR_GSM": "Smart Door GSM",
+        "BOOM_BARRIER": "Boom Barrier",
+        "OTHER": "Other"
+      }
     }
   },
   "clients": {

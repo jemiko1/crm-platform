@@ -87,10 +87,6 @@ const TYPE_ORDER = [
   "OTHER",
 ];
 
-function typeLabel(type: string) {
-  return ASSET_TYPE_LABELS[type] || type;
-}
-
 function typeRank(type: string) {
   const idx = TYPE_ORDER.indexOf(type);
   return idx >= 0 ? idx : 999;
@@ -220,7 +216,7 @@ export default function BuildingDetailContent({ building, buildingId, onUpdate }
         <div>
           <div className="inline-flex items-center gap-2 rounded-full bg-zinc-50 px-3 py-1 text-xs text-zinc-700 ring-1 ring-zinc-200">
             <span className="h-2 w-2 rounded-full" style={{ backgroundColor: BRAND }} />
-            Building #{building.coreId}
+            {t("buildings.detail.buildingLabel", "Building #")}{building.coreId}
           </div>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight text-zinc-900 md:text-3xl">
             {building.name}
@@ -233,12 +229,12 @@ export default function BuildingDetailContent({ building, buildingId, onUpdate }
           type="button"
           onClick={() => setShowEditBuildingModal(true)}
           className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-semibold text-zinc-900 shadow-sm ring-1 ring-zinc-200 hover:bg-zinc-50"
-          title="Edit building"
+          title={t("buildings.detail.editBuilding", "Edit building")}
         >
           <span className="grid h-7 w-7 place-items-center rounded-xl bg-teal-50 ring-1 ring-teal-200">
             <IconEditSmall />
           </span>
-          Edit
+          {t("buildings.detail.edit", "Edit")}
         </button>
       </div>
 
@@ -255,7 +251,7 @@ export default function BuildingDetailContent({ building, buildingId, onUpdate }
               <IconWorkOrdersLg />
             </div>
             <div className="min-w-0 text-left">
-              <div className="text-xs text-zinc-600">Work Orders</div>
+              <div className="text-xs text-zinc-600">{t("buildings.detail.workOrders", "Work Orders")}</div>
               <div className="text-lg font-semibold text-zinc-900 tabular-nums">
                 {stats.activeWorkOrders}
               </div>
@@ -277,29 +273,29 @@ export default function BuildingDetailContent({ building, buildingId, onUpdate }
       {/* Tabs */}
       <div className="mb-6">
         <div className="flex items-center gap-2 overflow-x-auto">
-          <TabButton label="Overview" active={activeTab === "overview"} onClick={() => setActiveTab("overview")} />
+          <TabButton label={t("buildings.detail.tabs.overview", "Overview")} active={activeTab === "overview"} onClick={() => setActiveTab("overview")} />
           <TabButton
-            label={`Devices (${assets.length})`}
+            label={`${t("buildings.detail.tabs.devices", "Devices")} (${assets.length})`}
             active={activeTab === "devices"}
             onClick={() => setActiveTab("devices")}
           />
           <TabButton
-            label={`Clients (${building.clientCount ?? 0})`}
+            label={`${t("buildings.detail.tabs.clients", "Clients")} (${building.clientCount ?? 0})`}
             active={activeTab === "clients"}
             onClick={() => setActiveTab("clients")}
           />
           <TabButton
-            label={`Work Orders (${building.workOrderCount})`}
+            label={`${t("buildings.detail.tabs.workOrders", "Work Orders")} (${building.workOrderCount})`}
             active={activeTab === "work-orders"}
             onClick={() => setActiveTab("work-orders")}
           />
           <TabButton
-            label={`Incidents (${incidents.length})`}
+            label={`${t("buildings.detail.tabs.incidents", "Incidents")} (${incidents.length})`}
             active={activeTab === "incidents"}
             onClick={() => setActiveTab("incidents")}
           />
           <TabButton
-            label="Product Flow"
+            label={t("buildings.detail.tabs.productFlow", "Product Flow")}
             active={activeTab === "product-flow"}
             onClick={() => setActiveTab("product-flow")}
           />
@@ -383,6 +379,9 @@ export default function BuildingDetailContent({ building, buildingId, onUpdate }
 /* ========== OFFLINE ALERT ========== */
 const OfflineDevicesAlert = React.memo(function OfflineDevicesAlert({ count, devices }: { count: number; devices: Asset[] }) {
   const [showTooltip, setShowTooltip] = useState(false);
+  const { t } = useI18n();
+  const translateType = (type: string) =>
+    t(`buildings.detail.assetTypes.${type}`, ASSET_TYPE_LABELS[type] || type);
 
   return (
     <div
@@ -396,7 +395,7 @@ const OfflineDevicesAlert = React.memo(function OfflineDevicesAlert({ count, dev
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
       role="status"
-      aria-label="Offline devices alert"
+      aria-label={t("buildings.detail.offlineAlert.ariaLabel", "Offline devices alert")}
     >
       <div className="grid h-11 w-11 place-items-center rounded-2xl bg-rose-100 text-rose-700 ring-1 ring-rose-200">
         <IconOfflineLg />
@@ -404,27 +403,27 @@ const OfflineDevicesAlert = React.memo(function OfflineDevicesAlert({ count, dev
 
       <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <div className="text-xs font-semibold text-rose-700 uppercase tracking-wide">Alert</div>
+          <div className="text-xs font-semibold text-rose-700 uppercase tracking-wide">{t("buildings.detail.offlineAlert.alert", "Alert")}</div>
           <span className="h-1 w-1 rounded-full bg-rose-300" />
-          <div className="text-xs text-zinc-600">Offline devices</div>
+          <div className="text-xs text-zinc-600">{t("buildings.detail.offlineAlert.offlineDevices", "Offline devices")}</div>
         </div>
 
         <div className="mt-1 flex items-end gap-2">
           <div className="text-lg font-semibold text-zinc-900 tabular-nums">{count}</div>
-          <div className="text-xs text-zinc-600">need attention</div>
+          <div className="text-xs text-zinc-600">{t("buildings.detail.offlineAlert.needAttention", "need attention")}</div>
         </div>
       </div>
 
       <div className="ml-auto">
         <span className="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-700 ring-1 ring-rose-200">
-          OFFLINE
+          {t("buildings.detail.offlineAlert.offline", "OFFLINE")}
         </span>
       </div>
 
       {/* Tooltip */}
       {showTooltip && devices.length > 0 && (
         <div className="absolute right-0 top-full z-50 mt-2 w-[360px] rounded-2xl bg-white p-4 shadow-2xl ring-1 ring-zinc-200">
-          <div className="mb-2 text-xs font-semibold text-zinc-900">Offline Devices ({count})</div>
+          <div className="mb-2 text-xs font-semibold text-zinc-900">{t("buildings.detail.offlineAlert.title", "Offline Devices")} ({count})</div>
           <div className="max-h-56 space-y-2 overflow-y-auto">
             {devices.map((device) => (
               <div key={device.coreId} className="rounded-xl bg-zinc-50 p-2 text-xs ring-1 ring-zinc-200">
@@ -432,11 +431,11 @@ const OfflineDevicesAlert = React.memo(function OfflineDevicesAlert({ count, dev
                   <div className="font-semibold text-zinc-900">{device.name}</div>
                   <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-700 ring-1 ring-rose-200">
                     <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-                    Offline
+                    {t("buildings.detail.offlineAlert.offlineShort", "Offline")}
                   </span>
                 </div>
-                <div className="mt-0.5 text-zinc-600">{typeLabel(device.type)}</div>
-                {device.ip && <div className="mt-0.5 font-mono text-zinc-500">IP: {device.ip}</div>}
+                <div className="mt-0.5 text-zinc-600">{translateType(device.type)}</div>
+                {device.ip && <div className="mt-0.5 font-mono text-zinc-500">{t("buildings.detail.offlineAlert.ip", "IP:")} {device.ip}</div>}
               </div>
             ))}
           </div>
@@ -464,24 +463,25 @@ const TabButton = React.memo(function TabButton({ label, active, onClick }: { la
 
 /* ========== OVERVIEW TAB ========== */
 function OverviewTab({ building }: { building: Building }) {
+  const { t } = useI18n();
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-zinc-900">Building Information</h2>
+        <h2 className="text-lg font-semibold text-zinc-900">{t("buildings.detail.overview.buildingInformation", "Building Information")}</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <InfoCard label="Building ID" value={`#${building.coreId}`} icon="🆔" />
-          <InfoCard label="Name" value={building.name} icon="🏢" />
-          <InfoCard label="City" value={building.city} icon="🌆" />
-          <InfoCard label="Address" value={building.address} icon="📍" />
-          <InfoCard label="Clients" value={String(building.clientCount)} icon="👥" />
-          <InfoCard label="Work Orders" value={String(building.workOrderCount)} icon="📋" />
+          <InfoCard label={t("buildings.detail.overview.buildingId", "Building ID")} value={`#${building.coreId}`} icon="🆔" />
+          <InfoCard label={t("buildings.detail.overview.name", "Name")} value={building.name} icon="🏢" />
+          <InfoCard label={t("buildings.detail.overview.city", "City")} value={building.city} icon="🌆" />
+          <InfoCard label={t("buildings.detail.overview.address", "Address")} value={building.address} icon="📍" />
+          <InfoCard label={t("buildings.detail.overview.clients", "Clients")} value={String(building.clientCount)} icon="👥" />
+          <InfoCard label={t("buildings.detail.overview.workOrders", "Work Orders")} value={String(building.workOrderCount)} icon="📋" />
         </div>
       </div>
 
       <div className="rounded-2xl bg-teal-50 p-4 ring-1 ring-teal-200">
-        <div className="text-sm font-semibold text-teal-900">Core Sync Status</div>
+        <div className="text-sm font-semibold text-teal-900">{t("buildings.detail.overview.coreSyncStatus", "Core Sync Status")}</div>
         <div className="mt-1 text-xs text-teal-900">
-          Last synced: {new Date(building.updatedAt).toLocaleString()}
+          {t("buildings.detail.overview.lastSynced", "Last synced:")} {new Date(building.updatedAt).toLocaleString()}
         </div>
       </div>
     </div>
@@ -513,6 +513,9 @@ function DevicesTab({
   onAddClick: () => void;
 }) {
   const { hasPermission } = usePermissions();
+  const { t } = useI18n();
+  const translateType = (type: string) =>
+    t(`buildings.detail.assetTypes.${type}`, ASSET_TYPE_LABELS[type] || type);
   const allTypes = useMemo(() => {
     const keys = Object.keys(deviceCounts);
     return keys.sort((a, b) => typeRank(a) - typeRank(b) || a.localeCompare(b));
@@ -573,9 +576,9 @@ function DevicesTab({
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h2 className="text-lg font-semibold text-zinc-900">Devices ({assets.length})</h2>
+          <h2 className="text-lg font-semibold text-zinc-900">{t("buildings.detail.devices.title", "Devices")} ({assets.length})</h2>
           <div className="mt-1 text-xs text-zinc-600">
-            Use filters to show specific device categories. Table is grouped by type.
+            {t("buildings.detail.devices.useFiltersHint", "Use filters to show specific device categories. Table is grouped by type.")}
           </div>
         </div>
 
@@ -586,7 +589,7 @@ function DevicesTab({
             style={{ backgroundColor: BRAND }}
             onClick={onAddClick}
           >
-            + Add Device
+            {t("buildings.detail.devices.addDevice", "+ Add Device")}
           </button>
         )}
       </div>
@@ -595,7 +598,7 @@ function DevicesTab({
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <FilterPill
-              label="Mark all"
+              label={t("buildings.detail.devices.markAll", "Mark all")}
               count={allTypes.length}
               checked={allMarked}
               onChange={(v) => setAll(v)}
@@ -603,7 +606,7 @@ function DevicesTab({
             />
 
             <FilterPill
-              label="Offline"
+              label={t("buildings.detail.devices.offline", "Offline")}
               count={offlineCount}
               checked={offlineOnly}
               onChange={(v) => setOfflineOnly(v)}
@@ -612,20 +615,20 @@ function DevicesTab({
           </div>
 
           <div className="text-xs text-zinc-600">
-            Showing <span className="font-semibold text-zinc-900 tabular-nums">{filteredAssets.length}</span> of{" "}
+            {t("buildings.detail.devices.showing", "Showing")} <span className="font-semibold text-zinc-900 tabular-nums">{filteredAssets.length}</span> {t("buildings.detail.devices.of", "of")}{" "}
             <span className="font-semibold text-zinc-900 tabular-nums">{assets.length}</span>
           </div>
         </div>
 
         {allTypes.length > 0 && (
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            {allTypes.map((t) => (
+            {allTypes.map((typeKey) => (
               <FilterPill
-                key={t}
-                label={typeLabel(t)}
-                count={deviceCounts[t] ?? 0}
-                checked={selectedTypes[t] !== false}
-                onChange={(v) => setSelectedTypes((prev) => ({ ...prev, [t]: v }))}
+                key={typeKey}
+                label={translateType(typeKey)}
+                count={deviceCounts[typeKey] ?? 0}
+                checked={selectedTypes[typeKey] !== false}
+                onChange={(v) => setSelectedTypes((prev) => ({ ...prev, [typeKey]: v }))}
                 tone="brand"
               />
             ))}
@@ -635,8 +638,8 @@ function DevicesTab({
 
       {filteredAssets.length === 0 ? (
         <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
-          <div className="text-sm text-zinc-600">No devices match your filters.</div>
-          <div className="mt-2 text-xs text-zinc-500">Try "Mark all", or turn off "Offline" filter.</div>
+          <div className="text-sm text-zinc-600">{t("buildings.detail.devices.noMatch", "No devices match your filters.")}</div>
+          <div className="mt-2 text-xs text-zinc-500">{t("buildings.detail.devices.tryMarkAll", 'Try "Mark all", or turn off "Offline" filter.')}</div>
         </div>
       ) : (
         <div className="overflow-hidden rounded-2xl ring-1 ring-zinc-200">
@@ -644,11 +647,11 @@ function DevicesTab({
             <table className="min-w-[980px] w-full border-separate border-spacing-0">
               <thead className="bg-white sticky top-0">
                 <tr className="text-left text-xs text-zinc-600 bg-zinc-50">
-                  <th className="px-4 py-3 font-medium">Name</th>
-                  <th className="px-4 py-3 font-medium">Type</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">IP</th>
-                  <th className="px-4 py-3 font-medium">Actions</th>
+                  <th className="px-4 py-3 font-medium">{t("buildings.detail.devices.columns.name", "Name")}</th>
+                  <th className="px-4 py-3 font-medium">{t("buildings.detail.devices.columns.type", "Type")}</th>
+                  <th className="px-4 py-3 font-medium">{t("buildings.detail.devices.columns.status", "Status")}</th>
+                  <th className="px-4 py-3 font-medium">{t("buildings.detail.devices.columns.ip", "IP")}</th>
+                  <th className="px-4 py-3 font-medium">{t("buildings.detail.devices.columns.actions", "Actions")}</th>
                 </tr>
               </thead>
 
@@ -660,9 +663,9 @@ function DevicesTab({
                         <div className="flex items-center justify-between gap-3">
                           <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold text-zinc-900 ring-1 ring-zinc-200">
                             <span className="h-2 w-2 rounded-full bg-zinc-300" />
-                            {typeLabel(g.type)}
+                            {translateType(g.type)}
                           </div>
-                          <div className="text-xs text-zinc-500 tabular-nums">{g.items.length} items</div>
+                          <div className="text-xs text-zinc-500 tabular-nums">{g.items.length} {t("buildings.detail.devices.items", "items")}</div>
                         </div>
                       </td>
                     </tr>
@@ -671,12 +674,12 @@ function DevicesTab({
                       <tr key={`${asset.type}-${asset.coreId}`} className="group transition-colors hover:bg-teal-50/60">
                         <td className="px-4 py-3 align-middle">
                           <div className="text-sm font-semibold text-zinc-900">{asset.name}</div>
-                          <div className="mt-0.5 text-xs text-zinc-500">Core ID: {asset.coreId}</div>
+                          <div className="mt-0.5 text-xs text-zinc-500">{t("buildings.detail.devices.coreId", "Core ID:")} {asset.coreId}</div>
                         </td>
 
                         <td className="px-4 py-3 align-middle">
                           <span className="inline-flex items-center rounded-full bg-white px-3 py-1 text-xs font-semibold text-zinc-800 ring-1 ring-zinc-200">
-                            {typeLabel(asset.type)}
+                            {translateType(asset.type)}
                           </span>
                         </td>
 
@@ -704,7 +707,7 @@ function DevicesTab({
                             href={`/app/buildings/${buildingId}/assets/${asset.coreId}`}
                             className="inline-flex items-center gap-1 rounded-2xl bg-white px-3 py-2 text-xs font-semibold text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50"
                           >
-                            View
+                            {t("buildings.detail.devices.view", "View")}
                             <span className="transition-transform group-hover:translate-x-0.5">→</span>
                           </Link>
                         </td>
@@ -782,6 +785,7 @@ const FilterPill = React.memo(function FilterPill({
 function ClientsTab({ buildingId, onAddClick }: { buildingId: string; onAddClick: () => void }) {
   const { hasPermission } = usePermissions();
   const { openModal } = useModalContext();
+  const { t } = useI18n();
   const PAGE_SIZE = 50;
   const [clients, setClients] = useState<Client[]>([]);
   const [total, setTotal] = useState(0);
@@ -816,7 +820,7 @@ function ClientsTab({ buildingId, onAddClick }: { buildingId: string; onAddClick
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-zinc-900">Clients ({total})</h2>
+        <h2 className="text-lg font-semibold text-zinc-900">{t("buildings.detail.clients.title", "Clients")} ({total})</h2>
         {hasPermission('clients.create') && (
           <button
             type="button"
@@ -824,20 +828,20 @@ function ClientsTab({ buildingId, onAddClick }: { buildingId: string; onAddClick
             style={{ backgroundColor: BRAND }}
             onClick={onAddClick}
           >
-            + Add Client
+            {t("buildings.detail.clients.addClient", "+ Add Client")}
           </button>
         )}
       </div>
 
       {loading && (
         <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
-          <div className="text-sm text-zinc-600">Loading clients...</div>
+          <div className="text-sm text-zinc-600">{t("buildings.detail.clients.loading", "Loading clients...")}</div>
         </div>
       )}
 
       {!loading && clients.length === 0 ? (
         <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
-          <div className="text-sm text-zinc-600">No clients yet.</div>
+          <div className="text-sm text-zinc-600">{t("buildings.detail.clients.empty", "No clients yet.")}</div>
         </div>
       ) : !loading ? (
         <>
@@ -845,10 +849,10 @@ function ClientsTab({ buildingId, onAddClick }: { buildingId: string; onAddClick
             <table className="w-full border-separate border-spacing-0">
               <thead className="bg-zinc-50">
                 <tr className="text-left text-xs text-zinc-600">
-                  <th className="px-4 py-3 font-medium">Client</th>
-                  <th className="px-4 py-3 font-medium">ID Number</th>
-                  <th className="px-4 py-3 font-medium">Payment ID</th>
-                  <th className="px-4 py-3 font-medium">Primary Phone</th>
+                  <th className="px-4 py-3 font-medium">{t("buildings.detail.clients.columns.client", "Client")}</th>
+                  <th className="px-4 py-3 font-medium">{t("buildings.detail.clients.columns.idNumber", "ID Number")}</th>
+                  <th className="px-4 py-3 font-medium">{t("buildings.detail.clients.columns.paymentId", "Payment ID")}</th>
+                  <th className="px-4 py-3 font-medium">{t("buildings.detail.clients.columns.primaryPhone", "Primary Phone")}</th>
                   <th className="px-4 py-3 font-medium"></th>
                 </tr>
               </thead>
@@ -864,7 +868,7 @@ function ClientsTab({ buildingId, onAddClick }: { buildingId: string; onAddClick
                         <div className="text-sm font-semibold text-zinc-900 group-hover:underline underline-offset-2">
                           {client.firstName} {client.lastName}
                         </div>
-                        <div className="text-xs text-zinc-500">ID: {client.coreId}</div>
+                        <div className="text-xs text-zinc-500">{t("buildings.detail.clients.idLabel", "ID:")} {client.coreId}</div>
                       </td>
                       <td className="px-4 py-3 align-middle text-sm text-zinc-700">{client.idNumber}</td>
                       <td className="px-4 py-3 align-middle text-sm text-zinc-700">{client.paymentId}</td>
@@ -881,7 +885,7 @@ function ClientsTab({ buildingId, onAddClick }: { buildingId: string; onAddClick
           {totalPages > 1 && (
             <div className="flex items-center justify-between">
               <div className="text-sm text-zinc-500">
-                Page {page} of {totalPages} ({total} clients)
+                {t("buildings.detail.clients.page", "Page")} {page} {t("buildings.detail.clients.pageOf", "of")} {totalPages} ({total} {t("buildings.detail.clients.totalClients", "clients")})
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -890,7 +894,7 @@ function ClientsTab({ buildingId, onAddClick }: { buildingId: string; onAddClick
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   className="rounded-xl px-3 py-1.5 text-sm font-medium ring-1 ring-zinc-200 hover:bg-zinc-50 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  ← Previous
+                  {t("buildings.detail.clients.previous", "← Previous")}
                 </button>
                 <button
                   type="button"
@@ -898,7 +902,7 @@ function ClientsTab({ buildingId, onAddClick }: { buildingId: string; onAddClick
                   onClick={() => setPage((p) => p + 1)}
                   className="rounded-xl px-3 py-1.5 text-sm font-medium ring-1 ring-zinc-200 hover:bg-zinc-50 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  Next →
+                  {t("buildings.detail.clients.next", "Next →")}
                 </button>
               </div>
             </div>
@@ -922,6 +926,7 @@ function WorkOrdersTab({
   onUpdate?: () => void;
 }) {
   const { hasPermission } = usePermissions();
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [workOrders, setWorkOrders] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -967,11 +972,11 @@ function WorkOrdersTab({
   if (!hasPermission('work_orders.read')) {
     return (
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-zinc-900">Work Orders</h2>
+        <h2 className="text-lg font-semibold text-zinc-900">{t("buildings.detail.workOrders.title", "Work Orders")}</h2>
         <div className="rounded-2xl bg-rose-50 p-6 ring-1 ring-rose-200 text-center">
-          <div className="text-sm font-semibold text-rose-900">Insufficient Permissions</div>
+          <div className="text-sm font-semibold text-rose-900">{t("buildings.detail.workOrders.insufficientPermissions", "Insufficient Permissions")}</div>
           <div className="mt-1 text-sm text-rose-700">
-            You do not have permission to view work orders.
+            {t("buildings.detail.workOrders.noPermission", "You do not have permission to view work orders.")}
           </div>
         </div>
       </div>
@@ -981,7 +986,7 @@ function WorkOrdersTab({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-zinc-900">Work Orders</h2>
+        <h2 className="text-lg font-semibold text-zinc-900">{t("buildings.detail.workOrders.title", "Work Orders")}</h2>
         {hasPermission('work_orders.create') && (
           <button
             type="button"
@@ -989,14 +994,14 @@ function WorkOrdersTab({
             style={{ backgroundColor: BRAND }}
             onClick={() => setShowCreateModal(true)}
           >
-            + Create Work Order
+            {t("buildings.detail.workOrders.createWorkOrder", "+ Create Work Order")}
           </button>
         )}
       </div>
 
       {loading && (
         <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
-          <div className="text-sm text-zinc-600">Loading work orders...</div>
+          <div className="text-sm text-zinc-600">{t("buildings.detail.workOrders.loading", "Loading work orders...")}</div>
         </div>
       )}
 
@@ -1010,7 +1015,7 @@ function WorkOrdersTab({
         <>
           {workOrders.length === 0 ? (
             <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
-              <div className="text-sm text-zinc-600">No work orders found for this building.</div>
+              <div className="text-sm text-zinc-600">{t("buildings.detail.workOrders.empty", "No work orders found for this building.")}</div>
             </div>
           ) : (
             <div className="space-y-2">
@@ -1076,6 +1081,7 @@ function IncidentsTab({
   buildingId: string;
 }) {
   const { hasPermission } = usePermissions();
+  const { t } = useI18n();
   function getStatusBadge(status: Incident["status"]) {
     const styles = {
       CREATED: "bg-blue-50 text-blue-700 ring-blue-200",
@@ -1088,10 +1094,10 @@ function IncidentsTab({
 
   function getStatusLabel(status: Incident["status"]) {
     const labels = {
-      CREATED: "Created",
-      IN_PROGRESS: "In Progress",
-      COMPLETED: "Completed",
-      WORK_ORDER_INITIATED: "Work Order Created",
+      CREATED: t("buildings.detail.incidents.statuses.CREATED", "Created"),
+      IN_PROGRESS: t("buildings.detail.incidents.statuses.IN_PROGRESS", "In Progress"),
+      COMPLETED: t("buildings.detail.incidents.statuses.COMPLETED", "Completed"),
+      WORK_ORDER_INITIATED: t("buildings.detail.incidents.statuses.WORK_ORDER_INITIATED", "Work Order Created"),
     };
     return labels[status];
   }
@@ -1130,11 +1136,11 @@ function IncidentsTab({
   if (!hasPermission('incidents.menu')) {
     return (
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-zinc-900">Incidents</h2>
+        <h2 className="text-lg font-semibold text-zinc-900">{t("buildings.detail.incidents.title", "Incidents")}</h2>
         <div className="rounded-2xl bg-rose-50 p-6 ring-1 ring-rose-200 text-center">
-          <div className="text-sm font-semibold text-rose-900">Insufficient Permissions</div>
+          <div className="text-sm font-semibold text-rose-900">{t("buildings.detail.incidents.insufficientPermissions", "Insufficient Permissions")}</div>
           <div className="mt-1 text-sm text-rose-700">
-            You do not have permission to view incidents.
+            {t("buildings.detail.incidents.noPermission", "You do not have permission to view incidents.")}
           </div>
         </div>
       </div>
@@ -1144,24 +1150,24 @@ function IncidentsTab({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-zinc-900">Incidents ({incidents.length})</h2>
+        <h2 className="text-lg font-semibold text-zinc-900">{t("buildings.detail.incidents.title", "Incidents")} ({incidents.length})</h2>
         {hasPermission('incidents.create') && (
           <button
             onClick={onAddClick}
             className="rounded-2xl bg-teal-800 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-900 transition"
           >
-            Report Incident
+            {t("buildings.detail.incidents.reportIncident", "Report Incident")}
           </button>
         )}
       </div>
 
       {loading ? (
         <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
-          <div className="text-sm text-zinc-600">Loading incidents...</div>
+          <div className="text-sm text-zinc-600">{t("buildings.detail.incidents.loading", "Loading incidents...")}</div>
         </div>
       ) : incidents.length === 0 ? (
         <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
-          <div className="text-sm text-zinc-600">No incidents reported for this building yet.</div>
+          <div className="text-sm text-zinc-600">{t("buildings.detail.incidents.empty", "No incidents reported for this building yet.")}</div>
         </div>
       ) : (
         <div className="space-y-3">
@@ -1203,7 +1209,7 @@ function IncidentsTab({
                     <div className="mt-1 text-xs text-zinc-600">
                       <span className="font-medium text-zinc-800">{incident.incidentType}</span>
                       <span className="mx-2 text-zinc-300">•</span>
-                      Client:{" "}
+                      {t("buildings.detail.incidents.client", "Client:")}{" "}
                       <Link
                         href={clientUrl}
                         onClick={(e) => e.stopPropagation()}
@@ -1235,13 +1241,13 @@ function IncidentsTab({
                 </div>
 
                 <div className="shrink-0 text-right">
-                  <div className="text-xs text-zinc-500">Created</div>
+                  <div className="text-xs text-zinc-500">{t("buildings.detail.incidents.created", "Created")}</div>
                   <div className="mt-0.5 text-xs font-semibold text-zinc-900 tabular-nums">
                     {formatDate(incident.createdAt)}
                   </div>
-                  <div className="mt-1 text-xs text-zinc-500">by {incident.reportedBy}</div>
+                  <div className="mt-1 text-xs text-zinc-500">{t("buildings.detail.incidents.by", "by")} {incident.reportedBy}</div>
                   <div className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-zinc-900">
-                    View <span className="transition-transform group-hover:translate-x-0.5">→</span>
+                    {t("buildings.detail.incidents.view", "View")} <span className="transition-transform group-hover:translate-x-0.5">→</span>
                     </div>
                   </div>
                 </div>
@@ -1256,6 +1262,7 @@ function IncidentsTab({
 
 /* ========== PRODUCT FLOW TAB ========== */
 function ProductFlowTab({ buildingCoreId }: { buildingCoreId: number }) {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [productUsages, setProductUsages] = useState<Array<{
@@ -1380,15 +1387,15 @@ function ProductFlowTab({ buildingCoreId }: { buildingCoreId: number }) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-zinc-900">Product Flow</h2>
+        <h2 className="text-lg font-semibold text-zinc-900">{t("buildings.detail.productFlow.title", "Product Flow")}</h2>
         <div className="mt-1 text-xs text-zinc-600">
-          Approved product usages from work orders assigned to this building
+          {t("buildings.detail.productFlow.description", "Approved product usages from work orders assigned to this building")}
         </div>
       </div>
 
       {loading && (
         <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
-          <div className="text-sm text-zinc-600">Loading product flow data...</div>
+          <div className="text-sm text-zinc-600">{t("buildings.detail.productFlow.loading", "Loading product flow data...")}</div>
         </div>
       )}
 
@@ -1402,7 +1409,7 @@ function ProductFlowTab({ buildingCoreId }: { buildingCoreId: number }) {
         <>
           {productUsages.length === 0 ? (
             <div className="rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-zinc-200">
-              <div className="text-sm text-zinc-600">No approved product usages found for this building.</div>
+              <div className="text-sm text-zinc-600">{t("buildings.detail.productFlow.empty", "No approved product usages found for this building.")}</div>
             </div>
           ) : (
             <>
@@ -1413,20 +1420,20 @@ function ProductFlowTab({ buildingCoreId }: { buildingCoreId: number }) {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
                   </div>
-                  <h3 className="text-base font-bold text-zinc-900">Summary</h3>
+                  <h3 className="text-base font-bold text-zinc-900">{t("buildings.detail.productFlow.summary", "Summary")}</h3>
                   <span className="ml-auto px-3 py-1 bg-teal-100 text-teal-900 rounded-full text-xs font-bold">
-                    {productUsages.length} transaction(s)
+                    {productUsages.length} {t("buildings.detail.productFlow.transactions", "transaction(s)")}
                   </span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="bg-white/80 rounded-lg border border-teal-100 p-4">
-                    <div className="text-xs font-semibold text-zinc-500 uppercase mb-1">Total Products Used</div>
+                    <div className="text-xs font-semibold text-zinc-500 uppercase mb-1">{t("buildings.detail.productFlow.totalProductsUsed", "Total Products Used")}</div>
                     <div className="text-2xl font-bold text-zinc-900">
                       {productUsages.reduce((sum, u) => sum + u.quantity, 0)}
                     </div>
                   </div>
                   <div className="bg-white/80 rounded-lg border border-teal-100 p-4">
-                    <div className="text-xs font-semibold text-zinc-500 uppercase mb-1">Unique Products</div>
+                    <div className="text-xs font-semibold text-zinc-500 uppercase mb-1">{t("buildings.detail.productFlow.uniqueProducts", "Unique Products")}</div>
                     <div className="text-2xl font-bold text-zinc-900">
                       {new Set(productUsages.map(u => u.productId)).size}
                     </div>
@@ -1439,12 +1446,12 @@ function ProductFlowTab({ buildingCoreId }: { buildingCoreId: number }) {
                   <table className="min-w-[1200px] w-full border-separate border-spacing-0">
                     <thead className="bg-zinc-50 sticky top-0">
                       <tr className="text-left text-xs text-zinc-600">
-                        <th className="px-4 py-3 font-medium">Work Order</th>
-                        <th className="px-4 py-3 font-medium">Device(s)</th>
-                        <th className="px-4 py-3 font-medium">Product</th>
-                        <th className="px-4 py-3 font-medium">Quantity</th>
-                        <th className="px-4 py-3 font-medium">Category</th>
-                        <th className="px-4 py-3 font-medium">Approved At</th>
+                        <th className="px-4 py-3 font-medium">{t("buildings.detail.productFlow.columns.workOrder", "Work Order")}</th>
+                        <th className="px-4 py-3 font-medium">{t("buildings.detail.productFlow.columns.devices", "Device(s)")}</th>
+                        <th className="px-4 py-3 font-medium">{t("buildings.detail.productFlow.columns.product", "Product")}</th>
+                        <th className="px-4 py-3 font-medium">{t("buildings.detail.productFlow.columns.quantity", "Quantity")}</th>
+                        <th className="px-4 py-3 font-medium">{t("buildings.detail.productFlow.columns.category", "Category")}</th>
+                        <th className="px-4 py-3 font-medium">{t("buildings.detail.productFlow.columns.approvedAt", "Approved At")}</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white">
@@ -1476,7 +1483,7 @@ function ProductFlowTab({ buildingCoreId }: { buildingCoreId: number }) {
                             </td>
                             <td className="px-4 py-3 align-middle">
                               <div className="text-sm font-semibold text-zinc-900">{usage.productName}</div>
-                              <div className="mt-0.5 text-xs text-zinc-500">SKU: {usage.productSku}</div>
+                              <div className="mt-0.5 text-xs text-zinc-500">{t("buildings.detail.productFlow.sku", "SKU:")} {usage.productSku}</div>
                             </td>
                             <td className="px-4 py-3 align-middle">
                               <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-sm font-semibold text-blue-700 ring-1 ring-blue-200">
