@@ -37,7 +37,14 @@
   },
   "settings": {
     "title": "Settings",
-    "language": "Language"
+    "language": "Language",
+    "phoneApp": "Phone App",
+    "phoneConnected": "Connected",
+    "sipRegistered": "SIP Registered",
+    "sipOffline": "SIP Offline",
+    "phoneNotLoggedIn": "App running, not logged in",
+    "downloadPhoneApp": "Download Phone App",
+    "downloadPhoneAppDesc": "Windows softphone for calls"
   },
   "sidebar": {
     "dashboard": "Dashboard",

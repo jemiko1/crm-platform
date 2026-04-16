@@ -58,6 +58,19 @@ function getAppIcon(): Electron.NativeImage {
   return nativeImage.createFromPath(iconPath);
 }
 
+function getTrayIcon(): Electron.NativeImage {
+  // .ico resize() can produce blank images on Windows — extract a
+  // specific size from the multi-resolution .ico instead of resizing.
+  const icon = getAppIcon();
+  // Try to pick the 16x16 representation already inside the .ico
+  const sizes = icon.getSize();
+  if (sizes.width === 16 && sizes.height === 16) return icon;
+  // Fallback: convert to PNG buffer first, then resize — avoids the
+  // blank-image bug with direct .ico resize on Windows.
+  const pngBuf = icon.toPNG();
+  return nativeImage.createFromBuffer(pngBuf).resize({ width: 16, height: 16 });
+}
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 380,
@@ -91,7 +104,7 @@ function createWindow(): void {
 }
 
 function createTray(): void {
-  const trayIcon = getAppIcon().resize({ width: 16, height: 16 });
+  const trayIcon = getTrayIcon();
   tray = new Tray(trayIcon);
   tray.setToolTip("CRM28 Phone");
 

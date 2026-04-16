@@ -27,6 +27,11 @@ export function setupAutoUpdater(): void {
     return;
   }
 
+  autoUpdater.setFeedURL({
+    provider: "generic",
+    url: "https://crm28.asg.ge/downloads/phone",
+  });
+
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
   autoUpdater.allowDowngrade = false;

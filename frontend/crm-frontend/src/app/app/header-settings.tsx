@@ -193,7 +193,7 @@ export default function HeaderSettings() {
                     </svg>
                     <div>
                       <div className="font-medium">{t("settings.downloadPhoneApp", "Download Phone App")}</div>
-                      <div className="text-xs text-zinc-400">{t("settings.downloadPhoneAppDesc", "Windows softphone for calls")}</div>
+                      <div className="text-xs text-zinc-400">{t("settings.downloadPhoneAppDesc", "Windows softphone for calls")} (v1.7.1)</div>
                     </div>
                   </a>
                 )}

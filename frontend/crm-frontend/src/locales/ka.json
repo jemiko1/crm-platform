@@ -37,7 +37,14 @@
   },
   "settings": {
     "title": "პარამეტრები",
-    "language": "ენა"
+    "language": "ენა",
+    "phoneApp": "ტელეფონის აპი",
+    "phoneConnected": "დაკავშირებულია",
+    "sipRegistered": "SIP რეგისტრირებული",
+    "sipOffline": "SIP ოფლაინ",
+    "phoneNotLoggedIn": "აპი გაშვებულია, არ არის ავტორიზებული",
+    "downloadPhoneApp": "ტელეფონის აპის ჩამოტვირთვა",
+    "downloadPhoneAppDesc": "Windows სოფტფონი ზარებისთვის"
   },
   "sidebar": {
     "dashboard": "მთავარი",
