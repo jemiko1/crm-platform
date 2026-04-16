@@ -149,7 +149,7 @@ export function CallReportModal({ open, onClose, onSuccess, trigger, editReport 
       onSuccess?.();
       onClose();
     } catch (err: any) {
-      setError(err.message || "Failed to save");
+      setError(err.message || t("common.failedToSave"));
     } finally {
       setSaving(false);
     }

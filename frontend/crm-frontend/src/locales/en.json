@@ -33,7 +33,10 @@
     "total": "total",
     "showing": "Showing",
     "viewDetails": "View Details",
-    "export": "Export"
+    "export": "Export",
+    "clear": "Clear",
+    "results": "results",
+    "failedToSave": "Failed to save"
   },
   "settings": {
     "title": "Settings",
