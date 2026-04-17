@@ -134,7 +134,7 @@ export default function CallLogsPage() {
       {/* Table */}
       <div className="rounded-3xl bg-white shadow-sm ring-1 ring-zinc-200 overflow-clip">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1100px] border-separate border-spacing-0">
+          <table className="w-full min-w-[1300px] border-separate border-spacing-0">
             <thead className="bg-zinc-50">
               <tr className="text-left text-xs text-zinc-600">
                 <th className="px-4 py-3 font-medium">{t("callCenter.logs.col.time", "Time")}</th>

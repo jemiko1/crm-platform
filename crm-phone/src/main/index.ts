@@ -320,12 +320,22 @@ app.whenReady().then(async () => {
     onDial: (number) => {
       if (!mainWindow) return false;
       mainWindow.webContents.send(IPC.PHONE_DIAL, number);
-      // Bring window to front so user sees the call
+      // Bring window to front reliably on Windows. Windows normally blocks
+      // focus-stealing from background apps (only flashes the taskbar).
+      // The trick: briefly toggle alwaysOnTop to force the window up, then
+      // clear it so it behaves normally again.
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.show();
+      mainWindow.setAlwaysOnTop(true);
       mainWindow.focus();
+      // Clear the "always on top" flag after a short delay so the window
+      // doesn't stay pinned above other apps.
+      setTimeout(() => {
+        mainWindow?.setAlwaysOnTop(false);
+      }, 500);
       return true;
     },
+    getSipRegistered: () => sipRegistered,
   });
 
   await restoreSession();
