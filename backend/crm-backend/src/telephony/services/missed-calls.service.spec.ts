@@ -22,6 +22,9 @@ describe('MissedCallsService', () => {
         update: jest.fn().mockResolvedValue({}),
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
+      callSession: {
+        findUnique: jest.fn(),
+      },
       client: {
         findMany: jest.fn().mockResolvedValue([]),
       },
@@ -112,30 +115,170 @@ describe('MissedCallsService', () => {
     });
   });
 
-  describe('recordAttempt', () => {
-    it('should increment attempt count', async () => {
+  describe('markAttempting', () => {
+    it('should claim + transition status without incrementing counter', async () => {
       prisma.missedCall.findUnique.mockResolvedValue({
         id: 'mc-1',
         notes: null,
+        claimedByUserId: null,
         callbackRequest: { attemptsCount: 0 },
       });
 
-      const result = await service.recordAttempt('mc-1', 'user-1', 'No answer');
-      expect(result.status).toBe('ATTEMPTED');
-      expect(result.attempts).toBe(1);
-      expect(prisma.callbackRequest.upsert).toHaveBeenCalled();
+      const result = await service.markAttempting('mc-1', 'user-1', 'Started call');
+      expect(result.status).toBe('ATTEMPTING');
+      expect(result.attempts).toBe(0);
+      // Upsert creates with attemptsCount=0, never increments
+      expect(prisma.callbackRequest.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({ attemptsCount: 0 }),
+          update: expect.not.objectContaining({ attemptsCount: expect.anything() }),
+        }),
+      );
     });
 
-    it('should mark as MAX_ATTEMPTS_REACHED after 3 attempts', async () => {
+    it('should respect existing claim from another user', async () => {
       prisma.missedCall.findUnique.mockResolvedValue({
         id: 'mc-1',
         notes: null,
+        claimedByUserId: 'other-user',
+        callbackRequest: { attemptsCount: 1 },
+      });
+
+      await service.markAttempting('mc-1', 'user-1');
+      // Should NOT set claimedByUserId when someone else has the claim
+      const updateCalls = prisma.missedCall.update.mock.calls.map(
+        (c: any) => c[0].data,
+      );
+      expect(
+        updateCalls.some(
+          (d: any) => d.claimedByUserId !== undefined,
+        ),
+      ).toBe(false);
+    });
+
+    it('should preserve existing attempt count', async () => {
+      prisma.missedCall.findUnique.mockResolvedValue({
+        id: 'mc-1',
+        notes: null,
+        claimedByUserId: null,
         callbackRequest: { attemptsCount: 2 },
       });
 
-      const result = await service.recordAttempt('mc-1', 'user-1');
-      expect(result.status).toBe('MAX_ATTEMPTS_REACHED');
-      expect(result.attempts).toBe(3);
+      const result = await service.markAttempting('mc-1', 'user-1');
+      expect(result.attempts).toBe(2);
+    });
+  });
+
+  describe('recordOutboundAttempt', () => {
+    function makeSession(overrides: Partial<any> = {}) {
+      return {
+        id: 'sess-1',
+        direction: 'OUT',
+        calleeNumber: '555-1234',
+        disposition: 'NOANSWER',
+        assignedUserId: 'operator-1',
+        endAt: new Date('2026-01-01T10:00:00Z'),
+        callMetrics: { ringSeconds: 15 },
+        ...overrides,
+      };
+    }
+
+    beforeEach(() => {
+      prisma.callSession.findUnique = jest.fn();
+      prisma.missedCall.findMany = jest.fn().mockResolvedValue([]);
+    });
+
+    it('skips inbound calls', async () => {
+      prisma.callSession.findUnique.mockResolvedValue(
+        makeSession({ direction: 'IN' }),
+      );
+      await service.recordOutboundAttempt('sess-1');
+      expect(prisma.missedCall.findMany).not.toHaveBeenCalled();
+    });
+
+    it('skips when ring time is below threshold', async () => {
+      prisma.callSession.findUnique.mockResolvedValue(
+        makeSession({ callMetrics: { ringSeconds: 3 } }),
+      );
+      await service.recordOutboundAttempt('sess-1');
+      expect(prisma.missedCall.findMany).not.toHaveBeenCalled();
+    });
+
+    it('skips ANSWERED outbound (handled by autoResolveByPhone)', async () => {
+      prisma.callSession.findUnique.mockResolvedValue(
+        makeSession({ disposition: 'ANSWERED' }),
+      );
+      await service.recordOutboundAttempt('sess-1');
+      expect(prisma.missedCall.findMany).not.toHaveBeenCalled();
+    });
+
+    it('skips FAILED outbound (network/congestion, not operator action)', async () => {
+      prisma.callSession.findUnique.mockResolvedValue(
+        makeSession({ disposition: 'FAILED' }),
+      );
+      await service.recordOutboundAttempt('sess-1');
+      expect(prisma.missedCall.findMany).not.toHaveBeenCalled();
+    });
+
+    it('increments attemptsCount on matching MissedCall when ring ≥ threshold', async () => {
+      prisma.callSession.findUnique.mockResolvedValue(makeSession());
+      prisma.missedCall.findMany.mockResolvedValue([
+        {
+          id: 'mc-1',
+          callerNumber: '555-1234',
+          claimedByUserId: null,
+          callbackRequest: { attemptsCount: 0 },
+        },
+      ]);
+
+      await service.recordOutboundAttempt('sess-1');
+
+      expect(prisma.callbackRequest.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { missedCallId: 'mc-1' },
+          update: expect.objectContaining({
+            attemptsCount: { increment: 1 },
+          }),
+        }),
+      );
+    });
+
+    it('flips CallbackRequest to FAILED after MAX_ATTEMPTS', async () => {
+      prisma.callSession.findUnique.mockResolvedValue(makeSession());
+      prisma.missedCall.findMany.mockResolvedValue([
+        {
+          id: 'mc-1',
+          callerNumber: '555-1234',
+          claimedByUserId: 'operator-1',
+          callbackRequest: { attemptsCount: 2 }, // this will be the 3rd
+        },
+      ]);
+
+      await service.recordOutboundAttempt('sess-1');
+
+      const upsertCall = prisma.callbackRequest.upsert.mock.calls[0][0];
+      expect(upsertCall.update.status).toBe('FAILED');
+    });
+
+    it('auto-claims for the operator when missed call is unclaimed', async () => {
+      prisma.callSession.findUnique.mockResolvedValue(makeSession());
+      prisma.missedCall.findMany.mockResolvedValue([
+        {
+          id: 'mc-1',
+          callerNumber: '555-1234',
+          claimedByUserId: null,
+          callbackRequest: { attemptsCount: 0 },
+        },
+      ]);
+
+      await service.recordOutboundAttempt('sess-1');
+
+      const updateCalls = prisma.missedCall.update.mock.calls.map(
+        (c: any) => c[0].data,
+      );
+      expect(
+        updateCalls.some((d: any) => d.claimedByUserId === 'operator-1'),
+      ).toBe(true);
     });
   });
 

@@ -16,6 +16,18 @@ contextBridge.exposeInMainWorld("crmPhone", {
     reportStatus: (registered: boolean) =>
       ipcRenderer.send(IPC.SIP_STATUS_REPORT, registered),
   },
+  phone: {
+    /**
+     * Subscribe to external dial requests (from the CRM web UI via the local
+     * HTTP bridge). Fires with the phone number to dial. Returns an unsubscribe
+     * function.
+     */
+    onDialRequest: (cb: (number: string) => void) => {
+      const handler = (_e: unknown, number: string) => cb(number);
+      ipcRenderer.on(IPC.PHONE_DIAL, handler);
+      return () => ipcRenderer.removeListener(IPC.PHONE_DIAL, handler);
+    },
+  },
   log: (level: string, ...args: any[]) =>
     ipcRenderer.send(IPC.RENDERER_LOG, level, ...args),
   settings: {

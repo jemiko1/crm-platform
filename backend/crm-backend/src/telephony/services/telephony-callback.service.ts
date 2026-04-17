@@ -14,9 +14,15 @@ export class TelephonyCallbackService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Called when a call ends with a non-ANSWERED disposition.
+   * Called when an INBOUND call ends with a non-ANSWERED disposition.
    * Classifies the reason using the queue's isAfterHoursQueue flag
    * (Asterisk routes out-of-hours calls to a dedicated "nowork" queue).
+   *
+   * Outbound calls that fail must NOT flow through here — they'd create
+   * spurious MissedCall rows polluting the worklist. The caller in
+   * telephony-ingestion.service.ts routes OUT calls to
+   * MissedCallsService.recordOutboundAttempt instead. We also guard here
+   * as defense in depth.
    */
   async handleNonAnsweredCall(sessionId: string): Promise<void> {
     const session = await this.prisma.callSession.findUnique({
@@ -24,6 +30,8 @@ export class TelephonyCallbackService {
       include: { queue: { select: { id: true, isAfterHoursQueue: true } } },
     });
     if (!session || session.disposition === CallDisposition.ANSWERED) return;
+    // Defense in depth — do not create MissedCall rows for outbound calls.
+    if (session.direction !== 'IN') return;
 
     const reason = this.classifyMissedReason(session);
 

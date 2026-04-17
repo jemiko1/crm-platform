@@ -62,8 +62,8 @@ export class MissedCallsController {
   @UseGuards(PositionPermissionGuard)
   @RequirePermission('missed_calls.manage')
   @Doc({
-    summary: 'Record a callback attempt',
-    ok: 'Attempt recorded',
+    summary: 'Mark a missed call as being attempted (claim + ATTEMPTING state)',
+    ok: 'Claim recorded (attempt counter is incremented later by ingestion when the real outbound call ends)',
     permission: true,
   })
   async recordAttempt(
@@ -71,7 +71,7 @@ export class MissedCallsController {
     @Req() req: any,
     @Body('note') note?: string,
   ) {
-    return this.missedCallsService.recordAttempt(id, req.user.sub, note);
+    return this.missedCallsService.markAttempting(id, req.user.sub, note);
   }
 
   @Patch(':id/resolve')

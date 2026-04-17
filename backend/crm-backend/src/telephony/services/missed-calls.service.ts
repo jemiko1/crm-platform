@@ -1,10 +1,27 @@
 import { Injectable, Logger, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Cron } from '@nestjs/schedule';
-import { MissedCallStatus, Prisma } from '@prisma/client';
+import {
+  CallbackRequestStatus,
+  CallDirection,
+  CallDisposition,
+  MissedCallStatus,
+  Prisma,
+} from '@prisma/client';
 
 const MAX_ATTEMPTS = 3;
 const EXPIRY_HOURS = 48;
+/**
+ * Minimum seconds an outbound call must ring before it counts as a real attempt.
+ * Prevents button-click-cancel, immediate-hangup, and congestion errors from
+ * inflating the attempt counter.
+ */
+const MIN_ATTEMPT_RING_SECONDS = 10;
+/**
+ * How far back to look for pending missed calls when matching outbound attempts.
+ * Keeps the scan bounded; missed calls older than this will have expired anyway.
+ */
+const ATTEMPT_MATCH_WINDOW_HOURS = 48;
 
 @Injectable()
 export class MissedCallsService {
@@ -207,74 +224,174 @@ export class MissedCallsService {
   }
 
   /**
-   * Record a callback attempt
+   * Mark a missed call as "being attempted" by an operator. Called from the
+   * frontend when the operator clicks the Call button — BEFORE any actual
+   * phone call has been placed. This claims the row so other operators don't
+   * also try to call the same customer, and puts the CallbackRequest into
+   * ATTEMPTING state. It does NOT increment the attempt counter — that
+   * happens later via recordOutboundAttempt() when a real outbound
+   * CallSession for this phone number ends.
    */
-  async recordAttempt(missedCallId: string, userId: string, note?: string) {
+  async markAttempting(missedCallId: string, userId: string, note?: string) {
     const mc = await this.prisma.missedCall.findUnique({
       where: { id: missedCallId },
       include: { callbackRequest: true },
     });
     if (!mc) throw new NotFoundException('Missed call not found');
 
-    const newAttempts = (mc.callbackRequest?.attemptsCount ?? 0) + 1;
-    const now = new Date();
-
-    // Update or create callback request to track attempts
+    // Upsert CallbackRequest into ATTEMPTING state — NO counter bump here
     await this.prisma.callbackRequest.upsert({
       where: { missedCallId },
       create: {
         missedCallId,
-        status: 'ATTEMPTING',
-        attemptsCount: 1,
-        lastAttemptAt: now,
+        status: CallbackRequestStatus.ATTEMPTING,
+        attemptsCount: 0,
         outcome: note ?? null,
       },
       update: {
-        attemptsCount: { increment: 1 },
-        lastAttemptAt: now,
-        status: 'ATTEMPTING',
-        outcome: note ?? null,
+        status: CallbackRequestStatus.ATTEMPTING,
+        outcome: note ?? mc.callbackRequest?.outcome ?? null,
       },
     });
 
-    // Auto-claim for the user who is attempting (tracks "Last Attempted By")
-    // Only auto-claim if unclaimed or already claimed by the same user — respects existing claims
+    // Claim the missed call for this user if unclaimed or already theirs
     if (!mc.claimedByUserId || mc.claimedByUserId === userId) {
       await this.prisma.missedCall.update({
         where: { id: missedCallId },
         data: {
           claimedByUserId: userId,
           claimedAt: new Date(),
+          status: MissedCallStatus.ATTEMPTED,
+          notes: note
+            ? `${mc.notes ? mc.notes + '\n' : ''}${note}`
+            : mc.notes,
+        },
+      });
+    } else {
+      // Someone else has claimed it — just update status + notes, preserve claim
+      await this.prisma.missedCall.update({
+        where: { id: missedCallId },
+        data: {
+          status: MissedCallStatus.ATTEMPTED,
+          notes: note
+            ? `${mc.notes ? mc.notes + '\n' : ''}${note}`
+            : mc.notes,
         },
       });
     }
 
-    // Keep status as ATTEMPTED regardless of attempt count.
-    // HANDLED is reserved for calls that were actually answered (via autoResolveByPhone)
-    // or manually resolved. Reaching MAX_ATTEMPTS no longer auto-resolves — the 48h
-    // expiry cron will move unresolved rows to EXPIRED.
-    await this.prisma.missedCall.update({
-      where: { id: missedCallId },
-      data: {
-        status: MissedCallStatus.ATTEMPTED,
-        notes: note
-          ? `${mc.notes ? mc.notes + '\n' : ''}${note}`
-          : mc.notes,
-      },
-    });
+    return {
+      status: 'ATTEMPTING',
+      attempts: mc.callbackRequest?.attemptsCount ?? 0,
+    };
+  }
 
-    // If max attempts reached, mark the callback as FAILED but keep the missed call
-    // visible in the worklist. Operators can still resolve it manually if they reach
-    // the customer, or it will expire after 48h.
-    if (newAttempts >= MAX_ATTEMPTS) {
-      await this.prisma.callbackRequest.update({
-        where: { missedCallId },
-        data: { status: 'FAILED' },
-      });
-      return { status: 'MAX_ATTEMPTS_REACHED', attempts: newAttempts };
+  /**
+   * Record a REAL outbound-call attempt, driven by the ingestion pipeline
+   * when an outbound CallSession ends. Only counts the attempt if:
+   *   - The call's direction is OUT
+   *   - It rang for at least MIN_ATTEMPT_RING_SECONDS (so button-click-cancel
+   *     and immediate hangups don't inflate the counter)
+   *   - It was not ANSWERED (answered calls auto-resolve via autoResolveByPhone)
+   *   - It was not FAILED (network/congestion error, not operator action)
+   *
+   * Matches the callee number against pending MissedCalls from the last
+   * ATTEMPT_MATCH_WINDOW_HOURS hours and increments attemptsCount for each
+   * match. After MAX_ATTEMPTS real attempts, flips the CallbackRequest to
+   * FAILED but keeps the MissedCall visible in the worklist.
+   *
+   * Idempotency: ingestion pipeline prevents double-firing by only calling
+   * this on the first call_end event per session (guarded via endAt check
+   * in TelephonyIngestionService.handleCallEnd).
+   */
+  async recordOutboundAttempt(sessionId: string): Promise<void> {
+    const session = await this.prisma.callSession.findUnique({
+      where: { id: sessionId },
+      include: { callMetrics: true },
+    });
+    if (!session) return;
+    if (session.direction !== CallDirection.OUT) return;
+    if (!session.calleeNumber) return;
+    // ANSWERED is handled by autoResolveByPhone — not an attempt
+    if (session.disposition === CallDisposition.ANSWERED) return;
+    // FAILED = network/congestion, not a real operator attempt
+    if (session.disposition === CallDisposition.FAILED) return;
+
+    const ringSeconds = session.callMetrics?.ringSeconds ?? 0;
+    if (ringSeconds < MIN_ATTEMPT_RING_SECONDS) {
+      this.logger.debug(
+        `Skipping attempt count for session ${sessionId}: ring=${ringSeconds}s < ${MIN_ATTEMPT_RING_SECONDS}s threshold`,
+      );
+      return;
     }
 
-    return { status: 'ATTEMPTED', attempts: newAttempts };
+    const windowStart = new Date(
+      Date.now() - ATTEMPT_MATCH_WINDOW_HOURS * 3600 * 1000,
+    );
+
+    const missedCalls = await this.prisma.missedCall.findMany({
+      where: {
+        callerNumber: session.calleeNumber,
+        status: { in: [MissedCallStatus.NEW, MissedCallStatus.CLAIMED, MissedCallStatus.ATTEMPTED] },
+        callSession: { direction: CallDirection.IN },
+        detectedAt: { gte: windowStart },
+      },
+      include: { callbackRequest: true },
+    });
+
+    if (missedCalls.length === 0) {
+      this.logger.debug(
+        `No pending missed calls match outbound ${session.calleeNumber} for session ${sessionId}`,
+      );
+      return;
+    }
+
+    const lastAttemptAt = session.endAt ?? new Date();
+    const attempter = session.assignedUserId;
+
+    for (const mc of missedCalls) {
+      const currentAttempts = mc.callbackRequest?.attemptsCount ?? 0;
+      const newAttempts = currentAttempts + 1;
+
+      await this.prisma.callbackRequest.upsert({
+        where: { missedCallId: mc.id },
+        create: {
+          missedCallId: mc.id,
+          status:
+            newAttempts >= MAX_ATTEMPTS
+              ? CallbackRequestStatus.FAILED
+              : CallbackRequestStatus.ATTEMPTING,
+          attemptsCount: 1,
+          lastAttemptAt,
+          outcome: `Ring ${Math.round(ringSeconds)}s, disposition ${session.disposition ?? 'unknown'}`,
+        },
+        update: {
+          attemptsCount: { increment: 1 },
+          lastAttemptAt,
+          status:
+            newAttempts >= MAX_ATTEMPTS
+              ? CallbackRequestStatus.FAILED
+              : CallbackRequestStatus.ATTEMPTING,
+          outcome: `Ring ${Math.round(ringSeconds)}s, disposition ${session.disposition ?? 'unknown'}`,
+        },
+      });
+
+      // Update MissedCall: status ATTEMPTED, claim by operator if unclaimed
+      const shouldClaim = !mc.claimedByUserId && attempter;
+      await this.prisma.missedCall.update({
+        where: { id: mc.id },
+        data: {
+          status: MissedCallStatus.ATTEMPTED,
+          ...(shouldClaim
+            ? { claimedByUserId: attempter, claimedAt: new Date() }
+            : {}),
+        },
+      });
+
+      this.logger.log(
+        `Counted outbound attempt for missed call ${mc.id}: ${newAttempts}/${MAX_ATTEMPTS} (session ${sessionId}, ring ${ringSeconds}s)`,
+      );
+    }
   }
 
   /**
