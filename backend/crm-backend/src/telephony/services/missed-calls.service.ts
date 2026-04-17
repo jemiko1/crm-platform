@@ -249,27 +249,10 @@ export class MissedCallsService {
       });
     }
 
-    // If max attempts reached, mark as FAILED
-    if (newAttempts >= MAX_ATTEMPTS) {
-      await this.prisma.missedCall.update({
-        where: { id: missedCallId },
-        data: {
-          status: MissedCallStatus.HANDLED,
-          notes: note
-            ? `${mc.notes ? mc.notes + '\n' : ''}${note}`
-            : mc.notes,
-        },
-      });
-
-      await this.prisma.callbackRequest.update({
-        where: { missedCallId },
-        data: { status: 'FAILED' },
-      });
-
-      return { status: 'MAX_ATTEMPTS_REACHED', attempts: newAttempts };
-    }
-
-    // Mark as ATTEMPTED
+    // Keep status as ATTEMPTED regardless of attempt count.
+    // HANDLED is reserved for calls that were actually answered (via autoResolveByPhone)
+    // or manually resolved. Reaching MAX_ATTEMPTS no longer auto-resolves — the 48h
+    // expiry cron will move unresolved rows to EXPIRED.
     await this.prisma.missedCall.update({
       where: { id: missedCallId },
       data: {
@@ -279,6 +262,17 @@ export class MissedCallsService {
           : mc.notes,
       },
     });
+
+    // If max attempts reached, mark the callback as FAILED but keep the missed call
+    // visible in the worklist. Operators can still resolve it manually if they reach
+    // the customer, or it will expire after 48h.
+    if (newAttempts >= MAX_ATTEMPTS) {
+      await this.prisma.callbackRequest.update({
+        where: { missedCallId },
+        data: { status: 'FAILED' },
+      });
+      return { status: 'MAX_ATTEMPTS_REACHED', attempts: newAttempts };
+    }
 
     return { status: 'ATTEMPTED', attempts: newAttempts };
   }

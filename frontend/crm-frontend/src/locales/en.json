@@ -723,6 +723,12 @@
       "statistics": "Statistics"
     }
   },
+  "missedCalls": {
+    "phoneNotRunning": "CRM28 Softphone is not running. Open the softphone and log in to place calls.",
+    "phoneNotRegistered": "Softphone is running but not registered with the phone server. Try logging out and back in on the softphone.",
+    "dialFailed": "Could not reach the softphone. No attempt recorded.",
+    "callError": "Something went wrong while placing the call."
+  },
   "callReports": {
     "title": "Call Reports",
     "description": "View and manage operator call reports",

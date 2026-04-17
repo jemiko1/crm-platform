@@ -723,6 +723,12 @@
       "statistics": "სტატისტიკა"
     }
   },
+  "missedCalls": {
+    "phoneNotRunning": "CRM28 softphone არ მუშაობს. ზარის დასაწყებად გახსენით softphone და შედით სისტემაში.",
+    "phoneNotRegistered": "Softphone მუშაობს, მაგრამ ტელეფონის სერვერთან არ არის რეგისტრირებული. სცადეთ softphone-დან გამოსვლა და შესვლა.",
+    "dialFailed": "softphone-თან დაკავშირება ვერ მოხერხდა. ცდა არ ჩაწერილა.",
+    "callError": "ზარის დროს დაფიქსირდა შეცდომა."
+  },
   "callReports": {
     "title": "ზარის ანგარიშები",
     "description": "ოპერატორის ზარის ანგარიშების ნახვა და მართვა",
