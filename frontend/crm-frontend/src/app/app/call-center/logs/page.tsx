@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useI18n } from "@/hooks/useI18n";
 import { ClickToCall } from "@/components/click-to-call";
 import { fetchCalls } from "../api";
+import { InlineAudioPlayer } from "../audio-player";
 import type { CallSession, CallsPaginated } from "../types";
 
 const BRAND = "rgb(8,117,56)";
@@ -146,18 +147,19 @@ export default function CallLogsPage() {
                 <th className="px-4 py-3 font-medium text-right">{t("callCenter.logs.col.wait", "Wait")}</th>
                 <th className="px-4 py-3 font-medium text-right">{t("callCenter.logs.col.talk", "Talk")}</th>
                 <th className="px-4 py-3 font-medium text-right">{t("callCenter.logs.col.total", "Total")}</th>
+                <th className="px-4 py-3 font-medium">{t("callCenter.logs.col.recording", "Recording")}</th>
               </tr>
             </thead>
             <tbody className="bg-white">
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-16 text-center">
+                  <td colSpan={11} className="px-4 py-16 text-center">
                     <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-zinc-200 border-t-emerald-600" />
                   </td>
                 </tr>
               ) : calls.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-16 text-center text-sm text-zinc-400">
+                  <td colSpan={11} className="px-4 py-16 text-center text-sm text-zinc-400">
                     {t("callCenter.logs.empty", "No calls found for the selected period.")}
                   </td>
                 </tr>
@@ -199,6 +201,13 @@ export default function CallLogsPage() {
                     <td className="px-4 py-3 text-sm text-zinc-500 text-right tabular-nums">{fmtDuration(c.waitTimeSec)}</td>
                     <td className="px-4 py-3 text-sm text-zinc-700 text-right tabular-nums">{fmtDuration(c.talkTimeSec)}</td>
                     <td className="px-4 py-3 text-sm font-medium text-zinc-900 text-right tabular-nums">{fmtDuration(c.durationSec)}</td>
+                    <td className="px-4 py-3">
+                      {c.recordingId ? (
+                        <InlineAudioPlayer recordingId={c.recordingId} compact />
+                      ) : (
+                        <span className="text-xs text-zinc-400">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))
               )}

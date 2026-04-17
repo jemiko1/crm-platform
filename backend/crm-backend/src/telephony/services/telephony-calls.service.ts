@@ -154,7 +154,7 @@ export class TelephonyCallsService {
         agentExtension: s.assignedExtension ?? null,
         agentName,
         clientName: clientNameMap.get(s.callerNumber) ?? null,
-        recordingUrl: s.recordings.length > 0 ? `/v1/telephony/recordings/${s.recordings[0].id}/stream` : null,
+        recordingUrl: s.recordings.length > 0 ? `/v1/telephony/recordings/${s.recordings[0].id}/audio` : null,
         recordingId: s.recordings[0]?.id ?? null,
         qualityScore: s.qualityReview?.score ?? null,
       };

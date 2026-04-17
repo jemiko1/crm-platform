@@ -301,7 +301,37 @@ TELEPHONY_INGEST_SECRET=<shared-secret>
 QUALITY_AI_ENABLED=true
 OPENAI_API_KEY=sk-...
 RECORDING_BASE_PATH=/var/spool/asterisk/monitor
+# On Windows VM production: RECORDING_BASE_PATH=C:\recordings
 ```
+
+#### Recording File Sync — Required Infrastructure
+
+Asterisk writes call recordings to `/var/spool/asterisk/monitor/YYYY/MM/DD/*.wav`
+on the Asterisk host (5.10.34.153). The CRM backend stores only the file path
+in `Recording.filePath` via AMI/CDR ingestion — **it does NOT transfer the
+audio files over the network.**
+
+For recording playback to work, WAV files must be copied from Asterisk to the
+CRM VM. The backend's `resolveFilePath()` strips the `/var/spool/asterisk/monitor`
+prefix and reads files from `RECORDING_BASE_PATH`.
+
+**Production setup (Windows VM 192.168.65.110):**
+
+1. Set `RECORDING_BASE_PATH=C:\recordings` in the VM backend `.env`
+2. Set up a sync mechanism from Asterisk `/var/spool/asterisk/monitor/` to
+   VM `C:\recordings\` preserving the `YYYY/MM/DD/` subdirectory structure.
+   Options (easiest first):
+   - **SMB share on VM** — VM exposes `C:\recordings` as `\\crm28\recordings`;
+     Asterisk mounts it via CIFS and writes there directly (edit `monitor`
+     path in `manager.conf`).
+   - **Scheduled rsync over SSH** — Asterisk pushes new recordings via
+     `rsync -avz /var/spool/asterisk/monitor/ administrator@192.168.65.110:/c/recordings/`
+     on a cron every minute.
+   - **Replace storage with S3** — write recordings to S3, set
+     `Recording.url` to the signed URL, backend 302-redirects the player.
+
+Until one of these is configured, the `<InlineAudioPlayer>` in the Call Logs
+tab will render a broken player (file-not-found 404 from the backend).
 
 ---
 
