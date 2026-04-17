@@ -1,6 +1,7 @@
 import { UserAgent, Registerer, Invitation, Inviter, SessionState } from "sip.js";
 import type { Session } from "sip.js";
 import type { ActiveCall, CallState, TelephonyExtensionInfo } from "../shared/types";
+import { startRingback, stopRingback } from "./ringback";
 
 type SipEventCallback = (data: any) => void;
 
@@ -111,6 +112,7 @@ class SipService {
 
   async unregister(): Promise<void> {
     this.cleanupRemoteAudio();
+    stopRingback();
     this._callState = "idle";
     this._activeCall = null;
     this._muted = false;
@@ -126,16 +128,59 @@ class SipService {
       this.currentSession = null;
     }
 
+    // Wait for the Registerer to actually transition to "Unregistered" before
+    // returning. SIP.js's registerer.unregister() resolves as soon as the
+    // REGISTER-with-Expires-0 request is *sent*, not when Asterisk ACKs it.
+    // On user switch, if we don't wait, the new UserAgent registers before
+    // Asterisk has cleaned up the old AOR contact — and inbound calls route
+    // to the stale contact, silently failing. Capped at 3s to avoid hanging.
     if (this.registerer) {
-      try { await this.registerer.unregister(); } catch { /* ignore */ }
+      const reg = this.registerer;
       this.registerer = null;
+      await new Promise<void>((resolve) => {
+        let done = false;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          resolve();
+        };
+        const timeout = setTimeout(() => {
+          rlog("[SIP-R] unregister() wait timed out after 3s");
+          finish();
+        }, 3000);
+        try {
+          reg.stateChange.addListener((state) => {
+            if (state === "Unregistered" || state === "Terminated") {
+              clearTimeout(timeout);
+              finish();
+            }
+          });
+          reg.unregister().catch((err) => {
+            rlog("[SIP-R] unregister() rejected:", err?.message ?? err);
+            clearTimeout(timeout);
+            finish();
+          });
+        } catch (err: any) {
+          rlog("[SIP-R] unregister() threw:", err?.message);
+          clearTimeout(timeout);
+          finish();
+        }
+      });
     }
 
     this._registered = false;
 
     if (this.ua) {
-      try { await this.ua.stop(); } catch { /* ignore */ }
+      const ua = this.ua;
       this.ua = null;
+      try {
+        await ua.stop();
+      } catch { /* ignore */ }
+      // Give the WebSocket transport a moment to actually close. Without this,
+      // a new UserAgent can open its WSS connection while the old transport
+      // is still in the process of closing, leaving Asterisk's PJSIP contact
+      // record pointing at a dead socket.
+      await new Promise((r) => setTimeout(r, 500));
     }
 
     this.emit("registration-state", false);
@@ -352,8 +397,15 @@ class SipService {
       switch (state) {
         case SessionState.Establishing:
           this._callState = direction === "outbound" ? "dialing" : "ringing";
+          // Play a local ringback tone while the remote side rings.
+          // Without this, operators hear nothing and don't know if the
+          // call is progressing. Stopped on Established or Terminated.
+          if (direction === "outbound") {
+            startRingback();
+          }
           break;
         case SessionState.Established:
+          stopRingback();
           this._callState = "connected";
           if (this._activeCall) {
             this._activeCall.state = "connected";
@@ -362,6 +414,7 @@ class SipService {
           this.attachRemoteAudio(session);
           break;
         case SessionState.Terminated:
+          stopRingback();
           this.cleanupRemoteAudio();
           this.currentSession = null;
           this._callState = "idle";

@@ -5,8 +5,8 @@ import {
   StreamableFile,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { createReadStream, existsSync } from 'fs';
-import { basename, isAbsolute, join, normalize, resolve } from 'path';
+import { createReadStream, existsSync, statSync } from 'fs';
+import { basename, isAbsolute, normalize, resolve } from 'path';
 
 /**
  * Asterisk's default recording directory — absolute paths from AMI/CDR ingestion
@@ -48,8 +48,18 @@ export class RecordingAccessService {
     return recording;
   }
 
-  async streamRecording(recordingId: string): Promise<{
-    stream: StreamableFile;
+  /**
+   * Resolves a recording to its on-disk metadata (path, size, content type).
+   * Throws NotFoundException if the recording row is missing, URL-based, or
+   * the file is not on disk.
+   *
+   * The controller uses this to set Content-Length, Accept-Ranges, and
+   * optionally respond to HTTP Range requests — required for HTML <audio>
+   * to show duration and support seeking.
+   */
+  async getRecordingFileInfo(recordingId: string): Promise<{
+    filePath: string;
+    fileSize: number;
     filename: string;
     contentType: string;
   }> {
@@ -66,13 +76,28 @@ export class RecordingAccessService {
       throw new NotFoundException('Recording file not found on disk');
     }
 
+    const stat = statSync(filePath);
     const ext = filePath.split('.').pop()?.toLowerCase() ?? 'wav';
     const contentType =
       ext === 'mp3' ? 'audio/mpeg' : ext === 'ogg' ? 'audio/ogg' : 'audio/wav';
     const filename = `recording-${recording.id}.${ext}`;
 
-    const stream = new StreamableFile(createReadStream(filePath));
-    return { stream, filename, contentType };
+    return { filePath, fileSize: stat.size, filename, contentType };
+  }
+
+  /**
+   * @deprecated Prefer getRecordingFileInfo + controller-side range handling.
+   * Kept for backward compatibility — still works as a simple full-file stream
+   * but does NOT set Content-Length, so browsers can't display duration.
+   */
+  async streamRecording(recordingId: string): Promise<{
+    stream: StreamableFile;
+    filename: string;
+    contentType: string;
+  }> {
+    const info = await this.getRecordingFileInfo(recordingId);
+    const stream = new StreamableFile(createReadStream(info.filePath));
+    return { stream, filename: info.filename, contentType: info.contentType };
   }
 
   resolveFilePath(filePath: string | null): string | null {

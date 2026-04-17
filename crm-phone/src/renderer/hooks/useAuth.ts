@@ -49,10 +49,17 @@ export function useAuth() {
         session: data,
         sipRegistered: false,
       }));
+      // On user switch, explicitly unregister the old SIP session and wait
+      // for Asterisk to drop the old contact BEFORE registering the new one.
+      // Without this gap, the new UserAgent may open its WSS connection
+      // while Asterisk still has the old user's AOR cached, causing inbound
+      // calls to route to the dead socket.
+      await sipService.unregister();
       if (data?.telephonyExtension) {
+        // Small additional gap so Asterisk has fully processed the
+        // expires-0 REGISTER before the new one arrives.
+        await new Promise((r) => setTimeout(r, 750));
         await sipService.register(data.telephonyExtension);
-      } else {
-        await sipService.unregister();
       }
     });
 
