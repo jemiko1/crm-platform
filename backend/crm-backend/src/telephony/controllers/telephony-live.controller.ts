@@ -9,7 +9,7 @@ import { Doc } from '../../common/openapi/doc-endpoint.decorator';
 @ApiTags('Telephony')
 @Controller('v1/telephony')
 @UseGuards(JwtAuthGuard, PositionPermissionGuard)
-@RequirePermission('call_center.menu')
+@RequirePermission('call_center.live')
 export class TelephonyLiveController {
   constructor(private readonly liveService: TelephonyLiveService) {}
 

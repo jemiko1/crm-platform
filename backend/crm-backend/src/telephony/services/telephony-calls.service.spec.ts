@@ -3,6 +3,7 @@ import { TelephonyCallsService } from "./telephony-calls.service";
 import { PrismaService } from "../../prisma/prisma.service";
 import { PhoneResolverService } from "../../common/phone-resolver/phone-resolver.service";
 import { IntelligenceService } from "../../client-intelligence/services/intelligence.service";
+import { DataScopeService } from "../../common/utils/data-scope";
 
 describe("TelephonyCallsService", () => {
   let service: TelephonyCallsService;
@@ -34,6 +35,19 @@ describe("TelephonyCallsService", () => {
           },
         },
         { provide: IntelligenceService, useValue: { getProfile: jest.fn() } },
+        {
+          provide: DataScopeService,
+          useValue: {
+            // Default: superadmin-equivalent scope so existing tests aren't filtered
+            resolve: jest.fn().mockResolvedValue({
+              scope: "all",
+              userId: "test-user",
+              userLevel: 999,
+              departmentId: null,
+              departmentIds: [],
+            }),
+          },
+        },
       ],
     }).compile();
     service = module.get(TelephonyCallsService);
@@ -41,10 +55,14 @@ describe("TelephonyCallsService", () => {
 
   describe("findAll", () => {
     it("should return paginated empty result with meta", async () => {
-      const res = await service.findAll({
-        from: new Date().toISOString(),
-        to: new Date().toISOString(),
-      } as any);
+      const res = await service.findAll(
+        {
+          from: new Date().toISOString(),
+          to: new Date().toISOString(),
+        } as any,
+        "test-user",
+        true,
+      );
       expect(res.data).toEqual([]);
       expect(res.meta.total).toBe(0);
       expect(res.meta.totalPages).toBe(0);
@@ -87,10 +105,14 @@ describe("TelephonyCallsService", () => {
         { crmUserId: "u1", displayName: "Agent Smith" },
       ]);
 
-      const res = await service.findAll({
-        from: "2026-01-01",
-        to: "2026-01-02",
-      } as any);
+      const res = await service.findAll(
+        {
+          from: "2026-01-01",
+          to: "2026-01-02",
+        } as any,
+        "test-user",
+        true,
+      );
 
       expect(res.data).toHaveLength(1);
       const call = res.data[0];

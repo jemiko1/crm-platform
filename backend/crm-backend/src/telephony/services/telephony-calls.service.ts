@@ -5,6 +5,7 @@ import { QueryCallsDto } from '../dto/query-calls.dto';
 import { CallerLookupResult } from '../types/telephony.types';
 import { PhoneResolverService } from '../../common/phone-resolver/phone-resolver.service';
 import { IntelligenceService } from '../../client-intelligence/services/intelligence.service';
+import { DataScopeService } from '../../common/utils/data-scope';
 
 @Injectable()
 export class TelephonyCallsService {
@@ -12,9 +13,10 @@ export class TelephonyCallsService {
     private readonly prisma: PrismaService,
     private readonly phoneResolver: PhoneResolverService,
     private readonly intelligenceService: IntelligenceService,
+    private readonly dataScope: DataScopeService,
   ) {}
 
-  async findAll(query: QueryCallsDto) {
+  async findAll(query: QueryCallsDto, userId: string, isSuperAdmin?: boolean) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 25;
     const skip = (page - 1) * pageSize;
@@ -36,6 +38,29 @@ export class TelephonyCallsService {
         { calleeNumber: { contains: query.search } },
       ];
     }
+
+    // Scope results by user's call_logs permission scope.
+    // CallSession uses `assignedUserId`, not `operatorUserId`, so we build the
+    // scope filter manually using the existing DataScopeService.resolve() result.
+    const scope = await this.dataScope.resolve(userId, 'call_logs', isSuperAdmin);
+    if (scope.scope === 'own') {
+      where.assignedUserId = userId;
+    } else if (scope.scope === 'department' && scope.departmentId) {
+      where.assignedUser = {
+        employee: {
+          departmentId: scope.departmentId,
+          position: { level: { lte: scope.userLevel } },
+        },
+      };
+    } else if (scope.scope === 'department_tree' && scope.departmentIds.length > 0) {
+      where.assignedUser = {
+        employee: {
+          departmentId: { in: scope.departmentIds },
+          position: { level: { lte: scope.userLevel } },
+        },
+      };
+    }
+    // scope === 'all' → no additional filter
 
     const [rawData, total] = await Promise.all([
       this.prisma.callSession.findMany({

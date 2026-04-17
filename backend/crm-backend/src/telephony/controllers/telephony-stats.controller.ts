@@ -11,7 +11,7 @@ import { Doc } from '../../common/openapi/doc-endpoint.decorator';
 @ApiTags('Telephony')
 @Controller('v1/telephony/stats')
 @UseGuards(JwtAuthGuard, PositionPermissionGuard)
-@RequirePermission('call_center.menu')
+@RequirePermission('call_center.statistics')
 export class TelephonyStatsController {
   constructor(private readonly statsService: TelephonyStatsService) {}
 
