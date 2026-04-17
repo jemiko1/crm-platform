@@ -15,6 +15,7 @@
     "retry": "Retry",
     "noResults": "No results found",
     "noPermission": "You do not have permission to access this page.",
+    "noPermissionTitle": "Insufficient Permissions",
     "error": "Error",
     "success": "Success",
     "confirm": "Confirm",

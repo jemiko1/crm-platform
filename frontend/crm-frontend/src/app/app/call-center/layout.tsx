@@ -9,19 +9,38 @@ import { PermissionGuard } from "@/lib/permission-guard";
 const BRAND = "rgb(8,117,56)";
 
 const TABS = [
-  { href: "/app/call-center", label: "Overview", labelKey: "callCenter.tabs.overview" },
-  { href: "/app/call-center/logs", label: "Call Logs", labelKey: "callCenter.tabs.logs" },
-  { href: "/app/call-center/missed", label: "Missed Calls", labelKey: "callCenter.tabs.missed" },
-  { href: "/app/call-center/live", label: "Live Monitor", labelKey: "callCenter.tabs.live" },
+  { href: "/app/call-center", label: "Overview", labelKey: "callCenter.tabs.overview", permission: "call_center.statistics" },
+  { href: "/app/call-center/logs", label: "Call Logs", labelKey: "callCenter.tabs.logs", anyPermission: ["call_logs.own", "call_logs.department", "call_logs.department_tree", "call_logs.all"] },
+  { href: "/app/call-center/missed", label: "Missed Calls", labelKey: "callCenter.tabs.missed", permission: "missed_calls.access" },
+  { href: "/app/call-center/live", label: "Live Monitor", labelKey: "callCenter.tabs.live", permission: "call_center.live" },
   { href: "/app/call-center/reports", label: "Reports", labelKey: "callCenter.tabs.reports", permission: "call_center.reports" },
-  { href: "/app/call-center/quality", label: "Quality", labelKey: "callCenter.tabs.quality" },
-  { href: "/app/call-center/statistics", label: "Statistics", labelKey: "callCenter.tabs.statistics" },
+  { href: "/app/call-center/quality", label: "Quality", labelKey: "callCenter.tabs.quality", permission: "call_center.quality" },
+  { href: "/app/call-center/statistics", label: "Statistics", labelKey: "callCenter.tabs.statistics", permission: "call_center.statistics" },
 ];
 
 export default function CallCenterLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { t } = useI18n();
-  const { hasPermission } = usePermissions();
+  const { hasPermission, hasAnyPermission } = usePermissions();
+
+  const visibleTabs = TABS.filter((tab) => {
+    if (tab.permission && !hasPermission(tab.permission)) return false;
+    if (tab.anyPermission && !hasAnyPermission(tab.anyPermission)) return false;
+    return true;
+  });
+
+  // Match current path to a tab (most specific match wins)
+  const currentTab = [...TABS]
+    .sort((a, b) => b.href.length - a.href.length)
+    .find((tab) =>
+      tab.href === "/app/call-center"
+        ? pathname === "/app/call-center"
+        : pathname.startsWith(tab.href),
+    );
+  const canAccessCurrentTab = !currentTab
+    ? true
+    : (currentTab.permission ? hasPermission(currentTab.permission) : true) &&
+      (currentTab.anyPermission ? hasAnyPermission(currentTab.anyPermission) : true);
 
   return (
     <PermissionGuard permission="call_center.menu">
@@ -40,7 +59,7 @@ export default function CallCenterLayout({ children }: { children: React.ReactNo
         </div>
 
         <div className="flex items-center gap-1 rounded-2xl bg-zinc-100/80 p-1">
-          {TABS.filter((tab) => !tab.permission || hasPermission(tab.permission)).map((tab) => {
+          {visibleTabs.map((tab) => {
             const isActive =
               tab.href === "/app/call-center"
                 ? pathname === "/app/call-center"
@@ -62,7 +81,20 @@ export default function CallCenterLayout({ children }: { children: React.ReactNo
           })}
         </div>
 
-        {children}
+        {canAccessCurrentTab ? (
+          children
+        ) : (
+          <div className="flex min-h-[40vh] items-center justify-center">
+            <div className="max-w-sm rounded-2xl bg-rose-50 p-8 ring-1 ring-rose-200 text-center">
+              <div className="text-base font-semibold text-rose-900">
+                {t("common.noPermissionTitle", "Insufficient Permissions")}
+              </div>
+              <div className="mt-2 text-sm text-rose-700">
+                {t("common.noPermission", "You do not have permission to access this page.")}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </PermissionGuard>
   );

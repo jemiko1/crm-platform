@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { PositionPermissionGuard } from '../../common/guards/position-permission.guard';
@@ -20,8 +20,8 @@ export class TelephonyCallsController {
 
   @Get('calls')
   @Doc({ summary: 'Search and list calls', ok: 'Paged call records' })
-  async getCalls(@Query() query: QueryCallsDto) {
-    return this.callsService.findAll(query);
+  async getCalls(@Query() query: QueryCallsDto, @Req() req: any) {
+    return this.callsService.findAll(query, req.user.id, req.user.isSuperAdmin);
   }
 
   @Get('lookup')
