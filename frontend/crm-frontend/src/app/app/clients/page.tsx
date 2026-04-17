@@ -9,6 +9,7 @@ import { usePermissions } from "@/lib/use-permissions";
 import { useModalContext } from "../modal-manager";
 import { useI18n } from "@/hooks/useI18n";
 import SourceTabs from "@/components/source-tabs";
+import { ClickToCall } from "@/components/click-to-call";
 
 const BRAND = "rgb(0, 86, 83)";
 
@@ -309,9 +310,23 @@ function ClientsPageContent() {
 
                               {/* Phone */}
                               <td className="px-2 py-2 align-middle md:px-4 md:py-4">
-                                <div className="text-sm text-zinc-700">{safePhone(c.primaryPhone)}</div>
+                                {c.primaryPhone ? (
+                                  <ClickToCall
+                                    number={c.primaryPhone}
+                                    className="inline-flex items-center gap-1 text-sm text-zinc-700 hover:text-emerald-700 disabled:opacity-50"
+                                  >
+                                    {safePhone(c.primaryPhone)}
+                                  </ClickToCall>
+                                ) : (
+                                  <div className="text-sm text-zinc-700">{safePhone(c.primaryPhone)}</div>
+                                )}
                                 {c.secondaryPhone && (
-                                  <div className="mt-0.5 text-xs text-zinc-400">{c.secondaryPhone}</div>
+                                  <ClickToCall
+                                    number={c.secondaryPhone}
+                                    className="mt-0.5 inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-emerald-700 disabled:opacity-50"
+                                  >
+                                    {c.secondaryPhone}
+                                  </ClickToCall>
                                 )}
                               </td>
 

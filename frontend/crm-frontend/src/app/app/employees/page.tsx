@@ -8,6 +8,7 @@ import { usePermissions } from "@/lib/use-permissions";
 import AddEmployeeModal from "./add-employee-modal";
 import { useModalContext } from "../modal-manager";
 import { useI18n } from "@/hooks/useI18n";
+import { ClickToCall } from "@/components/click-to-call";
 
 const BRAND = "rgb(0, 86, 83)";
 
@@ -410,12 +411,12 @@ function EmployeesPageContent() {
                   </td>
                   <td className="whitespace-nowrap px-4 sm:px-6 py-4 text-sm text-zinc-600">
                     {emp.extensionNumber ? (
-                      <a
-                        href={`tel:${emp.extensionNumber}`}
-                        className="inline-flex items-center gap-1 rounded-lg bg-teal-50 px-2 py-1 text-xs font-semibold text-teal-900 ring-1 ring-teal-200 hover:bg-teal-100"
+                      <ClickToCall
+                        number={emp.extensionNumber}
+                        className="inline-flex items-center gap-1 rounded-lg bg-teal-50 px-2 py-1 text-xs font-semibold text-teal-900 ring-1 ring-teal-200 hover:bg-teal-100 disabled:opacity-50"
                       >
-                        Ext: {emp.extensionNumber}
-                      </a>
+                        {t("employees.extPrefix", "Ext:")} {emp.extensionNumber}
+                      </ClickToCall>
                     ) : (
                       <span className="text-zinc-400">—</span>
                     )}

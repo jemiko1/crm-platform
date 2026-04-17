@@ -337,6 +337,7 @@
       "extension": "გაფართოება",
       "actions": "მოქმედებები"
     },
+    "extPrefix": "შიდა:",
     "noPosition": "პოზიცია არ არის",
     "statusFilters": {
       "all": "ყველა",
@@ -722,6 +723,13 @@
       "quality": "ხარისხი",
       "statistics": "სტატისტიკა"
     }
+  },
+  "clickToCall": {
+    "call": "დარეკვა {number}-ზე",
+    "noApp": "Softphone არ მუშაობს. გახსენით CRM28 Phone და შედით სისტემაში.",
+    "failed": "დარეკვა ვერ მოხერხდა. შეამოწმეთ softphone-ის რეგისტრაცია.",
+    "appNotFound": "(აპი ვერ მოიძებნა)",
+    "failedShort": "(ვერ მოხერხდა)"
   },
   "missedCalls": {
     "phoneNotRunning": "CRM28 softphone არ მუშაობს. ზარის დასაწყებად გახსენით softphone და შედით სისტემაში.",
