@@ -42,6 +42,7 @@ describe('TelephonyCallbackService', () => {
         callerNumber: '555123',
         queueId: 'q-1',
         assignedUserId: null,
+        direction: 'IN',
         queue: { isAfterHoursQueue: false },
       });
 
@@ -71,6 +72,7 @@ describe('TelephonyCallbackService', () => {
         callerNumber: '555456',
         queueId: 'q-nowork',
         assignedUserId: null,
+        direction: 'IN',
         queue: { isAfterHoursQueue: true },
       });
 
@@ -93,6 +95,26 @@ describe('TelephonyCallbackService', () => {
       );
     });
 
+    it('should NOT create MissedCall for outbound non-answered calls (defense in depth)', async () => {
+      prisma.callSession.findUnique.mockResolvedValue({
+        id: 'sess-out-1',
+        disposition: 'NOANSWER',
+        callerNumber: '1000',
+        queueId: null,
+        assignedUserId: 'operator-1',
+        direction: 'OUT',
+        queue: null,
+      });
+
+      await service.handleNonAnsweredCall('sess-out-1');
+
+      // The ingestion pipeline routes OUT calls to recordOutboundAttempt instead,
+      // but if someone else calls this by mistake, the OUT guard prevents
+      // polluting the MissedCall worklist.
+      expect(prisma.missedCall.upsert).not.toHaveBeenCalled();
+      expect(prisma.callbackRequest.upsert).not.toHaveBeenCalled();
+    });
+
     it('should classify as NO_ANSWER for regular queue missed calls', async () => {
       prisma.callSession.findUnique.mockResolvedValue({
         id: 'sess-1',
@@ -100,6 +122,7 @@ describe('TelephonyCallbackService', () => {
         callerNumber: '555789',
         queueId: 'q-1',
         assignedUserId: 'user-1',
+        direction: 'IN',
         queue: { isAfterHoursQueue: false },
       });
 
@@ -138,6 +161,7 @@ describe('TelephonyCallbackService', () => {
         callerNumber: '555000',
         queueId: null,
         assignedUserId: null,
+        direction: 'IN',
         queue: null,
       });
 

@@ -196,8 +196,13 @@ export class TelephonyIngestionService {
     const endAt = new Date(event.timestamp);
     const fullSession = await this.prisma.callSession.findUnique({
       where: { id: existingSession.id },
-      select: { answerAt: true },
+      select: { answerAt: true, endAt: true, direction: true },
     });
+    // Idempotency guard: if endAt is already set, this is a replayed or
+    // duplicate call_end event. Still run computeMetrics but skip side-effects
+    // (missed-call creation, attempt counting) to avoid double-counting.
+    const isFirstEnd = !fullSession?.endAt;
+    const direction = fullSession?.direction;
     const disposition = this.inferDisposition(payload, !!fullSession?.answerAt);
 
     const session = await this.prisma.callSession.update({
@@ -217,6 +222,13 @@ export class TelephonyIngestionService {
 
     await this.computeMetrics(session.id);
 
+    if (!isFirstEnd) {
+      this.logger.debug(
+        `Skipping side-effects for replayed call_end on session ${session.id}`,
+      );
+      return;
+    }
+
     if (disposition === CallDisposition.ANSWERED) {
       // Auto-resolve any pending missed calls for this caller/callee number
       try {
@@ -232,7 +244,21 @@ export class TelephonyIngestionService {
         this.logger.error(`Auto-resolve missed calls failed for session ${session.id}: ${err.message}`);
       }
     } else if (disposition) {
-      await this.callbackService.handleNonAnsweredCall(session.id);
+      if (direction === CallDirection.IN) {
+        // Inbound non-answered → create/update MissedCall record
+        await this.callbackService.handleNonAnsweredCall(session.id);
+      } else if (direction === CallDirection.OUT) {
+        // Outbound non-answered → count it as an attempt against any pending
+        // inbound MissedCall for the same phone number (if ring ≥ 10s).
+        // Do NOT create a new MissedCall row (that was a pre-existing bug).
+        try {
+          await this.missedCallsService.recordOutboundAttempt(session.id);
+        } catch (err: any) {
+          this.logger.error(
+            `recordOutboundAttempt failed for session ${session.id}: ${err.message}`,
+          );
+        }
+      }
     }
   }
 

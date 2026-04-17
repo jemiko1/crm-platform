@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useAuth } from "./hooks/useAuth";
 import { usePhone } from "./hooks/usePhone";
 import { LoginPage } from "./pages/LoginPage";
@@ -7,6 +7,25 @@ import { PhonePage } from "./pages/PhonePage";
 export function App() {
   const auth = useAuth();
   const phone = usePhone();
+  // Number requested by an external dial (e.g., user clicked a phone number
+  // in the CRM web UI which POSTed to the softphone's local HTTP bridge).
+  // PhonePage picks this up via its `prefillNumber` prop and loads it into
+  // the dial input. We deliberately do NOT auto-dial — the operator must
+  // press the Call button. This prevents accidental or cancellable dials
+  // from counting as real attempts on the missed-calls worklist.
+  const [prefillNumber, setPrefillNumber] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = window.crmPhone?.phone?.onDialRequest?.((number: string) => {
+      window.crmPhone?.log?.("info", "[dial] external dial request:", number);
+      // Force a change even if the same number comes back twice — use a fresh
+      // string identity so the downstream useEffect sees a new reference.
+      setPrefillNumber(String(number));
+    });
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
 
   if (auth.loading) {
     return (
@@ -42,6 +61,8 @@ export function App() {
       onDtmf={phone.dtmf}
       onToggleMute={phone.toggleMute}
       onLogout={auth.logout}
+      prefillNumber={prefillNumber}
+      onPrefillConsumed={() => setPrefillNumber(null)}
     />
   );
 }

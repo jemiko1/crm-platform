@@ -20,6 +20,10 @@ interface Props {
   onDtmf: (tone: string) => Promise<void>;
   onToggleMute: () => Promise<void>;
   onLogout: () => Promise<void>;
+  /** Number requested from an external source (CRM click-to-call). Loads
+   *  into the dial input but does NOT auto-dial. */
+  prefillNumber?: string | null;
+  onPrefillConsumed?: () => void;
 }
 
 const DTMF_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
@@ -28,6 +32,7 @@ export function PhonePage(props: Props) {
   const {
     session, sipRegistered, callState, activeCall, muted,
     onDial, onAnswer, onHangup, onHold, onUnhold, onDtmf, onToggleMute, onLogout,
+    prefillNumber, onPrefillConsumed,
   } = props;
   const [dialNumber, setDialNumber] = useState("");
   const [showSettings, setShowSettings] = useState(false);
@@ -35,6 +40,17 @@ export function PhonePage(props: Props) {
   const [callerLookup, setCallerLookup] = useState<CallerLookupResult | null>(null);
   const wasRinging = useRef(false);
   const lookupDone = useRef<string | null>(null);
+
+  // When an external dial request arrives (e.g., click-to-call from the CRM
+  // web UI), load it into the dial input and switch to the dialpad view.
+  // We do NOT auto-dial — the operator presses the green Call button.
+  useEffect(() => {
+    if (!prefillNumber) return;
+    setDialNumber(prefillNumber);
+    setIdleView("dialpad");
+    setShowSettings(false);
+    onPrefillConsumed?.();
+  }, [prefillNumber, onPrefillConsumed]);
 
   useEffect(() => {
     if (activeCall && activeCall.remoteNumber && lookupDone.current !== activeCall.remoteNumber) {

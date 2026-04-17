@@ -8,6 +8,7 @@ describe('TelephonyIngestionService', () => {
   let service: TelephonyIngestionService;
   let prisma: Record<string, any>;
   let callbackService: Record<string, any>;
+  let missedCallsService: Record<string, any>;
 
   beforeEach(async () => {
     prisma = {
@@ -50,12 +51,17 @@ describe('TelephonyIngestionService', () => {
       handleNonAnsweredCall: jest.fn().mockResolvedValue(undefined),
     };
 
+    missedCallsService = {
+      autoResolveByPhone: jest.fn().mockResolvedValue(0),
+      recordOutboundAttempt: jest.fn().mockResolvedValue(undefined),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TelephonyIngestionService,
         { provide: PrismaService, useValue: prisma },
         { provide: TelephonyCallbackService, useValue: callbackService },
-        { provide: MissedCallsService, useValue: { autoResolveByPhone: jest.fn().mockResolvedValue(0) } },
+        { provide: MissedCallsService, useValue: missedCallsService },
       ],
     }).compile();
 
@@ -124,17 +130,20 @@ describe('TelephonyIngestionService', () => {
   });
 
   describe('call_end event', () => {
-    it('should trigger callback service for non-answered calls', async () => {
+    it('should trigger callback service for non-answered inbound calls', async () => {
       prisma.callEvent.findUnique.mockResolvedValue(null);
       const mockSession = {
         id: 'sess-1',
         linkedId: 'link-1',
+        direction: 'IN',
         startAt: new Date('2026-02-21T10:00:00Z'),
         endAt: null,
+        answerAt: null,
         callLegs: [],
       };
       prisma.callSession.findUnique
-        .mockResolvedValueOnce(mockSession) // linkedId lookup
+        .mockResolvedValueOnce(mockSession) // linkedId lookup in ingestBatch
+        .mockResolvedValueOnce(mockSession) // first call in handleCallEnd (answerAt/endAt/direction check)
         .mockResolvedValueOnce({ ...mockSession, endAt: new Date(), callLegs: [], queue: null }); // computeMetrics
 
       prisma.callSession.update.mockResolvedValue({
@@ -154,6 +163,43 @@ describe('TelephonyIngestionService', () => {
       ]);
 
       expect(callbackService.handleNonAnsweredCall).toHaveBeenCalledWith('sess-1');
+    });
+
+    it('should call recordOutboundAttempt for non-answered outbound calls', async () => {
+      prisma.callEvent.findUnique.mockResolvedValue(null);
+      const mockSession = {
+        id: 'sess-out-1',
+        linkedId: 'link-out-1',
+        direction: 'OUT',
+        startAt: new Date('2026-02-21T10:00:00Z'),
+        endAt: null,
+        answerAt: null,
+        callLegs: [],
+      };
+      prisma.callSession.findUnique
+        .mockResolvedValueOnce(mockSession) // linkedId lookup
+        .mockResolvedValueOnce(mockSession) // handleCallEnd initial check
+        .mockResolvedValueOnce({ ...mockSession, endAt: new Date(), callLegs: [], queue: null });
+
+      prisma.callSession.update.mockResolvedValue({
+        ...mockSession,
+        endAt: new Date('2026-02-21T10:00:15Z'),
+        disposition: 'NOANSWER',
+      });
+
+      await service.ingestBatch([
+        {
+          eventType: 'call_end',
+          timestamp: '2026-02-21T10:00:15Z',
+          idempotencyKey: 'end-out-key',
+          payload: { linkedId: 'link-out-1', cause: '19', causeTxt: 'NO_ANSWER' },
+          linkedId: 'link-out-1',
+        },
+      ]);
+
+      // Outbound non-answered → recordOutboundAttempt path, NOT handleNonAnsweredCall
+      expect(callbackService.handleNonAnsweredCall).not.toHaveBeenCalled();
+      expect(missedCallsService.recordOutboundAttempt).toHaveBeenCalledWith('sess-out-1');
     });
   });
 
