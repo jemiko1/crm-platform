@@ -127,6 +127,24 @@ export class TelephonyIngestionService {
 
     const direction = this.inferDirection(payload);
 
+    // Extract caller and callee numbers with fallbacks.
+    //
+    // Asterisk's AMI emits `connectedLineNum` as the literal string "<unknown>"
+    // (not empty/null) when the call hasn't connected yet. For OUTBOUND calls
+    // this is always the case at call_start — the dialed number lives in
+    // `extension` (from AMI's Exten field) instead.
+    //
+    // Without this fallback, every outbound call's calleeNumber is literally
+    // "<unknown>", breaking attempt counting, auto-resolve of missed calls,
+    // and any other phone-number-based matching.
+    const callerNumber = this.cleanNumber(payload.callerIdNum) ?? 'unknown';
+    const calleeFromConnected = this.cleanNumber(payload.connectedLineNum);
+    const calleeFromExten = this.cleanNumber(payload.extension);
+    const calleeNumber =
+      direction === CallDirection.OUT
+        ? calleeFromExten ?? calleeFromConnected ?? null
+        : calleeFromConnected ?? calleeFromExten ?? null;
+
     await this.prisma.callSession.upsert({
       where: { linkedId },
       create: {
@@ -134,12 +152,16 @@ export class TelephonyIngestionService {
         uniqueId: event.uniqueId ?? payload.uniqueId ?? null,
         direction,
         did: payload.context ?? null,
-        callerNumber: payload.callerIdNum ?? 'unknown',
-        calleeNumber: payload.connectedLineNum ?? null,
+        callerNumber,
+        calleeNumber,
         startAt: new Date(event.timestamp),
       },
       update: {
         uniqueId: event.uniqueId ?? payload.uniqueId ?? undefined,
+        // Backfill calleeNumber if the create-time value was unknown but
+        // a later event has a real number (e.g. ConnectedLine update on
+        // outbound answer).
+        ...(calleeNumber ? { calleeNumber } : {}),
       },
     });
 
@@ -230,10 +252,18 @@ export class TelephonyIngestionService {
     }
 
     if (disposition === CallDisposition.ANSWERED) {
-      // Auto-resolve any pending missed calls for this caller/callee number
+      // Auto-resolve any pending missed calls for this caller/callee number.
+      // Skip "<unknown>" sentinel values that Asterisk emits when caller ID
+      // info isn't available — those match no real phone number and just
+      // waste a query.
       try {
-        const callerNumber = session.callerNumber ?? (payload.callerIdNum as string);
-        const calleeNumber = session.calleeNumber ?? (payload.connectedLineNum as string);
+        const callerNumber =
+          this.cleanNumber(session.callerNumber) ??
+          this.cleanNumber(payload.callerIdNum);
+        const calleeNumber =
+          this.cleanNumber(session.calleeNumber) ??
+          this.cleanNumber(payload.connectedLineNum) ??
+          this.cleanNumber(payload.extension);
         if (callerNumber) {
           await this.missedCallsService.autoResolveByPhone(callerNumber, session.id);
         }
@@ -565,6 +595,19 @@ export class TelephonyIngestionService {
       return CallDirection.OUT;
     }
     return CallDirection.IN;
+  }
+
+  /**
+   * Normalize a phone number field from AMI events. Asterisk emits the
+   * literal string "<unknown>" (not null/empty) when caller ID info is
+   * missing. Strip those sentinels and return null for consistent matching.
+   */
+  private cleanNumber(value: string | null | undefined): string | null {
+    if (!value) return null;
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    if (trimmed === '<unknown>' || trimmed === 'unknown' || trimmed === 's') return null;
+    return trimmed;
   }
 
   private inferDisposition(

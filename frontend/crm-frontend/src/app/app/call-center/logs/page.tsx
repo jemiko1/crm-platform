@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useI18n } from "@/hooks/useI18n";
 import { ClickToCall } from "@/components/click-to-call";
 import { fetchCalls } from "../api";
-import { InlineAudioPlayer } from "../audio-player";
+import { RecordingCell } from "../recording-cell";
 import type { CallSession, CallsPaginated } from "../types";
 
 const BRAND = "rgb(8,117,56)";
@@ -202,11 +202,10 @@ export default function CallLogsPage() {
                     <td className="px-4 py-3 text-sm text-zinc-700 text-right tabular-nums">{fmtDuration(c.talkTimeSec)}</td>
                     <td className="px-4 py-3 text-sm font-medium text-zinc-900 text-right tabular-nums">{fmtDuration(c.durationSec)}</td>
                     <td className="px-4 py-3">
-                      {c.recordingId ? (
-                        <InlineAudioPlayer recordingId={c.recordingId} compact />
-                      ) : (
-                        <span className="text-xs text-zinc-400">—</span>
-                      )}
+                      <RecordingCell
+                        recordingId={c.recordingId ?? null}
+                        initiallyAvailable={c.recordingAvailable ?? false}
+                      />
                     </td>
                   </tr>
                 ))

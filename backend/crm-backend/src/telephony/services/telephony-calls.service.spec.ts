@@ -4,6 +4,7 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { PhoneResolverService } from "../../common/phone-resolver/phone-resolver.service";
 import { IntelligenceService } from "../../client-intelligence/services/intelligence.service";
 import { DataScopeService } from "../../common/utils/data-scope";
+import { RecordingAccessService } from "../recording/recording-access.service";
 
 describe("TelephonyCallsService", () => {
   let service: TelephonyCallsService;
@@ -35,6 +36,12 @@ describe("TelephonyCallsService", () => {
           },
         },
         { provide: IntelligenceService, useValue: { getProfile: jest.fn() } },
+        {
+          provide: RecordingAccessService,
+          useValue: {
+            isCachedLocally: jest.fn().mockReturnValue(false),
+          },
+        },
         {
           provide: DataScopeService,
           useValue: {

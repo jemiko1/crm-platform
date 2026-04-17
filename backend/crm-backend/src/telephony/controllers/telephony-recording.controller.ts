@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Param,
+  Post,
   Req,
   Res,
   UseGuards,
@@ -31,7 +32,25 @@ export class TelephonyRecordingController {
     params: [{ name: 'id', description: 'Recording UUID' }],
   })
   async getRecording(@Param('id') id: string) {
-    return this.recordingService.getRecordingById(id);
+    const recording = await this.recordingService.getRecordingById(id);
+    return {
+      ...recording,
+      // Tell the frontend whether the file is cached locally so it can
+      // render a Play button vs a Request Recording button
+      available: this.recordingService.isCachedLocally(recording),
+    };
+  }
+
+  @Post(':id/fetch')
+  @Doc({
+    summary: 'Fetch a recording file from Asterisk on-demand',
+    ok: 'File pulled to local cache; ready to stream',
+    notFound: true,
+    params: [{ name: 'id', description: 'Recording UUID' }],
+  })
+  async fetchRecording(@Param('id') id: string) {
+    const { filePath, fileSize } = await this.recordingService.fetchFromAsterisk(id);
+    return { ok: true, fileSize, filePath };
   }
 
   @Get(':id/audio')

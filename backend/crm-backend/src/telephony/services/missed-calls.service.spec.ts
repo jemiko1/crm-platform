@@ -399,7 +399,9 @@ describe('MissedCallsService', () => {
         { id: 'mc-2' },
       ]);
 
-      const count = await service.autoResolveByPhone('555-1234', 'session-99');
+      // Use 9-digit phone (Georgian mobile) so phone normalization returns
+      // a usable suffix. Shorter numbers are rejected by the new guard.
+      const count = await service.autoResolveByPhone('599732352', 'session-99');
       expect(count).toBe(2);
       expect(prisma.missedCall.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({

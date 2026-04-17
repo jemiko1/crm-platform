@@ -19,6 +19,7 @@ export interface CallSession {
   clientName: string | null;
   recordingUrl: string | null;
   recordingId?: string | null;
+  recordingAvailable?: boolean;
   qualityScore?: number | null;
 }
 

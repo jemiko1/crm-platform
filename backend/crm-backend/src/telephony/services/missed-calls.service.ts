@@ -531,9 +531,20 @@ export class MissedCallsService {
     callerNumber: string,
     resolvingCallSessionId: string,
   ): Promise<number> {
+    // Match by last 9 digits to handle format variations (+995 vs 995 vs
+    // raw 9-digit). Georgian mobile numbers are always 9 digits locally,
+    // so the trailing 9 digits uniquely identify the subscriber.
+    const local = this.phoneResolver.localDigits(callerNumber);
+    if (!local || local.length < 9) {
+      this.logger.debug(
+        `autoResolveByPhone: skipping "${callerNumber}" — fewer than 9 digits`,
+      );
+      return 0;
+    }
+
     const pendingMissedCalls = await this.prisma.missedCall.findMany({
       where: {
-        callerNumber,
+        callerNumber: { endsWith: local },
         status: { in: ['NEW', 'CLAIMED', 'ATTEMPTED'] },
       },
       select: { id: true },

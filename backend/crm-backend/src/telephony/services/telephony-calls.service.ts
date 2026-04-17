@@ -6,6 +6,7 @@ import { CallerLookupResult } from '../types/telephony.types';
 import { PhoneResolverService } from '../../common/phone-resolver/phone-resolver.service';
 import { IntelligenceService } from '../../client-intelligence/services/intelligence.service';
 import { DataScopeService } from '../../common/utils/data-scope';
+import { RecordingAccessService } from '../recording/recording-access.service';
 
 @Injectable()
 export class TelephonyCallsService {
@@ -14,6 +15,7 @@ export class TelephonyCallsService {
     private readonly phoneResolver: PhoneResolverService,
     private readonly intelligenceService: IntelligenceService,
     private readonly dataScope: DataScopeService,
+    private readonly recordingAccess: RecordingAccessService,
   ) {}
 
   async findAll(query: QueryCallsDto, userId: string, isSuperAdmin?: boolean) {
@@ -75,7 +77,7 @@ export class TelephonyCallsService {
               employee: { select: { firstName: true, lastName: true } },
             },
           },
-          recordings: { select: { id: true, durationSeconds: true } },
+          recordings: { select: { id: true, durationSeconds: true, filePath: true, url: true } },
           qualityReview: { select: { id: true, status: true, score: true } },
         },
         orderBy: { startAt: 'desc' },
@@ -156,6 +158,11 @@ export class TelephonyCallsService {
         clientName: clientNameMap.get(s.callerNumber) ?? null,
         recordingUrl: s.recordings.length > 0 ? `/v1/telephony/recordings/${s.recordings[0].id}/audio` : null,
         recordingId: s.recordings[0]?.id ?? null,
+        // Is the file already cached on local disk? If not, the frontend shows
+        // a "Request Recording" button that triggers a SCP fetch from Asterisk.
+        recordingAvailable: s.recordings[0]
+          ? this.recordingAccess.isCachedLocally(s.recordings[0])
+          : false,
         qualityScore: s.qualityReview?.score ?? null,
       };
     });
