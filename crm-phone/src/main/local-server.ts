@@ -9,6 +9,7 @@ const PORT = 19876;
 export function startLocalServer(_unused: unknown, callbacks: {
   onSessionChanged: (session: AppLoginResponse | null) => void;
   onDial?: (number: string) => Promise<boolean> | boolean;
+  getSipRegistered?: () => boolean;
 }): Server {
   const app = express();
 
@@ -32,6 +33,7 @@ export function startLocalServer(_unused: unknown, callbacks: {
 
   app.get("/status", (_req, res) => {
     const session = getSession();
+    const sipRegistered = callbacks.getSipRegistered?.() ?? false;
     res.json({
       running: true,
       loggedIn: !!session,
@@ -44,6 +46,8 @@ export function startLocalServer(_unused: unknown, callbacks: {
             extension: session.telephonyExtension?.extension || "",
           }
         : null,
+      sipRegistered,
+      callState: "IDLE",
     });
   });
 
