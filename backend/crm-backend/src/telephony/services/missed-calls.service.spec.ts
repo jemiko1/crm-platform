@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { MissedCallsService } from './missed-calls.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { PhoneResolverService } from '../../common/phone-resolver/phone-resolver.service';
 import { NotFoundException, ConflictException } from '@nestjs/common';
 
 describe('MissedCallsService', () => {
@@ -28,12 +29,26 @@ describe('MissedCallsService', () => {
       client: {
         findMany: jest.fn().mockResolvedValue([]),
       },
+      // findAll uses raw queries for deduplication. Default mock returns
+      // empty results; specific tests can override.
+      $queryRaw: jest.fn().mockResolvedValue([]),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MissedCallsService,
         { provide: PrismaService, useValue: prisma },
+        {
+          provide: PhoneResolverService,
+          useValue: {
+            // Simple mock: return last 9 digits for any input
+            localDigits: (phone: string) => {
+              const digits = phone.replace(/[^\d]/g, '');
+              return digits.length >= 9 ? digits.slice(-9) : digits;
+            },
+            normalize: (phone: string) => phone.replace(/[^\d]/g, ''),
+          },
+        },
       ],
     }).compile();
 
@@ -48,22 +63,59 @@ describe('MissedCallsService', () => {
       expect(res.meta.totalPages).toBe(0);
     });
 
-    it('should default to actionable statuses when no status filter', async () => {
-      await service.findAll({});
-      const whereArg = prisma.missedCall.findMany.mock.calls[0][0].where;
-      expect(whereArg.status).toEqual({ in: ['NEW', 'CLAIMED', 'ATTEMPTED'] });
-    });
+    it('should query via raw SQL with deduplication', async () => {
+      // Sequence: first $queryRaw returns IDs, second returns count
+      prisma.$queryRaw
+        .mockResolvedValueOnce([
+          { id: 'mc-1' },
+          { id: 'mc-2' },
+        ])
+        .mockResolvedValueOnce([{ count: BigInt(2) }]);
+      prisma.missedCall.findMany.mockResolvedValue([
+        {
+          id: 'mc-1',
+          callerNumber: '599732352',
+          detectedAt: new Date(),
+          status: 'NEW',
+          callSession: { id: 'cs-1', direction: 'IN', callerNumber: '599732352', calleeNumber: null, startAt: new Date(), disposition: null },
+          queue: null,
+          claimedBy: null,
+          callbackRequest: null,
+          claimedByUserId: null,
+          claimedAt: null,
+          resolvedAt: null,
+          notes: null,
+          reason: 'NO_ANSWER',
+        },
+        {
+          id: 'mc-2',
+          callerNumber: '599000000',
+          detectedAt: new Date(),
+          status: 'NEW',
+          callSession: { id: 'cs-2', direction: 'IN', callerNumber: '599000000', calleeNumber: null, startAt: new Date(), disposition: null },
+          queue: null,
+          claimedBy: null,
+          callbackRequest: null,
+          claimedByUserId: null,
+          claimedAt: null,
+          resolvedAt: null,
+          notes: null,
+          reason: 'NO_ANSWER',
+        },
+      ]);
+      prisma.missedCall.groupBy.mockResolvedValue([
+        { callerNumber: '599732352', _count: { id: 3 } },
+        { callerNumber: '599000000', _count: { id: 1 } },
+      ]);
 
-    it('should filter by specific status', async () => {
-      await service.findAll({ status: 'HANDLED' });
-      const whereArg = prisma.missedCall.findMany.mock.calls[0][0].where;
-      expect(whereArg.status).toBe('HANDLED');
-    });
-
-    it('should filter by queue', async () => {
-      await service.findAll({ queueId: 'q1' });
-      const whereArg = prisma.missedCall.findMany.mock.calls[0][0].where;
-      expect(whereArg.queueId).toBe('q1');
+      const res = await service.findAll({});
+      // 2 unique numbers returned, not 4 raw rows
+      expect(res.data).toHaveLength(2);
+      expect(res.meta.total).toBe(2);
+      expect(res.data[0].callerNumber).toBe('599732352');
+      // missedCallCount surfaces the duplicate count for each number
+      expect(res.data[0].missedCallCount).toBe(3);
+      expect(res.data[1].missedCallCount).toBe(1);
     });
   });
 
@@ -174,7 +226,8 @@ describe('MissedCallsService', () => {
       return {
         id: 'sess-1',
         direction: 'OUT',
-        calleeNumber: '555-1234',
+        // 9-digit Georgian number to exercise phone normalization (last 9 match)
+        calleeNumber: '599732352',
         disposition: 'NOANSWER',
         assignedUserId: 'operator-1',
         endAt: new Date('2026-01-01T10:00:00Z'),
@@ -186,6 +239,35 @@ describe('MissedCallsService', () => {
     beforeEach(() => {
       prisma.callSession.findUnique = jest.fn();
       prisma.missedCall.findMany = jest.fn().mockResolvedValue([]);
+    });
+
+    it('skips when calleeNumber is too short for normalization', async () => {
+      prisma.callSession.findUnique.mockResolvedValue(
+        makeSession({ calleeNumber: '100' }),
+      );
+      await service.recordOutboundAttempt('sess-1');
+      expect(prisma.missedCall.findMany).not.toHaveBeenCalled();
+    });
+
+    it('matches missed calls by last 9 digits (handles prefix differences)', async () => {
+      prisma.callSession.findUnique.mockResolvedValue(
+        makeSession({ calleeNumber: '995599732352' }), // with country code
+      );
+      prisma.missedCall.findMany.mockResolvedValue([
+        {
+          id: 'mc-1',
+          callerNumber: '599732352', // stored without country code — should still match
+          claimedByUserId: null,
+          callbackRequest: { attemptsCount: 0 },
+        },
+      ]);
+
+      await service.recordOutboundAttempt('sess-1');
+
+      // Verify the query uses endsWith with 9-digit suffix
+      const findManyCall = prisma.missedCall.findMany.mock.calls[0][0];
+      expect(findManyCall.where.callerNumber).toEqual({ endsWith: '599732352' });
+      expect(prisma.callbackRequest.upsert).toHaveBeenCalled();
     });
 
     it('skips inbound calls', async () => {
@@ -225,7 +307,7 @@ describe('MissedCallsService', () => {
       prisma.missedCall.findMany.mockResolvedValue([
         {
           id: 'mc-1',
-          callerNumber: '555-1234',
+          callerNumber: '599732352',
           claimedByUserId: null,
           callbackRequest: { attemptsCount: 0 },
         },
@@ -248,7 +330,7 @@ describe('MissedCallsService', () => {
       prisma.missedCall.findMany.mockResolvedValue([
         {
           id: 'mc-1',
-          callerNumber: '555-1234',
+          callerNumber: '599732352',
           claimedByUserId: 'operator-1',
           callbackRequest: { attemptsCount: 2 }, // this will be the 3rd
         },
@@ -265,7 +347,7 @@ describe('MissedCallsService', () => {
       prisma.missedCall.findMany.mockResolvedValue([
         {
           id: 'mc-1',
-          callerNumber: '555-1234',
+          callerNumber: '599732352',
           claimedByUserId: null,
           callbackRequest: { attemptsCount: 0 },
         },

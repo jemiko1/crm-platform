@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { PhoneResolverService } from '../../common/phone-resolver/phone-resolver.service';
 import { Cron } from '@nestjs/schedule';
 import {
   CallbackRequestStatus,
@@ -28,7 +29,10 @@ export class MissedCallsService {
   private readonly logger = new Logger(MissedCallsService.name);
   private isExpiring = false;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly phoneResolver: PhoneResolverService,
+  ) {}
 
   /**
    * List missed calls with smart filtering:
@@ -69,38 +73,90 @@ export class MissedCallsService {
       direction: 'IN',
     };
 
-    const [rawData, total] = await Promise.all([
-      this.prisma.missedCall.findMany({
-        where,
-        include: {
-          callSession: {
-            select: {
-              id: true,
-              callerNumber: true,
-              calleeNumber: true,
-              direction: true,
-              startAt: true,
-              disposition: true,
+    // Step 1: Get the IDs of the most recent MissedCall per callerNumber
+    // (deduplication). Using DISTINCT ON, which is PostgreSQL-specific. We
+    // query IDs first, then fetch full records with includes for proper types.
+    //
+    // We can't build DISTINCT ON via Prisma's findMany because its `distinct`
+    // option locks the outer ORDER BY to the distinct column — breaks the
+    // "most recent first" sort across numbers. Raw SQL lets us do both:
+    // pick the freshest row per number, then sort globally by that row's
+    // detectedAt.
+    const statusFilter: MissedCallStatus[] = params.status
+      ? [params.status as MissedCallStatus]
+      : [MissedCallStatus.NEW, MissedCallStatus.CLAIMED, MissedCallStatus.ATTEMPTED];
+
+    const queueCondition = params.queueId
+      ? Prisma.sql`AND mc."queueId" = ${params.queueId}`
+      : Prisma.empty;
+
+    const claimedByCondition = params.claimedByMe
+      ? Prisma.sql`AND mc."claimedByUserId" = ${params.claimedByMe}`
+      : Prisma.empty;
+
+    // Get distinct caller numbers' latest MissedCall IDs, ordered newest first,
+    // paginated. The inner query picks one row per number (the most recent).
+    const idRows = await this.prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
+      SELECT id FROM (
+        SELECT DISTINCT ON (mc."callerNumber")
+          mc.id, mc."detectedAt"
+        FROM "MissedCall" mc
+        JOIN "CallSession" cs ON cs.id = mc."callSessionId"
+        WHERE mc.status = ANY(${statusFilter}::"MissedCallStatus"[])
+          AND cs.direction = 'IN'
+          ${queueCondition}
+          ${claimedByCondition}
+        ORDER BY mc."callerNumber", mc."detectedAt" DESC
+      ) dedup
+      ORDER BY dedup."detectedAt" DESC
+      LIMIT ${pageSize} OFFSET ${skip}
+    `);
+
+    // Total = count of DISTINCT callerNumbers matching the filter
+    const totalRows = await this.prisma.$queryRaw<{ count: bigint }[]>(Prisma.sql`
+      SELECT COUNT(DISTINCT mc."callerNumber") as count
+      FROM "MissedCall" mc
+      JOIN "CallSession" cs ON cs.id = mc."callSessionId"
+      WHERE mc.status = ANY(${statusFilter}::"MissedCallStatus"[])
+        AND cs.direction = 'IN'
+        ${queueCondition}
+        ${claimedByCondition}
+    `);
+    const total = Number(totalRows[0]?.count ?? 0);
+
+    const ids = idRows.map((r) => r.id);
+    const rawDataUnsorted = ids.length
+      ? await this.prisma.missedCall.findMany({
+          where: { id: { in: ids } },
+          include: {
+            callSession: {
+              select: {
+                id: true,
+                callerNumber: true,
+                calleeNumber: true,
+                direction: true,
+                startAt: true,
+                disposition: true,
+              },
+            },
+            queue: { select: { id: true, name: true } },
+            claimedBy: {
+              select: {
+                id: true,
+                email: true,
+                employee: { select: { firstName: true, lastName: true } },
+              },
+            },
+            callbackRequest: {
+              select: { id: true, attemptsCount: true, lastAttemptAt: true, status: true },
             },
           },
-          queue: { select: { id: true, name: true } },
-          claimedBy: {
-            select: {
-              id: true,
-              email: true,
-              employee: { select: { firstName: true, lastName: true } },
-            },
-          },
-          callbackRequest: {
-            select: { id: true, attemptsCount: true, lastAttemptAt: true, status: true },
-          },
-        },
-        orderBy: [{ detectedAt: 'desc' }],
-        skip,
-        take: pageSize,
-      }),
-      this.prisma.missedCall.count({ where }),
-    ]);
+        })
+      : [];
+
+    // Preserve the ordering from the raw query (newest detectedAt first)
+    const byId = new Map(rawDataUnsorted.map((r) => [r.id, r]));
+    const rawData = ids.map((id) => byId.get(id)).filter((r): r is NonNullable<typeof r> => !!r);
 
     // Resolve client names
     const callerNumbers = [
@@ -329,9 +385,24 @@ export class MissedCallsService {
       Date.now() - ATTEMPT_MATCH_WINDOW_HOURS * 3600 * 1000,
     );
 
+    // Phone numbers can have different formats between the stored missed call
+    // (typically "599732352" from Asterisk's Caller-ID) and the outbound
+    // dialed number (may be "599732352", "995599732352", "+995599732352",
+    // or carry a trunk prefix like "9599732352"). Match on the last 9 digits
+    // (PhoneResolverService.localDigits) which normalizes all Georgian forms.
+    const dialedLocal = this.phoneResolver.localDigits(session.calleeNumber);
+    if (!dialedLocal || dialedLocal.length < 9) {
+      this.logger.debug(
+        `Skipping attempt count for session ${sessionId}: calleeNumber ${session.calleeNumber} is too short to match`,
+      );
+      return;
+    }
+
+    // Use the trailing 9 digits as the matching suffix. contains query
+    // on callerNumber matches both "599732352" and "995599732352" etc.
     const missedCalls = await this.prisma.missedCall.findMany({
       where: {
-        callerNumber: session.calleeNumber,
+        callerNumber: { endsWith: dialedLocal },
         status: { in: [MissedCallStatus.NEW, MissedCallStatus.CLAIMED, MissedCallStatus.ATTEMPTED] },
         callSession: { direction: CallDirection.IN },
         detectedAt: { gte: windowStart },
@@ -341,10 +412,14 @@ export class MissedCallsService {
 
     if (missedCalls.length === 0) {
       this.logger.debug(
-        `No pending missed calls match outbound ${session.calleeNumber} for session ${sessionId}`,
+        `No pending missed calls match outbound to ${session.calleeNumber} (local=${dialedLocal}) for session ${sessionId}`,
       );
       return;
     }
+
+    this.logger.log(
+      `Found ${missedCalls.length} pending missed call(s) matching outbound to ${session.calleeNumber} (local=${dialedLocal}); ring=${ringSeconds}s`,
+    );
 
     const lastAttemptAt = session.endAt ?? new Date();
     const attempter = session.assignedUserId;

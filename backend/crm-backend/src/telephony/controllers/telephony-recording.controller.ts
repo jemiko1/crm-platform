@@ -2,12 +2,14 @@ import {
   Controller,
   Get,
   Param,
+  Req,
   Res,
   UseGuards,
   NotFoundException,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
+import { createReadStream } from 'fs';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { PositionPermissionGuard } from '../../common/guards/position-permission.guard';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
@@ -34,29 +36,77 @@ export class TelephonyRecordingController {
 
   @Get(':id/audio')
   @Doc({
-    summary: 'Stream or redirect recording audio',
-    ok: 'Binary audio stream or HTTP redirect',
+    summary: 'Stream or redirect recording audio with range support',
+    ok: 'Binary audio stream (200 full, 206 partial) or HTTP redirect',
     notFound: true,
     params: [{ name: 'id', description: 'Recording UUID' }],
   })
-  async streamAudio(@Param('id') id: string, @Res() res: Response) {
+  async streamAudio(
+    @Param('id') id: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
     const recording = await this.recordingService.getRecordingById(id);
 
     if (recording.url) {
       return res.redirect(recording.url);
     }
 
+    let info: Awaited<ReturnType<RecordingAccessService['getRecordingFileInfo']>>;
     try {
-      const { stream, filename, contentType } =
-        await this.recordingService.streamRecording(id);
-      res.set({
-        'Content-Type': contentType,
-        'Content-Disposition': `inline; filename="${filename}"`,
-      });
-      stream.getStream().pipe(res);
+      info = await this.recordingService.getRecordingFileInfo(id);
     } catch (err: any) {
-      if (err.status === 404) throw new NotFoundException(err.message);
+      if (err instanceof NotFoundException || err?.status === 404) {
+        throw new NotFoundException(err.message ?? 'Recording file not found');
+      }
       throw err;
     }
+
+    const { filePath, fileSize, filename, contentType } = info;
+    const rangeHeader = req.headers.range;
+
+    // Common headers for both 200 and 206 responses. Accept-Ranges advertises
+    // support so the browser knows it can seek. Content-Length is required
+    // for the HTMLMediaElement to compute duration from the byte count.
+    const baseHeaders: Record<string, string> = {
+      'Content-Type': contentType,
+      'Content-Disposition': `inline; filename="${filename}"`,
+      'Accept-Ranges': 'bytes',
+      // Cache recordings for 1h (immutable — files never change once written)
+      'Cache-Control': 'private, max-age=3600',
+    };
+
+    if (rangeHeader) {
+      // Parse "bytes=start-end" (end optional). Respond with 206 Partial Content.
+      const match = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader);
+      if (!match) {
+        res.status(416).set({ 'Content-Range': `bytes */${fileSize}` }).send();
+        return;
+      }
+      const start = match[1] ? parseInt(match[1], 10) : 0;
+      const end = match[2] ? parseInt(match[2], 10) : fileSize - 1;
+
+      if (start >= fileSize || end >= fileSize || start > end) {
+        res.status(416).set({ 'Content-Range': `bytes */${fileSize}` }).send();
+        return;
+      }
+
+      const chunkSize = end - start + 1;
+      res.status(206).set({
+        ...baseHeaders,
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Content-Length': chunkSize.toString(),
+      });
+      createReadStream(filePath, { start, end }).pipe(res);
+      return;
+    }
+
+    // Full-file response. Content-Length is the key addition here — it's
+    // what lets the browser show the track duration and enable the seek bar.
+    res.status(200).set({
+      ...baseHeaders,
+      'Content-Length': fileSize.toString(),
+    });
+    createReadStream(filePath).pipe(res);
   }
 }

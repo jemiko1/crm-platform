@@ -40,7 +40,7 @@ export class MissedCallsController {
     return this.missedCallsService.findAll({
       status,
       queueId,
-      claimedByMe: myClaimsOnly === 'true' ? req?.user?.sub : undefined,
+      claimedByMe: myClaimsOnly === 'true' ? req?.user?.id : undefined,
       page: page ? parseInt(page, 10) : undefined,
       pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
     });
@@ -55,7 +55,7 @@ export class MissedCallsController {
     permission: true,
   })
   async claim(@Param('id') id: string, @Req() req: any) {
-    return this.missedCallsService.claim(id, req.user.sub);
+    return this.missedCallsService.claim(id, req.user.id);
   }
 
   @Patch(':id/attempt')
@@ -71,7 +71,7 @@ export class MissedCallsController {
     @Req() req: any,
     @Body('note') note?: string,
   ) {
-    return this.missedCallsService.markAttempting(id, req.user.sub, note);
+    return this.missedCallsService.markAttempting(id, req.user.id, note);
   }
 
   @Patch(':id/resolve')
