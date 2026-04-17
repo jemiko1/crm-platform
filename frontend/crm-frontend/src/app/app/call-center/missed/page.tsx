@@ -167,7 +167,7 @@ export default function MissedCallsPage() {
       .catch(() => {});
   }, []);
 
-  const { dial, appDetected } = useDesktopPhone(currentUserId);
+  const { dial, appDetected, sipRegistered } = useDesktopPhone(currentUserId);
   const [status, setStatus] = useState("");
   const [myClaimsOnly, setMyClaimsOnly] = useState(false);
   const [page, setPage] = useState(1);
@@ -176,7 +176,15 @@ export default function MissedCallsPage() {
   const [meta, setMeta] = useState({ page: 1, pageSize: 25, total: 0, totalPages: 1 });
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [noteModal, setNoteModal] = useState<{ id: string; action: "resolve" | "ignore" } | null>(null);
+  const [toast, setToast] = useState<{ message: string; kind: "error" | "info" } | null>(null);
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Auto-dismiss toasts after 4s
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -219,15 +227,36 @@ export default function MissedCallsPage() {
     }
   }
 
-  /** Call button: triggers CRM28 Softphone dial + auto-records an attempt on the backend */
+  /** Call button: triggers CRM28 Softphone dial. Attempt is ONLY recorded if dial succeeded. */
   async function handleCall(m: MissedCallItem) {
     if (!m.callerNumber) return;
+
+    // Guard: don't even try if softphone isn't running or not registered
+    if (!appDetected) {
+      setToast({
+        message: t("missedCalls.phoneNotRunning", "CRM28 Softphone is not running. Open the softphone and log in to place calls."),
+        kind: "error",
+      });
+      return;
+    }
+    if (!sipRegistered) {
+      setToast({
+        message: t("missedCalls.phoneNotRegistered", "Softphone is running but not registered with the phone server. Try logging out and back in on the softphone."),
+        kind: "error",
+      });
+      return;
+    }
+
     setActionLoading(m.id);
     try {
-      // Trigger the softphone to dial
+      // Trigger the softphone to dial — only record an attempt if this succeeds
       const dialOk = await dial(m.callerNumber);
       if (!dialOk) {
-        // Softphone not available — still record the attempt so it's tracked
+        setToast({
+          message: t("missedCalls.dialFailed", "Could not reach the softphone. No attempt recorded."),
+          kind: "error",
+        });
+        return;
       }
       // Record attempt on backend (auto-claims + tracks who attempted)
       await apiPatch(`/v1/telephony/missed-calls/${m.id}/attempt`, {
@@ -235,7 +264,10 @@ export default function MissedCallsPage() {
       });
       await load();
     } catch {
-      // Reload to show current state
+      setToast({
+        message: t("missedCalls.callError", "Something went wrong while placing the call."),
+        kind: "error",
+      });
     } finally {
       setActionLoading(null);
     }
@@ -407,8 +439,15 @@ export default function MissedCallsPage() {
                             {m.attemptsCount < 3 && (
                               <button
                                 onClick={() => handleCall(m)}
-                                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition ring-1 ring-emerald-200"
-                                title={t("missedCalls.action.call", "Call back")}
+                                disabled={!appDetected || !sipRegistered}
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition ring-1 ring-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-emerald-50"
+                                title={
+                                  !appDetected
+                                    ? t("missedCalls.phoneNotRunning", "CRM28 Softphone is not running. Open the softphone and log in to place calls.")
+                                    : !sipRegistered
+                                      ? t("missedCalls.phoneNotRegistered", "Softphone is running but not registered with the phone server. Try logging out and back in on the softphone.")
+                                      : t("missedCalls.action.call", "Call back")
+                                }
                               >
                                 <PhoneIcon className="h-3.5 w-3.5" />
                                 {t("missedCalls.action.call", "Call")}
@@ -471,6 +510,40 @@ export default function MissedCallsPage() {
           </div>
         )}
       </div>
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-[60000] max-w-sm">
+          <div
+            className={[
+              "rounded-xl px-4 py-3 shadow-lg ring-1 text-sm",
+              toast.kind === "error"
+                ? "bg-red-50 text-red-800 ring-red-200"
+                : "bg-teal-50 text-teal-800 ring-teal-200",
+            ].join(" ")}
+          >
+            <div className="flex items-start gap-2">
+              <svg className="mt-0.5 h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                {toast.kind === "error" ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                )}
+              </svg>
+              <span>{toast.message}</span>
+              <button
+                onClick={() => setToast(null)}
+                className="ml-auto flex-shrink-0 text-current/60 hover:text-current"
+                aria-label={t("common.close", "Close")}
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Note modal (portal-based, always centered) */}
       {noteModal && (
