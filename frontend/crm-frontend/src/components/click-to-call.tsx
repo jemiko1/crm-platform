@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useI18n } from "@/hooks/useI18n";
 
 const BRIDGE_URL = "http://127.0.0.1:19876";
 
@@ -11,41 +12,42 @@ interface ClickToCallProps {
 }
 
 export function ClickToCall({ number, children, className }: ClickToCallProps) {
+  const { t } = useI18n();
   const [status, setStatus] = useState<"idle" | "dialing" | "error" | "no-app">("idle");
 
-  const handleClick = useCallback(async () => {
-    setStatus("dialing");
-    try {
-      const res = await fetch(`${BRIDGE_URL}/dial`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ number }),
-        signal: AbortSignal.timeout(3000),
-      });
+  const handleClick = useCallback(
+    async (e: React.MouseEvent) => {
+      // Prevent parent row click handlers from firing (row navigate, etc.)
+      e.stopPropagation();
+      setStatus("dialing");
+      try {
+        const res = await fetch(`${BRIDGE_URL}/dial`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ number }),
+          signal: AbortSignal.timeout(3000),
+        });
 
-      if (res.ok) {
-        setStatus("idle");
-      } else {
-        const body = await res.json().catch(() => ({}));
-        if (body.error?.includes("not registered")) {
-          setStatus("error");
+        if (res.ok) {
+          setStatus("idle");
         } else {
           setStatus("error");
+          setTimeout(() => setStatus("idle"), 3000);
         }
+      } catch {
+        setStatus("no-app");
         setTimeout(() => setStatus("idle"), 3000);
       }
-    } catch {
-      setStatus("no-app");
-      setTimeout(() => setStatus("idle"), 3000);
-    }
-  }, [number]);
+    },
+    [number],
+  );
 
   const title =
     status === "no-app"
-      ? "Phone app not detected. Install CRM Phone."
+      ? t("clickToCall.noApp", "Softphone not running. Open CRM28 Phone and log in.")
       : status === "error"
-        ? "Failed to dial. Check phone app."
-        : `Call ${number}`;
+        ? t("clickToCall.failed", "Failed to dial. Check that the softphone is registered.")
+        : t("clickToCall.call", "Call {number}").replace("{number}", number);
 
   return (
     <button
@@ -71,10 +73,10 @@ export function ClickToCall({ number, children, className }: ClickToCallProps) {
       </svg>
       {children || number}
       {status === "no-app" && (
-        <span className="text-xs text-amber-600 ml-1">(app not found)</span>
+        <span className="text-xs text-amber-600 ml-1">{t("clickToCall.appNotFound", "(app not found)")}</span>
       )}
       {status === "error" && (
-        <span className="text-xs text-red-500 ml-1">(failed)</span>
+        <span className="text-xs text-red-500 ml-1">{t("clickToCall.failedShort", "(failed)")}</span>
       )}
     </button>
   );

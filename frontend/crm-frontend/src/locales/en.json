@@ -337,6 +337,7 @@
       "extension": "Extension",
       "actions": "Actions"
     },
+    "extPrefix": "Ext:",
     "noPosition": "No position",
     "statusFilters": {
       "all": "ALL",
@@ -722,6 +723,13 @@
       "quality": "Quality",
       "statistics": "Statistics"
     }
+  },
+  "clickToCall": {
+    "call": "Call {number}",
+    "noApp": "Softphone not running. Open CRM28 Phone and log in.",
+    "failed": "Failed to dial. Check that the softphone is registered.",
+    "appNotFound": "(app not found)",
+    "failedShort": "(failed)"
   },
   "missedCalls": {
     "phoneNotRunning": "CRM28 Softphone is not running. Open the softphone and log in to place calls.",

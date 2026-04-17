@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useI18n } from "@/hooks/useI18n";
+import { ClickToCall } from "@/components/click-to-call";
 import { fetchCalls } from "../api";
 import type { CallSession, CallsPaginated } from "../types";
 
@@ -172,8 +173,26 @@ export default function CallLogsPage() {
                   >
                     <td className="px-4 py-3 text-sm text-zinc-700 whitespace-nowrap">{fmtDate(c.startAt)}</td>
                     <td className="px-4 py-3"><DirectionBadge direction={c.direction} /></td>
-                    <td className="px-4 py-3 text-sm font-mono text-zinc-900">{c.callerNumber || "—"}</td>
-                    <td className="px-4 py-3 text-sm font-mono text-zinc-600">{c.calleeNumber || "—"}</td>
+                    <td className="px-4 py-3 text-sm font-mono text-zinc-900">
+                      {c.callerNumber ? (
+                        <ClickToCall
+                          number={c.callerNumber}
+                          className="inline-flex items-center gap-1 font-mono text-zinc-900 hover:text-emerald-700 disabled:opacity-50"
+                        >
+                          {c.callerNumber}
+                        </ClickToCall>
+                      ) : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-sm font-mono text-zinc-600">
+                      {c.calleeNumber ? (
+                        <ClickToCall
+                          number={c.calleeNumber}
+                          className="inline-flex items-center gap-1 font-mono text-zinc-600 hover:text-emerald-700 disabled:opacity-50"
+                        >
+                          {c.calleeNumber}
+                        </ClickToCall>
+                      ) : "—"}
+                    </td>
                     <td className="px-4 py-3 text-sm text-zinc-600">{c.queueName || "—"}</td>
                     <td className="px-4 py-3 text-sm text-zinc-700">{c.agentName || c.agentExtension || "—"}</td>
                     <td className="px-4 py-3"><DispositionBadge disposition={c.disposition} /></td>
