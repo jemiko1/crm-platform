@@ -99,7 +99,7 @@ describe("TelephonyCallsService", () => {
       expect(call.talkTimeSec).toBe(295);
       expect(call.waitTimeSec).toBe(5);
       expect(call.durationSec).toBe(295);
-      expect(call.recordingUrl).toContain("/v1/telephony/recordings/r1/stream");
+      expect(call.recordingUrl).toContain("/v1/telephony/recordings/r1/audio");
       expect(call.qualityScore).toBe(85);
       expect(call.direction).toBe("IN");
       expect(res.meta.total).toBe(1);
