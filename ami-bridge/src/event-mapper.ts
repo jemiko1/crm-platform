@@ -258,7 +258,7 @@ export class EventMapper {
       {
         eventType: "transfer",
         timestamp: new Date().toISOString(),
-        idempotencyKey: `${linkedId}-transfer-${Date.now()}`,
+        idempotencyKey: this.buildTransferIdempotencyKey(evt, linkedId),
         linkedId,
         payload: {
           uniqueId: evt.Uniqueid,
@@ -277,7 +277,7 @@ export class EventMapper {
       {
         eventType: type,
         timestamp: new Date().toISOString(),
-        idempotencyKey: `${linkedId}-${type}-${Date.now()}`,
+        idempotencyKey: this.buildHoldIdempotencyKey(evt, type),
         linkedId,
         payload: {
           uniqueId: evt.Uniqueid,
@@ -285,6 +285,71 @@ export class EventMapper {
         },
       },
     ];
+  }
+
+  // ── Idempotency key builders ────────────────────────────
+  // These used to embed Date.now(), which meant every bridge restart and
+  // every retry produced a fresh key and the backend's CallEvent.idempotencyKey
+  // uniqueness guard missed them. With multiple concurrent crm_ami sessions
+  // on the PBX (observed: 3 stacked), this inflated transfer counts and
+  // hold seconds by Nx. The key must now be deterministic: stable across
+  // bridge restarts for the same underlying AMI event, distinct for
+  // genuinely different events.
+  //
+  // See audit/phase1-telephony-stats.md check #6 (finding P1-8).
+
+  /**
+   * Transfer key: `transfer:${linkedid}:${originalUniqueid}:${targetChannel}`
+   *
+   * - linkedid identifies the call.
+   * - evt.Uniqueid identifies the originating channel (stable across restart).
+   * - TransferTargetChannel (or TransferExten/Extension fallback) identifies
+   *   which leg was transferred — distinguishes multiple sequential transfers
+   *   on the same call.
+   */
+  generateTransferIdempotencyKey(evt: AmiEvent, linkedId: string): string {
+    return this.buildTransferIdempotencyKey(evt, linkedId);
+  }
+
+  /**
+   * Hold key: `hold:${eventType}:${channelUniqueid}:${ts}`
+   *
+   * - eventType distinguishes hold_start from hold_end.
+   * - channelUniqueid (evt.Uniqueid) identifies the channel under hold.
+   * - ts is the AMI event's event-carried Timestamp (NOT wall-clock). If the
+   *   bridge replays the same AMI event the timestamp is identical, so the
+   *   dedup guard hits. If timestamp is unavailable (Asterisk manager.conf
+   *   without `timestampevents=yes`) we fall back to the Linkedid so the key
+   *   is still deterministic — in that case the channel + event-type combo is
+   *   the content address.
+   */
+  generateHoldIdempotencyKey(
+    evt: AmiEvent,
+    type: "hold_start" | "hold_end",
+  ): string {
+    return this.buildHoldIdempotencyKey(evt, type);
+  }
+
+  private buildTransferIdempotencyKey(
+    evt: AmiEvent,
+    linkedId: string,
+  ): string {
+    const originalUniqueid = evt.Uniqueid || "unknown";
+    const targetChannel =
+      evt.TransferTargetChannel ||
+      evt.TransferExten ||
+      evt.Extension ||
+      "unknown";
+    return `transfer:${linkedId}:${originalUniqueid}:${targetChannel}`;
+  }
+
+  private buildHoldIdempotencyKey(
+    evt: AmiEvent,
+    type: "hold_start" | "hold_end",
+  ): string {
+    const channelUniqueid = evt.Uniqueid || "unknown";
+    const ts = evt.Timestamp || evt.Linkedid || "0";
+    return `hold:${type}:${channelUniqueid}:${ts}`;
   }
 
   private onVarSet(evt: AmiEvent, linkedId: string): CrmEvent[] {
