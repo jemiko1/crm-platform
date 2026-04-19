@@ -1783,6 +1783,7 @@ model ClientChatMessage {
   attachments       Json?
   sentAt            DateTime
   deliveryStatus    String?
+  deliveryError     String?
   rawPayload        Json?
   createdAt         DateTime              @default(now())
   conversation      ClientChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
