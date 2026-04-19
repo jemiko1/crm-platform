@@ -11,6 +11,7 @@ import {
   ClientChatChannelType,
   ClientChatDirection,
   ClientChatStatus,
+  Prisma,
 } from '@prisma/client';
 import { Readable } from 'stream';
 import { AdapterRegistryService } from '../adapters/adapter-registry.service';
@@ -213,59 +214,120 @@ export class ClientChatsCoreService {
     return participant;
   }
 
+  /**
+   * Upsert the conversation for an inbound message.
+   *
+   * When the matched conversation is CLOSED we archive it (rename its
+   * externalConversationId to `__archived_<ts>_<id>`) and create a fresh
+   * thread that inherits the original externalConversationId. That flow is
+   * UPDATE + CREATE on a unique-constrained column, and under concurrent
+   * inbound messages on the same closed thread it used to race: two callers
+   * could both see the old conversation, both attempt to rename, one would
+   * succeed, and the second would hit P2002 when its CREATE collided with
+   * the winner's — dropping the customer's message.
+   *
+   * Fix (P1-5): run the whole read-update-create (or read-update) flow
+   * inside a single Serializable transaction. Serializable gives PostgreSQL
+   * licence to abort one of two racing transactions with a P2034
+   * serialization failure; we retry up to 3 times with 10/50/250ms
+   * exponential backoff. P2002 retries are also tolerated as a safety net
+   * for any rename collision that slips through (e.g. extremely fast
+   * consecutive inbound messages that both hit the same `Date.now()` tick).
+   *
+   * The outbound `emitConversationUpdated` for the LIVE update path is
+   * deferred until after the transaction commits so subscribers never see
+   * rolled-back state.
+   */
   async upsertConversation(
     channelType: ClientChatChannelType,
     channelAccountId: string,
     externalConversationId: string,
     participantId: string,
   ): Promise<{ conversation: any; isNew: boolean }> {
-    const existing = await this.prisma.clientChatConversation.findUnique({
-      where: { externalConversationId },
-    });
+    const MAX_ATTEMPTS = 3;
+    let lastError: unknown;
 
-    if (existing) {
-      if (existing.status === ClientChatStatus.CLOSED) {
-        await this.prisma.clientChatConversation.update({
-          where: { id: existing.id },
-          data: { externalConversationId: `${externalConversationId}__archived_${Date.now()}` },
-        });
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      try {
+        const result = await this.prisma.$transaction(
+          async (tx) => {
+            const existing = await tx.clientChatConversation.findUnique({
+              where: { externalConversationId },
+            });
 
-        const created = await this.prisma.clientChatConversation.create({
-          data: {
-            channelType,
-            channelAccountId,
-            externalConversationId,
-            lastMessageAt: new Date(),
-            clientId: existing.clientId,
-            participantId,
-            previousConversationId: existing.id,
+            if (existing) {
+              if (existing.status === ClientChatStatus.CLOSED) {
+                // Archive + create new thread atomically. Including existing.id
+                // in the archived suffix guards against Date.now() collisions
+                // (two fast retries in the same millisecond).
+                const archivedId = `${externalConversationId}__archived_${Date.now()}_${existing.id}`;
+                await tx.clientChatConversation.update({
+                  where: { id: existing.id },
+                  data: { externalConversationId: archivedId },
+                });
+
+                const created = await tx.clientChatConversation.create({
+                  data: {
+                    channelType,
+                    channelAccountId,
+                    externalConversationId,
+                    lastMessageAt: new Date(),
+                    clientId: existing.clientId,
+                    participantId,
+                    previousConversationId: existing.id,
+                  },
+                });
+                return { conversation: created, isNew: true, emitUpdated: false as const };
+              }
+
+              const data: Record<string, unknown> = { lastMessageAt: new Date() };
+              if (!existing.participantId) {
+                data.participantId = participantId;
+              }
+              const updated = await tx.clientChatConversation.update({
+                where: { id: existing.id },
+                data,
+              });
+              return { conversation: updated, isNew: false, emitUpdated: true as const };
+            }
+
+            const created = await tx.clientChatConversation.create({
+              data: {
+                channelType,
+                channelAccountId,
+                externalConversationId,
+                lastMessageAt: new Date(),
+                participantId,
+              },
+            });
+            return { conversation: created, isNew: true, emitUpdated: false as const };
           },
-        });
-        return { conversation: created, isNew: true };
-      }
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
 
-      const data: Record<string, unknown> = { lastMessageAt: new Date() };
-      if (!existing.participantId) {
-        data.participantId = participantId;
+        if (result.emitUpdated) {
+          this.events.emitConversationUpdated(result.conversation as any);
+        }
+        return { conversation: result.conversation, isNew: result.isNew };
+      } catch (err: any) {
+        // P2034 = serialization failure under Serializable isolation.
+        // P2002 = unique constraint violation (externalConversationId race).
+        // Either one means "concurrent writer beat us" — retry and we'll
+        // observe the winner's state on the next attempt.
+        if (err?.code === 'P2034' || err?.code === 'P2002') {
+          lastError = err;
+          const delayMs = 10 * Math.pow(5, attempt); // 10ms, 50ms, 250ms
+          this.logger.debug(
+            `upsertConversation retry ${attempt + 1}/${MAX_ATTEMPTS} after ${err.code} (backoff ${delayMs}ms)`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          continue;
+        }
+        throw err;
       }
-      const updated = await this.prisma.clientChatConversation.update({
-        where: { id: existing.id },
-        data,
-      });
-      this.events.emitConversationUpdated(updated as any);
-      return { conversation: updated, isNew: false };
     }
 
-    const created = await this.prisma.clientChatConversation.create({
-      data: {
-        channelType,
-        channelAccountId,
-        externalConversationId,
-        lastMessageAt: new Date(),
-        participantId,
-      },
-    });
-    return { conversation: created, isNew: true };
+    throw lastError;
   }
 
   /**

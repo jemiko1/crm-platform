@@ -56,6 +56,14 @@ describe('ClientChatsCoreService', () => {
         })),
       },
       client: { findUnique: jest.fn() },
+      // upsertConversation now wraps its findUnique+update+create flow in a
+      // Serializable transaction (P1-5 archival race fix). Run the callback
+      // against the same prisma mock so existing assertions on create/update
+      // call counts still work.
+      $transaction: jest.fn(async (arg: any) => {
+        if (typeof arg === 'function') return arg(prisma);
+        return arg;
+      }),
     };
 
     adapterRegistry = {
