@@ -227,14 +227,24 @@ export default function InboxSidebar({ selectedId, onSelect, isManager, notify, 
       }
     };
 
+    // Server emits this to an operator socket when its queue-room membership
+    // changed (manager edited today's schedule). Refresh to pick up / drop
+    // unassigned chats according to the new membership. Fire-and-forget.
+    const handleMembershipChanged = (payload: { inQueue: boolean }) => {
+      void payload;
+      fetchConversations();
+    };
+
     on("conversation:new", handleNewConversation);
     on("conversation:updated", handleConversationUpdated);
     on("message:new", handleNewMessage);
+    on("queue:membership-changed", handleMembershipChanged);
 
     return () => {
       off("conversation:new", handleNewConversation);
       off("conversation:updated", handleConversationUpdated);
       off("message:new", handleNewMessage);
+      off("queue:membership-changed", handleMembershipChanged);
     };
   }, [on, off, fetchConversations, selectedId, notify, isManager, currentUserId]);
 

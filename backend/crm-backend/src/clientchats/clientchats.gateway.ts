@@ -61,6 +61,10 @@ export class ClientChatsGateway
       }
 
       (client as any).userId = userId;
+      // Also set on socket.data so RemoteSocket (fetchSockets() result)
+      // can read the userId. Direct properties set on the live Socket are
+      // NOT visible to RemoteSocket — only socket.data survives the serialization.
+      client.data = { ...(client.data ?? {}), userId };
       client.join('agents');
       client.join(`agent:${userId}`);
 

@@ -202,3 +202,64 @@ describe("MyFeature (e2e)", () => {
 Tests run automatically in GitHub Actions on every PR to `dev`, `staging`, or `master`. See [CI_CD.md](./CI_CD.md) for details.
 
 The CI uses a Postgres service container, so no external database is needed.
+
+---
+
+## Manual Regression — Frontend (no RTL installed)
+
+The frontend project does not currently have React Testing Library or a Jest
+runner wired up, so hook- and component-level regressions must be verified
+manually. Record each run with a screenshot or a short screen recording.
+
+### P1-10 — Switch-user / bridge-unreachable banner
+
+File under test: `frontend/crm-frontend/src/hooks/useDesktopPhone.ts` +
+`frontend/crm-frontend/src/app/app/phone-mismatch-banner.tsx`.
+
+Expected state machine: `match` / `mismatch` / `bridge-unreachable`. The banner
+must render in the last two, not the first. A 2-consecutive-failed-poll grace
+period keeps the banner hidden for transient blips.
+
+#### Repro 1 — mismatch (bridge reachable, different user)
+
+1. Launch the Electron softphone (`crm-phone/`) and log in as **User B**.
+2. In a browser, log into the web CRM as **User A**. Open any page.
+3. Wait up to 60 s for the next poll.
+4. **Expected:** amber banner at the top reads
+   "Phone app is logged in as **User B** (ext NNNN). Calls will be attributed
+   to the wrong agent." A "Switch Phone to My Account" button is shown.
+5. Click the button → banner should disappear within the next poll cycle
+   (softphone now logged in as User A).
+
+#### Repro 2 — bridge-unreachable (softphone not running)
+
+1. Kill the Electron softphone process (Task Manager → End Task on
+   `crm28-phone.exe`).
+2. Log into the web CRM.
+3. Within ~2 minutes (two failed polls at 60 s each), a **red** banner reads
+   "Softphone not detected. Calls won't attribute correctly. [Launch
+   softphone]".
+4. Click **Launch softphone** → opens
+   `https://crm28.asg.ge/downloads/phone/`.
+5. After re-launching the softphone and logging in as the same user as the web
+   CRM, the banner disappears within one poll cycle.
+
+#### Repro 3 — transient blip grace period
+
+1. While both softphone and web CRM are running and matching (no banner
+   visible), simulate a single failed poll by temporarily blocking
+   `127.0.0.1:19876` in Windows Firewall for ~5 s then re-enabling.
+2. **Expected:** banner should **not** appear — one failed poll is within the
+   `UNREACHABLE_THRESHOLD = 2` grace window.
+3. Verify by keeping the port blocked for >120 s (two consecutive poll failures)
+   — the red "bridge-unreachable" banner should then appear.
+
+#### What regressing looks like
+
+- Pre-fix behavior (the bug we closed): banner silently hidden when bridge is
+  down, so operator running softphone as User B while web UI is User A sees
+  no warning. If you can reproduce this, the fix has regressed.
+- Banner flashes on and off every 60 s during a flaky-network moment: the
+  grace period is too short or not honored.
+
+---
