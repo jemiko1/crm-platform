@@ -1,13 +1,37 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TelephonyStatsService } from '../services/telephony-stats.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 
-describe('TelephonyStatsService', () => {
+/**
+ * Legacy spec, retained for the shape-check cases the team relied on before
+ * P1-3 moved aggregation into SQL. The numeric equivalence + safety guard
+ * tests live in services/telephony-stats.service.spec.ts.
+ *
+ * These tests stub `$queryRaw` to return canned result rows rather than
+ * inspecting raw SQL. Enough to confirm wiring, callback counts, and the
+ * shape of the comparison object.
+ */
+describe('TelephonyStatsService (legacy shape checks)', () => {
   let service: TelephonyStatsService;
   let prisma: Record<string, any>;
 
+  // Canned answers per query shape — keyed by distinctive SQL substrings.
+  function makeQueryRawStub(
+    byShape: Record<string, (input: Prisma.Sql) => Promise<unknown[]>>,
+  ) {
+    return jest.fn((input: Prisma.Sql) => {
+      const sql = input.sql;
+      for (const key of Object.keys(byShape)) {
+        if (sql.includes(key)) return byShape[key](input);
+      }
+      return Promise.resolve([]);
+    });
+  }
+
   beforeEach(async () => {
     prisma = {
+      $queryRaw: makeQueryRawStub({}),
       callSession: {
         findMany: jest.fn().mockResolvedValue([]),
         count: jest.fn().mockResolvedValue(0),
@@ -38,7 +62,7 @@ describe('TelephonyStatsService', () => {
       const result = await service.getOverview({
         from: '2026-02-21T00:00:00Z',
         to: '2026-02-21T23:59:59Z',
-      });
+      } as any);
 
       expect(result.current.volume.totalCalls).toBe(0);
       expect(result.current.volume.answered).toBe(0);
@@ -49,72 +73,56 @@ describe('TelephonyStatsService', () => {
       expect(result.comparison).toBeUndefined();
     });
 
-    it('should compute correct KPIs from session data', async () => {
-      prisma.callSession.findMany.mockResolvedValue([
-        {
-          disposition: 'ANSWERED',
-          startAt: new Date('2026-02-21T10:00:00Z'),
-          callMetrics: {
-            waitSeconds: 10,
-            talkSeconds: 120,
-            holdSeconds: 5,
-            wrapupSeconds: 15,
-            transfersCount: 0,
-            abandonsAfterSeconds: null,
-            isSlaMet: true,
-          },
-        },
-        {
-          disposition: 'ANSWERED',
-          startAt: new Date('2026-02-21T11:00:00Z'),
-          callMetrics: {
-            waitSeconds: 20,
-            talkSeconds: 180,
-            holdSeconds: 10,
-            wrapupSeconds: 20,
-            transfersCount: 1,
-            abandonsAfterSeconds: null,
-            isSlaMet: true,
-          },
-        },
-        {
-          disposition: 'ABANDONED',
-          startAt: new Date('2026-02-21T12:00:00Z'),
-          callMetrics: {
-            waitSeconds: 45,
-            talkSeconds: 0,
-            holdSeconds: 0,
-            wrapupSeconds: 0,
-            transfersCount: 0,
-            abandonsAfterSeconds: 45,
-            isSlaMet: false,
-          },
-        },
-      ]);
+    it('should compute correct KPIs from aggregate shape', async () => {
+      // Simulate Postgres returning pre-aggregated rows (what the rewritten
+      // service asks for via $queryRaw).
+      prisma.$queryRaw = makeQueryRawStub({
+        answeredWithMetrics: () =>
+          Promise.resolve([
+            {
+              total: 3n,
+              answered: 2n,
+              missed: 0n,
+              abandoned: 1n,
+              answeredWithMetrics: 2n,
+              avgAnswerWait: 15,
+              medianAnswerWait: 15,
+              p90AnswerWait: 19,
+              maxAnsweredWait: 20,
+              abandonWaitCount: 1n,
+              abandonWaitSum: 45,
+              talkSum: 300,
+              holdSum: 15,
+              wrapupSum: 35,
+              transfersSum: 1,
+              slaTotal: 3n,
+              slaMetCount: 2n,
+            },
+          ]),
+        'GROUP BY 1': () => Promise.resolve([]),
+      });
 
       const result = await service.getOverview({
         from: '2026-02-21T00:00:00Z',
         to: '2026-02-21T23:59:59Z',
-      });
+      } as any);
 
       expect(result.current.volume.totalCalls).toBe(3);
       expect(result.current.volume.answered).toBe(2);
       expect(result.current.volume.abandoned).toBe(1);
-      expect(result.current.speed.avgAnswerTimeSec).toBe(15); // (10+20)/2
-      expect(result.current.quality.avgTalkTimeSec).toBe(150); // (120+180)/2
+      expect(result.current.speed.avgAnswerTimeSec).toBe(15);
+      expect(result.current.quality.avgTalkTimeSec).toBe(150); // 300/2
       expect(result.current.quality.transferRate).toBe(0.5); // 1/2
       expect(result.current.serviceLevel.slaMetPercent).toBeCloseTo(66.67, 1);
     });
 
     it('should include comparison and delta when compareFrom/To provided', async () => {
-      prisma.callSession.findMany.mockResolvedValue([]);
-
       const result = await service.getOverview({
         from: '2026-02-21T00:00:00Z',
         to: '2026-02-21T23:59:59Z',
         compareFrom: '2026-02-14T00:00:00Z',
         compareTo: '2026-02-14T23:59:59Z',
-      });
+      } as any);
 
       expect(result.comparison).toBeDefined();
       expect(result.delta).toBeDefined();
@@ -126,44 +134,35 @@ describe('TelephonyStatsService', () => {
       const result = await service.getAgentStats({
         from: '2026-02-21T00:00:00Z',
         to: '2026-02-21T23:59:59Z',
-      });
+      } as any);
 
       expect(result).toEqual([]);
     });
 
-    it('should group stats by assignedUserId', async () => {
-      prisma.callSession.findMany.mockResolvedValue([
-        {
-          assignedUserId: 'user-1',
-          disposition: 'ANSWERED',
-          callMetrics: {
-            talkSeconds: 60,
-            holdSeconds: 5,
-            wrapupSeconds: 10,
-            waitSeconds: 8,
-          },
-        },
-        {
-          assignedUserId: 'user-1',
-          disposition: 'MISSED',
-          callMetrics: {
-            talkSeconds: 0,
-            holdSeconds: 0,
-            wrapupSeconds: 0,
-            waitSeconds: 30,
-          },
-        },
-        {
-          assignedUserId: 'user-2',
-          disposition: 'ANSWERED',
-          callMetrics: {
-            talkSeconds: 120,
-            holdSeconds: 10,
-            wrapupSeconds: 15,
-            waitSeconds: 5,
-          },
-        },
-      ]);
+    it('should map aggregate rows into AgentKpis shape', async () => {
+      prisma.$queryRaw = makeQueryRawStub({
+        'GROUP BY s."assignedUserId"': () =>
+          Promise.resolve([
+            {
+              userId: 'user-1',
+              total: 2n,
+              answered: 1n,
+              missed: 1n,
+              talkSum: 60,
+              holdSum: 5,
+              wrapupSum: 10,
+            },
+            {
+              userId: 'user-2',
+              total: 1n,
+              answered: 1n,
+              missed: 0n,
+              talkSum: 120,
+              holdSum: 10,
+              wrapupSum: 15,
+            },
+          ]),
+      });
       prisma.telephonyExtension.findMany.mockResolvedValue([
         { crmUserId: 'user-1', displayName: 'Agent A' },
         { crmUserId: 'user-2', displayName: 'Agent B' },
@@ -172,7 +171,7 @@ describe('TelephonyStatsService', () => {
       const result = await service.getAgentStats({
         from: '2026-02-21T00:00:00Z',
         to: '2026-02-21T23:59:59Z',
-      });
+      } as any);
 
       expect(result).toHaveLength(2);
 
@@ -190,7 +189,7 @@ describe('TelephonyStatsService', () => {
       const result = await service.getQueueStats({
         from: '2026-02-21T00:00:00Z',
         to: '2026-02-21T23:59:59Z',
-      });
+      } as any);
 
       expect(result).toEqual([]);
     });
