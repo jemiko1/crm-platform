@@ -200,6 +200,43 @@ export class AmiEventMapperService implements OnModuleInit {
     ];
   }
 
+  /**
+   * Build a deterministic idempotency key for a transfer event.
+   * Composite: event identity (linkedid + source uniqueid + target channel).
+   * MUST NOT use Date.now() — two bridge instances reading the same AMI feed
+   * or the backend's own reconnect retry would otherwise produce divergent
+   * keys and the dedup layer would accept the same event N times.
+   */
+  private transferIdempotencyKey(raw: RawAmiEvent): string {
+    const sourceUid = raw.uniqueid ?? raw.linkedid ?? 'unknown';
+    const target =
+      raw.transfertargetchannel ??
+      raw.transfereechannel ??
+      raw.destchannel ??
+      raw.destuniqueid ??
+      'notarget';
+    return `ami:transfer:${raw.linkedid}:${sourceUid}:${target}`;
+  }
+
+  /**
+   * Build a deterministic idempotency key for a MusicOnHold start/stop event.
+   * Composite: linkedid + uniqueid + event type + AMI-event-carried Timestamp.
+   * When Asterisk manager.conf has `timestampevents=yes` the Timestamp carries
+   * sub-second resolution, distinguishing N hold cycles on the same channel.
+   * When it's unset the fallback collapses cycles 2..N onto cycle 1's key
+   * (under-count). Prod Asterisk currently has `timestampevents: No`
+   * (see audit/ASTERISK_INVENTORY.md §4). Enable in FreePBX GUI →
+   * Asterisk Manager Users → crm_ami to fully close P1-8.
+   */
+  private holdIdempotencyKey(raw: RawAmiEvent, eventType: string): string {
+    const uid = raw.uniqueid ?? raw.linkedid ?? 'unknown';
+    // AMI event-carried Timestamp may arrive lowercased on some clients;
+    // check both shapes via dynamic access on the index signature.
+    const amiTimestamp = (raw as Record<string, string | undefined>).timestamp;
+    const tsField = amiTimestamp ?? raw.linkedid ?? '0';
+    return `ami:moh:${raw.linkedid}:${uid}:${eventType}:${tsField}`;
+  }
+
   private mapTransfer(raw: RawAmiEvent): MappedEvent[] | null {
     if (!raw.linkedid) return null;
 
@@ -211,7 +248,7 @@ export class AmiEventMapperService implements OnModuleInit {
       {
         eventType: 'transfer',
         timestamp: new Date().toISOString(),
-        idempotencyKey: `ami:transfer:${raw.uniqueid ?? raw.linkedid}:${Date.now()}`,
+        idempotencyKey: this.transferIdempotencyKey(raw),
         linkedId: raw.linkedid,
         uniqueId: raw.uniqueid,
         payload: {
@@ -236,7 +273,7 @@ export class AmiEventMapperService implements OnModuleInit {
       {
         eventType,
         timestamp: new Date().toISOString(),
-        idempotencyKey: `ami:moh:${raw.uniqueid ?? raw.linkedid}:${eventType}:${Date.now()}`,
+        idempotencyKey: this.holdIdempotencyKey(raw, eventType),
         linkedId: raw.linkedid,
         uniqueId: raw.uniqueid,
         payload: this.buildPayload(raw),
