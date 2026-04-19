@@ -13,7 +13,7 @@ import { Logger, OnModuleInit } from '@nestjs/common';
 import * as cookie from 'cookie';
 import { getCorsOrigins } from '../../cors';
 import { TelephonyStateManager } from './telephony-state.manager';
-import type { ActiveCall } from './telephony-state.manager';
+import type { ActiveCall, AgentState } from './telephony-state.manager';
 import { AmiClientService } from '../ami/ami-client.service';
 import { TelephonyCallsService } from '../services/telephony-calls.service';
 import { AgentPresenceService } from '../services/agent-presence.service';
@@ -40,6 +40,16 @@ export class TelephonyGateway
   private readonly logger = new Logger(TelephonyGateway.name);
   private readonly connectedUsers = new Map<string, Set<string>>();
   private readonly reportTriggerSent = new Set<string>();
+
+  // P1-9: diff-then-emit for queue:updated — one hash per queueId of the
+  // last snapshot fields that matter to the dashboard. Skip re-emit if unchanged.
+  private readonly lastQueueSnapshot = new Map<string, string>();
+
+  // P1-9: per-user throttle for agent:status — max 1 emit per userId per second.
+  // Trailing emit guarantees the final state is delivered after the throttle window.
+  private readonly lastAgentEmitAt = new Map<string, number>();
+  private readonly pendingAgentEmit = new Map<string, NodeJS.Timeout>();
+  private readonly pendingAgentState = new Map<string, AgentState>();
 
   constructor(
     private readonly jwtService: JwtService,
@@ -113,7 +123,19 @@ export class TelephonyGateway
       const sockets = this.connectedUsers.get(client.userId);
       if (sockets) {
         sockets.delete(client.id);
-        if (sockets.size === 0) this.connectedUsers.delete(client.userId);
+        if (sockets.size === 0) {
+          this.connectedUsers.delete(client.userId);
+
+          // P1-9: clear any pending throttled agent:status timer + state for
+          // this user so we do not leak timers after the last socket leaves.
+          const timer = this.pendingAgentEmit.get(client.userId);
+          if (timer) {
+            clearTimeout(timer);
+            this.pendingAgentEmit.delete(client.userId);
+          }
+          this.pendingAgentState.delete(client.userId);
+          this.lastAgentEmitAt.delete(client.userId);
+        }
       }
     }
   }
@@ -185,17 +207,80 @@ export class TelephonyGateway
         break;
     }
 
-    this.server.to('dashboard').emit('queue:updated', {
-      queues: this.stateManager.getQueueSnapshots(),
-      timestamp: new Date().toISOString(),
-    });
-
+    // P1-9: diff-then-emit for queue:updated (skip no-op snapshots) and
+    // throttle agent:status per userId. See emitQueueUpdated / emitAgentStatus.
+    this.emitQueueUpdated();
     for (const agent of this.stateManager.getAgentStates()) {
-      this.server.to(`agent:${agent.userId}`).emit('agent:status', {
-        ...agent,
+      this.emitAgentStatus(agent.userId, agent);
+    }
+  }
+
+  /**
+   * P1-9: compare each queue's snapshot to the last emitted hash and only
+   * emit `queue:updated` for queues that actually changed. Previously this
+   * fanned the full queue array to every `dashboard` socket on every AMI
+   * event — ~115 msg/sec during 10-call/min bursts with 70 subscribers.
+   */
+  private emitQueueUpdated(): void {
+    const queues = this.stateManager.getQueueSnapshots();
+    const seen = new Set<string>();
+    for (const q of queues) {
+      seen.add(q.queueId);
+      const hash = `${q.activeCalls}|${q.waitingCallers}|${q.longestWaitSec ?? ''}|${q.availableAgents}`;
+      if (this.lastQueueSnapshot.get(q.queueId) === hash) continue;
+      this.lastQueueSnapshot.set(q.queueId, hash);
+      this.server.to('dashboard').emit('queue:updated', {
+        ...q,
         timestamp: new Date().toISOString(),
       });
     }
+    // Evict hashes for queues no longer reported (queue closed / empty).
+    for (const queueId of this.lastQueueSnapshot.keys()) {
+      if (!seen.has(queueId)) this.lastQueueSnapshot.delete(queueId);
+    }
+  }
+
+  /**
+   * P1-9: throttle `agent:status` emits to at most 1 per userId per second.
+   * If an emit arrives within the throttle window we schedule a trailing
+   * emit so the final state is guaranteed to be delivered.
+   */
+  private emitAgentStatus(userId: string, state: AgentState): void {
+    const now = Date.now();
+    const last = this.lastAgentEmitAt.get(userId) ?? 0;
+    if (now - last < 1000) {
+      this.scheduleTrailingAgentEmit(userId, state);
+      return;
+    }
+    this.lastAgentEmitAt.set(userId, now);
+    this.doEmitAgentStatus(userId, state);
+  }
+
+  private scheduleTrailingAgentEmit(userId: string, state: AgentState): void {
+    // Always keep the latest pending state so the trailing emit delivers
+    // the most recent value, not whichever event happened to first land in
+    // the throttle window.
+    this.pendingAgentState.set(userId, state);
+    if (this.pendingAgentEmit.has(userId)) return;
+
+    const last = this.lastAgentEmitAt.get(userId) ?? 0;
+    const elapsed = Date.now() - last;
+    const wait = Math.max(1000 - elapsed, 0);
+    const timer = setTimeout(() => {
+      this.pendingAgentEmit.delete(userId);
+      const finalState = this.pendingAgentState.get(userId);
+      this.pendingAgentState.delete(userId);
+      if (!finalState) return;
+      this.lastAgentEmitAt.set(userId, Date.now());
+      this.doEmitAgentStatus(userId, finalState);
+    }, wait);
+    this.pendingAgentEmit.set(userId, timer);
+  }
+
+  private doEmitAgentStatus(userId: string, state: AgentState): void {
+    const payload = { ...state, timestamp: new Date().toISOString() };
+    this.server.to(`agent:${userId}`).emit('agent:status', payload);
+    this.server.to('dashboard').emit('agent:status', payload);
   }
 
   private emitCallEvent(event: string, call: ActiveCall): void {
