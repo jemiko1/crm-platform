@@ -1656,24 +1656,27 @@ model Recording {
 }
 
 model QualityReview {
-  id             String              @id @default(uuid())
-  callSessionId  String              @unique
-  status         QualityReviewStatus @default(PENDING)
-  summary        String?
-  score          Int?
-  flags          Json?
-  tags           Json?
-  transcriptRef  String?
-  reviewerUserId String?
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
-  callSession    CallSession         @relation(fields: [callSessionId], references: [id], onDelete: Cascade)
-  reviewer       User?               @relation("UserQualityReviews", fields: [reviewerUserId], references: [id])
+  id                String              @id @default(uuid())
+  callSessionId     String              @unique
+  status            QualityReviewStatus @default(PENDING)
+  summary           String?
+  score             Int?
+  flags             Json?
+  tags              Json?
+  transcriptRef     String?
+  reviewerUserId    String?
+  needsHumanReview  Boolean             @default(false)
+  rawPromptResponse Json?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  callSession       CallSession         @relation(fields: [callSessionId], references: [id], onDelete: Cascade)
+  reviewer          User?               @relation("UserQualityReviews", fields: [reviewerUserId], references: [id])
 
   @@index([status])
   @@index([reviewerUserId])
   @@index([createdAt])
   @@index([score])
+  @@index([needsHumanReview])
 }
 
 model QualityRubric {
