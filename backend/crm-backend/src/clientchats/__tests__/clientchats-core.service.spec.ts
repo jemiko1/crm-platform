@@ -17,6 +17,7 @@ describe('ClientChatsCoreService', () => {
     prisma = {
       clientChatMessage: {
         findUnique: jest.fn(),
+        findFirst: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockImplementation((args) => ({
           id: 'msg-1',
           ...args.data,
@@ -159,7 +160,7 @@ describe('ClientChatsCoreService', () => {
   });
 
   describe('sendReply', () => {
-    it('should send through adapter and save outbound message', async () => {
+    it('should send through adapter and save outbound message with deliveryStatus=SENT', async () => {
       prisma.clientChatConversation.findUnique.mockResolvedValue({
         id: 'conv-1',
         channelType: ClientChatChannelType.WEB,
@@ -176,6 +177,8 @@ describe('ClientChatsCoreService', () => {
             direction: ClientChatDirection.OUT,
             senderUserId: 'user-1',
             text: 'Reply text',
+            deliveryStatus: 'SENT',
+            deliveryError: null,
           }),
         }),
       );
@@ -188,6 +191,183 @@ describe('ClientChatsCoreService', () => {
       await expect(service.sendReply('nope', 'user-1', 'text')).rejects.toThrow(
         'Conversation not found',
       );
+    });
+
+    // ── Regression for P1-6: WhatsApp 24h window + adapter failure surfacing ──
+
+    it('WhatsApp: rejects with FAILED_OUT_OF_WINDOW when last inbound > 24h ago', async () => {
+      // Conversation is WhatsApp; the last IN message is 25 hours old. We must
+      // NOT call adapter.sendMessage (the Cloud API would 400) and we MUST
+      // persist the attempt so the operator sees a failed bubble.
+      prisma.clientChatConversation.findUnique.mockResolvedValue({
+        id: 'conv-wa-1',
+        channelType: ClientChatChannelType.WHATSAPP,
+        externalConversationId: 'wa_995555123456',
+        channelAccount: { id: 'acc-wa', metadata: {}, status: 'ACTIVE' },
+        assignedUserId: 'user-1',
+      });
+      const twentyFiveHoursAgo = new Date(Date.now() - 25 * 60 * 60 * 1000);
+      prisma.clientChatMessage.findFirst = jest.fn().mockResolvedValue({
+        id: 'last-in',
+        direction: 'IN',
+        sentAt: twentyFiveHoursAgo,
+      });
+      const adapterSpy = jest.fn();
+      adapterRegistry.getOrThrow.mockReturnValue({
+        channelType: ClientChatChannelType.WHATSAPP,
+        sendMessage: adapterSpy,
+      });
+
+      const result = await service.sendReply('conv-wa-1', 'user-1', 'Hi late');
+
+      expect(adapterSpy).not.toHaveBeenCalled();
+      expect(prisma.clientChatMessage.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            direction: ClientChatDirection.OUT,
+            deliveryStatus: 'FAILED_OUT_OF_WINDOW',
+            deliveryError: expect.stringContaining('24-hour window'),
+          }),
+        }),
+      );
+      expect(result.sendResult.success).toBe(false);
+      expect(result.sendResult.error).toContain('24-hour window');
+    });
+
+    it('WhatsApp: within 24h window, adapter throws → persists FAILED + error', async () => {
+      prisma.clientChatConversation.findUnique.mockResolvedValue({
+        id: 'conv-wa-2',
+        channelType: ClientChatChannelType.WHATSAPP,
+        externalConversationId: 'wa_995555123457',
+        channelAccount: { id: 'acc-wa', metadata: {}, status: 'ACTIVE' },
+        assignedUserId: 'user-1',
+      });
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      prisma.clientChatMessage.findFirst = jest
+        .fn()
+        .mockResolvedValue({ id: 'last-in', direction: 'IN', sentAt: oneHourAgo });
+      const adapterErr = new Error('ECONNRESET');
+      adapterRegistry.getOrThrow.mockReturnValue({
+        channelType: ClientChatChannelType.WHATSAPP,
+        sendMessage: jest.fn().mockRejectedValue(adapterErr),
+      });
+
+      const result = await service.sendReply('conv-wa-2', 'user-1', 'Hello');
+
+      expect(prisma.clientChatMessage.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            deliveryStatus: 'FAILED',
+            deliveryError: 'ECONNRESET',
+          }),
+        }),
+      );
+      // Conversation timestamps must NOT be bumped on failure (would skew SLA).
+      expect(prisma.clientChatConversation.update).not.toHaveBeenCalled();
+      expect(result.sendResult.success).toBe(false);
+    });
+
+    it('WhatsApp: within 24h window, adapter returns success → persists SENT', async () => {
+      prisma.clientChatConversation.findUnique.mockResolvedValue({
+        id: 'conv-wa-3',
+        channelType: ClientChatChannelType.WHATSAPP,
+        externalConversationId: 'wa_995555123458',
+        channelAccount: { id: 'acc-wa', metadata: {}, status: 'ACTIVE' },
+        assignedUserId: 'user-1',
+        firstResponseAt: null,
+      });
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      prisma.clientChatMessage.findFirst = jest.fn().mockResolvedValue({
+        id: 'last-in',
+        direction: 'IN',
+        sentAt: fiveMinutesAgo,
+      });
+      adapterRegistry.getOrThrow.mockReturnValue({
+        channelType: ClientChatChannelType.WHATSAPP,
+        sendMessage: jest.fn().mockResolvedValue({
+          externalMessageId: 'wamid.ABC',
+          success: true,
+        }),
+      });
+
+      const result = await service.sendReply('conv-wa-3', 'user-1', 'Hello');
+
+      expect(prisma.clientChatMessage.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            externalMessageId: 'wamid.ABC',
+            deliveryStatus: 'SENT',
+            deliveryError: null,
+          }),
+        }),
+      );
+      expect(result.sendResult.success).toBe(true);
+      // Successful send bumps lastMessageAt + firstResponseAt.
+      expect(prisma.clientChatConversation.update).toHaveBeenCalled();
+    });
+
+    it('Telegram: no 24h window — adapter is always called regardless of last inbound', async () => {
+      // Telegram has no session-window constraint; the 24h gate only applies
+      // to WHATSAPP. Even if the last inbound is ancient, we still call the
+      // adapter so the operator can reply.
+      prisma.clientChatConversation.findUnique.mockResolvedValue({
+        id: 'conv-tg-1',
+        channelType: ClientChatChannelType.TELEGRAM,
+        externalConversationId: 'tg_123',
+        channelAccount: { id: 'acc-tg', metadata: {}, status: 'ACTIVE' },
+        assignedUserId: 'user-1',
+      });
+      const adapterSpy = jest.fn().mockResolvedValue({
+        externalMessageId: 'tg-out-1',
+        success: true,
+      });
+      adapterRegistry.getOrThrow.mockReturnValue({
+        channelType: ClientChatChannelType.TELEGRAM,
+        sendMessage: adapterSpy,
+      });
+
+      await service.sendReply('conv-tg-1', 'user-1', 'Hello telegram');
+
+      expect(adapterSpy).toHaveBeenCalledTimes(1);
+      expect(prisma.clientChatMessage.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            deliveryStatus: 'SENT',
+          }),
+        }),
+      );
+    });
+
+    it('non-WhatsApp channel: adapter returns success:false → persists FAILED with error', async () => {
+      // Facebook/Viber/Telegram can still fail (network, permission, token
+      // expired, etc.). sendReply must surface that to the UI.
+      prisma.clientChatConversation.findUnique.mockResolvedValue({
+        id: 'conv-fb-1',
+        channelType: ClientChatChannelType.FACEBOOK,
+        externalConversationId: 'fb_999',
+        channelAccount: { id: 'acc-fb', metadata: {}, status: 'ACTIVE' },
+        assignedUserId: 'user-1',
+      });
+      adapterRegistry.getOrThrow.mockReturnValue({
+        channelType: ClientChatChannelType.FACEBOOK,
+        sendMessage: jest.fn().mockResolvedValue({
+          externalMessageId: '',
+          success: false,
+          error: 'Page access token expired',
+        }),
+      });
+
+      const result = await service.sendReply('conv-fb-1', 'user-1', 'Ping');
+
+      expect(prisma.clientChatMessage.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            deliveryStatus: 'FAILED',
+            deliveryError: 'Page access token expired',
+          }),
+        }),
+      );
+      expect(result.sendResult.success).toBe(false);
     });
   });
 

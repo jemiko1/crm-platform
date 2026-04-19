@@ -302,6 +302,8 @@ export class ClientChatsCoreService {
     text: string;
     attachments?: unknown;
     rawPayload?: unknown;
+    deliveryStatus?: string | null;
+    deliveryError?: string | null;
   }) {
     const include = {
       participant: {
@@ -322,6 +324,8 @@ export class ClientChatsCoreService {
           attachments: data.attachments as any,
           sentAt: new Date(),
           rawPayload: data.rawPayload as any,
+          deliveryStatus: data.deliveryStatus ?? null,
+          deliveryError: data.deliveryError ?? null,
         },
         include,
       });
@@ -364,22 +368,82 @@ export class ClientChatsCoreService {
       );
     }
 
+    const attachments = media
+      ? [{ filename: media.filename, mimeType: media.mimeType }]
+      : undefined;
+    const messageText = text || (media ? `[${media.filename}]` : '');
+
+    // ── WhatsApp 24-hour window gate ──
+    // The Cloud API rejects free-form messages outside the 24h window since
+    // the last inbound. Previously sendReply fired the request anyway and
+    // saved the outbound message as if it succeeded — the 400 from WA was
+    // swallowed and the UI showed "sent". Now we check first and persist
+    // the attempt with FAILED_OUT_OF_WINDOW so the operator can see the
+    // attempt and (via the template-send flow) use an approved template.
+    if (conversation.channelType === ClientChatChannelType.WHATSAPP) {
+      const windowOpen = await this.isWhatsAppWindowOpen(conversationId);
+      if (!windowOpen) {
+        const failedMessage = await this.saveMessage({
+          conversationId,
+          participantId: null,
+          senderUserId: userId,
+          direction: ClientChatDirection.OUT,
+          externalMessageId: `out_failed_window_${conversationId}_${Date.now()}`,
+          text: messageText,
+          attachments,
+          deliveryStatus: 'FAILED_OUT_OF_WINDOW',
+          deliveryError:
+            'WhatsApp 24-hour window closed. Use a template message.',
+        });
+
+        // Still emit so the operator sees the failed bubble appear in the
+        // conversation; the frontend renders a red "failed to deliver" badge.
+        this.events.emitNewMessage(
+          conversationId,
+          failedMessage as any,
+          conversation.assignedUserId,
+        );
+
+        return {
+          message: failedMessage,
+          sendResult: {
+            externalMessageId: '',
+            success: false,
+            error:
+              'WhatsApp 24-hour window closed. Use a template message.',
+          },
+        };
+      }
+    }
+
     const adapter = this.adapterRegistry.getOrThrow(conversation.channelType);
     const metadata = (conversation.channelAccount.metadata ?? {}) as Record<
       string,
       unknown
     >;
 
-    const result = await adapter.sendMessage(
-      conversation.externalConversationId,
-      text,
-      metadata,
-      media,
-    );
+    // Wrap adapter.sendMessage so a thrown exception doesn't lose the
+    // operator's draft. Adapters are expected to return
+    // { success, externalMessageId, error } but some transport-level
+    // failures (network, DNS) surface as throws.
+    let result: { externalMessageId: string; success: boolean; error?: string };
+    try {
+      result = await adapter.sendMessage(
+        conversation.externalConversationId,
+        text,
+        metadata,
+        media,
+      );
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `Adapter threw on send (${conversation.channelType}, conv=${conversationId}): ${errMsg}`,
+      );
+      result = { externalMessageId: '', success: false, error: errMsg };
+    }
 
-    const attachments = media
-      ? [{ filename: media.filename, mimeType: media.mimeType }]
-      : undefined;
+    const deliveryStatus = result.success ? 'SENT' : 'FAILED';
+    const deliveryError = result.success ? null : result.error || 'Unknown error';
 
     const message = await this.saveMessage({
       conversationId,
@@ -389,30 +453,44 @@ export class ClientChatsCoreService {
       externalMessageId:
         result.externalMessageId ||
         `out_${conversationId}_${Date.now()}`,
-      text: text || (media ? `[${media.filename}]` : ''),
+      text: messageText,
       attachments,
+      deliveryStatus,
+      deliveryError,
     });
 
-    const updateData: Record<string, unknown> = {
-      lastMessageAt: new Date(),
-      lastOperatorActivityAt: new Date(),
-    };
-    if (!conversation.firstResponseAt) {
-      updateData.firstResponseAt = new Date();
+    // Only bump conversation timestamps on successful delivery. A failed
+    // send shouldn't count as an operator response (keeps firstResponseAt
+    // honest for SLA accounting).
+    if (result.success) {
+      const updateData: Record<string, unknown> = {
+        lastMessageAt: new Date(),
+        lastOperatorActivityAt: new Date(),
+      };
+      if (!conversation.firstResponseAt) {
+        updateData.firstResponseAt = new Date();
+      }
+
+      const updatedConv = await this.prisma.clientChatConversation.update({
+        where: { id: conversationId },
+        data: updateData,
+      });
+      this.events.emitConversationUpdated(updatedConv as any);
     }
-
-    const updatedConv = await this.prisma.clientChatConversation.update({
-      where: { id: conversationId },
-      data: updateData,
-    });
 
     this.events.emitNewMessage(
       conversationId,
       message as any,
       conversation.assignedUserId,
     );
-    this.events.emitConversationUpdated(updatedConv as any);
 
+    // TODO(frontend follow-up, audit/frontend-followup-P1-6.md): response
+    // returns { message, sendResult }. The message object now carries
+    // deliveryStatus ('SENT' | 'FAILED' | 'FAILED_OUT_OF_WINDOW') and
+    // deliveryError (string | null). The chat bubble should render a red
+    // "failed to deliver" badge below messages where deliveryStatus !==
+    // 'SENT', with the deliveryError as the tooltip/explanation. For
+    // FAILED_OUT_OF_WINDOW also surface a "Send template" button.
     return { message, sendResult: result };
   }
 
