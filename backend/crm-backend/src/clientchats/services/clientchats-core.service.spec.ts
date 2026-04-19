@@ -7,9 +7,29 @@ import { ClientChatsMatchingService } from "./clientchats-matching.service";
 import { ClientChatsEventService } from "./clientchats-event.service";
 import { AssignmentService } from "./assignment.service";
 
+// Minimal Prisma.PrismaClientKnownRequestError shim for tests. The real class
+// takes a complex constructor signature; we just need `code` to drive the
+// retry branches in upsertConversation.
+class FakePrismaError extends Error {
+  code: string;
+  meta?: Record<string, unknown>;
+  constructor(code: string, message = code, meta?: Record<string, unknown>) {
+    super(message);
+    this.code = code;
+    this.meta = meta;
+  }
+}
+
 describe("ClientChatsCoreService", () => {
   let service: ClientChatsCoreService;
-  let prisma: { clientChatConversation: { findUnique: jest.Mock; update: jest.Mock } };
+  let prisma: {
+    clientChatConversation: {
+      findUnique: jest.Mock;
+      update: jest.Mock;
+      create: jest.Mock;
+    };
+    $transaction: jest.Mock;
+  };
   let events: { emitConversationUpdated: jest.Mock };
   let assignment: { isInTodayQueue: jest.Mock };
 
@@ -18,7 +38,15 @@ describe("ClientChatsCoreService", () => {
       clientChatConversation: {
         findUnique: jest.fn(),
         update: jest.fn(),
+        create: jest.fn(),
       },
+      // Default: run the callback immediately against the same prisma mock
+      // so tests can control the underlying mocks. Individual tests override
+      // this to simulate serialization / uniqueness failures and retries.
+      $transaction: jest.fn(async (arg: any) => {
+        if (typeof arg === "function") return arg(prisma);
+        return arg;
+      }),
     };
     events = { emitConversationUpdated: jest.fn() };
     assignment = { isInTodayQueue: jest.fn().mockResolvedValue(false) };
@@ -147,6 +175,197 @@ describe("ClientChatsCoreService", () => {
       await expect(
         service.assertCanAccessConversation("c1", "operator-A", false),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe("upsertConversation (P1-5 closed-conversation archival race)", () => {
+    // These tests protect the transactional guarantee added in fix/audit/P1-5.
+    // The old implementation did findUnique + update + create with no isolation
+    // and could lose a customer message when two inbound webhooks for the same
+    // CLOSED conversation ran concurrently (one would P2002 on the unique
+    // externalConversationId during CREATE). The fix wraps the flow in a
+    // Serializable $transaction and retries P2002/P2034 up to 3 times.
+
+    it("creates new conversation inside a Serializable transaction when none exists", async () => {
+      prisma.clientChatConversation.findUnique.mockResolvedValue(null);
+      prisma.clientChatConversation.create.mockResolvedValue({ id: "new-1" });
+
+      const res = await service.upsertConversation(
+        "VIBER" as any,
+        "acc-1",
+        "ext-1",
+        "p-1",
+      );
+
+      expect(res).toEqual({ conversation: { id: "new-1" }, isNew: true });
+      // Verify the transaction wrapper was used with Serializable isolation.
+      expect(prisma.$transaction).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.objectContaining({ isolationLevel: "Serializable" }),
+      );
+      // No update event for a fresh conversation (it's new, isNew=true path).
+      expect(events.emitConversationUpdated).not.toHaveBeenCalled();
+    });
+
+    it("updates lastMessageAt for a LIVE existing conversation and emits after commit", async () => {
+      prisma.clientChatConversation.findUnique.mockResolvedValue({
+        id: "c-live",
+        status: "LIVE",
+        participantId: "p-existing",
+      });
+      prisma.clientChatConversation.update.mockResolvedValue({
+        id: "c-live",
+        status: "LIVE",
+        lastMessageAt: new Date(),
+      });
+
+      const res = await service.upsertConversation(
+        "VIBER" as any,
+        "acc-1",
+        "ext-1",
+        "p-1",
+      );
+
+      expect(res.isNew).toBe(false);
+      expect(res.conversation.id).toBe("c-live");
+      // emitConversationUpdated fires AFTER the transaction callback resolves —
+      // never from inside the tx, so subscribers don't see rolled-back state.
+      expect(events.emitConversationUpdated).toHaveBeenCalledTimes(1);
+      expect(prisma.clientChatConversation.create).not.toHaveBeenCalled();
+    });
+
+    it("archives CLOSED conversation and creates fresh thread in one transaction", async () => {
+      prisma.clientChatConversation.findUnique.mockResolvedValue({
+        id: "c-closed",
+        status: "CLOSED",
+        clientId: "client-42",
+      });
+      prisma.clientChatConversation.update.mockResolvedValue({
+        id: "c-closed",
+        externalConversationId: "ext-1__archived_123_c-closed",
+      });
+      prisma.clientChatConversation.create.mockResolvedValue({
+        id: "c-new",
+        previousConversationId: "c-closed",
+      });
+
+      const res = await service.upsertConversation(
+        "VIBER" as any,
+        "acc-1",
+        "ext-1",
+        "p-1",
+      );
+
+      expect(res.isNew).toBe(true);
+      expect(res.conversation.id).toBe("c-new");
+      // Archive UPDATE + CREATE both ran under the same $transaction call.
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(prisma.clientChatConversation.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            externalConversationId: expect.stringMatching(
+              /^ext-1__archived_\d+_c-closed$/,
+            ),
+          }),
+        }),
+      );
+      // Created thread inherits the original externalConversationId and clientId.
+      expect(prisma.clientChatConversation.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            externalConversationId: "ext-1",
+            clientId: "client-42",
+            previousConversationId: "c-closed",
+          }),
+        }),
+      );
+      // No UPDATE event for new threads (isNew=true path doesn't emit).
+      expect(events.emitConversationUpdated).not.toHaveBeenCalled();
+    });
+
+    it("retries on P2002 from the first attempt (concurrent archival race)", async () => {
+      // Simulate: first $transaction call throws P2002 (a racing caller
+      // already created the thread), second attempt succeeds.
+      let attempt = 0;
+      prisma.$transaction.mockImplementation(async (fn: any) => {
+        attempt += 1;
+        if (attempt === 1) {
+          throw new FakePrismaError("P2002", "Unique constraint failed", {
+            target: ["externalConversationId"],
+          });
+        }
+        // Second attempt: simulate the racing caller's thread is now visible.
+        prisma.clientChatConversation.findUnique.mockResolvedValue({
+          id: "c-live",
+          status: "LIVE",
+          participantId: "p-1",
+        });
+        prisma.clientChatConversation.update.mockResolvedValue({
+          id: "c-live",
+          status: "LIVE",
+        });
+        return fn(prisma);
+      });
+
+      const res = await service.upsertConversation(
+        "VIBER" as any,
+        "acc-1",
+        "ext-1",
+        "p-1",
+      );
+
+      expect(attempt).toBe(2);
+      expect(res.conversation.id).toBe("c-live");
+      expect(res.isNew).toBe(false);
+    });
+
+    it("retries on P2034 serialization failure and succeeds on retry", async () => {
+      let attempt = 0;
+      prisma.$transaction.mockImplementation(async (fn: any) => {
+        attempt += 1;
+        if (attempt === 1) {
+          throw new FakePrismaError("P2034", "Serialization failure");
+        }
+        prisma.clientChatConversation.findUnique.mockResolvedValue(null);
+        prisma.clientChatConversation.create.mockResolvedValue({
+          id: "c-new",
+        });
+        return fn(prisma);
+      });
+
+      const res = await service.upsertConversation(
+        "VIBER" as any,
+        "acc-1",
+        "ext-1",
+        "p-1",
+      );
+
+      expect(attempt).toBe(2);
+      expect(res.conversation.id).toBe("c-new");
+      expect(res.isNew).toBe(true);
+    });
+
+    it("rethrows the last error when all 3 retries exhaust", async () => {
+      const err = new FakePrismaError("P2002", "Unique constraint failed");
+      prisma.$transaction.mockRejectedValue(err);
+
+      await expect(
+        service.upsertConversation("VIBER" as any, "acc-1", "ext-1", "p-1"),
+      ).rejects.toBe(err);
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(3);
+    });
+
+    it("does NOT retry on unrelated errors (propagates immediately)", async () => {
+      const err = new FakePrismaError("P2025", "Record not found");
+      prisma.$transaction.mockRejectedValue(err);
+
+      await expect(
+        service.upsertConversation("VIBER" as any, "acc-1", "ext-1", "p-1"),
+      ).rejects.toBe(err);
+
+      // Single call — no retry for non-concurrency errors.
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     });
   });
 });
