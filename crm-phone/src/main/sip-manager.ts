@@ -31,12 +31,10 @@ export class SipManager extends EventEmitter {
   async register(ext: TelephonyExtensionInfo): Promise<void> {
     await this.unregister();
 
-    console.log("[SIP] register() called with:", JSON.stringify({
-      extension: ext.extension,
-      sipServer: ext.sipServer,
-      sipPassword: ext.sipPassword ? `SET(${ext.sipPassword.length}chars)` : "NULL",
-      displayName: ext.displayName,
-    }));
+    // SECURITY (audit/P0-C): do not log sipPassword or its length.
+    console.log(
+      `[SIP] register() called extension=${ext.extension} server=${ext.sipServer ?? "none"} hasPassword=${!!ext.sipPassword}`,
+    );
 
     if (!ext.sipServer) {
       console.log("[SIP] ABORT: No SIP server");

@@ -242,8 +242,17 @@ export class AuthController {
     const permissions = await this.permissionsService.getCurrentUserPermissions(userId);
     const position = employee?.position;
 
+    // SECURITY (audit/P0-B): never include sipPassword in /auth/me — the
+    // browser does not need it, and any authenticated user could curl this
+    // endpoint to read their SIP credentials. The softphone fetches fresh
+    // credentials via GET /v1/telephony/sip-credentials instead.
     const ext = await this.prisma.telephonyExtension.findUnique({
       where: { crmUserId: userId },
+      select: {
+        extension: true,
+        displayName: true,
+        sipServer: true,
+      },
     });
 
     return {
@@ -277,7 +286,6 @@ export class AuthController {
               extension: ext.extension,
               displayName: ext.displayName,
               sipServer: ext.sipServer,
-              sipPassword: ext.sipPassword,
             }
           : null,
       },

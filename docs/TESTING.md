@@ -263,3 +263,84 @@ period keeps the banner hidden for transient blips.
   grace period is too short or not honored.
 
 ---
+
+## Manual test plans — softphone
+
+The Electron softphone (`crm-phone/`) has no automated test framework.
+Test these flows manually on a dev machine before releasing.
+
+### P0-B / P0-C — SIP password in memory only
+
+Background: the softphone must not persist `sipPassword` to disk, and the
+backend must not expose `sipPassword` from `/auth/me`. Credentials are
+fetched on demand from `GET /v1/telephony/sip-credentials`.
+
+**1. `/auth/me` contains no sipPassword**
+   - Open browser dev tools, go to the CRM, log in.
+   - Network tab: find the `/auth/me` request, open the response.
+   - Expand `user.telephonyExtension`.
+   - PASS when: `extension`, `displayName`, and `sipServer` are present
+     and `sipPassword` is absent.
+
+**2. `GET /v1/telephony/sip-credentials` — happy path (operator)**
+   - Grant the operator the new `softphone.handshake` permission via the
+     admin UI.
+   - Log in as that operator (with an extension assigned).
+   - Curl (or Postman) with the `access_token` cookie:
+     ```
+     curl -b "access_token=<jwt>" https://crm28.asg.ge/v1/telephony/sip-credentials
+     ```
+   - PASS when: response is `{ extension, sipUsername, sipPassword,
+     sipServer, displayName }` and the backend log shows
+     `sip-credentials requested userId=<id> ip=<...> ua=<...>`.
+
+**3. `GET /v1/telephony/sip-credentials` — 404 when no extension**
+   - Log in as a user without a TelephonyExtension row.
+   - Same curl as above.
+   - PASS when: 404 response.
+
+**4. `GET /v1/telephony/sip-credentials` — 403 without permission**
+   - Log in as a user without the `softphone.handshake` permission.
+   - Same curl.
+   - PASS when: 403 Forbidden.
+
+**5. Softphone fresh install**
+   - Download a fresh installer, install, launch.
+   - Log in with operator credentials.
+   - Inspect `%APPDATA%\crm28-phone\crm-phone-session.json` after login.
+   - PASS when: the JSON contains `accessToken`, `user`, and
+     `telephonyExtension.{extension, displayName, sipServer}` but NO
+     `sipPassword` field anywhere in the file.
+   - Additionally inspect `%APPDATA%\crm28-phone\crm-phone-debug.log`.
+   - PASS when: no log line stringifies `telephonyExtension` or prints
+     the password / its length.
+
+**6. Softphone SIP registers after restart (no password re-prompt)**
+   - With a logged-in softphone, kill the Electron process.
+   - Relaunch within 30 days (JWT still valid).
+   - PASS when: tray shows "SIP: Registered" within ~5 seconds and an
+     inbound test call rings the app. No login prompt shown.
+
+**7. Softphone prompts for login when JWT expires**
+   - Simulate JWT expiry by editing the session file's `accessToken` to
+     an invalid string, or wait until the real JWT expires.
+   - Relaunch the app.
+   - PASS when: login screen is shown, SIP does not register, and
+     `crm-phone-debug.log` contains `[SIP-CREDS] JWT expired`.
+
+**8. Migration of old session files**
+   - Before the upgrade: log in with the OLD softphone version (which
+     persisted `sipPassword`).
+   - Quit, then install the new softphone version over the top.
+   - Launch the new version.
+   - Inspect `crm-phone-session.json`.
+   - PASS when: the file no longer contains `sipPassword` (the loader
+     strips it on first read and rewrites the file). SIP still registers
+     because the renderer re-fetches creds via /v1/telephony/sip-credentials.
+
+**9. User switch (from CRM → softphone, via local HTTP bridge)**
+   - Two operators on one workstation. Operator A is logged into the
+     softphone. Operator B opens the CRM and clicks "Open softphone".
+   - The softphone should switch to Operator B.
+   - PASS when: tray updates to Operator B's email, SIP re-registers
+     with B's extension, no password persisted on disk after switch.

@@ -1,5 +1,5 @@
 import Store from "electron-store";
-import type { AppSession } from "../shared/types";
+import type { AppSession, AppLoginResponse } from "../shared/types";
 
 interface StoreSchema {
   session: AppSession | null;
@@ -27,12 +27,68 @@ if (OLD_URLS.includes(stored)) {
   store.set("crmBaseUrl", CRM_BASE_URL);
 }
 
-export function getSession(): AppSession | null {
-  return store.get("session");
+/**
+ * Convert a wire-format login payload (which may contain sipPassword) into
+ * the persisted shape — strips the password so it never hits disk.
+ * Audit: P0-C.
+ */
+function stripPassword(data: AppLoginResponse): AppSession {
+  return {
+    accessToken: data.accessToken,
+    user: data.user,
+    telephonyExtension: data.telephonyExtension
+      ? {
+          extension: data.telephonyExtension.extension,
+          displayName: data.telephonyExtension.displayName,
+          sipServer: data.telephonyExtension.sipServer,
+        }
+      : null,
+  };
 }
 
-export function setSession(session: AppSession | null): void {
-  store.set("session", session);
+/**
+ * Reads the session off disk. If an old install persisted `sipPassword` on
+ * the extension blob, silently drop it here — never expose it.
+ * Audit: P0-C migration path for existing on-disk sessions.
+ */
+export function getSession(): AppSession | null {
+  const raw = store.get("session") as AppSession | null;
+  if (!raw || !raw.telephonyExtension) return raw;
+  const ext = raw.telephonyExtension as AppSession["telephonyExtension"] & {
+    sipPassword?: unknown;
+  };
+  if (ext && "sipPassword" in ext) {
+    // Old session with sipPassword on disk — drop the field and rewrite.
+    const clean: AppSession = {
+      accessToken: raw.accessToken,
+      user: raw.user,
+      telephonyExtension: {
+        extension: ext.extension,
+        displayName: ext.displayName,
+        sipServer: ext.sipServer,
+      },
+    };
+    store.set("session", clean);
+    return clean;
+  }
+  return raw;
+}
+
+/**
+ * Accepts either a full AppLoginResponse (with sipPassword) or an already-
+ * stripped AppSession. Always strips sipPassword before writing.
+ */
+export function setSession(
+  session: AppLoginResponse | AppSession | null,
+): void {
+  if (session === null) {
+    store.set("session", null);
+    return;
+  }
+  // Detect: AppLoginResponse has telephonyExtension with optional sipPassword
+  // field; we always call stripPassword to normalize.
+  const normalized = stripPassword(session as AppLoginResponse);
+  store.set("session", normalized);
 }
 
 export function getCrmBaseUrl(): string {
