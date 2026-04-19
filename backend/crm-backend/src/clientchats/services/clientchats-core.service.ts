@@ -18,6 +18,7 @@ import { ParsedInboundMessage } from '../interfaces/channel-adapter.interface';
 import { TelegramAdapter } from '../adapters/telegram.adapter';
 import { ClientChatsMatchingService } from './clientchats-matching.service';
 import { ClientChatsEventService } from './clientchats-event.service';
+import { AssignmentService } from './assignment.service';
 import { ConversationQueryDto } from '../dto/conversation-query.dto';
 
 @Injectable()
@@ -29,7 +30,42 @@ export class ClientChatsCoreService {
     private readonly adapterRegistry: AdapterRegistryService,
     private readonly matching: ClientChatsMatchingService,
     private readonly events: ClientChatsEventService,
+    private readonly assignment: AssignmentService,
   ) {}
+
+  /**
+   * Data-scope guard for per-conversation handlers. Operators may only touch
+   * conversations they own, or (if they're in today's queue) unassigned LIVE
+   * conversations that are still up for grabs. Managers and superadmins
+   * bypass the check.
+   *
+   * @throws NotFoundException if the id doesn't resolve — deliberately kept
+   *   separate from ForbiddenException so a probe can't distinguish "exists
+   *   but not yours" from "doesn't exist".
+   * @throws ForbiddenException if the caller has no claim on the conversation.
+   */
+  async assertCanAccessConversation(
+    conversationId: string,
+    userId: string,
+    isManager: boolean,
+  ): Promise<void> {
+    if (isManager) return;
+    const conv = await this.prisma.clientChatConversation.findUnique({
+      where: { id: conversationId },
+      select: {
+        assignedUserId: true,
+        status: true,
+      },
+    });
+    if (!conv) throw new NotFoundException('Conversation not found');
+
+    if (conv.assignedUserId === userId) return;
+    const inQueue = await this.assignment.isInTodayQueue(userId);
+    if (inQueue && conv.status === ClientChatStatus.LIVE && !conv.assignedUserId) {
+      return;
+    }
+    throw new ForbiddenException('You do not have access to this conversation');
+  }
 
   // ── Inbound pipeline ──────────────────────────────────
 

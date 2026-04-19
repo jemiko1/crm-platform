@@ -43,6 +43,18 @@ export class ClientChatsAgentController {
     private readonly assignment: AssignmentService,
   ) {}
 
+  /**
+   * Managers (client_chats.manage) and superadmins bypass per-conversation
+   * scope checks. Everyone else is an operator and must own the conversation
+   * or be in today's queue with the conversation unassigned.
+   */
+  private isManager(req: any): boolean {
+    return (
+      req.user.isSuperAdmin ||
+      req.user.permissions?.includes('client_chats.manage')
+    );
+  }
+
   @Get('unread-count')
   @RequirePermission('client_chats.menu')
   @Doc({ summary: 'Unread client chat count for current user', ok: 'Count payload', permission: true })
@@ -58,10 +70,7 @@ export class ClientChatsAgentController {
     permission: true,
   })
   async listConversations(@Query() query: ConversationQueryDto, @Req() req: any) {
-    const isManager =
-      req.user.isSuperAdmin ||
-      req.user.permissions?.includes('client_chats.manage');
-    if (!isManager) {
+    if (!this.isManager(req)) {
       const inQueue = await this.assignment.isInTodayQueue(req.user.id);
       if (inQueue) {
         query.assignedUserIdOrUnassigned = req.user.id;
@@ -81,7 +90,12 @@ export class ClientChatsAgentController {
     notFound: true,
     params: [{ name: 'id', description: 'Conversation UUID' }],
   })
-  getConversation(@Param('id') id: string) {
+  async getConversation(@Param('id') id: string, @Req() req: any) {
+    await this.core.assertCanAccessConversation(
+      id,
+      req.user.id,
+      this.isManager(req),
+    );
     return this.core.getConversation(id);
   }
 
@@ -98,11 +112,17 @@ export class ClientChatsAgentController {
       { name: 'limit', description: 'Page size' },
     ],
   })
-  getMessages(
+  async getMessages(
     @Param('id') id: string,
+    @Req() req: any,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
+    await this.core.assertCanAccessConversation(
+      id,
+      req.user.id,
+      this.isManager(req),
+    );
     return this.core.getMessages(
       id,
       page ? parseInt(page, 10) : 1,
@@ -147,7 +167,7 @@ export class ClientChatsAgentController {
       },
     }),
   )
-  reply(
+  async reply(
     @Param('id') id: string,
     @Body('text') text: string | undefined,
     @UploadedFile() file: Express.Multer.File | undefined,
@@ -156,6 +176,11 @@ export class ClientChatsAgentController {
     if (!text?.trim() && !file) {
       throw new BadRequestException('Text or file is required');
     }
+    await this.core.assertCanAccessConversation(
+      id,
+      req.user.id,
+      this.isManager(req),
+    );
     return this.core.sendReply(
       id,
       req.user.id,
@@ -179,7 +204,12 @@ export class ClientChatsAgentController {
     notFound: true,
     params: [{ name: 'id', description: 'Conversation UUID' }],
   })
-  joinConversation(@Param('id') id: string, @Req() req: any) {
+  async joinConversation(@Param('id') id: string, @Req() req: any) {
+    await this.core.assertCanAccessConversation(
+      id,
+      req.user.id,
+      this.isManager(req),
+    );
     return this.assignment.joinConversation(id, req.user.id);
   }
 
@@ -193,7 +223,16 @@ export class ClientChatsAgentController {
     bodyType: AssignConversationDto,
     params: [{ name: 'id', description: 'Conversation UUID' }],
   })
-  assign(@Param('id') id: string, @Body() dto: AssignConversationDto) {
+  async assign(
+    @Param('id') id: string,
+    @Body() dto: AssignConversationDto,
+    @Req() req: any,
+  ) {
+    await this.core.assertCanAccessConversation(
+      id,
+      req.user.id,
+      this.isManager(req),
+    );
     return this.core.assignConversation(id, dto.userId ?? null);
   }
 
@@ -207,7 +246,16 @@ export class ClientChatsAgentController {
     bodyType: ChangeStatusDto,
     params: [{ name: 'id', description: 'Conversation UUID' }],
   })
-  changeStatus(@Param('id') id: string, @Body() dto: ChangeStatusDto) {
+  async changeStatus(
+    @Param('id') id: string,
+    @Body() dto: ChangeStatusDto,
+    @Req() req: any,
+  ) {
+    await this.core.assertCanAccessConversation(
+      id,
+      req.user.id,
+      this.isManager(req),
+    );
     return this.core.changeStatus(id, dto.status);
   }
 
@@ -220,7 +268,12 @@ export class ClientChatsAgentController {
     notFound: true,
     params: [{ name: 'id', description: 'Conversation UUID' }],
   })
-  requestReopen(@Param('id') id: string, @Req() req: any) {
+  async requestReopen(@Param('id') id: string, @Req() req: any) {
+    await this.core.assertCanAccessConversation(
+      id,
+      req.user.id,
+      this.isManager(req),
+    );
     return this.core.requestReopen(id, req.user.id);
   }
 
@@ -237,11 +290,17 @@ export class ClientChatsAgentController {
       { name: 'limit', description: 'Page size' },
     ],
   })
-  getConversationHistory(
+  async getConversationHistory(
     @Param('id') id: string,
+    @Req() req: any,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
+    await this.core.assertCanAccessConversation(
+      id,
+      req.user.id,
+      this.isManager(req),
+    );
     return this.core.getConversationHistory(
       id,
       page ? parseInt(page, 10) : 1,
@@ -259,7 +318,16 @@ export class ClientChatsAgentController {
     bodyType: LinkClientDto,
     params: [{ name: 'id', description: 'Conversation UUID' }],
   })
-  linkClient(@Param('id') id: string, @Body() dto: LinkClientDto) {
+  async linkClient(
+    @Param('id') id: string,
+    @Body() dto: LinkClientDto,
+    @Req() req: any,
+  ) {
+    await this.core.assertCanAccessConversation(
+      id,
+      req.user.id,
+      this.isManager(req),
+    );
     return this.core.linkClient(id, dto.clientId);
   }
 
@@ -272,7 +340,12 @@ export class ClientChatsAgentController {
     notFound: true,
     params: [{ name: 'id', description: 'Conversation UUID' }],
   })
-  unlinkClient(@Param('id') id: string) {
+  async unlinkClient(@Param('id') id: string, @Req() req: any) {
+    await this.core.assertCanAccessConversation(
+      id,
+      req.user.id,
+      this.isManager(req),
+    );
     return this.core.unlinkClient(id);
   }
 
