@@ -72,6 +72,83 @@ export class ClientChatsEventService {
     this.emitToManagers('queue:updated', data);
   }
 
+  /**
+   * Recompute queue-room membership for all connected operator sockets against
+   * the authoritative `activeOperatorIds` list for today.
+   *
+   * - Sockets whose userId is in the list and are not yet in the `queue` room
+   *   are joined and receive `queue:membership-changed` with `{inQueue: true}`.
+   * - Sockets whose userId is NOT in the list but ARE in the `queue` room
+   *   are removed and receive `queue:membership-changed` with `{inQueue: false}`.
+   *
+   * Called after a QueueScheduleService mutation so mid-day schedule edits
+   * take effect without requiring operators to reconnect.
+   *
+   * Returns a summary of changes for observability/tests.
+   */
+  async refreshQueueMembership(activeOperatorIds: string[]): Promise<{
+    joined: string[];
+    left: string[];
+  }> {
+    const joined: string[] = [];
+    const left: string[] = [];
+    if (!this.server) return { joined, left };
+
+    const activeSet = new Set(activeOperatorIds);
+    let sockets: any[] = [];
+    try {
+      // Socket.IO v4: fetchSockets() returns RemoteSocket[] scoped to this
+      // namespace. Each socket exposes rooms (Set<string>), data, join(), leave().
+      sockets = await (this.server as any).fetchSockets();
+    } catch (err) {
+      this.logger.warn(
+        `refreshQueueMembership: fetchSockets failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return { joined, left };
+    }
+
+    for (const socket of sockets) {
+      const userId: string | undefined =
+        (socket as any).data?.userId ?? (socket as any).userId;
+      if (!userId) continue;
+
+      const inQueueRoom: boolean =
+        (socket as any).rooms instanceof Set
+          ? (socket as any).rooms.has('queue')
+          : false;
+      const shouldBeInQueue = activeSet.has(userId);
+
+      if (shouldBeInQueue && !inQueueRoom) {
+        try {
+          await socket.join('queue');
+          socket.emit('queue:membership-changed', { inQueue: true });
+          joined.push(userId);
+        } catch (err) {
+          this.logger.warn(
+            `refreshQueueMembership: join failed for ${userId}: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      } else if (!shouldBeInQueue && inQueueRoom) {
+        try {
+          await socket.leave('queue');
+          socket.emit('queue:membership-changed', { inQueue: false });
+          left.push(userId);
+        } catch (err) {
+          this.logger.warn(
+            `refreshQueueMembership: leave failed for ${userId}: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      }
+    }
+
+    if (joined.length || left.length) {
+      this.logger.log(
+        `refreshQueueMembership: joined=${joined.length} left=${left.length}`,
+      );
+    }
+    return { joined, left };
+  }
+
   getConnectedAgentIds(): string[] {
     if (!this.server) return [];
     const ids: string[] = [];

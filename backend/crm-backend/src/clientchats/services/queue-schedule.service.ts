@@ -1,11 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ClientChatsEventService } from './clientchats-event.service';
 
 @Injectable()
 export class QueueScheduleService {
   private readonly logger = new Logger(QueueScheduleService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly events: ClientChatsEventService,
+  ) {}
 
   async getWeeklySchedule() {
     const schedules = await this.prisma.clientChatQueueSchedule.findMany({
@@ -30,7 +34,7 @@ export class QueueScheduleService {
   }
 
   async setDaySchedule(dayOfWeek: number, userIds: string[]) {
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       await tx.clientChatQueueSchedule.deleteMany({
         where: { dayOfWeek },
       });
@@ -45,19 +49,24 @@ export class QueueScheduleService {
         ),
       );
     });
+
+    await this.fanoutQueueChange({ reason: 'setDaySchedule', dayOfWeek });
+    return result;
   }
 
-  async setDailyOverride(
-    date: Date,
-    userIds: string[],
-    createdBy: string,
-  ) {
+  async setDailyOverride(date: Date, userIds: string[], createdBy: string) {
     const dateOnly = this.toDateOnly(date);
-    return this.prisma.clientChatQueueOverride.upsert({
+    const result = await this.prisma.clientChatQueueOverride.upsert({
       where: { date: dateOnly },
       create: { date: dateOnly, userIds, createdBy },
       update: { userIds },
     });
+
+    await this.fanoutQueueChange({
+      reason: 'setDailyOverride',
+      date: dateOnly.toISOString().slice(0, 10),
+    });
+    return result;
   }
 
   async getDailyOverride(date: Date) {
@@ -67,13 +76,20 @@ export class QueueScheduleService {
   }
 
   async removeDailyOverride(date: Date) {
+    let result;
     try {
-      return await this.prisma.clientChatQueueOverride.delete({
+      result = await this.prisma.clientChatQueueOverride.delete({
         where: { date: this.toDateOnly(date) },
       });
     } catch {
       return null;
     }
+
+    await this.fanoutQueueChange({
+      reason: 'removeDailyOverride',
+      date: this.toDateOnly(date).toISOString().slice(0, 10),
+    });
+    return result;
   }
 
   async getActiveOperatorsToday(): Promise<string[]> {
@@ -99,6 +115,34 @@ export class QueueScheduleService {
       `Weekly schedule for day ${dayOfWeek}: ${schedules.length} operators`,
     );
     return schedules.map((s) => s.userId);
+  }
+
+  /**
+   * Emit queue:updated to managers and recompute queue-room membership for
+   * all connected operator sockets. Called after any schedule mutation so
+   * mid-day changes take effect without requiring operators to reconnect.
+   *
+   * Failures here are logged but never propagated — the DB write has already
+   * succeeded and we don't want a transient socket issue to cause the HTTP
+   * request to 500.
+   */
+  private async fanoutQueueChange(payload: Record<string, unknown>) {
+    try {
+      this.events.emitQueueUpdated(payload);
+    } catch (err) {
+      this.logger.warn(
+        `emitQueueUpdated failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+
+    try {
+      const activeOperatorIds = await this.getActiveOperatorsToday();
+      await this.events.refreshQueueMembership(activeOperatorIds);
+    } catch (err) {
+      this.logger.warn(
+        `refreshQueueMembership failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 
   private toDateOnly(date: Date): Date {
