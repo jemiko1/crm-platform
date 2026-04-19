@@ -17,7 +17,11 @@ import {
 } from "./session-store";
 import { IPC } from "../shared/ipc-channels";
 import { setupAutoUpdater, checkForUpdatesManually } from "./auto-updater";
-import type { AppLoginResponse, CallerLookupResult } from "../shared/types";
+import type {
+  AppLoginResponse,
+  CallerLookupResult,
+  TelephonyExtensionInfo,
+} from "../shared/types";
 import Store from "electron-store";
 
 const settingsStore = new Store({
@@ -185,7 +189,14 @@ function setupIpc(): void {
     }
 
     const data = (await res.json()) as AppLoginResponse;
-    console.log("[AUTH] Login OK, telephonyExtension:", JSON.stringify(data.telephonyExtension));
+    // SECURITY (audit/P0-C): do NOT JSON.stringify telephonyExtension — it
+    // contains sipPassword on login responses. Log only identifiers.
+    console.log(
+      `[AUTH] Login OK userId=${data.user.id} extension=${data.telephonyExtension?.extension ?? "none"}`,
+    );
+    // `setSession` strips sipPassword before persisting (audit/P0-C).
+    // The password is returned to the renderer in the handler's return
+    // value so it can register SIP immediately, but never hits disk.
     setSession(data);
     return data;
   });
@@ -200,6 +211,61 @@ function setupIpc(): void {
     const session = getSession();
     return { session, sipRegistered };
   });
+
+  /**
+   * Fetch fresh SIP credentials (incl. password) from the CRM backend.
+   * The softphone calls this before every SIP register (and re-register)
+   * so the password is never kept on disk (audit/P0-C). If the JWT has
+   * expired, returns null — renderer should prompt for login.
+   */
+  ipcMain.handle(
+    IPC.SIP_FETCH_CREDENTIALS,
+    async (): Promise<TelephonyExtensionInfo | null> => {
+      const session = getSession();
+      if (!session) {
+        console.log("[SIP-CREDS] No session, cannot fetch");
+        return null;
+      }
+      try {
+        const baseUrl = getCrmBaseUrl();
+        const res = await fetch(`${baseUrl}/v1/telephony/sip-credentials`, {
+          headers: { Authorization: `Bearer ${session.accessToken}` },
+        });
+        if (res.status === 401) {
+          console.log("[SIP-CREDS] JWT expired, clearing session");
+          setSession(null);
+          return null;
+        }
+        if (res.status === 404) {
+          console.log("[SIP-CREDS] No active extension bound to user");
+          return null;
+        }
+        if (!res.ok) {
+          console.log("[SIP-CREDS] Unexpected status:", res.status);
+          return null;
+        }
+        const data = (await res.json()) as {
+          extension: string;
+          sipUsername: string;
+          sipPassword: string | null;
+          sipServer: string | null;
+          displayName: string;
+        };
+        console.log(
+          `[SIP-CREDS] Fetched extension=${data.extension} server=${data.sipServer ?? "none"}`,
+        );
+        return {
+          extension: data.extension,
+          displayName: data.displayName,
+          sipServer: data.sipServer,
+          sipPassword: data.sipPassword,
+        };
+      } catch (err: any) {
+        console.log("[SIP-CREDS] Fetch failed:", err.message);
+        return null;
+      }
+    },
+  );
 
   ipcMain.handle(IPC.CONTACT_LOOKUP, async (_event, number: string) => {
     const session = getSession();
@@ -265,26 +331,40 @@ async function restoreSession(): Promise<void> {
       return;
     }
 
+    // /auth/me no longer returns sipPassword (audit/P0-B). We still refresh
+    // extension metadata (extension number, sipServer, displayName) from it
+    // so operators who get reassigned to a different extension pick up the
+    // change. The sipPassword is fetched separately by the renderer via
+    // /v1/telephony/sip-credentials before SIP registration.
     const meData = (await res.json()) as {
       user: {
         telephonyExtension?: {
           extension: string;
           displayName: string;
           sipServer: string | null;
-          sipPassword: string | null;
         } | null;
       };
     };
 
     const freshExt = meData.user?.telephonyExtension ?? null;
-    console.log("[RESTORE] Fresh ext from /auth/me:", JSON.stringify(freshExt));
+    console.log(
+      `[RESTORE] Fresh ext from /auth/me: extension=${freshExt?.extension ?? "none"} server=${freshExt?.sipServer ?? "none"}`,
+    );
 
-    if (freshExt && (freshExt.extension !== session.telephonyExtension?.extension
-        || freshExt.sipServer !== session.telephonyExtension?.sipServer
-        || freshExt.sipPassword !== session.telephonyExtension?.sipPassword)) {
+    const persistedExt = session.telephonyExtension;
+    const changed =
+      (freshExt?.extension ?? null) !== (persistedExt?.extension ?? null) ||
+      (freshExt?.sipServer ?? null) !== (persistedExt?.sipServer ?? null) ||
+      (freshExt?.displayName ?? null) !== (persistedExt?.displayName ?? null);
+
+    if (changed) {
       console.log("[RESTORE] Updating session with fresh ext data");
-      session.telephonyExtension = freshExt;
-      setSession(session);
+      const updated = {
+        accessToken: session.accessToken,
+        user: session.user,
+        telephonyExtension: freshExt,
+      };
+      setSession(updated);
     }
   } catch (err: any) {
     console.log("[RESTORE] Error:", err.message);

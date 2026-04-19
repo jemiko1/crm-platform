@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { sipService } from "../sip-service";
-import type { AppSession } from "../../shared/types";
+import type { AppSession, TelephonyExtensionInfo } from "../../shared/types";
 
 declare global {
   interface Window {
@@ -13,6 +13,26 @@ interface AuthState {
   session: AppSession | null;
   sipRegistered: boolean;
   error: string | null;
+}
+
+/**
+ * Obtain fresh SIP credentials (audit/P0-C).
+ *
+ * - On initial app-login, the backend returns `telephonyExtension` with
+ *   `sipPassword` in the response body. Pass that in as `immediate` to
+ *   avoid a wasted round-trip.
+ * - On app restart / session restore / SIP re-register, call with no
+ *   arg — this hits GET /v1/telephony/sip-credentials using the stored
+ *   JWT. Returns null if JWT expired (401) or no extension bound (404).
+ *
+ * The returned object is held in memory only and passed to SipService
+ * for registration — it is never persisted to disk.
+ */
+async function obtainSipCredentials(
+  immediate?: TelephonyExtensionInfo | null,
+): Promise<TelephonyExtensionInfo | null> {
+  if (immediate?.sipPassword) return immediate;
+  return window.crmPhone.sip.fetchCredentials();
 }
 
 export function useAuth() {
@@ -39,7 +59,12 @@ export function useAuth() {
       });
 
       if (session?.telephonyExtension) {
-        await sipService.register(session.telephonyExtension);
+        // Fetch fresh SIP credentials using the stored JWT — password is
+        // not on disk (audit/P0-C).
+        const creds = await obtainSipCredentials();
+        if (creds) {
+          await sipService.register(creds);
+        }
       }
     });
 
@@ -59,7 +84,14 @@ export function useAuth() {
         // Small additional gap so Asterisk has fully processed the
         // expires-0 REGISTER before the new one arrives.
         await new Promise((r) => setTimeout(r, 750));
-        await sipService.register(data.telephonyExtension);
+        // The session-changed payload comes from /auth/exchange-token via
+        // the local-server bridge — that response still contains the full
+        // extension including sipPassword (we haven't changed
+        // /auth/exchange-token, audit/P0-B scope). Use it directly.
+        const creds = await obtainSipCredentials(data.telephonyExtension);
+        if (creds) {
+          await sipService.register(creds);
+        }
       }
     });
 
@@ -80,7 +112,12 @@ export function useAuth() {
         error: null,
       });
       if (data.telephonyExtension) {
-        await sipService.register(data.telephonyExtension);
+        // Use the password from the app-login response directly (still in
+        // memory, never persisted). Audit: P0-C.
+        const creds = await obtainSipCredentials(data.telephonyExtension);
+        if (creds) {
+          await sipService.register(creds);
+        }
       }
     } catch (err: any) {
       setState((prev) => ({

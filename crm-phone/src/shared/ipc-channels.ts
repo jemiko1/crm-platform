@@ -22,6 +22,7 @@ export const IPC = {
   CALL_HISTORY: "call:history",
 
   SIP_STATUS_REPORT: "sip:status-report",
+  SIP_FETCH_CREDENTIALS: "sip:fetch-credentials",
   RENDERER_LOG: "renderer:log",
 
   SETTINGS_GET: "settings:get",

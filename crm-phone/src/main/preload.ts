@@ -15,6 +15,9 @@ contextBridge.exposeInMainWorld("crmPhone", {
   sip: {
     reportStatus: (registered: boolean) =>
       ipcRenderer.send(IPC.SIP_STATUS_REPORT, registered),
+    // Fetch fresh SIP credentials (incl. password) from the CRM backend.
+    // Returns null on 401 (expired JWT) or 404 (no extension). Audit: P0-C.
+    fetchCredentials: () => ipcRenderer.invoke(IPC.SIP_FETCH_CREDENTIALS),
   },
   phone: {
     /**
