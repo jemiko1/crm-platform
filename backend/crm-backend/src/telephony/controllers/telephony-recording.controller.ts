@@ -20,19 +20,27 @@ import { Doc } from '../../common/openapi/doc-endpoint.decorator';
 @ApiTags('Telephony')
 @Controller('v1/telephony/recordings')
 @UseGuards(JwtAuthGuard, PositionPermissionGuard)
-@RequirePermission('call_center.menu')
 export class TelephonyRecordingController {
   constructor(private readonly recordingService: RecordingAccessService) {}
 
+  // `call_recordings.own` acts as the minimum threshold — users with higher
+  // scoped grants are expected to also hold `.own` per seeding convention.
+  // Actual data-scope filtering (department subtree, level cap, etc) happens
+  // inside RecordingAccessService.getRecordingById using DataScopeService.
   @Get(':id')
+  @RequirePermission('call_recordings.own')
   @Doc({
     summary: 'Recording metadata by ID',
     ok: 'Recording URL or storage reference',
     notFound: true,
     params: [{ name: 'id', description: 'Recording UUID' }],
   })
-  async getRecording(@Param('id') id: string) {
-    const recording = await this.recordingService.getRecordingById(id);
+  async getRecording(@Param('id') id: string, @Req() req: any) {
+    const recording = await this.recordingService.getRecordingById(
+      id,
+      req.user.id,
+      req.user.isSuperAdmin,
+    );
     return {
       ...recording,
       // Tell the frontend whether the file is cached locally so it can
@@ -42,18 +50,24 @@ export class TelephonyRecordingController {
   }
 
   @Post(':id/fetch')
+  @RequirePermission('call_recordings.own')
   @Doc({
     summary: 'Fetch a recording file from Asterisk on-demand',
     ok: 'File pulled to local cache; ready to stream',
     notFound: true,
     params: [{ name: 'id', description: 'Recording UUID' }],
   })
-  async fetchRecording(@Param('id') id: string) {
-    const { filePath, fileSize } = await this.recordingService.fetchFromAsterisk(id);
+  async fetchRecording(@Param('id') id: string, @Req() req: any) {
+    const { filePath, fileSize } = await this.recordingService.fetchFromAsterisk(
+      id,
+      req.user.id,
+      req.user.isSuperAdmin,
+    );
     return { ok: true, fileSize, filePath };
   }
 
   @Get(':id/audio')
+  @RequirePermission('call_recordings.own')
   @Doc({
     summary: 'Stream or redirect recording audio with range support',
     ok: 'Binary audio stream (200 full, 206 partial) or HTTP redirect',
@@ -62,10 +76,14 @@ export class TelephonyRecordingController {
   })
   async streamAudio(
     @Param('id') id: string,
-    @Req() req: Request,
+    @Req() req: Request & { user: any },
     @Res() res: Response,
   ) {
-    const recording = await this.recordingService.getRecordingById(id);
+    const recording = await this.recordingService.getRecordingById(
+      id,
+      req.user.id,
+      req.user.isSuperAdmin,
+    );
 
     if (recording.url) {
       return res.redirect(recording.url);
@@ -73,7 +91,11 @@ export class TelephonyRecordingController {
 
     let info: Awaited<ReturnType<RecordingAccessService['getRecordingFileInfo']>>;
     try {
-      info = await this.recordingService.getRecordingFileInfo(id);
+      info = await this.recordingService.getRecordingFileInfo(
+        id,
+        req.user.id,
+        req.user.isSuperAdmin,
+      );
     } catch (err: any) {
       if (err instanceof NotFoundException || err?.status === 404) {
         throw new NotFoundException(err.message ?? 'Recording file not found');

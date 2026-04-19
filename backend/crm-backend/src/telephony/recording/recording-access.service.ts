@@ -1,4 +1,5 @@
 import {
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -6,6 +7,7 @@ import {
   StreamableFile,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { DataScopeService, DataScope } from '../../common/utils/data-scope';
 import { createReadStream, existsSync, statSync, mkdirSync } from 'fs';
 import { basename, dirname, isAbsolute, normalize, resolve } from 'path';
 import { spawn } from 'child_process';
@@ -21,7 +23,10 @@ export class RecordingAccessService {
   private readonly logger = new Logger(RecordingAccessService.name);
   private readonly basePath: string;
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly dataScope: DataScopeService,
+  ) {
     // Default differs per platform:
     // - Linux dev/CI: /var/spool/asterisk/monitor (matches Asterisk default)
     // - Windows VM production: C:\recordings (set via env var on VM)
@@ -30,7 +35,24 @@ export class RecordingAccessService {
     );
   }
 
-  async getRecordingById(recordingId: string) {
+  /**
+   * Looks up a recording row and enforces the caller's `call_recordings.*`
+   * data-scope against the linked CallSession's assignedUser.
+   *
+   * Scope mapping:
+   *   - `all`             → no filter (superadmin or full-grant managers)
+   *   - `department_tree` → assignedUser in caller's department subtree AND
+   *                         position.level ≤ caller's level
+   *   - `department`      → single-department equivalent
+   *   - `own`             → callSession.assignedUserId === userId
+   *
+   * A caller with no `call_recordings.*` grant is rejected with Forbidden.
+   */
+  async getRecordingById(
+    recordingId: string,
+    userId: string,
+    isSuperAdmin?: boolean,
+  ) {
     const recording = await this.prisma.recording.findUnique({
       where: { id: recordingId },
       include: {
@@ -41,13 +63,131 @@ export class RecordingAccessService {
             callerNumber: true,
             startAt: true,
             disposition: true,
+            assignedUserId: true,
+            assignedUser: {
+              select: {
+                id: true,
+                employee: {
+                  select: {
+                    departmentId: true,
+                    position: { select: { level: true } },
+                  },
+                },
+              },
+            },
           },
         },
       },
     });
 
     if (!recording) throw new NotFoundException('Recording not found');
+
+    await this.enforceRecordingScope(recording, userId, isSuperAdmin);
     return recording;
+  }
+
+  private async enforceRecordingScope(
+    recording: {
+      callSession: {
+        assignedUserId: string | null;
+        assignedUser: {
+          employee: {
+            departmentId: string | null;
+            position: { level: number | null } | null;
+          } | null;
+        } | null;
+      } | null;
+    },
+    userId: string,
+    isSuperAdmin?: boolean,
+  ): Promise<void> {
+    const scope: DataScope = await this.dataScope.resolve(
+      userId,
+      'call_recordings',
+      isSuperAdmin,
+    );
+
+    // Reject users who have no scoped call_recordings permission at all.
+    // DataScopeService.resolve returns scope='own' + empty departmentIds both
+    // when the user has `.own` and when they have nothing — the distinguishing
+    // signal is whether they actually hold that permission string. Re-check
+    // here so a user with only menu access but no recording permission is
+    // rejected cleanly.
+    if (scope.scope === 'own' && !isSuperAdmin) {
+      const hasOwn = await this.userHasRecordingPermission(userId);
+      if (!hasOwn) {
+        throw new ForbiddenException(
+          'You do not have permission to access call recordings',
+        );
+      }
+    }
+
+    if (scope.scope === 'all') return;
+
+    const session = recording.callSession;
+    const assignedUserId = session?.assignedUserId ?? null;
+    const assignedEmp = session?.assignedUser?.employee ?? null;
+    const assignedDept = assignedEmp?.departmentId ?? null;
+    const assignedLevel = assignedEmp?.position?.level ?? 0;
+
+    if (scope.scope === 'own') {
+      if (assignedUserId !== userId) {
+        throw new ForbiddenException(
+          'You do not have access to this recording',
+        );
+      }
+      return;
+    }
+
+    if (scope.scope === 'department' || scope.scope === 'department_tree') {
+      const allowedDepts = scope.departmentIds;
+      const departmentOk =
+        !!assignedDept && allowedDepts.includes(assignedDept);
+      const levelOk = assignedLevel <= scope.userLevel;
+      if (!departmentOk || !levelOk) {
+        throw new ForbiddenException(
+          'You do not have access to this recording',
+        );
+      }
+      return;
+    }
+  }
+
+  /**
+   * True if the user holds any of call_recordings.{own,department,department_tree,all}.
+   * Used as a second layer of defense so a user with zero recording permissions
+   * can't reach the `own` default branch of DataScopeService.resolve().
+   */
+  private async userHasRecordingPermission(userId: string): Promise<boolean> {
+    const employee = await this.prisma.employee.findUnique({
+      where: { userId },
+      select: {
+        position: {
+          select: {
+            roleGroup: {
+              select: {
+                permissions: {
+                  select: {
+                    permission: {
+                      select: { resource: true, action: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!employee?.position) return false;
+    const perms = employee.position.roleGroup.permissions;
+    return perms.some(
+      (rp) =>
+        rp.permission.resource === 'call_recordings' &&
+        ['own', 'department', 'department_tree', 'all'].includes(
+          rp.permission.action,
+        ),
+    );
   }
 
   /**
@@ -59,13 +199,17 @@ export class RecordingAccessService {
    * optionally respond to HTTP Range requests — required for HTML <audio>
    * to show duration and support seeking.
    */
-  async getRecordingFileInfo(recordingId: string): Promise<{
+  async getRecordingFileInfo(
+    recordingId: string,
+    userId: string,
+    isSuperAdmin?: boolean,
+  ): Promise<{
     filePath: string;
     fileSize: number;
     filename: string;
     contentType: string;
   }> {
-    const recording = await this.getRecordingById(recordingId);
+    const recording = await this.getRecordingById(recordingId, userId, isSuperAdmin);
 
     if (recording.url) {
       throw new Error(
@@ -92,12 +236,16 @@ export class RecordingAccessService {
    * Kept for backward compatibility — still works as a simple full-file stream
    * but does NOT set Content-Length, so browsers can't display duration.
    */
-  async streamRecording(recordingId: string): Promise<{
+  async streamRecording(
+    recordingId: string,
+    userId: string,
+    isSuperAdmin?: boolean,
+  ): Promise<{
     stream: StreamableFile;
     filename: string;
     contentType: string;
   }> {
-    const info = await this.getRecordingFileInfo(recordingId);
+    const info = await this.getRecordingFileInfo(recordingId, userId, isSuperAdmin);
     const stream = new StreamableFile(createReadStream(info.filePath));
     return { stream, filename: info.filename, contentType: info.contentType };
   }
@@ -132,8 +280,12 @@ export class RecordingAccessService {
    * The download happens synchronously; resolves when done or rejects on
    * error/timeout (60s).
    */
-  async fetchFromAsterisk(recordingId: string): Promise<{ filePath: string; fileSize: number }> {
-    const recording = await this.getRecordingById(recordingId);
+  async fetchFromAsterisk(
+    recordingId: string,
+    userId: string,
+    isSuperAdmin?: boolean,
+  ): Promise<{ filePath: string; fileSize: number }> {
+    const recording = await this.getRecordingById(recordingId, userId, isSuperAdmin);
 
     if (recording.url) {
       throw new InternalServerErrorException(
