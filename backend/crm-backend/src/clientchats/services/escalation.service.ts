@@ -65,6 +65,8 @@ export class EscalationService {
     }
   }
 
+  private static readonly ESCALATION_BATCH_SIZE = 100;
+
   private async runEscalationCheck() {
     const config = await this.prisma.clientChatEscalationConfig.findFirst();
     if (!config) return;
@@ -77,6 +79,10 @@ export class EscalationService {
       now.getTime() - config.reassignAfterMins * 60_000,
     );
 
+    // P1-4: Cap batch size so one cron tick can never pull thousands of
+    // stale conversations into memory. Oldest-stale first ensures no
+    // conversation is starved — processed across ticks until the backlog
+    // drains. See audit/phase1-chats.md check #2a, finding #24.
     const staleConversations = await this.prisma.clientChatConversation.findMany(
       {
         where: {
@@ -85,6 +91,8 @@ export class EscalationService {
           firstResponseAt: null,
           lastMessageAt: { lt: warningThreshold },
         },
+        orderBy: { lastMessageAt: 'asc' },
+        take: EscalationService.ESCALATION_BATCH_SIZE,
         include: {
           messages: {
             where: { direction: 'IN' },
@@ -94,6 +102,12 @@ export class EscalationService {
         },
       },
     );
+
+    if (staleConversations.length === EscalationService.ESCALATION_BATCH_SIZE) {
+      this.logger.warn(
+        `Escalation backlog saturated: processed ${EscalationService.ESCALATION_BATCH_SIZE} stale conversations in one tick — remaining entries will be handled on subsequent ticks.`,
+      );
+    }
 
     for (const conv of staleConversations) {
       try {
