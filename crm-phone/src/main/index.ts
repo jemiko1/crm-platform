@@ -162,6 +162,69 @@ function setupIpc(): void {
     else origLog("[R]", ...args);
   });
 
+  // SIP presence heartbeat: softphone → backend. Main process owns the
+  // authenticated fetch so we never expose the JWT to renderer network
+  // code. Every 30s while registered, plus immediately on state changes.
+  ipcMain.handle(
+    IPC.SIP_REPORT_PRESENCE,
+    async (
+      _e,
+      payload: {
+        state: "registered" | "unregistered";
+        extension: string;
+        ts: string;
+        lastError?: string;
+      },
+    ) => {
+      const session = getSession();
+      if (!session) return { ok: false, reason: "no-session" };
+      try {
+        const baseUrl = getCrmBaseUrl();
+        const res = await fetch(`${baseUrl}/v1/telephony/agents/presence`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.accessToken}`,
+          },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          // Don't log the full payload (extension only, no creds) at WARN.
+          // 401 during a deploy / restart is expected — the next heartbeat
+          // (within 30s) will succeed.
+          console.log(
+            `[SIP-PRESENCE] backend rejected (${res.status}) extension=${payload.extension}`,
+          );
+          return { ok: false, status: res.status };
+        }
+        return { ok: true };
+      } catch (err: any) {
+        console.log(
+          "[SIP-PRESENCE] network error:",
+          err?.message ?? String(err),
+        );
+        return { ok: false, reason: "network-error" };
+      }
+    },
+  );
+
+  // SIP registration-state change: broadcast to every renderer frame so
+  // secondary windows (if any) stay in sync with the primary.
+  ipcMain.on(
+    IPC.SIP_REGISTRATION_CHANGED,
+    (
+      _e,
+      payload: {
+        registered: boolean;
+        lastAttempt: number;
+        lastError?: string;
+      },
+    ) => {
+      sipRegistered = payload.registered;
+      mainWindow?.webContents.send(IPC.SIP_REGISTRATION_CHANGED, payload);
+    },
+  );
+
   ipcMain.handle(IPC.SETTINGS_GET, () => settingsStore.store);
   ipcMain.handle(IPC.SETTINGS_SET, (_e, key: string, value: any) => {
     settingsStore.set(key, value);

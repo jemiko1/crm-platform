@@ -197,6 +197,38 @@ describe("MyFeature (e2e)", () => {
 
 ---
 
+## Manual tests — CRM28 Phone (softphone)
+
+The Electron softphone (`crm-phone/`) has no automated test framework. Run these manual checks before releasing a softphone installer.
+
+### Test: SIP re-register on network drop (fix/audit/P0-F)
+
+Verifies the softphone recovers its SIP registration after a transient network loss, and that the backend presence board reflects reality.
+
+1. **Baseline.** Log into the softphone. Confirm the top-right status dot is green and the label reads "Online". In the CRM web UI, open `/app/call-center/live` (manager dashboard). Confirm your agent row shows `sipRegistered: true` (or "SIP OK").
+2. **Drop the network.** Turn off Wi-Fi (or pull the Ethernet cable) on the softphone host. Keep it off for ~15 seconds.
+3. **Assert mid-drop.** Within a couple of seconds, the softphone status dot should flip red and the label should read "Offline". Within ~90 seconds, the manager dashboard should update to show `sipRegistered: false` for your agent — this is the stale-sweep cron (every 30s, 90s threshold) catching the silent outage even though the softphone itself hasn't been able to report.
+4. **Re-enable.** Turn Wi-Fi back on.
+5. **Assert recovery.** Within ~5–10 seconds after the network comes back, the softphone dot should go green again (transport onConnect fires → immediate re-register). The manager dashboard should reflect `sipRegistered: true` on the next heartbeat (within 30s).
+6. **Assert calls work.** Place a test inbound call to your extension from another line. The softphone should ring normally — confirming Asterisk's AOR is back to pointing at the live WebSocket.
+
+Repeat the above with a longer drop (2+ minutes) to verify the backoff ladder (2s → 4s → 8s → 15s → 30s → 60s cap) doesn't give up and the softphone still recovers.
+
+### Test: Explicit logout clears SIP-DOWN cleanly
+
+1. Log in, confirm SIP registers.
+2. Click "Log Out" in the softphone.
+3. Manager dashboard should show `sipRegistered: false` within 30s (immediate on the "unregistered" heartbeat that fires from `unregister()`).
+4. Re-login. Dashboard returns to `sipRegistered: true` within 30s.
+
+### Test: Softphone crash is caught by the stale sweep
+
+1. Log in, confirm SIP registers.
+2. Kill the Electron process abruptly (Task Manager → End task).
+3. Manager dashboard should flip the agent to `sipRegistered: false` within 90s — driven by the backend cron, not by a heartbeat (the process is dead).
+
+---
+
 ## CI
 
 Tests run automatically in GitHub Actions on every PR to `dev`, `staging`, or `master`. See [CI_CD.md](./CI_CD.md) for details.

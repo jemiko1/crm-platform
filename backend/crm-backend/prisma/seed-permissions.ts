@@ -155,10 +155,13 @@ const DEFAULT_PERMISSIONS = [
   { resource: "telephony", action: "manage", category: PermissionCategory.TELEPHONY, description: "Manage telephony extensions and configuration" },
   { resource: "telephony", action: "menu", category: PermissionCategory.TELEPHONY, description: "Show Telephony in left menu" },
 
-  // Softphone — gates the device-pair and SIP credential handshake endpoints.
-  // Granted to operators/managers who run the Electron softphone (crm-phone).
-  // Required for POST /auth/device-token and GET /v1/telephony/sip-credentials.
-  { resource: "softphone", action: "handshake", category: PermissionCategory.TELEPHONY, description: "Pair the Electron softphone and fetch SIP credentials" },
+  // Softphone — gates the device-pair and SIP credential handshake endpoints
+  // plus the SIP presence heartbeat reporting. Granted to operators/managers
+  // who run the Electron softphone (crm-phone). Required for:
+  //   POST /auth/device-token
+  //   GET  /v1/telephony/sip-credentials
+  //   POST /v1/telephony/agents/presence
+  { resource: "softphone", action: "handshake", category: PermissionCategory.TELEPHONY, description: "Pair the Electron softphone, fetch SIP credentials, and report SIP presence heartbeat" },
 
   // Missed Calls
   { resource: "missed_calls", action: "access", category: PermissionCategory.TELEPHONY, description: "View missed calls queue" },

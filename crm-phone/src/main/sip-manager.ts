@@ -1,3 +1,22 @@
+// ============================================================================
+// DEAD CODE — DO NOT RE-ENABLE.
+//
+// This is a second, stale SIP stack that lived in the Electron main process.
+// The active stack is in `crm-phone/src/renderer/sip-service.ts`, which runs
+// in the renderer where `window.crypto` / `RTCPeerConnection` are native.
+//
+// Phase-1 audit (audit/phase1-softphone-ami.md check #2) confirmed this file
+// is not wired into `src/main/index.ts` — no IPC handler constructs a
+// `SipManager`. Leaving the file intact (rather than deleting) so the git
+// history stays readable, but do not add features here, do not import it,
+// and do not wire it up. All real changes belong in `sip-service.ts`.
+//
+// If you find yourself tempted to reuse this class, read the audit note
+// first: running sip.js in the main process requires shimming WebRTC
+// primitives (no `RTCPeerConnection` in node), which is why this was moved
+// to the renderer in the first place.
+// ============================================================================
+
 import { EventEmitter } from "events";
 import WebSocketNode from "ws";
 (globalThis as any).WebSocket = WebSocketNode;
@@ -6,6 +25,7 @@ import { UserAgent, Registerer, Invitation, Inviter, SessionState } from "sip.js
 import type { Session } from "sip.js";
 import type { ActiveCall, CallState, TelephonyExtensionInfo } from "../shared/types";
 
+/** @deprecated Dead code — see header. Real SIP stack lives in the renderer. */
 export class SipManager extends EventEmitter {
   private ua: UserAgent | null = null;
   private registerer: Registerer | null = null;

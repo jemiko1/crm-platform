@@ -16,6 +16,7 @@ import { TelephonyStateManager } from './telephony-state.manager';
 import type { ActiveCall } from './telephony-state.manager';
 import { AmiClientService } from '../ami/ami-client.service';
 import { TelephonyCallsService } from '../services/telephony-calls.service';
+import { AgentPresenceService } from '../services/agent-presence.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { RawAmiEvent } from '../ami/ami.types';
 
@@ -46,6 +47,7 @@ export class TelephonyGateway
     private readonly amiClient: AmiClientService,
     private readonly callsService: TelephonyCallsService,
     private readonly prisma: PrismaService,
+    private readonly presenceService: AgentPresenceService,
   ) {}
 
   onModuleInit() {
@@ -54,6 +56,27 @@ export class TelephonyGateway
         this.logger.error(`WS broadcast error: ${err.message}`),
       );
     });
+
+    // When the presence sweep flips an extension from registered→offline
+    // (softphone silently died), surface it on the manager dashboard.
+    // Without this, managers would still see "available" for up to one
+    // full UI refresh cycle even though the SIP side is dead.
+    this.presenceService.onStaleFlipped = (userId, extension) => {
+      this.server.to('dashboard').emit('agent:status', {
+        userId,
+        extension,
+        sipRegistered: false,
+        sipStaleFlip: true,
+        timestamp: new Date().toISOString(),
+      });
+      this.server.to(`agent:${userId}`).emit('agent:status', {
+        userId,
+        extension,
+        sipRegistered: false,
+        sipStaleFlip: true,
+        timestamp: new Date().toISOString(),
+      });
+    };
   }
 
   async handleConnection(client: TelephonySocket) {
