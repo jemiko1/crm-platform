@@ -10,6 +10,8 @@ import { LoginThrottleService } from "./login-throttle.service";
 import { JwtAuthGuard } from "./jwt-auth.guard";
 import { PrismaService } from "../prisma/prisma.service";
 import { PermissionsService } from "../permissions/permissions.service";
+import { PositionPermissionGuard } from "../common/guards/position-permission.guard";
+import { RequirePermission } from "../common/decorators/require-permission.decorator";
 import { Doc } from "../common/openapi/doc-endpoint.decorator";
 
 class LoginDto {
@@ -159,7 +161,8 @@ export class AuthController {
     throw original;
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PositionPermissionGuard)
+  @RequirePermission("softphone.handshake")
   @Post("device-token")
   @Doc({
     summary: "Create short-lived device handshake token",
