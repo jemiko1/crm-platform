@@ -239,4 +239,15 @@ export interface LiveAgentState {
   _disclaimer: string | null;
   presence?: 'ON_CALL' | 'RINGING' | 'IDLE' | 'WRAPUP' | 'PAUSED' | 'OFFLINE';
   pausedReason?: string | null;
+  /**
+   * Whether the operator's softphone is currently SIP-registered with
+   * Asterisk. Driven by the 30s heartbeat from `POST /v1/telephony/agents/presence`
+   * and the stale-registration sweep. True means the softphone is alive and
+   * registered; false means the softphone is down, crashed, or silently
+   * offline even if the operator's CRM session appears available.
+   */
+  sipRegistered?: boolean;
+  /** Last heartbeat timestamp (ISO8601). Null if the softphone has never
+   *  heartbeated. */
+  sipLastSeenAt?: string | null;
 }

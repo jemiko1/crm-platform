@@ -4,6 +4,7 @@ import { TelephonyGateway } from '../realtime/telephony.gateway';
 import { TelephonyStateManager } from '../realtime/telephony-state.manager';
 import { AmiClientService } from '../ami/ami-client.service';
 import { TelephonyCallsService } from '../services/telephony-calls.service';
+import { AgentPresenceService } from '../services/agent-presence.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 describe('TelephonyGateway', () => {
@@ -24,6 +25,8 @@ describe('TelephonyGateway', () => {
       lookupPhone: jest.fn().mockResolvedValue({}),
     };
 
+    const mockPresence = { onStaleFlipped: undefined };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TelephonyGateway,
@@ -32,6 +35,7 @@ describe('TelephonyGateway', () => {
         { provide: AmiClientService, useValue: mockAmi },
         { provide: TelephonyCallsService, useValue: mockCalls },
         { provide: PrismaService, useValue: { telephonyExtension: { findFirst: jest.fn() }, callSession: { findUnique: jest.fn() }, client: { findFirst: jest.fn() } } },
+        { provide: AgentPresenceService, useValue: mockPresence },
       ],
     }).compile();
 
@@ -182,6 +186,7 @@ describe('TelephonyGateway', () => {
           { provide: AmiClientService, useValue: { on: jest.fn(), emit: jest.fn() } },
           { provide: TelephonyCallsService, useValue: { lookupPhone: jest.fn() } },
           { provide: PrismaService, useValue: { telephonyExtension: { findFirst: jest.fn() }, callSession: { findUnique: jest.fn() }, client: { findFirst: jest.fn() } } },
+          { provide: AgentPresenceService, useValue: { onStaleFlipped: undefined } },
         ],
       }).compile();
       const realGateway = realModule.get<TelephonyGateway>(TelephonyGateway);

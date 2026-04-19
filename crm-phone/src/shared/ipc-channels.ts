@@ -23,6 +23,17 @@ export const IPC = {
 
   SIP_STATUS_REPORT: "sip:status-report",
   SIP_FETCH_CREDENTIALS: "sip:fetch-credentials",
+  /**
+   * Renderer → main: posts a SIP presence heartbeat (or final
+   * "unregistered" beat on logout) to the backend. Main owns the
+   * authenticated fetch so the JWT never leaves secure context.
+   */
+  SIP_REPORT_PRESENCE: "sip:report-presence",
+  /**
+   * Renderer → main → all renderer frames: notifies UI when SIP
+   * registration transitions (e.g. red dot during a network blip).
+   */
+  SIP_REGISTRATION_CHANGED: "sip:registration-changed",
   RENDERER_LOG: "renderer:log",
 
   SETTINGS_GET: "settings:get",

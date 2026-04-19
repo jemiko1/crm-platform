@@ -12,6 +12,8 @@ import { TelephonyActionsController } from './controllers/telephony-actions.cont
 import { TelephonyRecordingController } from './controllers/telephony-recording.controller';
 import { TelephonyExtensionsController } from './controllers/telephony-extensions.controller';
 import { TelephonySipCredentialsController } from './controllers/telephony-sip-credentials.controller';
+import { TelephonyPresenceController } from './controllers/telephony-presence.controller';
+import { AgentPresenceService } from './services/agent-presence.service';
 import { TelephonyIngestionService } from './services/telephony-ingestion.service';
 import { TelephonyStatsService } from './services/telephony-stats.service';
 import { TelephonyCallsService } from './services/telephony-calls.service';
@@ -51,9 +53,11 @@ import { DataScopeService } from '../common/utils/data-scope';
     TelephonyRecordingController,
     TelephonyExtensionsController,
     TelephonySipCredentialsController,
+    TelephonyPresenceController,
     MissedCallsController,
   ],
   providers: [
+    AgentPresenceService,
     TelephonyIngestionService,
     TelephonyStatsService,
     TelephonyCallsService,
@@ -74,6 +78,7 @@ import { DataScopeService } from '../common/utils/data-scope';
     DataScopeService,
   ],
   exports: [
+    AgentPresenceService,
     TelephonyIngestionService,
     TelephonyStatsService,
     TelephonyCallsService,

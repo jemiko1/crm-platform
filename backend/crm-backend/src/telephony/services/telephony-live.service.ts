@@ -18,10 +18,38 @@ export class TelephonyLiveService {
   }
 
   async getAgentLiveState(): Promise<LiveAgentState[]> {
-    if (this.stateManager.isAmiConnected()) {
-      return this.getAgentLiveFromState();
-    }
-    return this.getAgentLiveFromDb();
+    const base = this.stateManager.isAmiConnected()
+      ? this.getAgentLiveFromState()
+      : await this.getAgentLiveFromDb();
+    // Enrich with softphone SIP presence (driven by the 30s heartbeat and
+    // stale-registration sweep). This lets managers see "SIP DOWN" even when
+    // the AMI/queue side still shows the agent as available.
+    return this.attachSipPresence(base);
+  }
+
+  private async attachSipPresence(
+    agents: LiveAgentState[],
+  ): Promise<LiveAgentState[]> {
+    if (agents.length === 0) return agents;
+    const presence = await this.prisma.telephonyExtension.findMany({
+      where: {
+        crmUserId: { in: agents.map((a) => a.userId) },
+      },
+      select: {
+        crmUserId: true,
+        sipRegistered: true,
+        sipLastSeenAt: true,
+      },
+    });
+    const byUser = new Map(presence.map((p) => [p.crmUserId, p]));
+    return agents.map((a) => {
+      const p = byUser.get(a.userId);
+      return {
+        ...a,
+        sipRegistered: p?.sipRegistered ?? false,
+        sipLastSeenAt: p?.sipLastSeenAt ? p.sipLastSeenAt.toISOString() : null,
+      };
+    });
   }
 
   private getQueueLiveFromState(): LiveQueueState[] {

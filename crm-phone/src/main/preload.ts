@@ -18,6 +18,41 @@ contextBridge.exposeInMainWorld("crmPhone", {
     // Fetch fresh SIP credentials (incl. password) from the CRM backend.
     // Returns null on 401 (expired JWT) or 404 (no extension). Audit: P0-C.
     fetchCredentials: () => ipcRenderer.invoke(IPC.SIP_FETCH_CREDENTIALS),
+    /**
+     * Send a SIP presence heartbeat to the backend. Called every 30s while
+     * registered + immediately on any state transition. Returns when the
+     * backend acknowledges — safe to ignore in the caller; failures are
+     * non-critical because the backend's stale-sweep cron catches silent
+     * outages anyway.
+     */
+    reportPresence: (payload: {
+      state: "registered" | "unregistered";
+      extension: string;
+      ts: string;
+      lastError?: string;
+    }) => ipcRenderer.invoke(IPC.SIP_REPORT_PRESENCE, payload),
+    /**
+     * Notify all renderer frames of a registration state transition so the
+     * UI dot, toast notifications, etc. can react without waiting for the
+     * next poll.
+     */
+    reportRegistrationChanged: (payload: {
+      registered: boolean;
+      lastAttempt: number;
+      lastError?: string;
+    }) => ipcRenderer.send(IPC.SIP_REGISTRATION_CHANGED, payload),
+    onRegistrationChanged: (
+      cb: (data: {
+        registered: boolean;
+        lastAttempt: number;
+        lastError?: string;
+      }) => void,
+    ) => {
+      const handler = (_e: unknown, data: any) => cb(data);
+      ipcRenderer.on(IPC.SIP_REGISTRATION_CHANGED, handler);
+      return () =>
+        ipcRenderer.removeListener(IPC.SIP_REGISTRATION_CHANGED, handler);
+    },
   },
   phone: {
     /**
