@@ -298,12 +298,24 @@ Complete API route documentation for CRM Platform backend.
 
 **File**: `src/auth/auth.controller.ts`  
 **Base Route**: `/auth`  
-**Guards**: `JwtAuthGuard` (on `/me` endpoint only)
+**Guards**: `JwtAuthGuard` (on `/me` and `/device-token` endpoints)
 
 **Endpoints**:
 - `POST /auth/login` - Login (sets httpOnly cookie)
-- `GET /auth/me` - Get current user with employee info and permissions (guarded: JwtAuthGuard)
+- `POST /auth/app-login` - Native/app login (returns `{ accessToken, user, telephonyExtension }` in JSON body; softphone initial credential fetch)
+- `POST /auth/device-token` - Create short-lived device handshake token (guarded: JwtAuthGuard)
+- `POST /auth/exchange-token` - Exchange device handshake token for JWT + softphone bootstrap
+- `GET /auth/me` - Get current user with employee info and permissions (guarded: JwtAuthGuard). **Does NOT include `sipPassword` on `telephonyExtension` (audit/P0-B).** Softphone must call `GET /v1/telephony/sip-credentials` for that.
 - `POST /auth/logout` - Logout (clears cookie)
+
+## Telephony SIP Credentials (Softphone)
+
+**File**: `src/telephony/controllers/telephony-sip-credentials.controller.ts`  
+**Base Route**: `/v1/telephony/sip-credentials`  
+**Guards**: `JwtAuthGuard + PositionPermissionGuard` (`softphone.handshake` permission)
+
+**Endpoints**:
+- `GET /v1/telephony/sip-credentials` - Returns the current user's own SIP credentials `{ extension, sipUsername, sipPassword, sipServer, displayName }`. Every call logged with userId/ip/ua. 404 if no active extension.
 
 ---
 

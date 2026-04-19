@@ -11,6 +11,7 @@ import { TelephonyLiveController } from './controllers/telephony-live.controller
 import { TelephonyActionsController } from './controllers/telephony-actions.controller';
 import { TelephonyRecordingController } from './controllers/telephony-recording.controller';
 import { TelephonyExtensionsController } from './controllers/telephony-extensions.controller';
+import { TelephonySipCredentialsController } from './controllers/telephony-sip-credentials.controller';
 import { TelephonyIngestionService } from './services/telephony-ingestion.service';
 import { TelephonyStatsService } from './services/telephony-stats.service';
 import { TelephonyCallsService } from './services/telephony-calls.service';
@@ -49,6 +50,7 @@ import { DataScopeService } from '../common/utils/data-scope';
     TelephonyActionsController,
     TelephonyRecordingController,
     TelephonyExtensionsController,
+    TelephonySipCredentialsController,
     MissedCallsController,
   ],
   providers: [
