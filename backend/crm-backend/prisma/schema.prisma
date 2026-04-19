@@ -2328,3 +2328,23 @@ model CallReportLabel {
   @@index([callReportId])
   @@index([categoryCode])
 }
+
+// ── Login Attempts (persistent brute-force throttle) ──────
+//
+// Persists every login attempt so throttle state survives backend restarts
+// (auto-deploy restarts happen multiple times/week). Queried per-email
+// (5 failures / 5 min → 5 min lock) and per-IP (10 failures / 60 s → 60 s
+// lock) to catch both targeted and spray attacks.
+
+model LoginAttempt {
+  id          String   @id @default(uuid())
+  email       String
+  ip          String
+  success     Boolean
+  userAgent   String?
+  attemptedAt DateTime @default(now())
+
+  @@index([email, attemptedAt])
+  @@index([ip, attemptedAt])
+  @@index([attemptedAt])
+}

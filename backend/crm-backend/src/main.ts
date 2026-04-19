@@ -19,6 +19,11 @@ async function bootstrap() {
     rawBody: true,
   });
 
+  // Trust the reverse proxy (Nginx on VM / Railway edge) so req.ip resolves
+  // from X-Forwarded-For rather than the loopback address. Required for the
+  // per-IP login throttle and any future rate limiter that keys on req.ip.
+  app.getHttpAdapter().getInstance().set("trust proxy", true);
+
   app.use(helmet());
   app.use(compression());
   app.use(cookieParser());

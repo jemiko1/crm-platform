@@ -2,7 +2,7 @@ import {
   Body, Controller, Get, Post, Req, Res, UseGuards,
   HttpException, HttpStatus, UnauthorizedException,
 } from "@nestjs/common";
-import type { Response } from "express";
+import type { Request, Response } from "express";
 import { ApiProperty, ApiTags } from "@nestjs/swagger";
 import { IsEmail, IsString, MinLength } from "class-validator";
 import { AuthService } from "./auth.service";
@@ -41,6 +41,20 @@ function authSessionCookieSecure(): boolean {
   return (process.env.COOKIE_SECURE ?? "false") === "true";
 }
 
+/**
+ * Resolve the caller's IP address. Express populates `req.ip` from the
+ * left-most X-Forwarded-For entry when `trust proxy` is set (see main.ts).
+ * Falls back to the socket address if neither is available, and "unknown"
+ * as a last resort so the throttle query never receives undefined.
+ */
+function resolveClientIp(req: Request): string {
+  return (
+    req.ip ||
+    req.socket?.remoteAddress ||
+    "unknown"
+  );
+}
+
 @ApiTags("Auth")
 @Controller("auth")
 export class AuthController {
@@ -63,13 +77,17 @@ export class AuthController {
   })
   async login(
     @Body() dto: LoginDto,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    this.assertNotLocked(dto.email);
+    const ip = resolveClientIp(req);
+    const userAgent = req.headers["user-agent"] ?? null;
+
+    await this.throttle.assertNotLocked(dto.email, ip);
 
     try {
       const { accessToken, user } = await this.auth.login(dto.email, dto.password);
-      this.throttle.recordSuccess(dto.email);
+      await this.throttle.recordSuccess(dto.email, ip, userAgent);
 
       const cookieName = process.env.COOKIE_NAME ?? "access_token";
       const secure = authSessionCookieSecure();
@@ -84,7 +102,8 @@ export class AuthController {
 
       return { user };
     } catch (err) {
-      this.throwWithAttemptInfo(dto.email, err);
+      await this.throttle.recordFailure(dto.email, ip, userAgent);
+      this.rethrowWithAttemptInfo(err);
     }
   }
 
@@ -98,65 +117,40 @@ export class AuthController {
     bodyType: LoginDto,
     status: 200,
   })
-  async appLogin(@Body() dto: LoginDto) {
-    this.assertNotLocked(dto.email);
+  async appLogin(@Body() dto: LoginDto, @Req() req: Request) {
+    const ip = resolveClientIp(req);
+    const userAgent = req.headers["user-agent"] ?? null;
+
+    await this.throttle.assertNotLocked(dto.email, ip);
 
     try {
       const result = await this.auth.appLogin(dto.email, dto.password);
-      this.throttle.recordSuccess(dto.email);
+      await this.throttle.recordSuccess(dto.email, ip, userAgent);
       return result;
     } catch (err) {
-      this.throwWithAttemptInfo(dto.email, err);
+      await this.throttle.recordFailure(dto.email, ip, userAgent);
+      this.rethrowWithAttemptInfo(err);
     }
   }
 
-  private assertNotLocked(email: string): void {
-    const lockedSeconds = this.throttle.getLockedSeconds(email);
-    if (lockedSeconds !== null) {
-      const mins = Math.floor(lockedSeconds / 60);
-      const secs = lockedSeconds % 60;
-      const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-      throw new HttpException(
-        {
-          statusCode: HttpStatus.TOO_MANY_REQUESTS,
-          message: `Account temporarily locked. Try again in ${timeStr}.`,
-          retryAfterSeconds: lockedSeconds,
-        },
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-  }
-
-  private throwWithAttemptInfo(email: string, original: unknown): never {
-    const remaining = this.throttle.recordFailure(email);
-
-    if (remaining === 0) {
-      throw new HttpException(
-        {
-          statusCode: HttpStatus.TOO_MANY_REQUESTS,
-          message: "Too many failed attempts. Account locked for 5 minutes.",
-          retryAfterSeconds: 300,
-        },
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-
+  /**
+   * Preserve the original error semantics (401 Invalid credentials, etc.)
+   * while still letting the persistent throttle record the failure. The
+   * throttle itself throws 429 separately on subsequent requests once a
+   * window is exceeded — we no longer tack "attempts remaining" onto the
+   * message since the count is no longer tracked per-request in memory.
+   */
+  private rethrowWithAttemptInfo(original: unknown): never {
     if (original instanceof HttpException) {
-      const body = original.getResponse();
-      const baseMessage =
-        typeof body === "string" ? body : (body as any)?.message ?? "Invalid credentials";
-
-      throw new HttpException(
-        {
-          statusCode: original.getStatus(),
-          message: `${baseMessage}. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining.`,
-          remainingAttempts: remaining,
-        },
-        original.getStatus(),
-      );
+      throw original;
     }
-
-    throw original;
+    throw new HttpException(
+      {
+        statusCode: HttpStatus.UNAUTHORIZED,
+        message: "Invalid credentials",
+      },
+      HttpStatus.UNAUTHORIZED,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
