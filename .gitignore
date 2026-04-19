@@ -98,3 +98,7 @@ PERFORMANCE_PROFILE.md
 DEPENDENCY_HEALTH.md
 TEST_PLANS.md
 ENV_DIFF_REPORT.md
+
+# DB dumps / baseline backups (kept local + on VM only, never committed)
+backups/
+!backups/.gitkeep
