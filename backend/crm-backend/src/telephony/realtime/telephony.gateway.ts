@@ -258,12 +258,18 @@ export class TelephonyGateway
 
   private authenticateSocket(
     client: Socket,
-  ): { id: string; email: string } | null {
+  ): { id: string; email: string; role: string } | null {
     try {
       const authHeader = client.handshake.headers.authorization;
       if (authHeader?.startsWith('Bearer ')) {
         const payload = this.jwtService.verify(authHeader.slice(7));
-        if (payload?.id) return payload as { id: string; email: string };
+        if (payload?.sub) {
+          return {
+            id: payload.sub,
+            email: payload.email,
+            role: payload.role,
+          };
+        }
       }
 
       const cookies = client.handshake.headers.cookie;
@@ -272,7 +278,13 @@ export class TelephonyGateway
         const token = parsed[process.env.COOKIE_NAME ?? 'access_token'];
         if (token) {
           const payload = this.jwtService.verify(token);
-          if (payload?.id) return payload as { id: string; email: string };
+          if (payload?.sub) {
+            return {
+              id: payload.sub,
+              email: payload.email,
+              role: payload.role,
+            };
+          }
         }
       }
     } catch {

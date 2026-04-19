@@ -289,7 +289,7 @@ export class MessengerGateway
 
   private authenticateSocket(
     client: Socket,
-  ): { id: string; email: string } | null {
+  ): { id: string; email: string; role: string } | null {
     try {
       // Try cookie first
       const cookieHeader = client.handshake.headers.cookie;
@@ -298,9 +298,17 @@ export class MessengerGateway
         const token =
           cookies[process.env.COOKIE_NAME ?? 'access_token'];
         if (token) {
-          return this.jwtService.verify(token, {
+          const payload = this.jwtService.verify(token, {
             secret: process.env.JWT_SECRET!,
-          }) as any;
+          });
+          if (payload?.sub) {
+            return {
+              id: payload.sub,
+              email: payload.email,
+              role: payload.role,
+            };
+          }
+          return null;
         }
       }
 
@@ -308,9 +316,17 @@ export class MessengerGateway
       const authHeader = client.handshake.headers.authorization;
       if (authHeader?.startsWith('Bearer ')) {
         const token = authHeader.slice(7);
-        return this.jwtService.verify(token, {
+        const payload = this.jwtService.verify(token, {
           secret: process.env.JWT_SECRET!,
-        }) as any;
+        });
+        if (payload?.sub) {
+          return {
+            id: payload.sub,
+            email: payload.email,
+            role: payload.role,
+          };
+        }
+        return null;
       }
 
       return null;
