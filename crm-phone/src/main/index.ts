@@ -9,7 +9,7 @@ import {
 } from "electron";
 import * as path from "path";
 import * as fs from "fs";
-import { startLocalServer } from "./local-server";
+import { startLocalServer, onSoftphoneLogin, onSoftphoneLogout } from "./local-server";
 import {
   getSession,
   setSession,
@@ -261,12 +261,18 @@ function setupIpc(): void {
     // The password is returned to the renderer in the handler's return
     // value so it can register SIP immediately, but never hits disk.
     setSession(data);
+    // Rotate the bridge token so any previously-paired web UI (from a
+    // different user) is forced to re-handshake.
+    onSoftphoneLogin();
     return data;
   });
 
   ipcMain.handle(IPC.AUTH_LOGOUT, async () => {
     setSession(null);
     sipRegistered = false;
+    // Invalidate the bridge token so a stale web UI cannot dial after
+    // the operator walks away.
+    onSoftphoneLogout();
     return { ok: true };
   });
 
@@ -391,6 +397,7 @@ async function restoreSession(): Promise<void> {
     if (!res.ok) {
       console.log("[RESTORE] Token invalid, clearing session");
       setSession(null);
+      onSoftphoneLogout();
       return;
     }
 
@@ -399,6 +406,13 @@ async function restoreSession(): Promise<void> {
     // so operators who get reassigned to a different extension pick up the
     // change. The sipPassword is fetched separately by the renderer via
     // /v1/telephony/sip-credentials before SIP registration.
+    //
+    // Session is still valid — mint a fresh bridge token (audit/P1-12).
+    // Any previously paired web UI tab will have its token invalidated
+    // and must re-handshake.
+    onSoftphoneLogin();
+
+
     const meData = (await res.json()) as {
       user: {
         telephonyExtension?: {

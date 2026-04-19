@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useI18n } from "@/hooks/useI18n";
+import { getBridgeToken, performBridgeHandshake } from "@/hooks/useDesktopPhone";
 
 const BRIDGE_URL = "http://127.0.0.1:19876";
 
@@ -20,15 +21,41 @@ export function ClickToCall({ number, children, className }: ClickToCallProps) {
       // Prevent parent row click handlers from firing (row navigate, etc.)
       e.stopPropagation();
       setStatus("dialing");
-      try {
-        const res = await fetch(`${BRIDGE_URL}/dial`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ number }),
-          signal: AbortSignal.timeout(3000),
-        });
 
-        if (res.ok) {
+      async function attemptDial(): Promise<Response | null> {
+        const token = getBridgeToken();
+        if (!token) return null;
+        try {
+          return await fetch(`${BRIDGE_URL}/dial`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Bridge-Token": token,
+            },
+            body: JSON.stringify({ number }),
+            signal: AbortSignal.timeout(3000),
+          });
+        } catch {
+          return null;
+        }
+      }
+
+      try {
+        // First attempt with cached token (if any).
+        let res = await attemptDial();
+
+        // Missing token OR 401 (stale / rotated) → handshake + retry once.
+        if (!res || res.status === 401) {
+          const handshake = await performBridgeHandshake();
+          if (!handshake) {
+            setStatus("no-app");
+            setTimeout(() => setStatus("idle"), 3000);
+            return;
+          }
+          res = await attemptDial();
+        }
+
+        if (res?.ok) {
           setStatus("idle");
         } else {
           setStatus("error");
