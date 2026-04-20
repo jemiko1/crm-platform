@@ -12,10 +12,15 @@
 #
 # Requirements (on the workstation running this script):
 #   - bash 4+
-#   - curl, jq
-#   - ssh with aliases:
-#       * asg-vm   -> Administrator@192.168.65.110 (production VM)
-#       * asterisk -> root@5.10.34.153
+#   - curl
+#   - node (used as a portable JSON parser; jq is optional and auto-detected)
+#   - ssh access to:
+#       * Production VM   (default target: Administrator@192.168.65.110)
+#       * Asterisk/FreePBX (default target: root@5.10.34.153)
+#     Either configure ssh aliases "asg-vm" and "asterisk" in ~/.ssh/config,
+#     or set the env vars VM_SSH / ASTERISK_SSH before running, e.g.:
+#       export VM_SSH="-i ~/.ssh/id_ed25519_vm Administrator@192.168.65.110"
+#       export ASTERISK_SSH="-i ~/.ssh/id_ed25519_asterisk root@5.10.34.153"
 #     Ensure OpenVPN is up before running.
 #
 # Output:
@@ -25,6 +30,63 @@
 # ======================================================================
 
 set -eE -o pipefail
+
+# ---------- SSH targets (env-var override with sensible defaults) ----------
+# If the user has ssh aliases "asg-vm" / "asterisk" configured, those just
+# work. Otherwise set VM_SSH / ASTERISK_SSH to the full target spec.
+#
+# We auto-detect: if `ssh -G` resolves the alias to a non-trivial user/key,
+# use it. Otherwise fall back to explicit IP + key if present on disk.
+
+# Build VM_SSH_ARGS and ASTERISK_SSH_ARGS as bash arrays so paths with
+# spaces (e.g. Windows "Geekster PC" home dir) don't word-split.
+#
+# Order of precedence:
+#   1. VM_SSH / ASTERISK_SSH env vars (legacy escape hatch; split on whitespace).
+#   2. ssh-config aliases "asg-vm" / "asterisk".
+#   3. Explicit key + user@host fallback when ~/.ssh/id_ed25519_vm exists.
+declare -a VM_SSH_ARGS ASTERISK_SSH_ARGS
+
+if [ -n "${VM_SSH:-}" ]; then
+  # shellcheck disable=SC2206
+  VM_SSH_ARGS=( ${VM_SSH} )
+elif ssh -G asg-vm 2>/dev/null | grep -q '^hostname 192.168.65.110\|^hostname .*asg\.ge'; then
+  VM_SSH_ARGS=( "asg-vm" )
+elif [ -f "${HOME}/.ssh/id_ed25519_vm" ]; then
+  VM_SSH_ARGS=( "-i" "${HOME}/.ssh/id_ed25519_vm" "Administrator@192.168.65.110" )
+else
+  VM_SSH_ARGS=( "asg-vm" )  # last-resort; will fail with a clear error at first use
+fi
+
+if [ -n "${ASTERISK_SSH:-}" ]; then
+  # shellcheck disable=SC2206
+  ASTERISK_SSH_ARGS=( ${ASTERISK_SSH} )
+else
+  ASTERISK_SSH_ARGS=( "asterisk" )  # pre-existing CLAUDE.md convention
+fi
+
+# Tiny wrappers — call as `vm_ssh "<command>"` or `ast_ssh "<command>"`.
+vm_ssh()  { ssh -o BatchMode=yes -o ConnectTimeout=15 "${VM_SSH_ARGS[@]}" "$@"; }
+ast_ssh() { ssh -o BatchMode=yes -o ConnectTimeout=15 "${ASTERISK_SSH_ARGS[@]}" "$@"; }
+
+# Run SQL against the VM Postgres. SQL is piped via stdin (so it can contain
+# PascalCase quoted identifiers without shell-escaping hell). Returns psql's
+# -At output (tuples-only, unaligned). Suppresses stderr.
+#     vm_psql_query "SELECT COUNT(*) FROM \"User\""
+vm_psql_query() {
+  local sql="$1"
+  echo "${sql}" | vm_ssh 'C:\\postgresql17\\pgsql\\bin\\psql.exe -U postgres -d crm -At' 2>/dev/null || true
+}
+
+# HTTP GET from the VM (localhost probes for bridge-health etc). Windows
+# Server doesn't ship `curl` on the default SSH PATH; PowerShell's
+# Invoke-WebRequest is the portable choice. Returns the body (or empty on
+# error); suppresses stderr.
+#     vm_http_get http://127.0.0.1:3100/health
+vm_http_get() {
+  local url="$1"
+  vm_ssh "powershell -Command \"try { (Invoke-WebRequest -UseBasicParsing -Uri '${url}' -TimeoutSec 5).Content } catch { '' }\"" 2>/dev/null || true
+}
 
 # ---------- Setup ----------
 
@@ -58,6 +120,96 @@ if [ -t 1 ]; then
   D="$(printf '\033[0m')"
 else
   G=""; R=""; Y=""; B=""; D=""
+fi
+
+# ---------- JSON helpers (jq when available, Node fallback otherwise) ----------
+
+# Usage: json_get "<json-string>" "<jq-path>"
+# jq-path syntax supported: ".a.b.c", ".a // .b // \"default\"", ".a == \"x\"",
+# and ".arr[] | select(.name == $n) | .status" (via --arg n NAME)
+# For portability we only use a narrow subset; the Node fallback below
+# implements exactly what this script uses.
+if command -v jq >/dev/null 2>&1; then
+  json_get() { echo "$1" | jq -r "$2" 2>/dev/null || echo ""; }
+  # json_pm2_status "<json>" "<process-name>" -> pm2_env.status string
+  json_pm2_status() {
+    echo "$1" | jq -r --arg n "$2" '[.[] | select(.name == $n)] | .[0].pm2_env.status // "absent"' 2>/dev/null
+  }
+else
+  if ! command -v node >/dev/null 2>&1; then
+    echo "ERROR: neither jq nor node is installed; cannot parse JSON responses." >&2
+    exit 1
+  fi
+  # Node-based fallback. Passes the JSON on stdin and the expression as ARGV[0].
+  # Uses a `safe()` wrapper so any TypeError on missing intermediate segments
+  # short-circuits to `undefined` (matching jq's null-on-missing semantics).
+  _json_node_eval() {
+    # $1 = json blob
+    # $2 = JS expression against obj (e.g. `obj.status`, `(safe(()=>obj.a) ?? 'x')`)
+    echo "$1" | node -e "
+      let data = '';
+      process.stdin.on('data', c => data += c);
+      process.stdin.on('end', () => {
+        try {
+          const obj = JSON.parse(data);
+          const safe = (fn) => { try { return fn(); } catch { return undefined; } };
+          const out = (() => { return $2; })();
+          process.stdout.write(out === undefined || out === null ? '' : String(out));
+        } catch (e) { process.stdout.write(''); }
+      });
+    " 2>/dev/null
+  }
+  # Convert a jq-ish dot-path ".foo.bar" into "safe(()=>obj.foo.bar)".
+  _to_safe_expr() {
+    local p="${1#.}"
+    echo "safe(()=>obj.${p})"
+  }
+  json_get() {
+    # Support: ".status == \"ok\"" and "." paths w/ optional // fallbacks.
+    local path="$2"
+    local expr
+    if [[ "$path" == *" == "* ]]; then
+      local lhs rhs
+      lhs="${path%% == *}"
+      rhs="${path##* == }"
+      expr="($(_to_safe_expr "$lhs") === ${rhs})"
+    elif [[ "$path" == *" // "* ]]; then
+      # Split on " // " and wrap each dot-path in safe(). String literals
+      # (starting with " or ' ) and `empty` pass through unchanged.
+      local chain=""
+      local IFS_BAK="$IFS"
+      # shellcheck disable=SC2206
+      IFS='|' tokens=( ${path// \/\/ /|} )
+      IFS="$IFS_BAK"
+      local t
+      for t in "${tokens[@]}"; do
+        local seg
+        if [[ "$t" == "empty" ]]; then
+          seg='undefined'
+        elif [[ "$t" == \"*\" || "$t" == \'*\' ]]; then
+          seg="$t"
+        elif [[ "$t" == .* ]]; then
+          seg="$(_to_safe_expr "$t")"
+        else
+          seg="$t"
+        fi
+        if [ -z "$chain" ]; then
+          chain="$seg"
+        else
+          chain="$chain ?? $seg"
+        fi
+      done
+      expr="($chain)"
+    else
+      expr="$(_to_safe_expr "$path")"
+    fi
+    _json_node_eval "$1" "$expr"
+  }
+  json_pm2_status() {
+    local json="$1"
+    local name="$2"
+    _json_node_eval "$json" "(Array.isArray(obj) ? (obj.find(p => p.name === ${name@Q}) || {})?.pm2_env?.status : undefined) || 'absent'"
+  }
 fi
 
 # ---------- Helpers ----------
@@ -102,13 +254,15 @@ if [ -z "${HEALTH_BODY}" ]; then
        "SSH to the VM and run 'pm2 logs crm-backend --lines 50'. Check nginx is running (Get-Service nginx)."
 fi
 
-STATUS_OK="$(echo "${HEALTH_BODY}" | jq -r '.status == "ok"' 2>/dev/null || echo "false")"
+STATUS_OK="$(json_get "${HEALTH_BODY}" '.status == "ok"')"
 if [ "${STATUS_OK}" != "true" ]; then
   fail "/health .status is not \"ok\": ${HEALTH_BODY}" \
        "Tail pm2 logs crm-backend; check DATABASE_URL and JWT_SECRET on VM."
 fi
 
-DB_CONNECTED="$(echo "${HEALTH_BODY}" | jq -r '.db.connected // .info.db.status // "unknown"' 2>/dev/null)"
+# Accept any of: .db.connected (old shape), .info.database.status (current shape),
+# or .info.db.status (alternate). Live prod returns "up" under .info.database.status.
+DB_CONNECTED="$(json_get "${HEALTH_BODY}" '.db.connected // .info.database.status // .info.db.status // "unknown"')"
 if [ "${DB_CONNECTED}" != "true" ] && [ "${DB_CONNECTED}" != "up" ]; then
   fail "/health reports DB not connected (value=${DB_CONNECTED})" \
        "SSH asg-vm, verify PostgreSQL service is Running; check DATABASE_URL env."
@@ -131,13 +285,12 @@ ok "/login returned 200"
 
 section "DB connectivity (SELECT active User count)"
 
-USER_COUNT="$(ssh -o BatchMode=yes -o ConnectTimeout=15 asg-vm \
-  'C:\\postgresql17\\pgsql\\bin\\psql.exe -U postgres -d crm -At -c "SELECT COUNT(*) FROM \"User\" WHERE \"isActive\"=true"' \
-  2>/dev/null | tr -d '\r\n[:space:]')"
+USER_COUNT_RAW="$(vm_psql_query 'SELECT COUNT(*) FROM "User" WHERE "isActive" = true;')"
+USER_COUNT="$(echo "${USER_COUNT_RAW}" | tr -d '\r\n[:space:]')"
 
 if ! [[ "${USER_COUNT}" =~ ^[0-9]+$ ]]; then
-  fail "psql did not return a numeric user count (raw='${USER_COUNT}')" \
-       "SSH asg-vm manually; verify pg_ctl status; re-run query."
+  fail "psql did not return a numeric user count (raw='${USER_COUNT_RAW}')" \
+       "SSH the VM manually; verify PostgreSQL service is Running; check DATABASE_URL env in backend .env."
 fi
 if [ "${USER_COUNT}" -lt 1 ]; then
   fail "User table has 0 active users" \
@@ -149,7 +302,7 @@ ok "${USER_COUNT} active users in DB"
 
 section "PM2 processes up (crm-backend, crm-frontend, ami-bridge, core-sync-bridge)"
 
-PM2_OUT="$(ssh -o BatchMode=yes -o ConnectTimeout=15 asg-vm 'pm2 jlist' 2>/dev/null || true)"
+PM2_OUT="$(vm_ssh 'pm2 jlist' 2>/dev/null || true)"
 if [ -z "${PM2_OUT}" ]; then
   fail "pm2 jlist returned no output" \
        "SSH asg-vm; run 'pm2 resurrect'; check pm2 daemon is alive."
@@ -158,7 +311,7 @@ fi
 declare -a REQUIRED=(crm-backend crm-frontend ami-bridge core-sync-bridge)
 MISSING=()
 for proc in "${REQUIRED[@]}"; do
-  ST="$(echo "${PM2_OUT}" | jq -r --arg n "${proc}" '[.[] | select(.name == $n)] | .[0].pm2_env.status // "absent"' 2>/dev/null)"
+  ST="$(json_pm2_status "${PM2_OUT}" "${proc}")"
   if [ "${ST}" != "online" ]; then
     MISSING+=("${proc}=${ST}")
   else
@@ -174,7 +327,7 @@ fi
 
 section "Asterisk reachable (core show version)"
 
-AST_VER="$(ssh -o BatchMode=yes -o ConnectTimeout=15 asterisk \
+AST_VER="$(ast_ssh \
   "asterisk -rx 'core show version'" 2>/dev/null || true)"
 if [ -z "${AST_VER}" ] || ! echo "${AST_VER}" | grep -qi 'asterisk'; then
   fail "asterisk -rx 'core show version' did not return a version string (got: '${AST_VER}')" \
@@ -186,19 +339,18 @@ ok "Asterisk: $(echo "${AST_VER}" | head -1 | sed 's/^ *//')"
 
 section "AMI Bridge health (http://127.0.0.1:3100/health on VM)"
 
-AMI_HEALTH="$(ssh -o BatchMode=yes -o ConnectTimeout=15 asg-vm \
-  'curl -sf --max-time 5 http://127.0.0.1:3100/health' 2>/dev/null || true)"
+AMI_HEALTH="$(vm_http_get 'http://127.0.0.1:3100/health')"
 
 if [ -z "${AMI_HEALTH}" ]; then
   fail "AMI bridge health endpoint returned no body" \
        "SSH asg-vm; 'pm2 restart ami-bridge'; check AMI_HOST/PORT/USER/SECRET env match manager_custom.conf."
 fi
 
-AMI_STATUS="$(echo "${AMI_HEALTH}" | jq -r '.status // "unknown"' 2>/dev/null)"
+AMI_STATUS="$(json_get "${AMI_HEALTH}" '.status // "unknown"')"
 if [ "${AMI_STATUS}" = "healthy" ]; then
   ok "AMI bridge status=healthy"
 elif [ "${AMI_STATUS}" = "degraded" ]; then
-  MIN_SINCE="$(echo "${AMI_HEALTH}" | jq -r '.minutesSinceSuccess // .minutesSinceLastPost // "?"' 2>/dev/null)"
+  MIN_SINCE="$(json_get "${AMI_HEALTH}" '.minutesSinceSuccess // .minutesSinceLastPost // "?"')"
   fail "AMI bridge status=degraded (minutesSinceSuccess=${MIN_SINCE})" \
        "Check AMI connection to 5.10.34.153:5038 via SSH tunnel; ensure ingest secret matches backend TELEPHONY_INGEST_SECRET."
 else
@@ -210,7 +362,7 @@ fi
 
 section "Operator extensions registered on Asterisk (ext 200-214 + 501)"
 
-PJSIP_OUT="$(ssh -o BatchMode=yes -o ConnectTimeout=15 asterisk \
+PJSIP_OUT="$(ast_ssh \
   "asterisk -rx 'pjsip show endpoints'" 2>/dev/null || true)"
 
 if [ -z "${PJSIP_OUT}" ]; then
@@ -242,15 +394,18 @@ fi
 
 section "Queue 804 has >= 1 member"
 
-Q804_OUT="$(ssh -o BatchMode=yes -o ConnectTimeout=15 asterisk \
+Q804_OUT="$(ast_ssh \
   "asterisk -rx 'queue show 804'" 2>/dev/null || true)"
 if [ -z "${Q804_OUT}" ]; then
   fail "queue 804 not found or asterisk did not respond" \
        "SSH asterisk; 'asterisk -rx \"queue show 804\"'; verify FreePBX GUI Queue 804 still exists."
 fi
 
-# Parse "Members:" section count. Members are lines after "Members:" until "Callers:" or blank.
-MEMBER_COUNT="$(echo "${Q804_OUT}" | awk '/^[[:space:]]*Members:/,/^[[:space:]]*Callers:/' | grep -cE '^[[:space:]]+Local/' || true)"
+# Count member lines — each shows "(Local/NNN@from-queue". ANSI colors may be
+# embedded (Asterisk 16 colors "Unavailable" etc). Strip colors first, then
+# count occurrences anywhere on the line (line-start anchor doesn't work
+# because real output is "      Operator Name (Local/200@from-queue/n ...").
+MEMBER_COUNT="$(echo "${Q804_OUT}" | sed 's/\x1b\[[0-9;]*m//g' | grep -cE '\(Local/[0-9]+@from-queue' || true)"
 if ! [[ "${MEMBER_COUNT}" =~ ^[0-9]+$ ]] || [ "${MEMBER_COUNT}" -lt 1 ]; then
   fail "queue 804 has ${MEMBER_COUNT} members" \
        "FreePBX GUI -> Queues -> 804 -> Static Agents; ensure Local/200 through Local/214 (+501) are listed. Apply Config."
@@ -261,7 +416,7 @@ ok "queue 804 has ${MEMBER_COUNT} members"
 
 section "SIP trunk registered (1055267e1-Active-NoWorkAlamex)"
 
-REG_OUT="$(ssh -o BatchMode=yes -o ConnectTimeout=15 asterisk \
+REG_OUT="$(ast_ssh \
   "asterisk -rx 'pjsip show registrations'" 2>/dev/null || true)"
 if [ -z "${REG_OUT}" ]; then
   fail "pjsip show registrations returned no output" \
@@ -277,13 +432,12 @@ ok "trunk 1055267e1-Active-NoWorkAlamex registered with 89.150.1.11"
 
 section "Core Sync Bridge health (http://127.0.0.1:3101/health on VM)"
 
-CORE_HEALTH="$(ssh -o BatchMode=yes -o ConnectTimeout=15 asg-vm \
-  'curl -sf --max-time 5 http://127.0.0.1:3101/health' 2>/dev/null || true)"
+CORE_HEALTH="$(vm_http_get 'http://127.0.0.1:3101/health')"
 if [ -z "${CORE_HEALTH}" ]; then
   fail "core-sync bridge health endpoint returned no body" \
        "SSH asg-vm; 'pm2 restart core-sync-bridge'; check CORE_MYSQL_* env."
 fi
-CORE_STATUS="$(echo "${CORE_HEALTH}" | jq -r '.status // "unknown"' 2>/dev/null)"
+CORE_STATUS="$(json_get "${CORE_HEALTH}" '.status // "unknown"')"
 if [ "${CORE_STATUS}" != "healthy" ] && [ "${CORE_STATUS}" != "ok" ]; then
   fail "core-sync bridge status=${CORE_STATUS}; body=${CORE_HEALTH}" \
        "pm2 logs core-sync-bridge; verify VPN to core MySQL; check CRM_WEBHOOK_SECRET matches backend CORE_WEBHOOK_SECRET."
@@ -294,7 +448,7 @@ ok "core-sync bridge status=${CORE_STATUS}"
 
 section "Recording path reachable + disk usage < 85%"
 
-DF_LINE="$(ssh -o BatchMode=yes -o ConnectTimeout=15 asterisk \
+DF_LINE="$(ast_ssh \
   'df -h /var/spool/asterisk | tail -1' 2>/dev/null || true)"
 if [ -z "${DF_LINE}" ]; then
   fail "df -h /var/spool/asterisk returned no output" \
@@ -315,15 +469,15 @@ ok "/var/spool/asterisk disk at ${USE_PCT}%"
 
 section "Prisma migrations up to date"
 
-MIG_OUT="$(ssh -o BatchMode=yes -o ConnectTimeout=30 asg-vm \
-  'cd C:\\crm\\backend\\crm-backend && pnpm prisma migrate status' 2>/dev/null || true)"
+MIG_OUT="$(vm_ssh -o ConnectTimeout=30 \
+  'cd C:\crm\backend\crm-backend; npx prisma migrate status' 2>/dev/null || true)"
 if [ -z "${MIG_OUT}" ]; then
   fail "prisma migrate status returned no output" \
-       "SSH asg-vm; cd C:\\crm\\backend\\crm-backend; pnpm prisma migrate status; check DATABASE_URL."
+       "SSH asg-vm; cd C:\\crm\\backend\\crm-backend; npx prisma migrate status; check DATABASE_URL."
 fi
 if ! echo "${MIG_OUT}" | grep -qE 'Database schema is up to date|No pending migrations'; then
   fail "Prisma migrations are NOT up to date; output: ${MIG_OUT}" \
-       "SSH asg-vm; cd C:\\crm\\backend\\crm-backend; pnpm prisma migrate deploy; verify no P3009 drift."
+       "SSH asg-vm; cd C:\\crm\\backend\\crm-backend; npx prisma migrate deploy; verify no P3009 drift."
 fi
 ok "Prisma migrations up to date"
 
@@ -331,9 +485,9 @@ ok "Prisma migrations up to date"
 
 section "Recent CallSession rows (last 24h)"
 
-CALL_COUNT="$(ssh -o BatchMode=yes -o ConnectTimeout=15 asg-vm \
-  'C:\\postgresql17\\pgsql\\bin\\psql.exe -U postgres -d crm -At -c "SELECT COUNT(*) FROM \"CallSession\" WHERE \"startAt\" > now() - interval '"'"'24 hours'"'"'"' \
-  2>/dev/null | tr -d '\r\n[:space:]')"
+CALL_COUNT="$(vm_psql_query \
+  'SELECT COUNT(*) FROM "CallSession" WHERE "startAt" > now() - interval '"'"'24 hours'"'"';' \
+  | tr -d '\r\n[:space:]')"
 
 if ! [[ "${CALL_COUNT}" =~ ^[0-9]+$ ]]; then
   fail "psql returned non-numeric CallSession count (raw='${CALL_COUNT}')" \
@@ -366,13 +520,13 @@ MGR_PERMS_EXPECTED=(
 )
 
 # Get the effective permission set for each of the 2 known role groups.
-# Role group code 'CALL_CENTER' for operators, 'MANAGEMENT' for managers.
-for rg in 'CALL_CENTER:Call Center Operator' 'MANAGEMENT:Manager'; do
+# Role group codes in production: CALL_CENTER (operators), CALL_CENTER_MANAGER (managers).
+for rg in 'CALL_CENTER:Call Center Operator' 'CALL_CENTER_MANAGER:Call Center Manager'; do
   CODE="${rg%%:*}"
   LABEL="${rg##*:}"
-  PERMS_RAW="$(ssh -o BatchMode=yes -o ConnectTimeout=15 asg-vm \
-    "C:\\postgresql17\\pgsql\\bin\\psql.exe -U postgres -d crm -At -c \"SELECT p.resource || '.' || p.action FROM \\\"RoleGroup\\\" rg JOIN \\\"RoleGroupPermission\\\" rgp ON rgp.\\\"roleGroupId\\\" = rg.id JOIN \\\"Permission\\\" p ON p.id = rgp.\\\"permissionId\\\" WHERE rg.code = '${CODE}' ORDER BY 1\"" \
-    2>/dev/null | tr -d '\r' | sort -u || true)"
+  PERMS_RAW="$(vm_psql_query \
+    "SELECT p.resource || '.' || p.action FROM \"RoleGroup\" rg JOIN \"RoleGroupPermission\" rgp ON rgp.\"roleGroupId\" = rg.id JOIN \"Permission\" p ON p.id = rgp.\"permissionId\" WHERE rg.code = '${CODE}' ORDER BY 1;" \
+    | tr -d '\r' | sort -u || true)"
 
   if [ -z "${PERMS_RAW}" ]; then
     warn "RoleGroup '${CODE}' has 0 permissions or does not exist (${LABEL})"
@@ -406,8 +560,8 @@ done
 
 section "VM repo is on master branch"
 
-VM_BRANCH="$(ssh -o BatchMode=yes -o ConnectTimeout=15 asg-vm \
-  'cd C:\\crm && git rev-parse --abbrev-ref HEAD' 2>/dev/null | tr -d '\r\n[:space:]' || true)"
+VM_BRANCH="$(vm_ssh \
+  'cd C:\crm; git rev-parse --abbrev-ref HEAD' 2>/dev/null | tr -d '\r\n[:space:]' || true)"
 if [ "${VM_BRANCH}" != "master" ]; then
   fail "VM repo is on '${VM_BRANCH}' (expected 'master')" \
        "SSH asg-vm; cd C:\\crm; git checkout master; git pull origin master; restart PM2 services."
@@ -418,38 +572,42 @@ ok "VM repo on master"
 
 section "Backup from last 24h present on VM"
 
-BACKUP_LINE="$(ssh -o BatchMode=yes -o ConnectTimeout=15 asg-vm \
-  'powershell -NoProfile -Command "Get-ChildItem C:\\crm\\backups\\*.dump | Sort-Object LastWriteTime -Descending | Select-Object -First 1 | ForEach-Object { \"$($_.LastWriteTime.ToString(''yyyy-MM-ddTHH:mm:ss'')) $($_.Name)\" }"' \
-  2>/dev/null | tr -d '\r' || true)"
+# Ask PowerShell for the newest .dump file. Output format: "<epoch-seconds> <filename>".
+# Use base64-encoded command so bash/ssh don't mangle $ variables along the way.
+PS_BACKUP_SCRIPT='$f = Get-ChildItem C:\crm\backups\*.dump | Sort-Object LastWriteTime -Descending | Select-Object -First 1; if ($f) { $epoch = [int64](($f.LastWriteTime.ToUniversalTime() - [datetime]"1970-01-01").TotalSeconds); $epoch.ToString() + [char]32 + $f.Name }'
+PS_BACKUP_B64="$(printf '%s' "${PS_BACKUP_SCRIPT}" | iconv -f UTF-8 -t UTF-16LE | base64 -w 0)"
+BACKUP_LINE="$(vm_ssh "powershell -NoProfile -EncodedCommand ${PS_BACKUP_B64}" 2>/dev/null | tr -d '\r' || true)"
 
 if [ -z "${BACKUP_LINE}" ]; then
   fail "no backup files found in C:\\crm\\backups" \
        "SSH asg-vm; run .\\vm-configs\\scripts\\backup-db.ps1 immediately; ensure nightly scheduled task exists."
 fi
 
-BACKUP_DATE="${BACKUP_LINE%% *}"
-if command -v gdate >/dev/null 2>&1; then
-  BACKUP_EPOCH="$(gdate -d "${BACKUP_DATE}" +%s 2>/dev/null || echo 0)"
-  NOW_EPOCH="$(gdate +%s)"
-else
-  BACKUP_EPOCH="$(date -d "${BACKUP_DATE}" +%s 2>/dev/null || echo 0)"
-  NOW_EPOCH="$(date +%s)"
-fi
+# BACKUP_LINE format is "<epoch-seconds> <filename>".
+BACKUP_EPOCH="${BACKUP_LINE%% *}"
+BACKUP_NAME="${BACKUP_LINE#* }"
+if ! [[ "${BACKUP_EPOCH}" =~ ^[0-9]+$ ]]; then BACKUP_EPOCH=0; fi
+NOW_EPOCH="$(date +%s)"
 AGE_HOURS=$(( (NOW_EPOCH - BACKUP_EPOCH) / 3600 ))
 if [ "${BACKUP_EPOCH}" -eq 0 ] || [ "${AGE_HOURS}" -gt 24 ]; then
-  fail "most recent backup is ${AGE_HOURS}h old: ${BACKUP_LINE}" \
+  fail "most recent backup is ${AGE_HOURS}h old: ${BACKUP_NAME:-<unparsed>}" \
        "SSH asg-vm; run .\\vm-configs\\scripts\\backup-db.ps1 now; fix scheduled task if nightly is failing."
 fi
-ok "most recent backup is ${AGE_HOURS}h old: ${BACKUP_LINE}"
+ok "most recent backup is ${AGE_HOURS}h old: ${BACKUP_NAME}"
 
 # ---------- 17. WebSocket endpoint reachable ----------
 
 section "WebSocket endpoint reachable (https://crm28.asg.ge/socket.io/)"
 
-WS_CODE="$(curl -sf -L -o /dev/null -w '%{http_code}' \
+# Note: must include transport=polling — Socket.IO v4 returns 400 otherwise
+# (the transport negotiation is mandatory on the initial handshake).
+# Drop -f so curl still reports the code on non-2xx bodies.
+# Drop -L so a 302 (e.g. nginx redirecting to login page) surfaces instead
+# of being silently followed to a 200 response.
+WS_CODE="$(curl -s -o /dev/null -w '%{http_code}' \
   --max-time 10 \
   -H "Origin: https://crm28.asg.ge" \
-  "https://crm28.asg.ge/socket.io/?EIO=4" 2>/dev/null || echo '000')"
+  "https://crm28.asg.ge/socket.io/?EIO=4&transport=polling" 2>/dev/null || echo '000')"
 
 # Socket.IO handshake without transport returns 200 with an "0{... }" JSON-ish body
 # depending on nginx/socket.io version; 200 is success; 400 indicates handshake issue.
@@ -464,10 +622,9 @@ ok "socket.io handshake HTTP ${WS_CODE}"
 section "AMI bridge last-post within last 5 min (proxy for TELEPHONY_INGEST_SECRET match)"
 
 # Re-fetch in case earlier response has aged slightly.
-AMI_HEALTH2="$(ssh -o BatchMode=yes -o ConnectTimeout=15 asg-vm \
-  'curl -sf --max-time 5 http://127.0.0.1:3100/health' 2>/dev/null || true)"
+AMI_HEALTH2="$(vm_http_get 'http://127.0.0.1:3100/health')"
 
-LAST_POST_MIN="$(echo "${AMI_HEALTH2}" | jq -r '.minutesSinceSuccess // .minutesSinceLastPost // empty' 2>/dev/null)"
+LAST_POST_MIN="$(json_get "${AMI_HEALTH2}" '.minutesSinceSuccess // .minutesSinceLastPost // empty')"
 
 if [ -z "${LAST_POST_MIN}" ] || [ "${LAST_POST_MIN}" = "null" ]; then
   # If bridge hasn't posted yet (no events since boot), warn rather than fail.
