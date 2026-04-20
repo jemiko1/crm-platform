@@ -231,7 +231,7 @@ Repeat the above with a longer drop (2+ minutes) to verify the backoff ladder (2
 
 ## CI
 
-Tests run automatically in GitHub Actions on every PR to `dev`, `staging`, or `master`. See [CI_CD.md](./CI_CD.md) for details.
+Tests run automatically in GitHub Actions on every PR to `master`. (There is no `dev` or `staging` branch — VM auto-deploys from master to production at crm28.asg.ge, and Railway deploys from master to the staging env at crm28demo.asg.ge.) See [CI_CD.md](./CI_CD.md) for details.
 
 The CI uses a Postgres service container, so no external database is needed.
 
@@ -376,3 +376,100 @@ fetched on demand from `GET /v1/telephony/sip-credentials`.
    - The softphone should switch to Operator B.
    - PASS when: tray updates to Operator B's email, SIP re-registers
      with B's extension, no password persisted on disk after switch.
+
+---
+
+## Monday-Morning Preflight Script (PR #268)
+
+`scripts/monday-morning-preflight.sh` runs 18 checks against production before
+a business-hour launch window.
+
+**Run:**
+```bash
+bash scripts/monday-morning-preflight.sh
+```
+
+**Requirements (on your Windows workstation):**
+- Git Bash (bash 4+)
+- `curl`, `ssh`, `node`, `iconv`, `base64` on PATH
+- OpenVPN connected (the script SSHes to the VM and to Asterisk)
+- `~/.ssh/id_ed25519_vm` present (VM key), or `asg-vm` host alias configured
+- `~/.ssh/config` with `asterisk` host alias to `root@5.10.34.153`
+
+**What it checks (in order):**
+1. Backend `/health` returns status=ok + DB connected
+2. Frontend `/login` returns 200
+3. DB reports ≥ 1 active User
+4. PM2 shows crm-backend / crm-frontend / ami-bridge / core-sync-bridge all online
+5. Asterisk `core show version` responds
+6. AMI Bridge `/health` on port 3100 (VM) — status=healthy
+7. PJSIP endpoints 200-214 + 501 registration count (fail if 0)
+8. Queue 804 has ≥ 1 member
+9. SIP trunk `1055267e1-Active-NoWorkAlamex` registered
+10. Core Sync Bridge `/health` on port 3101 (VM) — status=healthy
+11. Recording dir `/var/spool/asterisk` disk < 85% full
+12. Prisma migrations up to date
+13. ≥ 1 CallSession row in last 24h (warn on zero)
+14. RoleGroup permission coverage — operators have `softphone.handshake`, `telephony.call`, `call_logs.own`, `call_recordings.own`, `call_center.menu`, `client_chats.menu`; managers additionally have `call_center.live`, `call_center.statistics`, `client_chats.manage`
+15. VM git repo on `master` branch
+16. Backup file newer than 24h in `C:\crm\backups`
+17. Socket.IO handshake at `/socket.io/?EIO=4&transport=polling` returns 200
+18. AMI bridge last-post-success < 5 min ago (proxy for ingest secret match)
+
+**Exit codes:** 0 = all green; non-zero = step number that failed. Failed step
+prints a hint. Each run logs to `logs/preflight-YYYY-MM-DD_HHMMSS.log`.
+
+**Known off-hours behavior:** Step 7 fails if no operators are logged in
+(typical Sunday). The script is designed for Monday 8:30 AM; running it
+off-hours to verify the script itself is fine but expect step 7 to fail.
+
+---
+
+## CallLeg Backfill Script (PR #264)
+
+`prisma/backfill-call-legs.ts` populates `CallLeg` rows for historical
+`CallSession`s that pre-date the `CallLeg` model.
+
+**Run (safe — dry-run by default):**
+```powershell
+cd backend\crm-backend
+npx tsx prisma/backfill-call-legs.ts
+```
+
+**Expected output (production, 2026-04-20):**
+```
+Scanning for CallSessions without matching CallLegs…
+0 eligible sessions found.
+Dry-run complete (no writes).
+```
+
+**For real backfill (only if count > 0):**
+```powershell
+npx tsx prisma/backfill-call-legs.ts --apply
+```
+
+---
+
+## Replayed `call_end` Field-Level Merge (PR #255 / M7)
+
+Regression test for the M7 stats-correctness rule: a duplicate `call_end`
+event must NOT overwrite existing non-null fields on a finalized CallSession.
+
+**Manual test:**
+1. Find a completed CallSession with populated `endedAt`, `disposition`, and
+   `hangupReason`.
+2. Replay the same `call_end` AMI event via the ingest endpoint with a
+   distinct `idempotencyKey` (simulates bridge buffer replay):
+   ```bash
+   curl -X POST https://crm28.asg.ge/v1/telephony/events \
+     -H "x-telephony-secret: $TELEPHONY_INGEST_SECRET" \
+     -H "Content-Type: application/json" \
+     -d '{"type":"call_end","linkedId":"<known-linkedId>","idempotencyKey":"manual-test-001","timestamp":"..."}'
+   ```
+3. Verify the existing CallSession row: `endedAt`, `disposition`,
+   `hangupReason` should be unchanged. Only null/missing fields get
+   overwritten.
+4. Check PM2 logs for `[TelephonyIngestionService] Skipping side-effects for replayed call_end` — this is the merge guard firing. Expected.
+
+PASS when: terminal fields unchanged; log message present; no duplicate
+CallLeg or CallMetrics rows created.

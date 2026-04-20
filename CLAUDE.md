@@ -21,7 +21,7 @@ Manages buildings, residents, work orders, incidents, sales leads, inventory, te
 - **Core Sync**: One-way sync from legacy MySQL → CRM via webhook bridge (`core-sync-bridge/`, VM 192.168.65.110, port 3101 health). See `docs/CORE_INTEGRATION.md`
 - **Operations Dashboard**: Integrated monitoring at `/admin/monitor/` (password-protected, port 9090 on VM). See `vm-configs/crm-monitor/`
 - **CI/CD**: GitHub Actions self-hosted runner on VM → auto-deploy on push to master (`.github/workflows/deploy-vm.yml`). Railway is staging only (`crm28demo.asg.ge`, deploys from `dev` branch).
-- **Deployment**: VM auto-deploys on master merge via GitHub Actions. Steps: pull → **stop backend** → install deps (--prefer-offline, shared pnpm store) → prisma generate → migrate → seed-permissions → build → restart backend + frontend → health check. Backend is stopped before `pnpm install` to release Windows file locks on native modules (bcrypt.node). Railway serves as staging environment.
+- **Deployment**: VM auto-deploys on master merge via GitHub Actions. Steps: pull → **stop backend** → install deps (--prefer-offline, shared pnpm store) → prisma generate → migrate → seed-permissions → **seed-system-lists** (PR #267) → build → restart backend + frontend → health check. Backend is stopped before `pnpm install` to release Windows file locks on native modules (bcrypt.node). Railway serves as staging environment.
 
 ### Quick Start
 ```powershell
@@ -142,6 +142,12 @@ Flag any situation where a value lives in more than one place. Known risks:
 9. **Seed script ordering dependencies** — `seed:all` orchestrates 8 scripts in dependency order (permissions first). Running individual seeds out of order can cause foreign key violations. `seed-permissions.ts` is canonical for production; never run `seed-rbac.ts` in production.
 10. **Frontend API rewrite localhost default** — `next.config.ts` rewrites `/auth/*`, `/v1/*`, `/public/*` to backend. Falls back to `http://localhost:3000` which is correct on VM (co-located). On Railway staging, `API_BACKEND_URL` must be set explicitly.
 11. **Message deduplication race condition** — `clientchats-core.service.ts processInbound()` pipeline order is load-bearing: dedup → upsert → save → match → emit. Changing this order can cause duplicate messages or lost customer name data (`isBetterName()` guard).
+12. **JWT claim access — always `payload.sub`, never `payload.id`** (PR #250) — the telephony Socket.IO gateway and all downstream services standardized on `sub`. Old code accessing `payload.id` will silently fail auth. JWT contract integration tests enforce this.
+13. **SIP password NOT on disk** (PR #249, v1.9.0 softphone) — `sipPassword` must never be persisted to the Electron `session-store` file. `crm-phone/src/main/session-store.ts::stripPassword()` enforces this; old on-disk sessions are migrated on read. If you add a new field to `AppLoginResponse` that contains sensitive data, follow the same pattern or it will hit disk.
+14. **Reduced bridge `/status` payload** (PR #253) — the local softphone bridge on `127.0.0.1:19876/status` returns only `{ id }` (user UUID). Any local process can poll this endpoint; leaking name/email/extension would expose operator identity to untrusted PCs. If extending the bridge, preserve this boundary.
+15. **`timestampevents=yes` lives in `/etc/asterisk/manager.conf`, NOT `manager_custom.conf`** (PR #263) — FreePBX 15/16 does not support overriding the `[general]` section via `_custom.conf`. This is an exception to rule #123 above. A FreePBX "Apply Config" click from the web GUI WILL silently wipe it. If AMI event timestamps disappear from stats, check this setting first.
+16. **Stats — missing CallMetrics ≠ silent drop** (PR #255) — any change to the stats-ingestion or stats-read path must preserve the `reason: "unknown"` behavior for CallSessions without CallMetrics. Silently dropping them masks ingest bugs. See `audit/STATS_STANDARDS.md` (M3 decision).
+17. **Replayed `call_end` events merge, don't overwrite** (PR #255) — telephony ingestion applies field-level merge on duplicate terminal events. Only null/missing fields are overwritten. Changing this to a full-replace can corrupt finalized call records when the AMI bridge buffers/replays events. See `audit/STATS_STANDARDS.md` (M7 decision).
 
 ---
 
@@ -169,7 +175,7 @@ Each NestJS module owns its domain: controller + service + DTOs + module file. K
 | `workflow/` | Workflow steps, triggers | |
 | `sales/` | Leads, pipeline | |
 | `messenger/` | Internal chat | Socket.IO `/messenger` |
-| `telephony/` | Call center | Socket.IO `/telephony`, AMI, ARI, CDR, quality |
+| `telephony/` | Call center | Socket.IO `/telephony`, AMI, ARI, CDR, quality, AgentPresenceService (PR #260), CallLeg backfill (PR #264). Permission-gated: `telephony.call`, `softphone.handshake`, `call_logs.*`, `call_recordings.*`, `missed_calls.*`. See `docs/TELEPHONY_INTEGRATION.md` |
 | `clientchats/` | Unified inbox | Socket.IO `/ws/clientchats`. FRAGILE: `processInbound()`, `joinConversation()`, `isBetterName()` |
 | `notifications/` | Email + SMS | |
 | `translations/` | i18n | |
@@ -233,6 +239,17 @@ When working as a subagent, read this file first. Key rules:
 - Backend: `@UseGuards(JwtAuthGuard, PositionPermissionGuard)` + `@RequirePermission()`
 - Frontend: `usePermissions()`, `<PermissionButton>`, `<PermissionGuard>`
 - Superadmin bypasses all
+- **Scope pattern** (`*.own` / `*.department` / `*.department_tree` / `*.all`) via `backend/crm-backend/src/common/utils/data-scope.ts` — canonical for per-user vs per-department vs org-wide visibility. Used by `call_logs.*`, `call_recordings.*`.
+
+**Production RoleGroup codes** (seeded via `seed-permissions.ts`):
+
+| Code | Display name | Typical use |
+|------|--------------|-------------|
+| `ADMINISTRATOR` | Administrator | Full access, superadmin-equivalent |
+| `CALL_CENTER` | Call Center Operator | Line-level operators (`call_logs.own`, `call_recordings.own`, `telephony.call`, `softphone.handshake`) |
+| `CALL_CENTER_MANAGER` | Call Center Manager | Supervisors (own + department + department_tree scope, `call_center.live/quality/reports/statistics`) |
+| `IT_TESTING` | IT Testing | Internal QA |
+| `READ_ONLY` | Read Only | View-only dashboards |
 
 ### Employee Lifecycle
 `ACTIVE → TERMINATED (dismiss) → ACTIVE (reactivate) or DELETED (permanent)`

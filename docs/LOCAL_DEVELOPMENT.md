@@ -66,9 +66,13 @@ From `backend/crm-backend`:
 ```powershell
 # After .env exists with correct DATABASE_URL
 npx prisma migrate deploy
-npx tsx prisma/seed.ts
-pnpm seed:permissions
+pnpm seed:all    # runs permissions + system-lists + everything else
 ```
+
+`pnpm seed:all` orchestrates all seeds in dependency order (permissions
+first, then system-lists which now includes `CALL_REPORT_CATEGORY`, then
+RBAC, employees, workflow, sales, etc.). This mirrors what the VM deploy
+workflow runs on every push to master (PR #267).
 
 Create an admin user if needed (see `prisma/seed.ts` or project scripts for `create-admin`).
 
@@ -113,3 +117,54 @@ pnpm dev
 ```
 
 Or add `API_BACKEND_URL` to `frontend/crm-frontend/.env.local` (see `.env.local.example` if present).
+
+---
+
+## Monday-morning preflight (production readiness check)
+
+`scripts/monday-morning-preflight.sh` runs 18 production-readiness checks
+against the VM + Asterisk. Useful as a local sanity check before any
+high-stakes production window.
+
+```bash
+bash scripts/monday-morning-preflight.sh
+```
+
+Requires: OpenVPN connected, `~/.ssh/id_ed25519_vm` in place, `asterisk`
+SSH alias configured. See `docs/TESTING.md` for the full check list.
+
+---
+
+## Troubleshooting
+
+### Softphone registers with CRM but fails at `/v1/telephony/sip-credentials` with 403
+
+The softphone was built after PR #257, which gated `/auth/device-token` and
+`/v1/telephony/sip-credentials` behind the `softphone.handshake` permission.
+If your locally-seeded user doesn't have this permission, the softphone will
+log in but fail to fetch SIP credentials.
+
+Fix locally:
+```powershell
+cd backend\crm-backend
+pnpm seed:permissions   # reseeds latest permission catalog
+```
+
+Then in the CRM admin UI (`/app/admin/role-groups`), assign
+`softphone.handshake` to the RoleGroup your local user belongs to.
+
+Production RoleGroups that have it: `ADMINISTRATOR`, `CALL_CENTER`,
+`CALL_CENTER_MANAGER`, `IT_TESTING`.
+
+### Socket.IO `/telephony` connects but disconnects immediately (401 / "Invalid token")
+
+Likely cause: code still reading `payload.id` from the JWT instead of
+`payload.sub`. Since PR #250, all gateways standardize on `sub`. Check
+any WsJwtGuard or payload-extraction you wrote against this convention.
+
+### `sipPassword` missing in `/auth/me` response
+
+This is correct behavior since PR #249. `/auth/me` no longer returns
+the SIP secret. The softphone fetches it via
+`GET /v1/telephony/sip-credentials` (see Phone flow in
+`docs/TELEPHONY_INTEGRATION.md`).

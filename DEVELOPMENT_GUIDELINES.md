@@ -631,7 +631,7 @@ const data = await apiGet<Building[]>("/v1/buildings", {
 - Easier to add authentication, retry logic, interceptors
 - Better TypeScript support
 
-**Port configuration:** Backend = 3000, Frontend = 3002. The `api.ts` client defaults to `http://localhost:3000`. Do NOT use port 4000 — the backend does not run there. See PROJECT_SNAPSHOT.md for details.
+**Port configuration:** Backend = 3000, Frontend = 4002 (`pnpm dev --port 4002`). The `api.ts` client defaults to `http://localhost:3000`. Do NOT use port 4000 or 3002 — the backend does not run there. See CLAUDE.md for details.
 
 ---
 
@@ -1067,5 +1067,77 @@ This section will be expanded with additional development guidelines as needed:
 
 ---
 
-**Last Updated**: 2026-01-30
+**Last Updated**: 2026-04-20 (telephony audit sync — PRs #249–#268)
 **Maintained By**: Development Team
+
+---
+
+## Telephony Audit Additions (April 2026)
+
+### JWT claim access — use `payload.sub`, never `payload.id` (PR #250)
+
+The Socket.IO gateways (`/telephony`, `/messenger`, `/ws/clientchats`) all
+read the user ID from `payload.sub`. Historical code used a mix of `sub` and
+`id`, which caused intermittent auth failures on reconnect. The JWT contract
+integration test (PR #259) enforces `sub`.
+
+```typescript
+// ✅ Correct
+const userId = payload.sub;
+
+// ❌ Silently fails auth on re-handshake
+const userId = payload.id;
+```
+
+### Scope pattern for permissions (`*.own` / `*.department` / `*.department_tree`)
+
+Any feature that shows different data depending on who's asking (manager vs
+operator, same-dept vs other-dept) must use the **three-scope pattern**
+rather than custom boolean flags. Canonical example: `call_logs`,
+`call_recordings`.
+
+Each resource declares three permissions:
+
+| Suffix | Visibility |
+|--------|------------|
+| `.own` | Only rows where the current user is the assigned agent / owner |
+| `.department` | Rows where `assignedUser.departmentId == currentUser.departmentId` |
+| `.department_tree` | Rows where `assignedUser.department` is under the current user's department in the hierarchy (inclusive) |
+
+The service calls `DataScopeService.resolveScope()`
+(`backend/crm-backend/src/common/utils/data-scope.ts`) to get the effective
+Prisma `where` clause. Operators get `.own`; managers get all three. The
+pattern falls through: if you have `.department_tree`, you also see
+`.department` and `.own`.
+
+### Socket.IO reconnect: exponential backoff + jitter (PR #261, #262)
+
+Frontend Socket.IO clients must reconnect with backoff. Default: start at
+500ms, double on failure up to 30s cap, with ±20% jitter. This prevents
+reconnect storms during deploy windows (50 clients all hammering the backend
+at t+5s).
+
+```typescript
+import { io } from "socket.io-client";
+
+const socket = io("/telephony", {
+  reconnection: true,
+  reconnectionAttempts: Infinity,
+  reconnectionDelay: 500,
+  reconnectionDelayMax: 30000,
+  randomizationFactor: 0.2,
+});
+```
+
+Don't roll your own reconnect loop — socket.io-client's built-in behavior
+already does this when the above options are set.
+
+### Asterisk config — `/etc/asterisk/manager.conf` exception (PR #263)
+
+The CLAUDE.md rule is "use `_custom.conf` for Asterisk changes so FreePBX
+doesn't overwrite them." There is ONE exception: `timestampevents=yes` in
+the `[general]` section lives in `/etc/asterisk/manager.conf` because
+FreePBX 15/16 does not allow overriding `[general]` via
+`manager_custom.conf`. This setting will be lost if someone clicks "Apply
+Config" in the FreePBX GUI without a manual check. See the silent-override
+risk list in CLAUDE.md.
