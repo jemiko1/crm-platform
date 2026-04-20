@@ -740,6 +740,9 @@ function WhatsAppConfig() {
     phoneNumber?: string;
     webhookUrl?: string;
     error?: string;
+    lastInboundAt?: string | null;
+    inboundHealth?: "ok" | "stale" | "never";
+    inboundStaleHours?: number | null;
   } | null>(null);
 
   const load = useCallback(async () => {
@@ -764,9 +767,15 @@ function WhatsAppConfig() {
 
   const loadWebhookStatus = useCallback(async () => {
     try {
-      const status = await apiGet<{ ok: boolean; phoneNumber?: string; webhookUrl?: string; error?: string }>(
-        "/v1/clientchats/whatsapp/webhook-status"
-      );
+      const status = await apiGet<{
+        ok: boolean;
+        phoneNumber?: string;
+        webhookUrl?: string;
+        error?: string;
+        lastInboundAt?: string | null;
+        inboundHealth?: "ok" | "stale" | "never";
+        inboundStaleHours?: number | null;
+      }>("/v1/clientchats/whatsapp/webhook-status");
       setWebhookStatus(status);
     } catch {
       setWebhookStatus({ ok: false, error: "Failed to fetch status" });
@@ -870,7 +879,7 @@ function WhatsAppConfig() {
           <p className="mb-2 text-sm font-medium text-zinc-700">Connection status</p>
           {webhookStatus.ok ? (
             <div className="space-y-1 text-sm">
-              <p className="text-teal-800 font-medium">Connected</p>
+              <p className="text-teal-800 font-medium">Token valid</p>
               {webhookStatus.phoneNumber && (
                 <p className="text-zinc-500">Phone: {webhookStatus.phoneNumber}</p>
               )}
@@ -880,6 +889,60 @@ function WhatsAppConfig() {
                 </p>
               )}
               <p className="text-zinc-500">Configure this URL in Meta Developer Console → App → WhatsApp → Configuration → Webhook.</p>
+
+              {/*
+                Inbound-freshness indicator. Token validity alone doesn't
+                tell us that Meta's webhook subscription is actually
+                forwarding messages to us — the most common Meta-side
+                failure is "token OK + webhook URL points at old
+                host". Surface that directly by watching the gap
+                between now and the last inbound message we received.
+              */}
+              {webhookStatus.inboundHealth === "ok" && webhookStatus.lastInboundAt && (
+                <p className="text-teal-800 font-medium pt-1">
+                  ✓ Receiving messages — last inbound{" "}
+                  {webhookStatus.inboundStaleHours === 0
+                    ? "< 1 hour"
+                    : `${webhookStatus.inboundStaleHours}h`}{" "}
+                  ago
+                </p>
+              )}
+              {webhookStatus.inboundHealth === "stale" && webhookStatus.lastInboundAt && (
+                <div className="mt-2 rounded-md border border-red-300 bg-red-50 p-3">
+                  <p className="text-sm font-medium text-red-800">
+                    ⚠ No inbound messages for {webhookStatus.inboundStaleHours}h
+                  </p>
+                  <p className="mt-1 text-xs text-red-700">
+                    Token is valid but messages have stopped arriving. Meta&apos;s
+                    webhook subscription is likely pointing at the wrong URL
+                    or the &quot;messages&quot; field was unsubscribed. Open
+                    Meta Developer Console → App → WhatsApp → Configuration →
+                    Webhook, verify the Callback URL is{" "}
+                    <code className="rounded bg-red-100 px-1 font-mono">
+                      {webhookStatus.webhookUrl}
+                    </code>
+                    , and ensure <strong>messages</strong> is subscribed under
+                    Webhook fields.
+                  </p>
+                  <p className="mt-1 text-xs text-red-700">
+                    Last inbound: {new Date(webhookStatus.lastInboundAt).toLocaleString()}
+                  </p>
+                </div>
+              )}
+              {webhookStatus.inboundHealth === "never" && (
+                <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 p-3">
+                  <p className="text-sm font-medium text-amber-900">
+                    ℹ No inbound messages have ever been received
+                  </p>
+                  <p className="mt-1 text-xs text-amber-800">
+                    Token is valid but we have no record of any inbound
+                    WhatsApp message. If this is a fresh install, send a test
+                    message to your business number. If you expected messages
+                    previously, the Meta webhook subscription may not point at
+                    us.
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-1 text-sm">
