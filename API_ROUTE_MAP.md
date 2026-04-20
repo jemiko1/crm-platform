@@ -317,6 +317,62 @@ Complete API route documentation for CRM Platform backend.
 **Endpoints**:
 - `GET /v1/telephony/sip-credentials` - Returns the current user's own SIP credentials `{ extension, sipUsername, sipPassword, sipServer, displayName }`. Every call logged with userId/ip/ua. 404 if no active extension.
 
+**Note (PR #249):** This is the ONLY endpoint that returns `sipPassword`. `/auth/me` and `/auth/app-login` explicitly strip this field. The softphone holds it in memory only — never persists to disk.
+
+---
+
+## Telephony Actions (Call Control)
+
+**File**: `src/telephony/controllers/telephony-actions.controller.ts`  
+**Base Route**: `/v1/telephony/actions`  
+**Guards**: `JwtAuthGuard + PositionPermissionGuard` (`telephony.call` permission on all endpoints)
+
+**Endpoints** (web-UI call control — these hit ARI/AMI on Asterisk, separate from the softphone's local SIP.js controls):
+- `POST /v1/telephony/actions/originate` - Start outbound call from the user's extension. Body: `{ number, callerId? }`. Uses ARI if enabled, falls back to AMI Originate.
+- `POST /v1/telephony/actions/transfer` - Transfer active channel. Body: `{ channel, extension }`.
+- `POST /v1/telephony/actions/answer` - Answer ringing channel.
+- `POST /v1/telephony/actions/hangup` - Hangup channel. Body: `{ channel }`.
+- `POST /v1/telephony/actions/hold` - Put channel on hold (server-side with MOH).
+- `POST /v1/telephony/actions/unhold` - Resume held channel.
+- `POST /v1/telephony/actions/park` - Park channel for retrieval.
+
+**Notes:**
+- Operators and managers both need `telephony.call`. Missing this permission = 403 on hangup/transfer/hold from the web UI during an active call (the softphone's local controls still work).
+- `/originate` requires a `TelephonyExtension` row linked to the calling user; returns 400 if missing.
+
+---
+
+## Missed Calls
+
+**File**: `src/telephony/controllers/missed-calls.controller.ts`  
+**Base Route**: `/v1/telephony/missed-calls`  
+**Guards**: `JwtAuthGuard + PositionPermissionGuard`
+
+**Endpoints**:
+- `GET /v1/telephony/missed-calls` - List missed calls. Permission: `missed_calls.access`.
+- `PATCH /v1/telephony/missed-calls/:id/claim` - Claim ownership of a missed call. Permission: `missed_calls.manage`.
+- `PATCH /v1/telephony/missed-calls/:id/attempt` - Log a call-back attempt. Permission: `missed_calls.manage`.
+- `PATCH /v1/telephony/missed-calls/:id/resolve` - Mark resolved. Permission: `missed_calls.manage`.
+- `PATCH /v1/telephony/missed-calls/:id/ignore` - Mark as ignored / non-actionable. Permission: `missed_calls.manage`.
+
+**Notes:**
+- `auto-resolve` runs when a subsequent answered CallSession has the same caller number; see `MissedCallsService.autoResolveByPhone()`. Only triggers for numbers ≥ 9 digits (shorter numbers are internal extensions).
+
+---
+
+## Agent Presence (Socket.IO)
+
+**File**: `src/telephony/realtime/telephony.gateway.ts` + `src/telephony/services/agent-presence.service.ts` (PR #260)  
+**Namespace**: `/telephony`  
+**Guards**: `WsJwtGuard` (JWT via cookie)
+
+**Events emitted to clients:**
+- `agent.stale` - Agent's Socket.IO connection has been silent > N minutes. Emitted in real-time; previously required a 1-minute cron poll. Managers' live dashboards subscribe to flip presence indicators.
+- `agent.presence` - General presence change (online / offline / on-call / after-call).
+- `call.started`, `call.ended`, `call.transferred` - Call lifecycle events.
+
+**Note:** All telephony Socket.IO clients use exponential backoff + jittered retry on disconnect (PR #261, #262). Prevents reconnect storms during deploy windows.
+
 ---
 
 ## Sales Module

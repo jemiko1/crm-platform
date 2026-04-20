@@ -173,6 +173,37 @@ Permissions: read=cdr,reporting,call,agent
 Config: /etc/asterisk/manager_custom.conf
 ```
 
+### `[general]` settings — manager.conf exception (PR #263, April 2026)
+
+⚠ **Silent-override risk.** Some AMI-wide settings must live in the main
+`/etc/asterisk/manager.conf` under `[general]`, NOT in `manager_custom.conf`,
+because FreePBX 15/16 does not support overriding the `[general]` section
+via the custom file. The following setting was added directly:
+
+```ini
+; /etc/asterisk/manager.conf, [general] section
+timestampevents = yes
+```
+
+Every AMI event now carries a UTC timestamp, which the CRM backend uses for
+accurate wait/talk/hold latency measurement even when events are buffered
+by the bridge during load spikes.
+
+**Maintenance warning:** If someone clicks "Apply Config" in the FreePBX
+web GUI, it WILL regenerate `/etc/asterisk/manager.conf` and silently wipe
+`timestampevents=yes`. Symptoms: AMI events arrive without timestamps,
+stats latency computations silently fall back to event receive-time (less
+accurate). Fix: re-add the line and run `asterisk -rx "manager reload"`.
+
+### Agent Presence (PR #260)
+
+Downstream of AMI events, the `AgentPresenceService`
+(`backend/crm-backend/src/telephony/services/agent-presence.service.ts`)
+emits real-time `agent.stale` events on the `/telephony` Socket.IO
+namespace when an operator's connection goes silent > N minutes.
+Previously this was detected by a 1-min cron; now it's live. Live-dashboard
+consumers on the frontend subscribe to this event.
+
 ## Troubleshooting
 
 ### Bridge not connecting to AMI

@@ -504,9 +504,25 @@ Complete frontend route documentation for CRM Platform.
 **Status**: ✅ **Working**  
 **Notes**: 
 - Tab in call center layout, requires `call_center.reports` permission
-- `call-report-trigger.tsx` listens to Socket.IO `/telephony` events and auto-opens the report modal when a call connects
-- `audio-player.tsx` provides inline playback for call recordings
+- `call-report-trigger.tsx` listens to Socket.IO `/telephony` events and auto-opens the report modal when a call connects. Uses exponential backoff + jitter on reconnect (PR #261, #262) to avoid thundering-herd during deploy windows.
+- `audio-player.tsx` provides inline playback for call recordings (gated by `call_recordings.own` / `.department` / `.department_tree` scope — see `DataScopeService`)
 - `building-call-reports-tab.tsx` (in `buildings/[buildingId]/`) adds a Call Reports tab to the building detail page
+- Category dropdown: populated from `CALL_REPORT_CATEGORY` SystemList (PR #265, 6 items: ADDRESS_WORKHOURS, CODE_INSTRUCTION, CODE_USAGE_PROBLEM, BACKUP_CHIP_ACTIVATION, CHIP_USAGE_PROBLEM, CHIP_DEACTIVATION)
+
+---
+
+## Softphone Integration (global)
+
+**Files**:
+- `src/hooks/useDesktopPhone.ts` - Polls local bridge `127.0.0.1:19876/status` every 60s. Returns discriminated-union state: `idle` / `match` / `mismatch` / `bridge-unreachable`. Grace threshold: 2 consecutive failed polls before surfacing "bridge-unreachable" (prevents transient-blip flashes).
+- `src/app/app/header-phone-banner.tsx` (or equivalent) - Renders banner when `phoneState.state === "mismatch"` or `"bridge-unreachable"`. Banner copy says "Softphone is paired to a different user" — **no operator name shown** (PR #253 reduced `/status` payload to UUID-only).
+- `src/app/app/click-to-call.tsx` - Uses `dial()` from the hook; attaches `X-Bridge-Token` from in-memory store (`setBridgeToken` / `getBridgeToken`). On 401 (stale token), performs fresh handshake via `performBridgeHandshake()` and retries once.
+- `src/app/login/page.tsx` - On login, checks if softphone is paired to a DIFFERENT user and shows a mismatch modal before redirect. Exchanges `/auth/device-token` → bridge `/switch-user` to re-pair if user accepts.
+
+**Permissions required**:
+- `softphone.handshake` — gates both `/auth/device-token` and `/v1/telephony/sip-credentials`. Without this, click-to-call and the switch-user flow return 403. Granted to `CALL_CENTER`, `CALL_CENTER_MANAGER`, `ADMINISTRATOR`, `IT_TESTING` in production.
+
+**Status**: ✅ **Working** (softphone v1.9.0, April 2026)
 
 ---
 

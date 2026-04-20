@@ -3,7 +3,7 @@
 > **ORM**: Prisma 7.x
 > **Schema file**: `backend/crm-backend/prisma/schema.prisma` (2125 lines)
 > **Database**: PostgreSQL 17 (production VM 192.168.65.110, port 5432) / PostgreSQL 16 (local dev Docker `crm-prod-db`, port 5433)
-> **Last Updated**: 2026-04-16
+> **Last Updated**: 2026-04-20 (telephony audit — PRs #249–#268)
 
 ---
 
@@ -55,9 +55,9 @@
 | **Employee** | People in the organization (may or may not have User) | `id`, `firstName`, `lastName`, `email` (unique), `employeeId` (unique, e.g. EMP-001), `status` (EmployeeStatus), `userId?` (unique FK to User), `positionId?`, `departmentId?` |
 | **Department** | Organizational units (self-referencing hierarchy) | `id`, `name`, `code` (unique), `parentId?` (FK self), `headId?` (unique FK to Employee) |
 | **Position** | Job positions within departments | `id`, `name` (unique), `code` (unique), `roleGroupId`, `departmentId?`, `level?` |
-| **RoleGroup** | Named permission bundles | `id`, `name` (unique), `code` (unique) |
+| **RoleGroup** | Named permission bundles | `id`, `name` (unique), `code` (unique). Production codes: `ADMINISTRATOR`, `CALL_CENTER`, `CALL_CENTER_MANAGER`, `IT_TESTING`, `READ_ONLY`. |
 | **Role** | Legacy roles (deprecated, kept for migration) | `id`, `name`, `code`, `legacyRole` (UserRole?) |
-| **Permission** | Granular permissions (resource.action) | `id`, `resource`, `action`, `category` (PermissionCategory), unique `[resource, action]` |
+| **Permission** | Granular permissions (resource.action) | `id`, `resource`, `action`, `category` (PermissionCategory), unique `[resource, action]`. Telephony audit permissions (PR #249–#268): `softphone.handshake`, `telephony.call`, `call_logs.{own,department,department_tree}`, `call_recordings.{own,department,department_tree}`, `missed_calls.{access,manage}`, `call_center.{menu,live,statistics,quality,reports}`. |
 | **RoleGroupPermission** | Join: RoleGroup ↔ Permission | Composite PK `[roleGroupId, permissionId]` |
 | **RolePermission** | Join: Role ↔ Permission (legacy) | Composite PK `[roleId, permissionId]` |
 | **DepartmentPermission** | Join: Department ↔ Permission | Composite PK `[departmentId, permissionId]` |
@@ -125,7 +125,7 @@
 | **DeviceHandshakeToken** | One-time tokens for desktop app auth | `token` (unique), `userId`, `expiresAt`, `consumed` |
 | **TelephonyQueue** | Call queues | `name` (unique), `strategy` (QueueStrategy), `isAfterHoursQueue`, `worktimeConfig` (JSON) |
 | **CallSession** | Individual call records | `linkedId` (unique), `direction` (IN/OUT), `callerNumber`, `queueId?`, `assignedUserId?`, `disposition?`, `recordingStatus` |
-| **CallLeg** | Sub-segments of calls (customer, agent, transfer) | `callSessionId`, `type` (CallLegType), `userId?`, `extension?` |
+| **CallLeg** | Sub-segments of calls (customer, agent, transfer) | `callSessionId`, `type` (CallLegType), `userId?`, `extension?`. Historical backfill via `prisma/backfill-call-legs.ts --dry-run` (PR #264). |
 | **CallEvent** | Raw call events from Asterisk | `eventType`, `ts`, `payload` (JSON), `idempotencyKey` (unique) |
 | **CallMetrics** | Computed call statistics | `callSessionId` (unique), `waitSeconds`, `ringSeconds`, `talkSeconds`, `holdSeconds`, `isSlaMet?` |
 | **MissedCall** | Unanswered calls | `callSessionId` (unique), `reason` (MissedCallReason), `status` (MissedCallStatus), `callerNumber` |
@@ -307,7 +307,7 @@ All models use UUID primary keys (except `ExternalIdCounter` which uses `entity`
 |-----------|----------------|---------|
 | `seed.ts` | Main entry point, calls other seeds | `pnpm exec ts-node prisma/seed.ts` |
 | `seed-permissions.ts` | ~100 RBAC permissions across all categories | `npx tsx prisma/seed-permissions.ts` |
-| `seed-system-lists.ts` | 12 dropdown categories with items (types, statuses, priorities) | `npx tsx prisma/seed-system-lists.ts` |
+| `seed-system-lists.ts` | 12 dropdown categories with items (types, statuses, priorities). Includes `CALL_REPORT_CATEGORY` (6 items, PR #265). **Now runs on every VM deploy** via GitHub Actions (PR #267). | `npx tsx prisma/seed-system-lists.ts` |
 | `seed-workflow-steps.ts` | Workflow step definitions for work order lifecycle | `npx tsx prisma/seed-workflow-steps.ts` |
 | `seed-sales.ts` | Lead stages (8 stages), lead sources, pipeline config, permissions | `npx tsx prisma/seed-sales.ts` |
 | `seed-rbac.ts` | Default roles and role groups | `npx tsx prisma/seed-rbac.ts` |
@@ -315,6 +315,12 @@ All models use UUID primary keys (except `ExternalIdCounter` which uses `entity`
 | `seed-position-settings.ts` | Default position settings | `npx tsx prisma/seed-position-settings.ts` |
 | `seed-inventory.sql` | Sample inventory products (raw SQL) | Manual psql import |
 | `set-admin-superadmin.ts` | Marks a user as superadmin | `npx tsx prisma/set-admin-superadmin.ts` |
+
+**One-off data scripts (not seeds, but live in `prisma/`):**
+
+| Script | What It Does | Command |
+|--------|--------------|---------|
+| `backfill-call-legs.ts` | Populate CallLeg rows for historical CallSessions that pre-date the CallLeg model (PR #264). Defaults to `--dry-run`; pass `--apply` for a real run. | `npx tsx prisma/backfill-call-legs.ts` |
 
 ---
 

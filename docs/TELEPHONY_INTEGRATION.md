@@ -2,7 +2,7 @@
 
 **Complete guide to how Asterisk, AMI Bridge, CRM Backend, and CRM28 Phone Desktop App work together.**
 
-Last Updated: 2026-03-03 | CRM28 Phone v1.2.2 | Asterisk 16 (PJSIP)
+Last Updated: 2026-04-20 | CRM28 Phone v1.9.0 | Asterisk 16 (PJSIP)
 
 ---
 
@@ -245,11 +245,27 @@ Body: { email, password }
 Response: { accessToken, user, telephonyExtension }
 ```
 
-The `telephonyExtension` object contains:
+The `telephonyExtension` object contains (audit P0-C, PR #249):
 - `extension`: PJSIP extension number (e.g., "502")
 - `displayName`: Employee name
 - `sipServer`: Asterisk IP (e.g., "5.10.34.153") -- manually configured by admin
-- `sipPassword`: PJSIP secret -- manually configured by admin
+
+⚠ **`sipPassword` is NOT returned here.** As of April 2026, the app-login
+response no longer includes the SIP secret. The softphone fetches it on demand
+via a separate endpoint:
+
+```
+GET /v1/telephony/sip-credentials
+Auth: Bearer <accessToken>
+Permission: softphone.handshake
+Response: { extension, sipServer, sipPassword }
+```
+
+The SIP password is held in memory inside the softphone only — never persisted
+to the on-disk electron-store session file. If the app restarts, it fetches
+fresh credentials. This prevents a stolen installer/profile from leaking
+operator SIP passwords (earlier installs stored the password encrypted with a
+compile-time constant key — effectively unprotected).
 
 These SIP credentials are stored in the CRM database (`TelephonyExtension` model), NOT auto-synced from Asterisk for security reasons. An admin configures them via the Telephony Extensions admin page.
 
@@ -260,7 +276,9 @@ TelephonyExtension
 ├── extension     String     (e.g., "502")
 ├── displayName   String
 ├── sipServer     String?    (manually set by admin)
-├── sipPassword   String?    (manually set by admin)
+├── sipPassword   String?    (manually set by admin; exposed ONLY via
+│                             GET /v1/telephony/sip-credentials — never via
+│                             /auth/me or /auth/app-login since PR #249)
 └── userId        String     (FK to User)
 
 CallSession       (one per call, keyed by Asterisk linkedId)
@@ -340,7 +358,7 @@ tab will render a broken player (file-not-found 404 from the backend).
 **Location**: User's Windows PC
 **Technology**: Electron 28, React 18, SIP.js 0.21, TypeScript
 **Source**: `crm-phone/`
-**Current Version**: 1.2.2
+**Current Version**: 1.9.0 (as of April 2026)
 
 #### Architecture
 
@@ -367,28 +385,39 @@ The app uses Electron's multi-process model:
 - `contextBridge` securely exposes APIs to the sandboxed renderer
 - APIs: auth, sip.reportStatus, log, settings, window, contact, app
 
-#### SIP Registration Flow
+#### SIP Registration Flow (PR #249, #254, v1.9.0)
 
 ```
 1. User logs in via CRM credentials
-   └─ POST /auth/app-login → { accessToken, telephonyExtension }
+   └─ POST /auth/app-login → { accessToken, telephonyExtension (NO password) }
 
 2. Session stored encrypted locally (electron-store)
+   └─ session-store.ts::stripPassword() guarantees sipPassword never hits disk
+   └─ Migration on read: old on-disk sessions with sipPassword are rewritten
+      clean (drops the field, persists without it)
 
-3. SIP.js UserAgent created in renderer process
+3. Softphone fetches SIP credentials on demand
+   └─ GET /v1/telephony/sip-credentials (Auth: Bearer, Perm: softphone.handshake)
+   └─ Response: { extension, sipServer, sipPassword }
+   └─ Password held in memory only for the lifetime of the running process
+
+4. SIP.js UserAgent created in renderer process
    └─ URI: sip:502@5.10.34.153
    └─ Transport: wss://5.10.34.153:8089/ws
-   └─ Auth: extension + sipPassword from telephonyExtension
+   └─ Auth: extension + sipPassword (from step 3, in-memory only)
 
-4. TLS cert validation bypassed in main process
+5. TLS cert validation bypassed in main process
    └─ setCertificateVerifyProc(() => callback(0))
 
-5. Registerer sends REGISTER to Asterisk PJSIP
+6. Registerer sends REGISTER to Asterisk PJSIP
+   └─ In-flight guard (PR #254): if a REGISTER is already in progress,
+      subsequent keepalive attempts are skipped — prevents
+      "REGISTER request already in progress" errors and lost registration
    └─ On success: "Registered" state emitted
    └─ Main process tray updated via IPC
 
-6. On app restart: session restored from store
-   └─ GET /auth/me refreshes extension data
+7. On app restart: session restored from store (no sipPassword present)
+   └─ GET /v1/telephony/sip-credentials refetches password
    └─ SIP re-registers automatically
 ```
 
@@ -486,11 +515,28 @@ The CRM web frontend can communicate with the desktop app via this local bridge:
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
-| `/status` | GET | Is app running? Who's logged in? Extension? |
+| `/status` | GET | Is app running? Which user is paired? (UUID only — see note below) |
 | `/switch-user` | POST | Exchange handshake token for session (seamless login from web) |
+| `/dial` | POST | Place an outbound call (X-Bridge-Token required) |
 | `/logout` | POST | Log out desktop app |
 
-The frontend header (`header-settings.tsx`) polls `/status` to show phone app connection state.
+⚠ **Reduced `/status` payload (PR #253):** `/status` returns only a user UUID
+(`{ id }`), NOT name/email/extension. This prevents any local process on the
+PC from reading operator identity just by hitting 127.0.0.1:19876. The frontend
+still uses it to detect "a different user is paired with this softphone" —
+that check is UUID-based only. Banner copy was updated to match: "Softphone
+is paired to a different user" (no name shown).
+
+**`/dial` authentication (PR #253):** Requires an `X-Bridge-Token` header. The
+token is minted by `/switch-user` at pair time and stored in frontend memory
+(via `setBridgeToken()` / `getBridgeToken()` in `hooks/useDesktopPhone.ts`).
+Never persisted to localStorage. On 401, the frontend performs a fresh
+handshake and retries once.
+
+The frontend header (`header-settings.tsx`) polls `/status` every 60s to show
+phone app connection state. Grace threshold: 2 consecutive failed polls before
+surfacing the "bridge-unreachable" banner (prevents transient-blip flashes on
+laptop wake-up, etc.).
 
 #### Building the App
 
@@ -577,7 +623,8 @@ Sets sipServer + sipPassword for employee
 Saved to CRM DB (TelephonyExtension table)
     │
     ▼
-Desktop app fetches via GET /auth/me on next login/restart
+Desktop app fetches via GET /v1/telephony/sip-credentials
+(on login AND on restart — password is never persisted client-side)
     │
     ▼
 SIP.js registers with those credentials to Asterisk
@@ -641,6 +688,8 @@ SIP.js registers with those credentials to Asterisk
 | v1.2.0 | 2026-03-03 | Mic permissions, ringtone, settings page, rename to CRM28 Phone |
 | v1.2.1 | 2026-03-03 | Fix one-way audio (attach remote stream to audio element) |
 | v1.2.2 | 2026-03-03 | Fix mute indicator, hold/unhold, connecting animation |
+| v1.3.x–v1.8.x | 2026-03/04 | Intermediate bug fixes, auto-updater wiring, logging |
+| v1.9.0 | 2026-04-19 | **Audit release:** sipPassword no longer persisted to disk (PR #249); reduced `/status` payload to UUID-only (PR #253); SIP re-register in-flight guard (PR #254); bridge `/dial` requires X-Bridge-Token (PR #257); softphone.handshake permission gate on `/auth/device-token` (PR #257); JWT claim standardized to `sub` (PR #250). |
 
 ---
 
@@ -681,5 +730,118 @@ SIP.js registers with those credentials to Asterisk
 
 1. Add ARI method in `backend/crm-backend/src/telephony/services/ari-client.service.ts`
 2. Add controller endpoint in `backend/crm-backend/src/telephony/controllers/telephony-actions.controller.ts`
-3. Add frontend button/action in the call center UI
-4. Optionally expose via desktop app IPC if needed from the softphone
+3. Gate it with `@RequirePermission('telephony.call')` (all TelephonyActionsController endpoints use this)
+4. Add frontend button/action in the call center UI
+5. Optionally expose via desktop app IPC if needed from the softphone
+
+---
+
+## Audit-Era Architecture (April 2026, PRs #249–#268)
+
+The April 2026 pre-launch audit introduced several standards that downstream
+consumers need to know about. This section is additive — older subsystems
+still work as documented above.
+
+### Telephony Permission Gates
+
+| Permission | Gates | Granted to (production RoleGroups) |
+|------------|-------|-------------------------------------|
+| `softphone.handshake` | `/auth/device-token`, `/v1/telephony/sip-credentials`, `/switch-user` bridge endpoint | `CALL_CENTER`, `CALL_CENTER_MANAGER`, `ADMINISTRATOR`, `IT_TESTING` |
+| `telephony.call` | `/v1/telephony/actions/*` (originate, transfer, hangup, hold, unhold, answer, park) | `CALL_CENTER`, `CALL_CENTER_MANAGER`, `ADMINISTRATOR` |
+| `call_logs.own` / `.department` / `.department_tree` | Call log list filters via `DataScopeService` | `.own` for operators; `.department` + `.department_tree` for managers |
+| `call_recordings.own` / `.department` / `.department_tree` | Recording list + playback | `.own` for operators; `.department` + `.department_tree` for managers |
+| `missed_calls.access` / `.manage` | Missed-call list + resolve actions | Both granted to operators + managers |
+| `call_center.menu` / `.live` / `.statistics` / `.quality` / `.reports` | Sidebar + dashboard tiles | operators: `.menu` only; managers: all |
+
+The **scope pattern** (`*.own` / `*.department` / `*.department_tree` / `*.all`)
+is centralized in `backend/crm-backend/src/common/utils/data-scope.ts` via
+`DataScopeService`. This pattern is now the canonical approach for any feature
+that needs per-user vs per-department vs org-wide data visibility.
+
+### CallLeg Model + Backfill Script (PR #264)
+
+`CallSession` represents a call as a whole; `CallLeg` represents the agent-side
+segment. Introduced to support multi-leg scenarios (queue ringback, transfers
+with both legs attributed).
+
+Historical calls before PR #264 have no CallLeg rows. The one-off backfill
+script populates them:
+
+```powershell
+cd backend\crm-backend
+npx tsx prisma/backfill-call-legs.ts               # --dry-run by default
+npx tsx prisma/backfill-call-legs.ts --apply       # real run
+```
+
+Production state (as of 2026-04-20): 0 eligible sessions. Schema predates
+live data, so no backfill needed. Script remains for future need.
+
+### Stats Correctness — M3/M5/M7 Standards (PR #255)
+
+Three ambiguities in call-stats computation were resolved using standards from
+Genesys / Five9 / Talkdesk:
+
+- **M3 — Missing CallMetrics:** A CallSession without matching CallMetrics is
+  included in stats with `reason: "unknown"`, not silently dropped. Prevents
+  "stats undercount" masking ingest bugs.
+- **M5 — Handled vs Touched:** Stats expose both. `handled` = agent actually
+  answered; `touched` = agent's phone rang (even if they didn't pick up).
+  "Answer rate" uses handled/touched ratio.
+- **M7 — Replayed `call_end` events:** When AMI replays a call_end (e.g.
+  bridge buffered, reconnected), the ingestion service performs **field-level
+  merge** on the existing CallSession — only null/missing fields are
+  overwritten. Prevents the second terminal event from corrupting already-
+  finalized records.
+
+See `audit/STATS_STANDARDS.md` for full rationale and edge cases.
+
+### AgentPresenceService (PR #260)
+
+Real-time stale-agent detection. When an agent's Socket.IO connection goes
+silent for > N minutes, the service emits an `agent.stale` event to the
+`/telephony` gateway. Call Center Manager dashboards subscribe and flip the
+agent's presence indicator live (previously relied on a 1-minute cron, so
+up to 60s of stale state was visible).
+
+Implementation: `backend/crm-backend/src/telephony/services/agent-presence.service.ts`.
+
+### AMI Timestamps (PR #263)
+
+`timestampevents=yes` was added to `/etc/asterisk/manager.conf` (NOT
+`manager_custom.conf` — FreePBX 15/16 does not support overriding the
+`[general]` section via `_custom.conf`). Every AMI event now carries a UTC
+timestamp in its body. The ingestion service uses this for accurate
+wait/talk/hold latency measurement even when the bridge/backend queue up
+events during load spikes.
+
+⚠ **Silent override risk:** Because this lives in the main `manager.conf`,
+a FreePBX "Apply Config" click in the web GUI WILL overwrite it. If AMI
+event timestamps disappear from stats, check this setting first. See
+`docs/AMI_BRIDGE.md` for the exception note.
+
+### Socket.IO Reconnect Hardening (PR #261, #262)
+
+Frontend Socket.IO clients use exponential backoff + jittered retry on
+disconnect to prevent reconnect storms during backend restarts (deploy
+windows). Default config: start 500ms, double on each failure up to 30s cap,
+±20% jitter. Applies to `/telephony`, `/messenger`, `/ws/clientchats`
+namespaces.
+
+### Monday-Morning Preflight Script (PR #268)
+
+`scripts/monday-morning-preflight.sh` — 18-step production-readiness check.
+Run 30 minutes before a business-hour launch window:
+
+```bash
+bash scripts/monday-morning-preflight.sh
+```
+
+Checks: backend health, frontend, DB connectivity, PM2 processes, Asterisk
+reachability, AMI/core-sync bridge health, extension registration, queue 804
+membership, SIP trunk state, recording disk usage, Prisma migrations,
+recent call volume, RoleGroup permission coverage, repo on master, backup
+freshness, Socket.IO handshake, AMI last-post recency. Exit 0 = all green;
+non-zero = step number that failed.
+
+Rewritten for Git Bash on Windows in PR #268 (uses base64-encoded PowerShell
+for escape-proof VM queries, falls back from `jq` to Node, etc.).
