@@ -320,10 +320,23 @@ export class RecordingAccessService {
     const sshHost = process.env.RECORDING_SSH_HOST ?? '5.10.34.153';
     const scpBin = process.env.SCP_EXECUTABLE ?? 'scp';
 
+    // Note: previously set `UserKnownHostsFile=/dev/null` to avoid
+    // polluting the user's known_hosts with the Asterisk host key. That
+    // caused an April 2026 production outage on the Windows VM —
+    // `/dev/null` is not a valid Windows path, and Windows OpenSSH
+    // `scp` silently hangs instead of erroring. `NUL` has the same
+    // effect. The 60s spawn guard below does NOT unblock scp reliably
+    // in that state (the child stays wedged), and nginx's 60s default
+    // proxy_read_timeout surfaces the hang as a 504 to the operator.
+    //
+    // The fix is to drop the option entirely: `StrictHostKeyChecking=no`
+    // alone is enough to bypass the interactive prompt. The host key
+    // accumulates in the default known_hosts file (which is fine — the
+    // CRM backend runs as Administrator on a dedicated VM, so the
+    // known_hosts pollution risk doesn't meaningfully apply).
     const args = [
       '-i', sshKey,
       '-o', 'StrictHostKeyChecking=no',
-      '-o', 'UserKnownHostsFile=/dev/null',
       '-o', 'ConnectTimeout=15',
       `${sshUser}@${sshHost}:${remotePath}`,
       localPath,
