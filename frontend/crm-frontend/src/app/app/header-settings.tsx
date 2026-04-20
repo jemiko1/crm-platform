@@ -14,8 +14,6 @@ const BRIDGE_URL = "http://127.0.0.1:19876";
 type PhoneAppState = {
   detected: boolean;
   loggedIn: boolean;
-  userName: string | null;
-  extension: string | null;
   sipRegistered: boolean;
 };
 
@@ -26,26 +24,28 @@ export default function HeaderSettings() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ top: 0, right: 0 });
   const [phoneApp, setPhoneApp] = useState<PhoneAppState>({
-    detected: false, loggedIn: false, userName: null, extension: null, sipRegistered: false,
+    detected: false, loggedIn: false, sipRegistered: false,
   });
 
   const checkPhoneApp = useCallback(async () => {
     try {
+      // /status intentionally no longer returns user name / extension —
+      // those would leak operator identity to any local process. Show
+      // only liveness + SIP state; the operator's identity is already
+      // visible elsewhere in the web UI.
       const res = await fetch(`${BRIDGE_URL}/status`, { signal: AbortSignal.timeout(2000) });
       if (res.ok) {
         const data = await res.json();
         setPhoneApp({
           detected: true,
           loggedIn: !!data.loggedIn,
-          userName: data.user?.name ?? null,
-          extension: data.user?.extension ?? null,
           sipRegistered: !!data.sipRegistered,
         });
       } else {
-        setPhoneApp({ detected: false, loggedIn: false, userName: null, extension: null, sipRegistered: false });
+        setPhoneApp({ detected: false, loggedIn: false, sipRegistered: false });
       }
     } catch {
-      setPhoneApp({ detected: false, loggedIn: false, userName: null, extension: null, sipRegistered: false });
+      setPhoneApp({ detected: false, loggedIn: false, sipRegistered: false });
     }
   }, []);
 
@@ -162,13 +162,8 @@ export default function HeaderSettings() {
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.97.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.84.57 2.81.7A2 2 0 0 1 22 16.92Z" />
                       </svg>
-                      <span>Ext {phoneApp.extension}</span>
-                      <span className="text-teal-800/60">|</span>
                       <span>{phoneApp.sipRegistered ? t("settings.sipRegistered", "SIP Registered") : t("settings.sipOffline", "SIP Offline")}</span>
                     </div>
-                    {phoneApp.userName && (
-                      <div className="mt-1 text-xs text-teal-800">{phoneApp.userName}</div>
-                    )}
                   </div>
                 ) : phoneApp.detected ? (
                   <div className="px-3 py-2.5 rounded-xl bg-amber-50">

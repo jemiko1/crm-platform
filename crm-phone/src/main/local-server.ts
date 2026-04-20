@@ -1,10 +1,68 @@
 import express from "express";
 import cors from "cors";
+import { randomBytes } from "crypto";
 import type { Server } from "http";
 import { getSession, setSession, getCrmBaseUrl } from "./session-store";
 import type { AppLoginResponse } from "../shared/types";
 
 const PORT = 19876;
+
+/**
+ * Exact-match origin allow-list. `origin.includes("localhost")` was unsafe —
+ * `https://evil-localhost.example.com` matched. Now we require exact string
+ * equality, plus anything in the optional BRIDGE_ALLOWED_ORIGINS env var.
+ */
+const DEFAULT_ALLOWED_ORIGINS = [
+  "http://localhost:4002",   // dev frontend
+  "http://127.0.0.1:4002",   // dev alt
+  "https://crm28.asg.ge",    // production web
+];
+
+function buildAllowedOrigins(): Set<string> {
+  const extra = (process.env.BRIDGE_ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  return new Set([...DEFAULT_ALLOWED_ORIGINS, ...extra]);
+}
+
+/**
+ * Per-session bridge token. Rotated every time the softphone logs in
+ * (or swaps users via /switch-user). /dial, /switch-user, /logout all
+ * require the caller to present this value as the X-Bridge-Token header.
+ *
+ * The token is 32 random bytes hex-encoded (64 chars). Only kept in
+ * memory — never persisted. The web UI fetches it via the existing
+ * /auth/device-token → /switch-user handshake and holds it in memory for
+ * the lifetime of the browser tab.
+ */
+let currentBridgeToken: string | null = null;
+
+function rotateBridgeToken(): string {
+  currentBridgeToken = randomBytes(32).toString("hex");
+  return currentBridgeToken;
+}
+
+function clearBridgeToken(): void {
+  currentBridgeToken = null;
+}
+
+export function getCurrentBridgeToken(): string | null {
+  return currentBridgeToken;
+}
+
+/**
+ * Called from index.ts when the Electron main-process completes an
+ * `/auth/app-login` (native softphone login) — rotates the bridge token so
+ * any cached token in a web UI is invalidated.
+ */
+export function onSoftphoneLogin(): void {
+  rotateBridgeToken();
+}
+
+export function onSoftphoneLogout(): void {
+  clearBridgeToken();
+}
 
 export function startLocalServer(_unused: unknown, callbacks: {
   onSessionChanged: (session: AppLoginResponse | null) => void;
@@ -12,40 +70,57 @@ export function startLocalServer(_unused: unknown, callbacks: {
   getSipRegistered?: () => boolean;
 }): Server {
   const app = express();
+  const allowed = buildAllowedOrigins();
 
   app.use(cors({
     origin: (origin, cb) => {
-      if (
-        !origin ||
-        origin.includes("crm28.asg.ge") ||
-        origin.includes("localhost") ||
-        origin.includes("127.0.0.1")
-      ) {
-        cb(null, true);
-      } else {
-        cb(new Error("Blocked by CORS"));
-      }
+      // Non-browser callers (Electron itself, curl, etc.) don't send Origin.
+      // Mutating endpoints still require the X-Bridge-Token header, so this
+      // is safe.
+      if (!origin) return cb(null, true);
+      if (allowed.has(origin)) return cb(null, true);
+      return cb(new Error(`Origin not allowed: ${origin}`));
     },
     credentials: true,
+    allowedHeaders: ["Content-Type", "X-Bridge-Token"],
   }));
 
   app.use(express.json());
 
+  /**
+   * Require a valid X-Bridge-Token header. Used on every state-changing
+   * endpoint. Returns true if request should continue, false if it sent
+   * 401 already.
+   */
+  function requireBridgeToken(req: express.Request, res: express.Response): boolean {
+    const token = req.header("x-bridge-token");
+    if (!currentBridgeToken) {
+      res.status(401).json({ error: "Bridge not ready (no active session)" });
+      return false;
+    }
+    if (!token || token !== currentBridgeToken) {
+      res.status(401).json({ error: "Invalid or stale bridge token" });
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * /status — unauthenticated; reduced payload so a malicious local
+   * process cannot harvest the operator's name / email / extension.
+   *
+   * We DO include `user.id` (an opaque UUID) so the web UI can detect
+   * "the softphone is paired to a different CRM user" and prompt the
+   * operator before hijacking the softphone via /switch-user. The UUID
+   * on its own is not useful to an attacker without a valid JWT.
+   */
   app.get("/status", (_req, res) => {
     const session = getSession();
     const sipRegistered = callbacks.getSipRegistered?.() ?? false;
     res.json({
       running: true,
       loggedIn: !!session,
-      user: session
-        ? {
-            id: session.user.id,
-            name: session.user.firstName
-              ? `${session.user.firstName} ${session.user.lastName || ""}`.trim()
-              : session.user.email,
-            extension: session.telephonyExtension?.extension || "",
-          }
-        : null,
+      user: session ? { id: session.user.id } : null,
       sipRegistered,
       callState: "IDLE",
     });
@@ -73,13 +148,24 @@ export function startLocalServer(_unused: unknown, callbacks: {
       const data = (await response.json()) as AppLoginResponse;
       setSession(data);
       callbacks.onSessionChanged(data);
-      res.json({ ok: true, user: data.user, extension: data.telephonyExtension?.extension });
+      // Rotate the bridge token on user swap. The caller (web UI that
+      // just initiated the swap) gets the new token in the response and
+      // MUST use it for all subsequent /dial calls. Any other tab or
+      // process holding the previous token is automatically invalidated.
+      const bridgeToken = rotateBridgeToken();
+      res.json({
+        ok: true,
+        user: { id: data.user.id },
+        bridgeToken,
+      });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
   });
 
   app.post("/dial", async (req, res) => {
+    if (!requireBridgeToken(req, res)) return;
+
     const { number } = req.body;
     if (!number || typeof number !== "string") {
       return res.status(400).json({ error: "number is required" });
@@ -108,14 +194,18 @@ export function startLocalServer(_unused: unknown, callbacks: {
     }
   });
 
-  app.post("/logout", async (_req, res) => {
+  app.post("/logout", async (req, res) => {
+    if (!requireBridgeToken(req, res)) return;
+
     setSession(null);
     callbacks.onSessionChanged(null);
+    clearBridgeToken();
     res.json({ ok: true });
   });
 
   const server = app.listen(PORT, "127.0.0.1", () => {
     console.log(`[CRM28 Phone] Local bridge listening on http://127.0.0.1:${PORT}`);
+    console.log(`[CRM28 Phone] Allowed origins: ${Array.from(allowed).join(", ")}`);
   });
 
   server.on("error", (err: any) => {

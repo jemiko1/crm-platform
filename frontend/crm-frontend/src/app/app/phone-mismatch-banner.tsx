@@ -27,12 +27,13 @@ export default function PhoneMismatchBanner() {
   }
 
   if (phoneState.state === "mismatch") {
-    const { bridgeUser } = phoneState;
+    // Payload no longer includes the softphone user's name/extension (audit/P1-12
+    // trims bridge /status output). We only know there IS a different user paired.
     return (
       <div className="fixed top-0 left-0 right-0 z-[9999] bg-amber-600 text-white px-4 py-2 flex items-center justify-between text-sm shadow-lg">
         <span>
-          Phone app is logged in as <strong>{bridgeUser.name}</strong> (ext{" "}
-          {bridgeUser.extension}). Calls will be attributed to the wrong agent.
+          Softphone is paired to a different user. Calls will be attributed
+          to the wrong agent.
         </span>
         <button
           onClick={switchUser}

@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { API_BASE, apiPost } from "@/lib/api";
+import { setBridgeToken } from "@/hooks/useDesktopPhone";
 
 const BRIDGE_URL = "http://127.0.0.1:19876";
 
@@ -43,8 +44,7 @@ function LoginPageContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [phoneMismatch, setPhoneMismatch] = useState<{
-    appUserName: string;
-    appExtension: string;
+    appUserId: string;
   } | null>(null);
   const [switchingPhone, setSwitchingPhone] = useState(false);
   const [showForgotModal, setShowForgotModal] = useState(false);
@@ -63,10 +63,10 @@ function LoginPageContent() {
       if (!res.ok) return false;
       const status = await res.json();
       if (status.loggedIn && status.user && status.user.id !== loggedInUserId) {
-        setPhoneMismatch({
-          appUserName: status.user.name,
-          appExtension: status.user.extension,
-        });
+        // /status intentionally does NOT return user name / extension —
+        // those would leak operator identity to any local process. We
+        // only get a UUID; the banner text is generic.
+        setPhoneMismatch({ appUserId: status.user.id });
         return true;
       }
     } catch {
@@ -80,11 +80,19 @@ function LoginPageContent() {
     try {
       const { handshakeToken } = await apiPost<{ handshakeToken: string }>("/auth/device-token", {});
 
-      await fetch(`${BRIDGE_URL}/switch-user`, {
+      const res = await fetch(`${BRIDGE_URL}/switch-user`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ handshakeToken }),
       });
+      if (!res.ok) throw new Error("Switch failed");
+      // The bridge now returns a fresh X-Bridge-Token on every successful
+      // switch-user. Persist in module memory so /dial calls from any
+      // component can attach it.
+      const data = (await res.json()) as { bridgeToken?: string };
+      if (data?.bridgeToken) {
+        setBridgeToken(data.bridgeToken);
+      }
 
       setPhoneMismatch(null);
       router.push(next);
@@ -249,8 +257,7 @@ function LoginPageContent() {
             <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm mx-4 space-y-4">
               <h3 className="text-lg font-semibold text-zinc-900">Phone App Mismatch</h3>
               <p className="text-sm text-zinc-600">
-                The CRM Phone app on this PC is logged in as{" "}
-                <strong>{phoneMismatch.appUserName}</strong> (ext {phoneMismatch.appExtension}).
+                The CRM Phone app on this PC is logged in as a different user.
                 Switch the phone to your account?
               </p>
               <div className="flex gap-3">
