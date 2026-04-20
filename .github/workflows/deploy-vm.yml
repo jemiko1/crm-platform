@@ -72,6 +72,12 @@ jobs:
           cd C:\crm\backend\crm-backend
           npx tsx prisma/seed-permissions.ts
 
+      - name: Seed system lists
+        shell: powershell
+        run: |
+          cd C:\crm\backend\crm-backend
+          npx tsx prisma/seed-system-lists.ts
+
       - name: Build backend
         shell: powershell
         run: |
