@@ -2,26 +2,33 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UnprocessableEntityException } from '@nestjs/common';
 import { TelephonyStatsService } from './telephony-stats.service';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Prisma } from '@prisma/client';
+import { CallDisposition, Prisma } from '@prisma/client';
 
 /**
- * Test harness.
+ * Test harness for the P0-G merged stats service.
  *
- * These tests simulate the rewritten $queryRaw path by mocking PrismaService
- * and returning what Postgres would return for a well-defined seed set. The
- * numeric-equivalence tests compute the expected KPI values from the same
- * seed using the legacy in-JS formulas, then assert the service produces
- * identical numbers from the mock. This way we verify the service logic
- * (post-SQL post-processing and shape) without needing a live Postgres.
+ * Two generations of behaviour are verified here:
  *
- * Cases covered per audit/phase1-telephony-stats.md §3:
- *  - Numeric equivalence on 1000-row seed across a month, for all 5 methods
- *  - 91-day range throws 422
- *  - Per-agent stats with no calls returns empty (not undefined)
- *  - Invalid date input throws 422
+ *  1. The P1-3 SQL-aggregation rewrite (audit/phase1-telephony-stats.md §3).
+ *     All KPI math happens in Postgres; JS only post-processes rows. The mock
+ *     simulates $queryRaw by inspecting SQL fragments and returning what
+ *     Postgres would return for a 1000-row seed.
+ *
+ *  2. The P0-G stats-correctness overlay (audit/STATS_STANDARDS.md):
+ *     - M3: dataQualityPercent surfaces measurement coverage. SLA% still
+ *       computed over sessions with a CallMetrics row only, so the ratio stays
+ *       meaningful when ingest drops rows.
+ *     - M5: agent stats read CallLeg, not CallSession.assignedUserId.
+ *       handledCount (primary handler = longest connected leg) and
+ *       touchedCount (any engaged leg) are new explicit fields; the legacy
+ *       `answered` / `answeredCalls` fields alias handledCount for UI compat.
+ *
+ * Numeric-equivalence tests compute expected values in-JS using the SAME
+ * semantics the merged service implements, so passing here means the service
+ * matches its spec, not the pre-P0-G implementation.
  */
 
-type Session = {
+type SessionRow = {
   id: string;
   startAt: Date;
   disposition:
@@ -44,6 +51,19 @@ type Session = {
     abandonsAfterSeconds: number | null;
     isSlaMet: boolean | null;
   } | null;
+  /**
+   * Synthesised CallLeg rows for the session. Only answered calls with an
+   * `assignedUserId` get an AGENT leg — this mirrors `handleAgentConnect`
+   * which only writes a leg when the agent actually connects.
+   */
+  legs: Array<{
+    userId: string;
+    extension: string | null;
+    type: 'AGENT' | 'TRANSFER' | 'CUSTOMER';
+    answerAt: Date | null;
+    endAt: Date | null;
+    connectedSec: number;
+  }>;
 };
 
 function percentileCont(sorted: number[], pct: number): number | null {
@@ -60,7 +80,7 @@ function round2(v: number | null): number | null {
   return Math.round(v * 100) / 100;
 }
 
-function makeSeed(): Session[] {
+function makeSeed(): SessionRow[] {
   // Deterministic rng so test numbers stay stable.
   let seed = 42;
   const rng = () => {
@@ -69,8 +89,15 @@ function makeSeed(): Session[] {
   };
 
   const agents = ['agent-a', 'agent-b', 'agent-c', 'agent-d', 'agent-e'];
+  const extMap: Record<string, string> = {
+    'agent-a': '100',
+    'agent-b': '101',
+    'agent-c': '102',
+    'agent-d': '103',
+    'agent-e': '104',
+  };
   const queues = ['queue-1', 'queue-2', 'queue-3'];
-  const out: Session[] = [];
+  const out: SessionRow[] = [];
 
   // 1000 sessions across a 30-day window.
   const baseStart = new Date('2026-02-01T00:00:00.000Z').getTime();
@@ -88,7 +115,7 @@ function makeSeed(): Session[] {
     // Disposition distribution: ~60% answered, 20% missed/noanswer, 10%
     // abandoned, 5% busy, 3% failed, 2% null (mimics the legacy data gaps).
     const d = rng();
-    let disposition: Session['disposition'];
+    let disposition: SessionRow['disposition'];
     if (d < 0.6) disposition = 'ANSWERED';
     else if (d < 0.7) disposition = 'MISSED';
     else if (d < 0.8) disposition = 'NOANSWER';
@@ -119,6 +146,24 @@ function makeSeed(): Session[] {
         }
       : null;
 
+    // M5 — synthesise CallLegs. Only ANSWERED calls with an assignedUserId
+    // get an AGENT leg. Missed/abandoned calls have no answered agent leg.
+    const legs: SessionRow['legs'] = [];
+    if (assignedUserId && disposition === 'ANSWERED') {
+      const answerAt = new Date(startAt.getTime() + 10_000);
+      const talk = metrics?.talkSeconds ?? 60;
+      const hold = metrics?.holdSeconds ?? 0;
+      const endAt = new Date(answerAt.getTime() + (talk + hold) * 1000);
+      legs.push({
+        userId: assignedUserId,
+        extension: extMap[assignedUserId] ?? null,
+        type: 'AGENT',
+        answerAt,
+        endAt,
+        connectedSec: (endAt.getTime() - answerAt.getTime()) / 1000,
+      });
+    }
+
     out.push({
       id: `sess-${i}`,
       startAt,
@@ -127,6 +172,7 @@ function makeSeed(): Session[] {
       queueId,
       direction,
       metrics,
+      legs,
     });
   }
   return out;
@@ -134,18 +180,16 @@ function makeSeed(): Session[] {
 
 /**
  * Mock Prisma.$queryRaw that inspects the SQL fragment and returns a
- * precomputed answer for each known query shape. Fragments are matched by
- * distinctive substrings of their SQL (so the service is free to reformat
- * whitespace without breaking tests).
+ * precomputed answer for each known query shape.
  */
-function makeQueryRawMock(seed: Session[]) {
+function makeQueryRawMock(seed: SessionRow[]) {
   function scope(
     from: Date,
     to: Date,
     queueId?: string,
     agentId?: string,
     direction?: string,
-  ): Session[] {
+  ): SessionRow[] {
     return seed.filter((s) => {
       if (s.startAt.getTime() < from.getTime()) return false;
       if (s.startAt.getTime() > to.getTime()) return false;
@@ -167,7 +211,7 @@ function makeQueryRawMock(seed: Session[]) {
     const to = dateParams[1];
 
     // getOverview main aggregate — distinguished by PERCENTILE_CONT + the
-    // distinctive "answeredWithMetrics" column alias.
+    // distinctive "answeredWithMetrics" + M3 "sessionsWithDisposition" alias.
     if (
       sql.includes('PERCENTILE_CONT(0.5)') &&
       sql.includes('answeredWithMetrics')
@@ -191,6 +235,12 @@ function makeQueryRawMock(seed: Session[]) {
       );
       const slaScoped = scoped.filter(
         (s) => s.metrics !== null && s.metrics.isSlaMet !== null,
+      );
+      const sessionsWithDisposition = scoped.filter(
+        (s) => s.disposition !== null,
+      );
+      const sessionsWithDispositionAndMetrics = sessionsWithDisposition.filter(
+        (s) => s.metrics !== null,
       );
       return Promise.resolve([
         {
@@ -241,6 +291,10 @@ function makeQueryRawMock(seed: Session[]) {
           slaMetCount: BigInt(
             slaScoped.filter((s) => s.metrics!.isSlaMet === true).length,
           ),
+          sessionsWithDisposition: BigInt(sessionsWithDisposition.length),
+          sessionsWithDispositionAndMetrics: BigInt(
+            sessionsWithDispositionAndMetrics.length,
+          ),
         },
       ]);
     }
@@ -274,60 +328,90 @@ function makeQueryRawMock(seed: Session[]) {
       return bucketedAggregate(scope, from, to, stringParams, kind);
     }
 
-    // getAgentStats aggregate — GROUP BY assignedUserId + wrapupSum.
-    if (
-      sql.includes('GROUP BY s."assignedUserId"') &&
-      sql.includes('"talkSum"') &&
-      sql.includes('"wrapupSum"')
-    ) {
+    // M5 — agent legs aggregate (longest_leg CTE).
+    if (sql.includes('longest_leg')) {
       const queueId = stringParams[0];
-      const scoped = scope(from, to, queueId).filter(
-        (s) => s.assignedUserId !== null,
-      );
-      const map = new Map<
+      const scoped = scope(from, to, queueId);
+      // One AGENT leg per answered session in the fixture. handledCount =
+      // touchedCount per agent (no transfers in the seed).
+      const byUser = new Map<
         string,
         {
-          total: number;
-          answered: number;
-          missed: number;
-          talkSum: number;
-          holdSum: number;
-          wrapupSum: number;
+          extension: string | null;
+          handled: number;
+          touched: number;
+          connectedSec: number;
         }
       >();
       for (const s of scoped) {
-        const uid = s.assignedUserId!;
-        const agg =
-          map.get(uid) ??
-          {
-            total: 0,
-            answered: 0,
-            missed: 0,
-            talkSum: 0,
-            holdSum: 0,
-            wrapupSum: 0,
+        for (const leg of s.legs) {
+          if (leg.answerAt === null) continue;
+          if (leg.type !== 'AGENT' && leg.type !== 'TRANSFER') continue;
+          const row = byUser.get(leg.userId) ?? {
+            extension: leg.extension,
+            handled: 0,
+            touched: 0,
+            connectedSec: 0,
           };
-        agg.total++;
-        if (s.disposition === 'ANSWERED') agg.answered++;
-        else agg.missed++;
-        if (s.metrics) {
-          agg.talkSum += s.metrics.talkSeconds;
-          agg.holdSum += s.metrics.holdSeconds;
-          agg.wrapupSum += s.metrics.wrapupSeconds;
+          // single-leg-per-session fixture: that leg is always the longest.
+          row.handled += 1;
+          row.touched += 1;
+          row.connectedSec += leg.connectedSec;
+          byUser.set(leg.userId, row);
         }
-        map.set(uid, agg);
       }
       return Promise.resolve(
-        Array.from(map.entries()).map(([userId, a]) => ({
+        Array.from(byUser.entries()).map(([userId, r]) => ({
           userId,
-          total: BigInt(a.total),
-          answered: BigInt(a.answered),
-          missed: BigInt(a.missed),
-          talkSum: a.talkSum,
-          holdSum: a.holdSum,
-          wrapupSum: a.wrapupSum,
+          extension: r.extension,
+          handledCount: BigInt(r.handled),
+          touchedCount: BigInt(r.touched),
+          connectedSecSum: r.connectedSec,
         })),
       );
+    }
+
+    // M5 — per-agent disposition count (CallLeg-joined).
+    if (
+      sql.includes('cl."userId"') &&
+      sql.includes('cs."disposition"') &&
+      sql.includes('cl."answerAt" IS NOT NULL')
+    ) {
+      const queueId = stringParams[0];
+      const scoped = scope(from, to, queueId);
+      // Per-agent disposition map derived from sessions the agent has an
+      // answered leg on. Because only ANSWERED sessions have answered legs in
+      // the seed, every row will be disposition=ANSWERED.
+      const map = new Map<
+        string,
+        Map<CallDisposition | null, number>
+      >();
+      for (const s of scoped) {
+        const usersTouched = new Set<string>();
+        for (const leg of s.legs) {
+          if (leg.answerAt === null) continue;
+          if (leg.type !== 'AGENT' && leg.type !== 'TRANSFER') continue;
+          usersTouched.add(leg.userId);
+        }
+        for (const uid of usersTouched) {
+          const inner =
+            map.get(uid) ?? new Map<CallDisposition | null, number>();
+          const dispKey = s.disposition as CallDisposition | null;
+          inner.set(dispKey, (inner.get(dispKey) ?? 0) + 1);
+          map.set(uid, inner);
+        }
+      }
+      const rows: Array<{
+        userId: string;
+        disposition: CallDisposition | null;
+        c: bigint;
+      }> = [];
+      for (const [userId, inner] of map) {
+        for (const [disposition, c] of inner) {
+          rows.push({ userId, disposition, c: BigInt(c) });
+        }
+      }
+      return Promise.resolve(rows);
     }
 
     // getQueueStats — GROUP BY queueId + DISTINCT assignedUserId.
@@ -407,7 +491,7 @@ function makeQueryRawMock(seed: Session[]) {
       const scoped = scope(from, to, queueId);
       const answered = scoped.filter((s) => s.disposition === 'ANSWERED');
       const lost = scoped.filter((s) => s.disposition !== 'ANSWERED');
-      const buckets = (arr: Session[]) => {
+      const buckets = (arr: SessionRow[]) => {
         let u15 = 0, u30 = 0, u60 = 0, o60 = 0;
         for (const s of arr) {
           const w = s.metrics?.waitSeconds ?? 0;
@@ -429,95 +513,6 @@ function makeQueryRawMock(seed: Session[]) {
       ]);
     }
 
-    // getAgentBreakdown — GROUP BY "userId" with "nonAnsweredWaitSum".
-    if (
-      sql.includes('GROUP BY "userId"') &&
-      sql.includes('"noAnswer"') &&
-      sql.includes('"nonAnsweredWaitSum"')
-    ) {
-      const queueId = stringParams[0];
-      const scoped = scope(from, to, queueId).filter(
-        (s) => s.assignedUserId !== null && s.disposition !== null,
-      );
-      const map = new Map<
-        string,
-        {
-          total: number;
-          answered: number;
-          noAnswer: number;
-          busy: number;
-          durationSum: number;
-          answeredDurationSum: number;
-          answeredWaitSum: number;
-          nonAnsweredWaitSum: number;
-        }
-      >();
-      for (const s of scoped) {
-        const uid = s.assignedUserId!;
-        const agg =
-          map.get(uid) ??
-          {
-            total: 0,
-            answered: 0,
-            noAnswer: 0,
-            busy: 0,
-            durationSum: 0,
-            answeredDurationSum: 0,
-            answeredWaitSum: 0,
-            nonAnsweredWaitSum: 0,
-          };
-        agg.total++;
-        const talk = s.metrics?.talkSeconds ?? 0;
-        const hold = s.metrics?.holdSeconds ?? 0;
-        const wait = s.metrics?.waitSeconds ?? 0;
-        const duration = talk + hold;
-        agg.durationSum += duration;
-        if (s.disposition === 'ANSWERED') {
-          agg.answered++;
-          agg.answeredDurationSum += duration;
-          agg.answeredWaitSum += wait;
-        } else if (s.disposition === 'BUSY' || s.disposition === 'FAILED') {
-          agg.busy++;
-          agg.nonAnsweredWaitSum += wait;
-        } else {
-          agg.noAnswer++;
-          agg.nonAnsweredWaitSum += wait;
-        }
-        map.set(uid, agg);
-      }
-      return Promise.resolve(
-        Array.from(map.entries()).map(([userId, a]) => ({
-          userId,
-          answered: BigInt(a.answered),
-          noAnswer: BigInt(a.noAnswer),
-          busy: BigInt(a.busy),
-          total: BigInt(a.total),
-          durationSum: a.durationSum,
-          answeredDurationSum: a.answeredDurationSum,
-          answeredWaitSum: a.answeredWaitSum,
-          nonAnsweredWaitSum: a.nonAnsweredWaitSum,
-        })),
-      );
-    }
-
-    // getAgentBreakdown null-disposition counts.
-    if (sql.includes('s.disposition IS NULL') && sql.includes('"nullCount"')) {
-      const queueId = stringParams[0];
-      const scoped = scope(from, to, queueId).filter(
-        (s) => s.assignedUserId !== null && s.disposition === null,
-      );
-      const map = new Map<string, number>();
-      for (const s of scoped) {
-        map.set(s.assignedUserId!, (map.get(s.assignedUserId!) ?? 0) + 1);
-      }
-      return Promise.resolve(
-        Array.from(map.entries()).map(([userId, c]) => ({
-          userId,
-          nullCount: BigInt(c),
-        })),
-      );
-    }
-
     throw new Error(`Unmocked query raw: ${sql.slice(0, 200)}`);
   });
 }
@@ -529,20 +524,18 @@ function bucketedAggregate(
     queueId?: string,
     agentId?: string,
     direction?: string,
-  ) => Session[],
+  ) => SessionRow[],
   from: Date,
   to: Date,
   stringParams: string[],
   kind: 'hour' | 'day' | 'weekday',
 ) {
-  // getBreakdown passes params in declaration order: queueId?, agentId?,
-  // direction?. Direction is always 'IN' or 'OUT'; pull it out first.
   const directionVal = stringParams.find((v) => v === 'IN' || v === 'OUT');
   const idVals = stringParams.filter((v) => v !== directionVal);
   const queueId = idVals[0];
   const agentId = idVals[1];
   const scoped = scope(from, to, queueId, agentId, directionVal);
-  const getBucket = (s: Session) => {
+  const getBucket = (s: SessionRow) => {
     switch (kind) {
       case 'hour':
         return s.startAt.getHours();
@@ -622,8 +615,8 @@ function bucketedAggregate(
   );
 }
 
-/** Legacy in-JS overview computation. Used as the ground truth. */
-function legacyOverview(seed: Session[]) {
+/** In-JS overview computation matching the P0-G service semantics. */
+function overviewExpected(seed: SessionRow[]) {
   const total = seed.length;
   const answered = seed.filter((s) => s.disposition === 'ANSWERED').length;
   const missed = seed.filter(
@@ -653,6 +646,13 @@ function legacyOverview(seed: Session[]) {
     (s) => s.metrics && s.metrics.isSlaMet !== null,
   );
   const slaMet = sla.filter((s) => s.metrics!.isSlaMet === true).length;
+
+  const withDisposition = seed.filter((s) => s.disposition !== null);
+  const withDispositionAndMetrics = withDisposition.filter((s) => s.metrics);
+  const dataQuality =
+    withDisposition.length > 0
+      ? (withDispositionAndMetrics.length / withDisposition.length) * 100
+      : null;
 
   return {
     total,
@@ -692,6 +692,7 @@ function legacyOverview(seed: Session[]) {
           answered
         : null,
     slaMetPercent: sla.length > 0 ? (slaMet / sla.length) * 100 : null,
+    dataQualityPercent: dataQuality,
   };
 }
 
@@ -705,7 +706,7 @@ describe('TelephonyStatsService', () => {
     telephonyQueue: { findMany: jest.Mock };
   };
 
-  async function makeService(seed: Session[]) {
+  async function makeService(seed: SessionRow[]) {
     prisma = {
       $queryRaw: makeQueryRawMock(seed),
       callSession: { findMany: jest.fn() },
@@ -824,6 +825,8 @@ describe('TelephonyStatsService', () => {
       expect(res.current.volume.missed).toBe(0);
       expect(res.current.serviceLevel.slaMetPercent).toBeNull();
       expect(res.current.speed.avgAnswerTimeSec).toBeNull();
+      // M3 — null when there is no disposition data to measure against.
+      expect(res.current.dataQualityPercent).toBeNull();
     });
 
     it('getOverviewExtended returns all-zero histograms when no sessions', async () => {
@@ -834,7 +837,7 @@ describe('TelephonyStatsService', () => {
   });
 
   describe('numerical equivalence on seeded dataset', () => {
-    let seed: Session[];
+    let seed: SessionRow[];
     const from = new Date('2026-02-01T00:00:00Z').toISOString();
     const to = new Date('2026-03-02T23:59:59Z').toISOString();
 
@@ -843,71 +846,75 @@ describe('TelephonyStatsService', () => {
       await makeService(seed);
     });
 
-    it('getOverview returns numbers matching the legacy in-JS computation', async () => {
+    it('getOverview returns numbers matching the in-JS computation', async () => {
       const { current } = await service.getOverview({ from, to } as any);
-      const legacy = legacyOverview(seed);
+      const expected = overviewExpected(seed);
 
-      expect(current.volume.totalCalls).toBe(legacy.total);
-      expect(current.volume.answered).toBe(legacy.answered);
-      expect(current.volume.missed).toBe(legacy.missed);
-      expect(current.volume.abandoned).toBe(legacy.abandoned);
+      expect(current.volume.totalCalls).toBe(expected.total);
+      expect(current.volume.answered).toBe(expected.answered);
+      expect(current.volume.missed).toBe(expected.missed);
+      expect(current.volume.abandoned).toBe(expected.abandoned);
       expect(current.speed.avgAnswerTimeSec).toBeCloseTo(
-        round2(legacy.avgAnswer)!,
+        round2(expected.avgAnswer)!,
         2,
       );
       expect(current.speed.medianAnswerTimeSec).toBeCloseTo(
-        round2(legacy.medianAnswer)!,
+        round2(expected.medianAnswer)!,
         2,
       );
       expect(current.speed.p90AnswerTimeSec).toBeCloseTo(
-        round2(legacy.p90Answer)!,
+        round2(expected.p90Answer)!,
         2,
       );
       expect(current.serviceLevel.longestWaitSec).toBeCloseTo(
-        round2(legacy.longestWait)!,
+        round2(expected.longestWait)!,
         2,
       );
       expect(current.quality.avgTalkTimeSec).toBeCloseTo(
-        round2(legacy.avgTalk)!,
+        round2(expected.avgTalk)!,
         2,
       );
       expect(current.quality.avgHoldTimeSec).toBeCloseTo(
-        round2(legacy.avgHold)!,
+        round2(expected.avgHold)!,
         2,
       );
       expect(current.quality.avgWrapupTimeSec).toBeCloseTo(
-        round2(legacy.avgWrapup)!,
+        round2(expected.avgWrapup)!,
         2,
       );
       expect(current.serviceLevel.slaMetPercent).toBeCloseTo(
-        round2(legacy.slaMetPercent)!,
+        round2(expected.slaMetPercent)!,
+        2,
+      );
+      // M3 — every session in the seed has a 95% chance of a CallMetrics row.
+      expect(current.dataQualityPercent).not.toBeNull();
+      expect(current.dataQualityPercent!).toBeCloseTo(
+        round2(expected.dataQualityPercent)!,
         2,
       );
     });
 
-    it('getAgentStats totals match per-agent in-JS rollup', async () => {
+    it('getAgentStats reflects CallLeg-driven handled/touched per M5', async () => {
       const res = await service.getAgentStats({ from, to } as any);
 
-      const expected = new Map<
-        string,
-        { total: number; answered: number; missed: number }
-      >();
+      // Expected rollup: for each agent, count the ANSWERED sessions they
+      // owned (fixture only creates an AGENT leg on answered sessions). Since
+      // the seed has no transfers, handled == touched for every agent.
+      const expected = new Map<string, { handled: number }>();
       for (const s of seed) {
-        if (!s.assignedUserId) continue;
-        const row =
-          expected.get(s.assignedUserId) ??
-          { total: 0, answered: 0, missed: 0 };
-        row.total++;
-        if (s.disposition === 'ANSWERED') row.answered++;
-        else row.missed++;
+        if (!s.assignedUserId || s.disposition !== 'ANSWERED') continue;
+        const row = expected.get(s.assignedUserId) ?? { handled: 0 };
+        row.handled++;
         expected.set(s.assignedUserId, row);
       }
 
       for (const row of res) {
         const exp = expected.get(row.userId)!;
-        expect(row.totalCalls).toBe(exp.total);
-        expect(row.answered).toBe(exp.answered);
-        expect(row.missed).toBe(exp.missed);
+        expect(row.handledCount).toBe(exp.handled);
+        expect(row.touchedCount).toBe(exp.handled);
+        // Legacy UI-compat aliases.
+        expect(row.answered).toBe(exp.handled);
+        expect(row.totalCalls).toBe(exp.handled);
       }
       expect(res.length).toBe(expected.size);
     });
@@ -1009,7 +1016,7 @@ describe('TelephonyStatsService', () => {
     it('getOverviewExtended hold distribution matches in-JS histogram', async () => {
       const res = await service.getOverviewExtended({ from, to } as any);
 
-      const bucket = (arr: Session[]) => {
+      const bucket = (arr: SessionRow[]) => {
         let u15 = 0, u30 = 0, u60 = 0, o60 = 0;
         for (const s of arr) {
           const w = s.metrics?.waitSeconds ?? 0;
@@ -1047,36 +1054,181 @@ describe('TelephonyStatsService', () => {
       expect(res.holdDistribution.lost.over60.count).toBe(lostExpected.o60);
     });
 
-    it('getAgentBreakdown totals match per-agent in-JS rollup', async () => {
+    it('getAgentBreakdown aliases answeredCalls to handledCount per M5', async () => {
       const res = await service.getAgentBreakdown({ from, to } as any);
 
-      const expected = new Map<
-        string,
-        { total: number; answered: number; noAnswer: number; busy: number }
-      >();
+      const expected = new Map<string, { handled: number }>();
       for (const s of seed) {
-        if (!s.assignedUserId) continue;
-        const row =
-          expected.get(s.assignedUserId) ??
-          { total: 0, answered: 0, noAnswer: 0, busy: 0 };
-        row.total++;
-        if (s.disposition === 'ANSWERED') row.answered++;
-        else if (s.disposition === 'BUSY' || s.disposition === 'FAILED') {
-          row.busy++;
-        } else {
-          row.noAnswer++;
-        }
+        if (!s.assignedUserId || s.disposition !== 'ANSWERED') continue;
+        const row = expected.get(s.assignedUserId) ?? { handled: 0 };
+        row.handled++;
         expected.set(s.assignedUserId, row);
       }
 
       for (const row of res) {
         const exp = expected.get(row.userId)!;
-        expect(row.totalCalls).toBe(exp.total);
-        expect(row.answeredCalls).toBe(exp.answered);
-        expect(row.busyCalls).toBe(exp.busy);
-        expect(row.noAnswerCalls).toBe(exp.noAnswer);
+        expect(row.handledCount).toBe(exp.handled);
+        expect(row.touchedCount).toBe(exp.handled);
+        expect(row.answeredCalls).toBe(exp.handled);
+        expect(row.totalCalls).toBe(exp.handled);
       }
       expect(res.length).toBe(expected.size);
+    });
+  });
+
+  // ── P0-G overlay tests: M3 + M5 semantics ────────────────────────────────
+
+  describe('M3 — data quality surface', () => {
+    const from = '2026-04-01T00:00:00Z';
+    const to = '2026-04-30T23:59:59Z';
+
+    it('dataQualityPercent drops below 100% when some sessions lack CallMetrics; slaMetPercent stays honest on measured sessions', async () => {
+      // 10 ANSWERED sessions with disposition. 9 measured (8 SLA met, 1 not),
+      // 1 answered-but-missing-metrics. Expected:
+      //   slaMetPercent = 8 / 9 = 88.89
+      //   dataQualityPercent = 9 / 10 = 90
+      const now = new Date('2026-04-19T12:00:00Z');
+      const mkSession = (
+        disposition: SessionRow['disposition'],
+        isSlaMet: boolean | null,
+        hasMetrics: boolean,
+      ): SessionRow => ({
+        id: `s-${Math.random()}`,
+        startAt: now,
+        disposition,
+        assignedUserId: null,
+        queueId: null,
+        direction: 'IN',
+        metrics: hasMetrics
+          ? {
+              waitSeconds: 12,
+              talkSeconds: 180,
+              holdSeconds: 0,
+              wrapupSeconds: 0,
+              transfersCount: 0,
+              abandonsAfterSeconds: null,
+              isSlaMet,
+            }
+          : null,
+        legs: [],
+      });
+
+      const sessions: SessionRow[] = [
+        ...Array(8).fill(null).map(() => mkSession('ANSWERED', true, true)),
+        mkSession('ANSWERED', false, true),
+        mkSession('ANSWERED', null, false),
+      ];
+
+      await makeService(sessions);
+
+      const res = await service.getOverview({ from, to } as any);
+      expect(res.current.volume.totalCalls).toBe(10);
+      expect(res.current.volume.answered).toBe(10);
+      expect(res.current.serviceLevel.slaMetPercent).toBeCloseTo(88.89, 1);
+      expect(res.current.dataQualityPercent).toBe(90);
+    });
+
+    it('SLA% reflects measured-only math on a 100-row M3 fixture', async () => {
+      // Proof-of-shape fixture. Ratios:
+      //   85 answered + metrics (80 meet SLA, 5 don't) + 10 transferred-answered
+      //     + metrics all meeting SLA + 5 missing-metrics answered.
+      //   slaMetPercent = 90 / 95 ≈ 94.74
+      //   dataQualityPercent = 95 / 100 = 95
+      const now = new Date('2026-04-19T12:00:00Z');
+      const mk = (slaMet: boolean | null, withMetrics: boolean): SessionRow => ({
+        id: `s-${Math.random()}`,
+        startAt: now,
+        disposition: 'ANSWERED',
+        assignedUserId: null,
+        queueId: null,
+        direction: 'IN',
+        metrics: withMetrics
+          ? {
+              waitSeconds: slaMet ? 10 : 35,
+              talkSeconds: 180,
+              holdSeconds: 0,
+              wrapupSeconds: 0,
+              transfersCount: 0,
+              abandonsAfterSeconds: null,
+              isSlaMet: slaMet,
+            }
+          : null,
+        legs: [],
+      });
+      const sessions: SessionRow[] = [
+        ...Array(80).fill(null).map(() => mk(true, true)),
+        ...Array(5).fill(null).map(() => mk(false, true)),
+        ...Array(10).fill(null).map(() => mk(true, true)),
+        ...Array(5).fill(null).map(() => mk(null, false)),
+      ];
+      await makeService(sessions);
+
+      const res = await service.getOverview({ from, to } as any);
+      expect(res.current.volume.totalCalls).toBe(100);
+      expect(res.current.dataQualityPercent).toBe(95);
+      expect(res.current.serviceLevel.slaMetPercent).toBeCloseTo(94.74, 1);
+    });
+  });
+
+  describe('M5 — CallLeg attribution', () => {
+    const from = '2026-04-01T00:00:00Z';
+    const to = '2026-04-30T23:59:59Z';
+
+    beforeEach(async () => {
+      await makeService([]);
+    });
+
+    it('transferred call: handled credits only the longer-connected agent; touched credits both', async () => {
+      prisma.$queryRaw.mockImplementation((sqlObj: Prisma.Sql) => {
+        const sql = sqlObj.sql;
+        if (sql.includes('longest_leg')) {
+          return Promise.resolve([
+            {
+              userId: 'user-a',
+              extension: '201',
+              handledCount: BigInt(0),
+              touchedCount: BigInt(1),
+              connectedSecSum: 0,
+            },
+            {
+              userId: 'user-b',
+              extension: '202',
+              handledCount: BigInt(1),
+              touchedCount: BigInt(1),
+              connectedSecSum: 600,
+            },
+          ]);
+        }
+        if (
+          sql.includes('cl."userId"') &&
+          sql.includes('cs."disposition"') &&
+          sql.includes('cl."answerAt" IS NOT NULL')
+        ) {
+          return Promise.resolve([
+            { userId: 'user-a', disposition: CallDisposition.ANSWERED, c: BigInt(1) },
+            { userId: 'user-b', disposition: CallDisposition.ANSWERED, c: BigInt(1) },
+          ]);
+        }
+        return Promise.resolve([]);
+      });
+      prisma.telephonyExtension.findMany.mockResolvedValue([
+        { crmUserId: 'user-a', displayName: 'Alice' },
+        { crmUserId: 'user-b', displayName: 'Bob' },
+      ]);
+
+      const res = await service.getAgentStats({ from, to } as any);
+      const alice = res.find((r) => r.userId === 'user-a')!;
+      const bob = res.find((r) => r.userId === 'user-b')!;
+
+      expect(alice.handledCount).toBe(0);
+      expect(alice.touchedCount).toBe(1);
+      expect(bob.handledCount).toBe(1);
+      expect(bob.touchedCount).toBe(1);
+      // UI compat aliases.
+      expect(alice.answered).toBe(0);
+      expect(bob.answered).toBe(1);
+      expect(alice.totalCalls).toBe(1);
+      expect(bob.totalCalls).toBe(1);
     });
   });
 });

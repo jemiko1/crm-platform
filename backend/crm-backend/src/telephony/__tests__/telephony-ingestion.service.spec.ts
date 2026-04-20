@@ -139,12 +139,26 @@ describe('TelephonyIngestionService', () => {
         startAt: new Date('2026-02-21T10:00:00Z'),
         endAt: null,
         answerAt: null,
+        finalizedAt: null,
+        disposition: null,
+        hangupCause: null,
         callLegs: [],
+        callerNumber: null,
+        calleeNumber: null,
       };
+      // After P0-G, handleCallEnd does:
+      //   1. findUnique(select: { answerAt, endAt, direction, finalizedAt, disposition, hangupCause })
+      //   2. findUnique for computeMetrics (include callLegs, queue)
+      //   3. findUnique read-back for side-effects
       prisma.callSession.findUnique
-        .mockResolvedValueOnce(mockSession) // linkedId lookup in ingestBatch
-        .mockResolvedValueOnce(mockSession) // first call in handleCallEnd (answerAt/endAt/direction check)
-        .mockResolvedValueOnce({ ...mockSession, endAt: new Date(), callLegs: [], queue: null }); // computeMetrics
+        .mockResolvedValueOnce(mockSession) // processEvent linkedId lookup
+        .mockResolvedValueOnce(mockSession) // handleCallEnd snapshot
+        .mockResolvedValueOnce({ ...mockSession, endAt: new Date(), callLegs: [], queue: null }) // computeMetrics
+        .mockResolvedValueOnce({
+          ...mockSession,
+          endAt: new Date('2026-02-21T10:00:45Z'),
+          disposition: 'ABANDONED',
+        }); // read-back for side-effects
 
       prisma.callSession.update.mockResolvedValue({
         ...mockSession,
@@ -174,12 +188,22 @@ describe('TelephonyIngestionService', () => {
         startAt: new Date('2026-02-21T10:00:00Z'),
         endAt: null,
         answerAt: null,
+        finalizedAt: null,
+        disposition: null,
+        hangupCause: null,
         callLegs: [],
+        callerNumber: null,
+        calleeNumber: null,
       };
       prisma.callSession.findUnique
-        .mockResolvedValueOnce(mockSession) // linkedId lookup
-        .mockResolvedValueOnce(mockSession) // handleCallEnd initial check
-        .mockResolvedValueOnce({ ...mockSession, endAt: new Date(), callLegs: [], queue: null });
+        .mockResolvedValueOnce(mockSession) // processEvent linkedId lookup
+        .mockResolvedValueOnce(mockSession) // handleCallEnd snapshot
+        .mockResolvedValueOnce({ ...mockSession, endAt: new Date(), callLegs: [], queue: null }) // computeMetrics
+        .mockResolvedValueOnce({
+          ...mockSession,
+          endAt: new Date('2026-02-21T10:00:15Z'),
+          disposition: 'NOANSWER',
+        }); // read-back for side-effects
 
       prisma.callSession.update.mockResolvedValue({
         ...mockSession,

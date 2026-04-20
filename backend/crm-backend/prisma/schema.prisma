@@ -1519,6 +1519,7 @@ model CallSession {
   endAt             DateTime?
   disposition       CallDisposition?
   hangupCause       String?
+  finalizedAt       DateTime?
   recordingStatus   RecordingStatus  @default(PENDING)
   createdAt         DateTime         @default(now())
   queue             TelephonyQueue?  @relation(fields: [queueId], references: [id])
