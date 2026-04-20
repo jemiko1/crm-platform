@@ -2,6 +2,8 @@
 
 All 16 audit PRs are merged and deployed. Before operators log in Monday morning, you need to make sure the two RoleGroups (Call Center Operator + Call Center Manager) have the permissions the new code expects.
 
+> **Companion doc:** [`MONDAY_ADMIN_CHEATSHEET.md`](./MONDAY_ADMIN_CHEATSHEET.md) has the tactical reference for Monday morning — symptom→fix lookups, emergency SQL, and the minute-by-minute timeline. Open that on your phone Monday. This doc is the walkthrough for doing the setup in advance.
+
 **What to do:** open `https://crm28.asg.ge/admin/role-groups`, pick each RoleGroup, click "Assign Permissions", and tick the boxes below. There is no database work — the admin UI writes to Postgres directly.
 
 ## 1. Operator RoleGroup
