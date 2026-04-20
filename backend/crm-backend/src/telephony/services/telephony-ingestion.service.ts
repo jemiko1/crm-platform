@@ -191,19 +191,31 @@ export class TelephonyIngestionService {
   ): Promise<void> {
     if (!existingSession) return;
 
-    await this.prisma.callSession.update({
+    const answerAt = new Date(event.timestamp);
+
+    // M7 (STATS_STANDARDS.md): answerAt is a terminal first-write-wins field.
+    // If CDR arrives after AMI with a slightly different timestamp, preserve
+    // the original answer moment — Asterisk's own CDR treats it as immutable.
+    const current = await this.prisma.callSession.findUnique({
       where: { id: existingSession.id },
-      data: { answerAt: new Date(event.timestamp) },
+      select: { answerAt: true },
     });
 
-    // Update customer leg answer time
+    if (!current?.answerAt) {
+      await this.prisma.callSession.update({
+        where: { id: existingSession.id },
+        data: { answerAt },
+      });
+    }
+
+    // Update customer leg answer time only if not already set (first-write-wins)
     const customerLeg = await this.prisma.callLeg.findFirst({
       where: { callSessionId: existingSession.id, type: CallLegType.CUSTOMER },
     });
-    if (customerLeg) {
+    if (customerLeg && !customerLeg.answerAt) {
       await this.prisma.callLeg.update({
         where: { id: customerLeg.id },
-        data: { answerAt: new Date(event.timestamp) },
+        data: { answerAt },
       });
     }
   }
@@ -218,38 +230,89 @@ export class TelephonyIngestionService {
     const endAt = new Date(event.timestamp);
     const fullSession = await this.prisma.callSession.findUnique({
       where: { id: existingSession.id },
-      select: { answerAt: true, endAt: true, direction: true },
-    });
-    // Idempotency guard: if endAt is already set, this is a replayed or
-    // duplicate call_end event. Still run computeMetrics but skip side-effects
-    // (missed-call creation, attempt counting) to avoid double-counting.
-    const isFirstEnd = !fullSession?.endAt;
-    const direction = fullSession?.direction;
-    const disposition = this.inferDisposition(payload, !!fullSession?.answerAt);
-
-    const session = await this.prisma.callSession.update({
-      where: { id: existingSession.id },
-      data: {
-        endAt,
-        disposition,
-        hangupCause: payload.causeTxt ?? payload.cause ?? null,
+      select: {
+        answerAt: true,
+        endAt: true,
+        direction: true,
+        finalizedAt: true,
+        disposition: true,
+        hangupCause: true,
       },
     });
 
-    // Close all open legs
+    // M7 (STATS_STANDARDS.md): field-level merge.
+    //
+    // Terminal fields — disposition, endAt, hangupCause — freeze on the first
+    // call_end that carries a concrete disposition. Subsequent replays
+    // (typically CDR arriving after AMI or vice-versa) MUST NOT flip those
+    // values — Asterisk's own CDR contract treats them as immutable after
+    // finalization.
+    //
+    // Non-terminal fields (CallMetrics nulls, per-leg disconnect timestamps,
+    // recording references) remain mergeable: later events may patch a null
+    // into a concrete value, but never overwrite an existing one.
+    //
+    // The legacy guard `!fullSession?.endAt` tracks "this is the first end we
+    // see". With finalizedAt we now have an explicit signal that disposition
+    // has already been committed, which survives partial writes (e.g. endAt
+    // set but disposition still null because of a mid-update crash).
+    const isFirstEnd = !fullSession?.endAt;
+    const isFinalized = !!fullSession?.finalizedAt;
+    const direction = fullSession?.direction;
+    const computedDisposition = this.inferDisposition(payload, !!fullSession?.answerAt);
+
+    const updateData: Prisma.CallSessionUpdateInput = {};
+
+    if (!isFinalized && computedDisposition) {
+      // First concrete disposition: lock terminal fields and stamp finalizedAt.
+      updateData.endAt = endAt;
+      updateData.disposition = computedDisposition;
+      updateData.hangupCause = payload.causeTxt ?? payload.cause ?? null;
+      updateData.finalizedAt = new Date();
+    } else {
+      // Session is already finalized. Only patch non-terminal fields that are
+      // still null. endAt may be patched if the first pass crashed before
+      // setting it (isFinalized would also be false in that case, so if we
+      // hit this branch endAt is already set). Today this branch is a no-op
+      // for CallSession-level fields; non-terminal patching happens on the
+      // CallMetrics upsert inside computeMetrics (which already null-guards).
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      await this.prisma.callSession.update({
+        where: { id: existingSession.id },
+        data: updateData,
+      });
+    }
+
+    // Close any open legs on first end. On replay, legs that were closed
+    // previously stay closed; legs still open (shouldn't happen post-freeze,
+    // but harmless if so) are closed with the replayed endAt.
+    const dispositionForLegs =
+      fullSession?.disposition ?? computedDisposition ?? null;
     await this.prisma.callLeg.updateMany({
       where: { callSessionId: existingSession.id, endAt: null },
-      data: { endAt, disposition },
+      data: { endAt, disposition: dispositionForLegs ?? undefined },
     });
 
-    await this.computeMetrics(session.id);
+    // computeMetrics is null-safe on each CallMetrics field (only writes a
+    // value where current is null / zero — see computeMetrics implementation).
+    await this.computeMetrics(existingSession.id);
 
     if (!isFirstEnd) {
       this.logger.debug(
-        `Skipping side-effects for replayed call_end on session ${session.id}`,
+        `Skipping side-effects for replayed call_end on session ${existingSession.id}`,
       );
       return;
     }
+
+    // Read back the now-finalized session so downstream side-effects see the
+    // committed disposition.
+    const session = await this.prisma.callSession.findUnique({
+      where: { id: existingSession.id },
+    });
+    if (!session) return;
+    const disposition = session.disposition;
 
     if (disposition === CallDisposition.ANSWERED) {
       // Auto-resolve any pending missed calls for this caller/callee number.
@@ -336,13 +399,26 @@ export class TelephonyIngestionService {
 
     const answerTime = new Date(event.timestamp);
 
+    // M5 (STATS_STANDARDS.md): CallLeg is the source of truth for agent
+    // attribution. CallSession.assignedUserId is retained for UI "currently on
+    // call" display, but stats queries (handled / touched) read CallLeg.
+    //
+    // M7: answerAt on CallSession is first-write-wins — do not overwrite.
+    const current = await this.prisma.callSession.findUnique({
+      where: { id: existingSession.id },
+      select: { answerAt: true },
+    });
+    const sessionUpdate: Prisma.CallSessionUncheckedUpdateInput = {
+      assignedUserId: userId,
+      assignedExtension: ext ?? null,
+    };
+    if (!current?.answerAt) {
+      sessionUpdate.answerAt = answerTime;
+    }
+
     await this.prisma.callSession.update({
       where: { id: existingSession.id },
-      data: {
-        assignedUserId: userId,
-        assignedExtension: ext ?? null,
-        answerAt: answerTime,
-      },
+      data: sessionUpdate,
     });
 
     // Update customer leg answer time if not already set
@@ -356,15 +432,43 @@ export class TelephonyIngestionService {
       });
     }
 
-    await this.prisma.callLeg.create({
-      data: {
+    // Upsert the AGENT leg. An earlier event may have already created a leg
+    // for this agent/extension pair (e.g. CDR replay after AMI); in that case
+    // we patch answerAt rather than inserting a duplicate. Keyed on
+    // (callSessionId, userId, extension) because two agents can bridge the
+    // same session and should each get their own leg.
+    const existingOpenLeg = await this.prisma.callLeg.findFirst({
+      where: {
         callSessionId: existingSession.id,
         type: CallLegType.AGENT,
         userId,
         extension: ext ?? null,
-        startAt: answerTime,
+        endAt: null,
       },
+      orderBy: { startAt: 'desc' },
     });
+
+    if (existingOpenLeg) {
+      // Patch answerAt only if previously null (first-write-wins for terminal
+      // per-leg fields).
+      if (!existingOpenLeg.answerAt) {
+        await this.prisma.callLeg.update({
+          where: { id: existingOpenLeg.id },
+          data: { answerAt: answerTime },
+        });
+      }
+    } else {
+      await this.prisma.callLeg.create({
+        data: {
+          callSessionId: existingSession.id,
+          type: CallLegType.AGENT,
+          userId,
+          extension: ext ?? null,
+          startAt: answerTime,
+          answerAt: answerTime,
+        },
+      });
+    }
   }
 
   private async handleTransfer(
@@ -374,14 +478,22 @@ export class TelephonyIngestionService {
   ): Promise<void> {
     if (!existingSession) return;
 
-    // Close previous agent leg
+    const transferTime = new Date(event.timestamp);
+
+    // M5 (STATS_STANDARDS.md): transfer closes the prior open agent/transfer
+    // leg but does NOT overwrite attribution history. Each agent who engaged
+    // with the call keeps their own CallLeg row so `handled` (longest leg)
+    // and `touched` (any engaged leg) aggregations can credit both.
+    //
+    // Close any open AGENT or TRANSFER legs — they're all "who was on this
+    // call until now".
     await this.prisma.callLeg.updateMany({
       where: {
         callSessionId: existingSession.id,
-        type: CallLegType.AGENT,
+        type: { in: [CallLegType.AGENT, CallLegType.TRANSFER] },
         endAt: null,
       },
-      data: { endAt: new Date(event.timestamp) },
+      data: { endAt: transferTime },
     });
 
     const ext = payload.extension;
@@ -394,17 +506,35 @@ export class TelephonyIngestionService {
       userId = telExt?.crmUserId ?? null;
     }
 
-    await this.prisma.callLeg.create({
-      data: {
+    // Upsert the transfer-target leg (idempotent on replay). The new leg
+    // starts "answered" the moment the transfer completes — the target is
+    // bridged in immediately.
+    const existingOpenTransferLeg = await this.prisma.callLeg.findFirst({
+      where: {
         callSessionId: existingSession.id,
         type: CallLegType.TRANSFER,
         userId,
         extension: ext ?? null,
-        startAt: new Date(event.timestamp),
+        endAt: null,
       },
+      orderBy: { startAt: 'desc' },
     });
 
-    // Increment transfer count in metrics
+    if (!existingOpenTransferLeg) {
+      await this.prisma.callLeg.create({
+        data: {
+          callSessionId: existingSession.id,
+          type: CallLegType.TRANSFER,
+          userId,
+          extension: ext ?? null,
+          startAt: transferTime,
+          answerAt: transferTime,
+        },
+      });
+    }
+
+    // Increment transfer count in metrics (M7: non-terminal, null-safe upsert
+    // is fine — the count is monotonic).
     await this.prisma.callMetrics.upsert({
       where: { callSessionId: existingSession.id },
       create: {
@@ -416,7 +546,10 @@ export class TelephonyIngestionService {
       },
     });
 
-    // Update assigned user to the transfer target
+    // Keep CallSession.assignedUserId synchronized with the latest connected
+    // agent for backward compatibility with UI ("currently on call" display).
+    // Stats aggregations now read CallLeg, so this pointer no longer affects
+    // attribution math.
     await this.prisma.callSession.update({
       where: { id: existingSession.id },
       data: {

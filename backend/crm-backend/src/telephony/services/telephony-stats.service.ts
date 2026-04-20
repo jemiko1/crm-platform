@@ -1,6 +1,6 @@
 import { Injectable, UnprocessableEntityException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Prisma } from '@prisma/client';
+import { CallDisposition, Prisma } from '@prisma/client';
 import {
   OverviewKpis,
   AgentKpis,
@@ -101,49 +101,73 @@ export class TelephonyStatsService {
     return { current, comparison, delta };
   }
 
+  /**
+   * Per-agent KPI roll-up.
+   *
+   * M5 decision (audit/STATS_STANDARDS.md): agent statistics MUST be computed
+   * from CallLeg, not from `CallSession.assignedUserId`. The latter is
+   * overwritten on transfer and only reflects the last operator; the former
+   * preserves every engagement.
+   *
+   *  - `handledCount` = agent owns the primary leg (longest answered leg) for
+   *    a session. Sum across the window. Transfers don't double-count volume.
+   *  - `touchedCount` = agent has any answered AGENT/TRANSFER leg for the
+   *    session. Transferred calls credit both originator and recipient.
+   *
+   * Legacy `answered` / `answeredCalls` fields are aliased to `handledCount`
+   * so the UI doesn't need to change.
+   */
   async getAgentStats(query: QueryStatsDto): Promise<AgentKpis[]> {
     const from = this.parseDate(query.from, 'from');
     const to = this.parseDate(query.to, 'to');
     this.assertRangeWithinLimit(from, to);
 
-    const queueFilter = query.queueId
-      ? Prisma.sql`AND s."queueId" = ${query.queueId}`
-      : Prisma.empty;
+    // M5 core aggregate: per-agent handled/touched/connected-seconds.
+    const legAgg = await this.aggregateAgentLegs(from, to, query.queueId);
 
-    // One aggregated scan grouped by agent. LEFT JOIN CallMetrics so sessions
-    // without a metrics row still contribute to counts (matches the legacy
-    // JS behaviour exactly: `if (s.callMetrics) { ... talk/hold/wrap sums }`).
-    const rows = await this.prisma.$queryRaw<
-      Array<{
-        userId: string;
-        total: bigint;
-        answered: bigint;
-        missed: bigint;
-        talkSum: number | null;
-        holdSum: number | null;
-        wrapupSum: number | null;
-      }>
-    >(Prisma.sql`
-      SELECT
-        s."assignedUserId" AS "userId",
-        COUNT(*)::bigint AS total,
-        COUNT(*) FILTER (WHERE s.disposition = 'ANSWERED')::bigint AS answered,
-        COUNT(*) FILTER (WHERE s.disposition IS DISTINCT FROM 'ANSWERED')::bigint AS missed,
-        SUM(m."talkSeconds") AS "talkSum",
-        SUM(m."holdSeconds") AS "holdSum",
-        SUM(m."wrapupSeconds") AS "wrapupSum"
-      FROM "CallSession" s
-      LEFT JOIN "CallMetrics" m ON m."callSessionId" = s.id
-      WHERE s."startAt" >= ${from}
-        AND s."startAt" <= ${to}
-        AND s."assignedUserId" IS NOT NULL
-        ${queueFilter}
-      GROUP BY s."assignedUserId"
-    `);
+    // Per-agent disposition counts derived from CallLeg + CallSession, used
+    // for answerRate / missedRate. A session touched by multiple agents feeds
+    // each agent's rate independently, matching the "touched" attribution.
+    const sessionDispositionRows = await this.fetchAgentDispositions(
+      from,
+      to,
+      query.queueId,
+    );
 
-    if (rows.length === 0) return [];
+    const dispMap = new Map<
+      string,
+      { answered: number; missed: number; total: number }
+    >();
+    for (const row of sessionDispositionRows) {
+      const m = dispMap.get(row.userId) ?? {
+        answered: 0,
+        missed: 0,
+        total: 0,
+      };
+      const c = safeNumber(row.c);
+      m.total += c;
+      if (row.disposition === CallDisposition.ANSWERED) {
+        m.answered += c;
+      } else if (
+        row.disposition === CallDisposition.MISSED ||
+        row.disposition === CallDisposition.NOANSWER ||
+        row.disposition === CallDisposition.ABANDONED ||
+        row.disposition === CallDisposition.BUSY
+      ) {
+        m.missed += c;
+      }
+      dispMap.set(row.userId, m);
+    }
 
-    const userIds = rows.map((r) => r.userId);
+    const userIds = Array.from(
+      new Set([
+        ...legAgg.map((r) => r.userId),
+        ...sessionDispositionRows.map((r) => r.userId),
+      ]),
+    );
+
+    if (userIds.length === 0) return [];
+
     const extensions = await this.prisma.telephonyExtension.findMany({
       where: { crmUserId: { in: userIds } },
       select: { crmUserId: true, displayName: true },
@@ -152,33 +176,45 @@ export class TelephonyStatsService {
       extensions.map((e) => [e.crmUserId as string, e.displayName]),
     );
 
-    const result: AgentKpis[] = rows.map((r) => {
-      const total = safeNumber(r.total);
-      const answered = safeNumber(r.answered);
-      const missed = safeNumber(r.missed);
-      const talkSum = safeNumber(r.talkSum);
-      const holdSum = safeNumber(r.holdSum);
-      const wrapupSum = safeNumber(r.wrapupSum);
-      const handleSum = talkSum + holdSum + wrapupSum;
-      return {
-        userId: r.userId,
-        displayName: nameMap.get(r.userId) ?? null,
-        totalCalls: total,
-        answered,
-        missed,
-        answerRate:
-          total > 0 ? Math.round((answered / total) * 10000) / 100 : null,
-        missedRate:
-          total > 0 ? Math.round((missed / total) * 10000) / 100 : null,
-        avgHandleTimeSec: answered > 0 ? handleSum / answered : null,
-        avgTalkTimeSec: answered > 0 ? talkSum / answered : null,
-        avgHoldTimeSec: answered > 0 ? holdSum / answered : null,
-        afterCallWorkTimeSec: answered > 0 ? wrapupSum / answered : null,
-        occupancyProxy: null,
-      };
-    });
+    const legMap = new Map(legAgg.map((r) => [r.userId, r]));
 
-    return result.sort((a, b) => b.totalCalls - a.totalCalls);
+    const result: AgentKpis[] = [];
+    for (const userId of userIds) {
+      const leg = legMap.get(userId);
+      const disp = dispMap.get(userId) ?? {
+        answered: 0,
+        missed: 0,
+        total: 0,
+      };
+      const handledCount = leg?.handledCount ?? 0;
+      const touchedCount = leg?.touchedCount ?? 0;
+      const connectedSec = leg?.connectedSecSum ?? 0;
+
+      result.push({
+        userId,
+        displayName: nameMap.get(userId) ?? null,
+        // `totalCalls` = every session the agent engaged with.
+        totalCalls: touchedCount,
+        // Legacy `answered` alias → handledCount per M5.
+        answered: handledCount,
+        missed: Math.max(disp.missed, 0),
+        answerRate:
+          disp.total > 0 ? round2((disp.answered / disp.total) * 100) : null,
+        missedRate:
+          disp.total > 0 ? round2((disp.missed / disp.total) * 100) : null,
+        avgHandleTimeSec:
+          handledCount > 0 ? round2(connectedSec / handledCount) : null,
+        avgTalkTimeSec:
+          handledCount > 0 ? round2(connectedSec / handledCount) : null,
+        avgHoldTimeSec: null,
+        afterCallWorkTimeSec: null,
+        occupancyProxy: null,
+        handledCount,
+        touchedCount,
+      });
+    }
+
+    return result.sort((a, b) => b.handledCount - a.handledCount);
   }
 
   async getQueueStats(query: QueryStatsDto): Promise<QueueKpis[]> {
@@ -445,85 +481,58 @@ export class TelephonyStatsService {
     };
   }
 
+  /**
+   * M5 — Agent breakdown rows. Attribution derived from CallLeg, not from
+   * CallSession.assignedUserId. `answeredCalls` retained as the legacy field
+   * name but now aliases `handledCount`.
+   */
   async getAgentBreakdown(query: QueryStatsDto): Promise<AgentBreakdownRow[]> {
     const from = this.parseDate(query.from, 'from');
     const to = this.parseDate(query.to, 'to');
     this.assertRangeWithinLimit(from, to);
 
-    const queueFilter = query.queueId
-      ? Prisma.sql`AND s."queueId" = ${query.queueId}`
-      : Prisma.empty;
-
-    const rows = await this.prisma.$queryRaw<
-      Array<{
-        userId: string;
-        answered: bigint;
-        noAnswer: bigint;
-        busy: bigint;
-        total: bigint;
-        durationSum: number | null;
-        answeredDurationSum: number | null;
-        answeredWaitSum: number | null;
-        nonAnsweredWaitSum: number | null;
-      }>
-    >(Prisma.sql`
-      WITH base AS (
-        SELECT
-          s."assignedUserId" AS "userId",
-          s.disposition,
-          COALESCE(m."talkSeconds", 0) AS talk,
-          COALESCE(m."holdSeconds", 0) AS hold,
-          COALESCE(m."waitSeconds", 0) AS wait
-        FROM "CallSession" s
-        LEFT JOIN "CallMetrics" m ON m."callSessionId" = s.id
-        WHERE s."startAt" >= ${from}
-          AND s."startAt" <= ${to}
-          AND s."assignedUserId" IS NOT NULL
-          ${queueFilter}
-      )
-      SELECT
-        "userId",
-        COUNT(*) FILTER (WHERE disposition = 'ANSWERED')::bigint AS answered,
-        COUNT(*) FILTER (
-          WHERE disposition IS NOT NULL
-            AND disposition NOT IN ('ANSWERED', 'BUSY', 'FAILED')
-        )::bigint AS "noAnswer",
-        COUNT(*) FILTER (WHERE disposition IN ('BUSY', 'FAILED'))::bigint AS busy,
-        COUNT(*)::bigint AS total,
-        SUM(talk + hold) AS "durationSum",
-        SUM(talk + hold) FILTER (WHERE disposition = 'ANSWERED') AS "answeredDurationSum",
-        SUM(wait) FILTER (WHERE disposition = 'ANSWERED') AS "answeredWaitSum",
-        SUM(wait) FILTER (WHERE disposition IS DISTINCT FROM 'ANSWERED') AS "nonAnsweredWaitSum"
-      FROM base
-      GROUP BY "userId"
-    `);
-
-    // The original JS implementation counted sessions with disposition=NULL
-    // under the noAnswer catch-all (via the trailing `else` branch). Preserve
-    // that semantic by folding NULL disposition into noAnswer here.
-    const nullDispRows = await this.prisma.$queryRaw<
-      Array<{ userId: string; nullCount: bigint }>
-    >(Prisma.sql`
-      SELECT
-        s."assignedUserId" AS "userId",
-        COUNT(*)::bigint AS "nullCount"
-      FROM "CallSession" s
-      WHERE s."startAt" >= ${from}
-        AND s."startAt" <= ${to}
-        AND s."assignedUserId" IS NOT NULL
-        AND s.disposition IS NULL
-        ${queueFilter}
-      GROUP BY s."assignedUserId"
-    `);
-    const nullDispMap = new Map(
-      nullDispRows.map((r) => [r.userId, safeNumber(r.nullCount)]),
+    const legAgg = await this.aggregateAgentLegs(from, to, query.queueId);
+    const sessionDispositionRows = await this.fetchAgentDispositions(
+      from,
+      to,
+      query.queueId,
     );
 
-    if (rows.length === 0 && nullDispMap.size === 0) return [];
+    const dispMap = new Map<
+      string,
+      { answered: number; noAnswer: number; busy: number; total: number }
+    >();
+    for (const row of sessionDispositionRows) {
+      const m = dispMap.get(row.userId) ?? {
+        answered: 0,
+        noAnswer: 0,
+        busy: 0,
+        total: 0,
+      };
+      const c = safeNumber(row.c);
+      m.total += c;
+      if (row.disposition === CallDisposition.ANSWERED) {
+        m.answered += c;
+      } else if (
+        row.disposition === CallDisposition.BUSY ||
+        row.disposition === CallDisposition.FAILED
+      ) {
+        m.busy += c;
+      } else {
+        m.noAnswer += c;
+      }
+      dispMap.set(row.userId, m);
+    }
 
     const userIds = Array.from(
-      new Set([...rows.map((r) => r.userId), ...nullDispMap.keys()]),
+      new Set([
+        ...legAgg.map((r) => r.userId),
+        ...sessionDispositionRows.map((r) => r.userId),
+      ]),
     );
+
+    if (userIds.length === 0) return [];
+
     const extensions = await this.prisma.telephonyExtension.findMany({
       where: { crmUserId: { in: userIds } },
       select: { crmUserId: true, displayName: true, extension: true },
@@ -531,65 +540,165 @@ export class TelephonyStatsService {
     const extMap = new Map(
       extensions.map((e) => [e.crmUserId as string, e]),
     );
-
-    // Merge any agent that only has null-disposition sessions (not present in
-    // the main aggregate) into the result set.
-    const rowMap = new Map(rows.map((r) => [r.userId, r]));
-    for (const uid of nullDispMap.keys()) {
-      if (!rowMap.has(uid)) {
-        rowMap.set(uid, {
-          userId: uid,
-          answered: 0n,
-          noAnswer: 0n,
-          busy: 0n,
-          total: 0n,
-          durationSum: null,
-          answeredDurationSum: null,
-          answeredWaitSum: null,
-          nonAnsweredWaitSum: null,
-        });
-      }
-    }
+    const legMap = new Map(legAgg.map((r) => [r.userId, r]));
 
     const result: AgentBreakdownRow[] = [];
-    for (const [userId, r] of rowMap) {
-      const nullCount = nullDispMap.get(userId) ?? 0;
-      const answered = safeNumber(r.answered);
-      const noAnswerFromDisp = safeNumber(r.noAnswer);
-      const noAnswer = noAnswerFromDisp + nullCount;
-      const busy = safeNumber(r.busy);
-      const total = safeNumber(r.total) + nullCount;
-      const durationSum = safeNumber(r.durationSum);
-      const answeredDurationSum = safeNumber(r.answeredDurationSum);
-      const answeredWaitSum = safeNumber(r.answeredWaitSum);
-      const nonAnsweredWaitSum = safeNumber(r.nonAnsweredWaitSum);
-      const nonAnsweredCount = noAnswer + busy;
-
+    for (const userId of userIds) {
+      const leg = legMap.get(userId);
+      const disp = dispMap.get(userId) ?? {
+        answered: 0,
+        noAnswer: 0,
+        busy: 0,
+        total: 0,
+      };
       const ext = extMap.get(userId);
+
+      const handledCount = leg?.handledCount ?? 0;
+      const touchedCount = leg?.touchedCount ?? 0;
+      const connectedSec = leg?.connectedSecSum ?? 0;
+
       result.push({
         userId,
         displayName: ext?.displayName ?? null,
         extension: ext?.extension ?? null,
-        answeredCalls: answered,
-        noAnswerCalls: noAnswer,
-        busyCalls: busy,
-        totalCalls: total,
-        totalCallsDurationMin: Math.round((durationSum / 60) * 100) / 100,
+        // UI compat: answeredCalls aliases handledCount now.
+        answeredCalls: handledCount,
+        noAnswerCalls: disp.noAnswer,
+        busyCalls: disp.busy,
+        totalCalls: touchedCount,
+        totalCallsDurationMin: Math.round((connectedSec / 60) * 100) / 100,
         avgCallDurationSec:
-          answered > 0 ? round2(answeredDurationSum / answered) : null,
-        answeredAvgRingTimeSec:
-          answered > 0 ? round2(answeredWaitSum / answered) : null,
-        noAnswerAvgRingTimeSec:
-          nonAnsweredCount > 0
-            ? round2(nonAnsweredWaitSum / nonAnsweredCount)
-            : null,
+          handledCount > 0 ? round2(connectedSec / handledCount) : null,
+        answeredAvgRingTimeSec: null,
+        noAnswerAvgRingTimeSec: null,
+        handledCount,
+        touchedCount,
       });
     }
 
-    return result.sort((a, b) => b.totalCalls - a.totalCalls);
+    return result.sort((a, b) => b.handledCount - a.handledCount);
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────
+
+  /**
+   * M5 core aggregate. Returns handled/touched/connected-seconds per agent,
+   * derived from CallLeg rows in the window.
+   *
+   * - `all_legs` bag: every answered AGENT/TRANSFER leg on sessions in-window.
+   * - `longest_leg` CTE: per session, the leg with the longest
+   *   (answerAt → endAt) connected span — the "primary handler".
+   * - Final SELECT: COUNT(DISTINCT sessionId) per user for touched,
+   *   COUNT(DISTINCT sessionId) where primary-handler user = user for
+   *   handled, and the sum of connected-seconds for the handled rows.
+   */
+  private async aggregateAgentLegs(
+    from: Date,
+    to: Date,
+    queueId?: string,
+  ): Promise<
+    Array<{
+      userId: string;
+      extension: string | null;
+      handledCount: number;
+      touchedCount: number;
+      connectedSecSum: number;
+    }>
+  > {
+    const queueFilter = queueId
+      ? Prisma.sql`AND cs."queueId" = ${queueId}`
+      : Prisma.empty;
+
+    const rows = await this.prisma.$queryRaw<
+      Array<{
+        userId: string;
+        extension: string | null;
+        handledCount: bigint;
+        touchedCount: bigint;
+        connectedSecSum: number | null;
+      }>
+    >(Prisma.sql`
+      WITH windowed_sessions AS (
+        SELECT id FROM "CallSession" cs
+        WHERE cs."startAt" >= ${from}
+          AND cs."startAt" <= ${to}
+          ${queueFilter}
+      ),
+      all_legs AS (
+        SELECT
+          cl."callSessionId",
+          cl."userId",
+          cl."extension",
+          EXTRACT(EPOCH FROM (COALESCE(cl."endAt", cl."answerAt") - cl."answerAt")) AS connected_sec
+        FROM "CallLeg" cl
+        WHERE cl."userId" IS NOT NULL
+          AND cl."answerAt" IS NOT NULL
+          AND cl."type" IN ('AGENT', 'TRANSFER')
+          AND cl."callSessionId" IN (SELECT id FROM windowed_sessions)
+      ),
+      longest_leg AS (
+        SELECT DISTINCT ON ("callSessionId")
+          "callSessionId",
+          "userId",
+          connected_sec
+        FROM all_legs
+        ORDER BY "callSessionId", connected_sec DESC, "userId"
+      )
+      SELECT
+        u."userId" AS "userId",
+        MIN(u."extension") AS "extension",
+        COUNT(DISTINCT ll."callSessionId") FILTER (WHERE ll."userId" = u."userId")::bigint AS "handledCount",
+        COUNT(DISTINCT u."callSessionId")::bigint AS "touchedCount",
+        COALESCE(SUM(u.connected_sec) FILTER (WHERE ll."userId" = u."userId"), 0) AS "connectedSecSum"
+      FROM all_legs u
+      LEFT JOIN longest_leg ll
+        ON ll."callSessionId" = u."callSessionId"
+      GROUP BY u."userId"
+    `);
+
+    return rows.map((r) => ({
+      userId: r.userId,
+      extension: r.extension,
+      handledCount: safeNumber(r.handledCount),
+      touchedCount: safeNumber(r.touchedCount),
+      connectedSecSum: safeNumber(r.connectedSecSum),
+    }));
+  }
+
+  /**
+   * Per-agent disposition count derived from CallLeg + CallSession. A session
+   * touched by multiple agents contributes to each agent's row independently
+   * so `touched*Rate` math aligns with `touchedCount` attribution.
+   */
+  private async fetchAgentDispositions(
+    from: Date,
+    to: Date,
+    queueId?: string,
+  ): Promise<
+    Array<{ userId: string; disposition: CallDisposition | null; c: bigint }>
+  > {
+    const queueFilter = queueId
+      ? Prisma.sql`AND cs."queueId" = ${queueId}`
+      : Prisma.empty;
+
+    return this.prisma.$queryRaw<
+      Array<{ userId: string; disposition: CallDisposition | null; c: bigint }>
+    >(Prisma.sql`
+      SELECT
+        cl."userId" AS "userId",
+        cs."disposition" AS "disposition",
+        COUNT(DISTINCT cl."callSessionId")::bigint AS "c"
+      FROM "CallLeg" cl
+      JOIN "CallSession" cs ON cs.id = cl."callSessionId"
+      WHERE cl."userId" IS NOT NULL
+        AND cl."answerAt" IS NOT NULL
+        AND cl."type" IN ('AGENT', 'TRANSFER')
+        AND cs."startAt" >= ${from}
+        AND cs."startAt" <= ${to}
+        ${queueFilter}
+      GROUP BY cl."userId", cs."disposition"
+    `);
+  }
 
   private async computeOverviewKpis(
     from: Date,
@@ -603,8 +712,12 @@ export class TelephonyStatsService {
     // One-shot aggregate over the full session+metrics join. Filtered COUNTs
     // give volume breakdown; filtered AVGs and percentile_cont give speed +
     // quality numbers. MAX() over ANSWERED waitSeconds gives longestWait.
-    // Matches the legacy JS formulas: averages over ANSWERED sessions that
-    // have a CallMetrics row.
+    //
+    // M3 (STATS_STANDARDS.md): `sessionsWithDisposition` /
+    // `sessionsWithDispositionAndMetrics` feed `dataQualityPercent`. The
+    // slaMetPercent numerator/denominator still only count measured sessions
+    // (so the ratio stays meaningful); dataQualityPercent surfaces the drop
+    // when ingest fails to land metrics rows.
     const [agg] = await this.prisma.$queryRaw<
       Array<{
         total: bigint;
@@ -624,6 +737,8 @@ export class TelephonyStatsService {
         transfersSum: number | null;
         slaTotal: bigint;
         slaMetCount: bigint;
+        sessionsWithDisposition: bigint;
+        sessionsWithDispositionAndMetrics: bigint;
       }>
     >(Prisma.sql`
       SELECT
@@ -669,7 +784,11 @@ export class TelephonyStatsService {
           WHERE s.disposition = 'ANSWERED' AND m.id IS NOT NULL
         ) AS "transfersSum",
         COUNT(*) FILTER (WHERE m."isSlaMet" IS NOT NULL)::bigint AS "slaTotal",
-        COUNT(*) FILTER (WHERE m."isSlaMet" = true)::bigint AS "slaMetCount"
+        COUNT(*) FILTER (WHERE m."isSlaMet" = true)::bigint AS "slaMetCount",
+        COUNT(*) FILTER (WHERE s.disposition IS NOT NULL)::bigint AS "sessionsWithDisposition",
+        COUNT(*) FILTER (
+          WHERE s.disposition IS NOT NULL AND m.id IS NOT NULL
+        )::bigint AS "sessionsWithDispositionAndMetrics"
       FROM "CallSession" s
       LEFT JOIN "CallMetrics" m ON m."callSessionId" = s.id
       WHERE s."startAt" >= ${from}
@@ -744,6 +863,16 @@ export class TelephonyStatsService {
     const slaMetPercent =
       slaTotal > 0 ? (slaMetCount / slaTotal) * 100 : null;
 
+    // M3 — measurement coverage.
+    const sessionsWithDisposition = safeNumber(agg?.sessionsWithDisposition);
+    const sessionsWithMetrics = safeNumber(
+      agg?.sessionsWithDispositionAndMetrics,
+    );
+    const dataQualityPercent =
+      sessionsWithDisposition > 0
+        ? round2((sessionsWithMetrics / sessionsWithDisposition) * 100)
+        : null;
+
     return {
       volume: {
         totalCalls: total,
@@ -773,6 +902,7 @@ export class TelephonyStatsService {
         longestWaitSec: longestWait !== null ? round2(longestWait) : null,
         peakHourDistribution,
       },
+      dataQualityPercent,
     };
   }
 
@@ -816,6 +946,10 @@ export class TelephonyStatsService {
       slaMetPercent: pctChange(
         current.serviceLevel.slaMetPercent,
         comparison.serviceLevel.slaMetPercent,
+      ),
+      dataQualityPercent: pctChange(
+        current.dataQualityPercent,
+        comparison.dataQualityPercent,
       ),
     };
   }

@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TelephonyStatsService } from '../services/telephony-stats.service';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Prisma } from '@prisma/client';
+import { CallDisposition, Prisma } from '@prisma/client';
 
 /**
  * Legacy spec, retained for the shape-check cases the team relied on before
@@ -9,8 +9,8 @@ import { Prisma } from '@prisma/client';
  * tests live in services/telephony-stats.service.spec.ts.
  *
  * These tests stub `$queryRaw` to return canned result rows rather than
- * inspecting raw SQL. Enough to confirm wiring, callback counts, and the
- * shape of the comparison object.
+ * inspecting raw SQL. Enough to confirm wiring, callback counts, shape of
+ * the comparison object, and the P0-G M3/M5 overlay.
  */
 describe('TelephonyStatsService (legacy shape checks)', () => {
   let service: TelephonyStatsService;
@@ -70,6 +70,8 @@ describe('TelephonyStatsService (legacy shape checks)', () => {
       expect(result.current.speed.avgAnswerTimeSec).toBeNull();
       expect(result.current.quality.avgTalkTimeSec).toBeNull();
       expect(result.current.serviceLevel.slaMetPercent).toBeNull();
+      // M3 — null when no disposition data exists.
+      expect(result.current.dataQualityPercent).toBeNull();
       expect(result.comparison).toBeUndefined();
     });
 
@@ -97,6 +99,9 @@ describe('TelephonyStatsService (legacy shape checks)', () => {
               transfersSum: 1,
               slaTotal: 3n,
               slaMetCount: 2n,
+              // M3 — 3 sessions with disposition, 3 with metrics → 100%.
+              sessionsWithDisposition: 3n,
+              sessionsWithDispositionAndMetrics: 3n,
             },
           ]),
         'GROUP BY 1': () => Promise.resolve([]),
@@ -114,6 +119,7 @@ describe('TelephonyStatsService (legacy shape checks)', () => {
       expect(result.current.quality.avgTalkTimeSec).toBe(150); // 300/2
       expect(result.current.quality.transferRate).toBe(0.5); // 1/2
       expect(result.current.serviceLevel.slaMetPercent).toBeCloseTo(66.67, 1);
+      expect(result.current.dataQualityPercent).toBe(100);
     });
 
     it('should include comparison and delta when compareFrom/To provided', async () => {
@@ -139,28 +145,32 @@ describe('TelephonyStatsService (legacy shape checks)', () => {
       expect(result).toEqual([]);
     });
 
-    it('should map aggregate rows into AgentKpis shape', async () => {
+    it('M5: maps CallLeg-derived legAgg + dispositions into AgentKpis shape', async () => {
+      // Two raw queries fire for agent stats — first for legAgg (uses
+      // `longest_leg` CTE), then for the per-agent disposition query.
       prisma.$queryRaw = makeQueryRawStub({
-        'GROUP BY s."assignedUserId"': () =>
+        longest_leg: () =>
           Promise.resolve([
             {
               userId: 'user-1',
-              total: 2n,
-              answered: 1n,
-              missed: 1n,
-              talkSum: 60,
-              holdSum: 5,
-              wrapupSum: 10,
+              extension: '101',
+              handledCount: BigInt(1),
+              touchedCount: BigInt(2),
+              connectedSecSum: 60,
             },
             {
               userId: 'user-2',
-              total: 1n,
-              answered: 1n,
-              missed: 0n,
-              talkSum: 120,
-              holdSum: 10,
-              wrapupSum: 15,
+              extension: '102',
+              handledCount: BigInt(1),
+              touchedCount: BigInt(1),
+              connectedSecSum: 120,
             },
+          ]),
+        'cl."userId" AS "userId"': () =>
+          Promise.resolve([
+            { userId: 'user-1', disposition: CallDisposition.ANSWERED, c: BigInt(1) },
+            { userId: 'user-1', disposition: CallDisposition.MISSED, c: BigInt(1) },
+            { userId: 'user-2', disposition: CallDisposition.ANSWERED, c: BigInt(1) },
           ]),
       });
       prisma.telephonyExtension.findMany.mockResolvedValue([
@@ -176,7 +186,11 @@ describe('TelephonyStatsService (legacy shape checks)', () => {
       expect(result).toHaveLength(2);
 
       const agent1 = result.find((a) => a.userId === 'user-1')!;
+      // totalCalls aliases touchedCount per M5.
       expect(agent1.totalCalls).toBe(2);
+      expect(agent1.handledCount).toBe(1);
+      expect(agent1.touchedCount).toBe(2);
+      // Legacy `answered` aliases handledCount.
       expect(agent1.answered).toBe(1);
       expect(agent1.missed).toBe(1);
       expect(agent1.answerRate).toBe(50);

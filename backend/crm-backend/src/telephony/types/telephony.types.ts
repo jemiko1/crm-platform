@@ -77,6 +77,17 @@ export interface OverviewKpis {
     longestWaitSec: number | null;
     peakHourDistribution: Record<number, number>;
   };
+  /**
+   * M3 — measurement coverage for the KPI window, 0..100. Equal to
+   * `sessions with CallMetrics / sessions with disposition`. When this drops
+   * below 95% the UI badges SLA% amber; below 90%, red. A low number means
+   * ingest dropped some CallMetrics rows — the SLA ratio is still correct
+   * (it's computed over sessions that have metrics) but the denominator no
+   * longer reflects every session that reached disposition.
+   *
+   * See audit/STATS_STANDARDS.md M3 for decision rationale.
+   */
+  dataQualityPercent: number | null;
 }
 
 export interface AgentKpis {
@@ -92,6 +103,21 @@ export interface AgentKpis {
   avgHoldTimeSec: number | null;
   afterCallWorkTimeSec: number | null;
   occupancyProxy: number | null;
+  /**
+   * M5 (STATS_STANDARDS.md) — primary-handler count. The number of
+   * CallSessions for which this agent had the longest connected CallLeg
+   * (talkSec). Transfers don't double-count volume — only one agent per
+   * session gets `handled += 1`.
+   */
+  handledCount: number;
+  /**
+   * M5 — engagement count. The number of CallSessions where this agent had
+   * any AGENT/TRANSFER leg with an answerAt timestamp. A transferred call
+   * credits both the originator and the recipient as "touched" — giving
+   * managers the "who was involved" view alongside the "who did the work"
+   * view (`handledCount`).
+   */
+  touchedCount: number;
 }
 
 export interface QueueKpis {
@@ -207,6 +233,10 @@ export interface AgentBreakdownRow {
   avgCallDurationSec: number | null;
   answeredAvgRingTimeSec: number | null;
   noAnswerAvgRingTimeSec: number | null;
+  /** M5 — see AgentKpis. `answeredCalls` is kept as alias for handledCount. */
+  handledCount: number;
+  /** M5 — see AgentKpis. */
+  touchedCount: number;
 }
 
 export interface WorktimeWindow {
