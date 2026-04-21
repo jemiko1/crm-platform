@@ -1,9 +1,11 @@
 import { Test, TestingModule } from "@nestjs/testing";
+import { JwtService } from "@nestjs/jwt";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { LoginThrottleService } from "./login-throttle.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { PermissionsService } from "../permissions/permissions.service";
+import { OperatorDndService } from "../telephony/services/operator-dnd.service";
 
 /**
  * Regression guard for audit/P0-B.
@@ -75,6 +77,15 @@ describe("AuthController.me (audit/P0-B)", () => {
         { provide: LoginThrottleService, useValue: {} },
         { provide: PrismaService, useValue: prisma },
         { provide: PermissionsService, useValue: permissions },
+        // JwtService + OperatorDndService injected into AuthController for
+        // the DND auto-disable-on-logout hook (dnd-feature-backend PR).
+        // This spec tests /auth/me; the new deps are unused here but must
+        // be resolvable in the DI container.
+        { provide: JwtService, useValue: { verify: jest.fn() } },
+        {
+          provide: OperatorDndService,
+          useValue: { disableSilently: jest.fn() },
+        },
       ],
     }).compile();
 
