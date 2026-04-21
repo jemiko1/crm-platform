@@ -123,7 +123,7 @@
 |-------|---------|------------|
 | **TelephonyExtension** | SIP extension per user | `crmUserId` (unique FK), `extension` (unique), `sipServer?`, `sipPassword?`, `isOperator` |
 | **DeviceHandshakeToken** | One-time tokens for desktop app auth | `token` (unique), `userId`, `expiresAt`, `consumed` |
-| **TelephonyQueue** | Call queues | `name` (unique), `strategy` (QueueStrategy), `isAfterHoursQueue`, `worktimeConfig` (JSON) |
+| **TelephonyQueue** | Call queues | `name` (unique), `strategy` (QueueStrategy), `isAfterHoursQueue` (⚠ DB-authoritative — env var `AFTER_HOURS_QUEUES` only seeds CREATE; subsequent syncs don't touch this column. See CLAUDE.md Silent Override Risk #18), `worktimeConfig` (JSON) |
 | **CallSession** | Individual call records | `linkedId` (unique), `direction` (IN/OUT), `callerNumber`, `queueId?`, `assignedUserId?`, `disposition?`, `recordingStatus` |
 | **CallLeg** | Sub-segments of calls (customer, agent, transfer) | `callSessionId`, `type` (CallLegType), `userId?`, `extension?`. Historical backfill via `prisma/backfill-call-legs.ts --dry-run` (PR #264). |
 | **CallEvent** | Raw call events from Asterisk | `eventType`, `ts`, `payload` (JSON), `idempotencyKey` (unique) |
@@ -147,7 +147,7 @@
 | **ClientChatWebhookFailure** | Failed webhook logs | `channelType`, `error`, `payloadMeta` (JSON) |
 | **ClientChatCannedResponse** | Quick reply templates | `title`, `content`, `category?`, `channelType?`, `isGlobal`, `createdById` |
 | **ClientChatAssignmentConfig** | Auto-assignment rules | Unique `[channelType]`, `strategy` (`manual`/`round_robin`), `assignableUsers` (string[]) |
-| **ClientChatEscalationConfig** | Escalation timing settings | `firstResponseTimeoutMins`, `reassignAfterMins`, `notifyManagerOnEscalation` |
+| **ClientChatEscalationConfig** | Escalation timing settings (singleton) | `firstResponseTimeoutMins`, `reassignAfterMins`, `postReplyTimeoutMins` (PR #276), `postReplyReassignAfterMins` (PR #276), `notifyManagerOnEscalation`. All thresholds are minutes; 0 disables that side. Silence-after-reply semantics: operator has N min to respond to each new customer msg AFTER the first reply. |
 | **ClientChatEscalationEvent** | Escalation history | `conversationId`, `type`, `fromUserId?`, `toUserId?` |
 | **ClientChatQueueSchedule** | Weekly agent schedules | Unique `[dayOfWeek, userId]` |
 | **ClientChatQueueOverride** | Date-specific schedule overrides | Unique `[date]`, `userIds` (string[]) |

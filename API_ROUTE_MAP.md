@@ -349,7 +349,12 @@ Complete API route documentation for CRM Platform backend.
 **Guards**: `JwtAuthGuard + PositionPermissionGuard`
 
 **Endpoints**:
-- `GET /v1/telephony/missed-calls` - List missed calls. Permission: `missed_calls.access`.
+- `GET /v1/telephony/missed-calls` - List missed calls. Permission: `missed_calls.access`. Query params:
+    - `status` - filter by `MissedCallStatus` (NEW / CLAIMED / ATTEMPTED / HANDLED / IGNORED / EXPIRED). Default: actionable statuses.
+    - `queueId` - filter by specific Asterisk queue.
+    - `reason` - **(added PR #278)** filter by `MissedCallReason` (`OUT_OF_HOURS` / `ABANDONED` / `NO_ANSWER`). Unknown values silently ignored.
+    - `myClaimsOnly=true` - scope to `claimedByUserId = currentUser`.
+    - `page`, `pageSize` (max 100).
 - `PATCH /v1/telephony/missed-calls/:id/claim` - Claim ownership of a missed call. Permission: `missed_calls.manage`.
 - `PATCH /v1/telephony/missed-calls/:id/attempt` - Log a call-back attempt. Permission: `missed_calls.manage`.
 - `PATCH /v1/telephony/missed-calls/:id/resolve` - Mark resolved. Permission: `missed_calls.manage`.
@@ -357,6 +362,7 @@ Complete API route documentation for CRM Platform backend.
 
 **Notes:**
 - `auto-resolve` runs when a subsequent answered CallSession has the same caller number; see `MissedCallsService.autoResolveByPhone()`. Only triggers for numbers ≥ 9 digits (shorter numbers are internal extensions).
+- `reason=OUT_OF_HOURS` is set by `classifyMissedReason()` when `CallSession.queue.isAfterHoursQueue=true`. Queue 40 (non-working-hours queue) has this flag set as of PR #278. Per CLAUDE.md Silent Override Risk #18, `isAfterHoursQueue` is DB-authoritative — env var `AFTER_HOURS_QUEUES` only bootstraps new queues on CREATE.
 
 ---
 
@@ -372,6 +378,39 @@ Complete API route documentation for CRM Platform backend.
 - `call.started`, `call.ended`, `call.transferred` - Call lifecycle events.
 
 **Note:** All telephony Socket.IO clients use exponential backoff + jittered retry on disconnect (PR #261, #262). Prevents reconnect storms during deploy windows.
+
+---
+
+## Client Chats Queue Management (Manager)
+
+**File**: `src/clientchats/controllers/clientchats-manager.controller.ts`  
+**Base Route**: `/v1/clientchats/queue`  
+**Guards**: `JwtAuthGuard + PositionPermissionGuard`, `client_chats.manage`
+
+**Key endpoints** (selective — full list in controller):
+- `GET /v1/clientchats/queue/today` - Active operators on today's schedule + open chat counts
+- `GET /v1/clientchats/queue/schedule` - Weekly operator schedule
+- `PUT /v1/clientchats/queue/schedule/:dayOfWeek` - Set operators for a weekday
+- `PUT /v1/clientchats/queue/override` - Per-date override
+- `DELETE /v1/clientchats/queue/override/:date` - Remove override
+- `GET /v1/clientchats/queue/escalation-config` - Current SLA thresholds
+- `PUT /v1/clientchats/queue/escalation-config` - Update SLA thresholds. Body (all fields optional):
+    - `firstResponseTimeoutMins` - warn after this many minutes with no first reply (default 5)
+    - `reassignAfterMins` - auto-unassign after this many minutes (default 10)
+    - `postReplyTimeoutMins` - **(PR #276)** warn when customer's latest msg older than this (operator silent after first reply; default 10)
+    - `postReplyReassignAfterMins` - **(PR #276)** auto-unassign when post-reply silence exceeds this (default 20)
+    - `notifyManagerOnEscalation` - emit `escalation:warning` / `escalation:reassign` sockets (default true)
+    - Validation: all thresholds are non-negative integers ≤ 1440 (24h). 0 disables that side. `reassign` must be ≥ `warn` when both updated together. 400 with field-specific error message on invalid input.
+- `GET /v1/clientchats/queue/escalation-events` - Recent escalation log (query: `limit`)
+- `GET /v1/clientchats/queue/live-status` - Live operator status + KPIs
+- `DELETE /v1/clientchats/queue/conversations/:id` - Hard-delete a conversation chain. Permission: `client_chats.delete` (or superadmin).
+- `POST /v1/clientchats/queue/conversations/:id/pause-operator` - Pause the assigned operator on this conversation only
+- `POST /v1/clientchats/queue/conversations/:id/unpause-operator` - Resume
+- `POST /v1/clientchats/queue/conversations/:id/approve-reopen` - Reopen. Body: `{ keepOperator?: boolean }`. Clears `firstResponseAt + joinedAt` on reopen (PR #275 A3 fix).
+
+**Event types emitted to managers** (Socket.IO `/ws/clientchats`):
+- `escalation:warning` — carries `type: 'TIMEOUT_WARNING'` (first-response) or `type: 'POST_REPLY_TIMEOUT_WARNING'` (post-reply silence; PR #276)
+- `escalation:reassign` — carries `type: 'AUTO_UNASSIGN'` (first-response; renamed from AUTO_REASSIGN in PR #275) or `type: 'POST_REPLY_AUTO_UNASSIGN'` (PR #276)
 
 ---
 
