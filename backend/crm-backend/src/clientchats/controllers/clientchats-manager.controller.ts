@@ -170,15 +170,25 @@ export class ClientChatsManagerController {
     ok: 'Updated config',
     permission: true,
   })
-  updateEscalationConfig(
+  async updateEscalationConfig(
     @Body()
     body: {
       firstResponseTimeoutMins?: number;
       reassignAfterMins?: number;
+      postReplyTimeoutMins?: number;
+      postReplyReassignAfterMins?: number;
       notifyManagerOnEscalation?: boolean;
     },
   ) {
-    return this.escalation.updateConfig(body);
+    try {
+      return await this.escalation.updateConfig(body);
+    } catch (err) {
+      // The service throws plain Error with a descriptive message on
+      // validation failure; surface that as a 400 so the admin UI can
+      // show the specific field that's invalid rather than a generic 500.
+      const msg = err instanceof Error ? err.message : 'Invalid config';
+      throw new BadRequestException(msg);
+    }
   }
 
   @Get('escalation-events')
