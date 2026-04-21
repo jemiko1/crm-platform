@@ -160,6 +160,7 @@ Flag any situation where a value lives in more than one place. Known risks:
 16. **Stats — missing CallMetrics ≠ silent drop** (PR #255) — any change to the stats-ingestion or stats-read path must preserve the `reason: "unknown"` behavior for CallSessions without CallMetrics. Silently dropping them masks ingest bugs. See `audit/STATS_STANDARDS.md` (M3 decision).
 17. **Replayed `call_end` events merge, don't overwrite** (PR #255) — telephony ingestion applies field-level merge on duplicate terminal events. Only null/missing fields are overwritten. Changing this to a full-replace can corrupt finalized call records when the AMI bridge buffers/replays events. See `audit/STATS_STANDARDS.md` (M7 decision).
 18. **`TelephonyQueue.isAfterHoursQueue` is sticky — env var only bootstraps, DB is authoritative** (PR #278) — `asterisk-sync.service.ts` writes `isAfterHoursQueue` ONLY on CREATE (using the `AFTER_HOURS_QUEUES` env var list). On subsequent UPDATE ticks (every 5 min) it leaves the flag untouched so admin/DB changes persist. Consequence: **changing `AFTER_HOURS_QUEUES` env var has NO effect on queue rows that already exist**. To toggle an existing queue, update the DB directly (or use a future admin UI). `MissedCallReason.OUT_OF_HOURS` classification depends on this flag; silent drift here = OUT_OF_HOURS calls mis-tagged as NO_ANSWER.
+19. **Operator break auto-close depends on `COMPANY_WORK_END_HOUR` env** (break-feature-backend PR) — `OperatorBreakService.autoCloseStaleBreaks` cron runs every 30 min and closes active break sessions whose `startedAt` is before today's `COMPANY_WORK_END_HOUR` (env, default 19). A 12-hour hard cap catches any break that escapes that window. If the env var is misconfigured (invalid value falls back to 19 silently) OR the server's local clock is off, breaks will either auto-close at the wrong time or not at all. Verify via the "Breaks" manager tab after a full-day cycle.
 
 ---
 
@@ -287,6 +288,7 @@ Then key rules for any work:
 | `cdr-import.service.ts` | Every 5 min | Import CDR from Asterisk | — |
 | `asterisk-sync.service.ts` | Every 5 min | Sync extension/queue state | — |
 | `quality-pipeline.service.ts` | Every 2 min | OpenAI call reviews | Overlap-guarded |
+| `operator-break.service.ts` `autoCloseStaleBreaks` | Every 30 min | Auto-close active operator breaks past `COMPANY_WORK_END_HOUR` (default 19) or older than 12h | Race-safe via `updateMany` with `endedAt IS NULL` predicate |
 
 ### Core Sync Bridge Schedules (PM2, separate process)
 | Task | Schedule | What it does | Concern |

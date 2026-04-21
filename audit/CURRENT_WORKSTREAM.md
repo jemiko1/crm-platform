@@ -21,7 +21,7 @@
 
 For every PR:
 1. Build the change
-2. `pnpm typecheck` on backend + frontend — zero NEW errors. There are **24 pre-existing errors** in `agent-presence.service.ts` / `telephony-live.service.ts` referencing `sipRegistered`/`sipLastSeenAt` (see Follow-up #1). Master has them too. Compare counts with master to confirm no regression.
+2. `pnpm typecheck` on backend + frontend — zero errors. If you see errors in `agent-presence.service.ts` / `telephony-live.service.ts` about `sipRegistered`/`sipLastSeenAt`, the Prisma client is stale — run `npx prisma generate` (these fields DO exist in the schema).
 3. Run affected unit tests — all pass
 4. **Update docs in the SAME branch** — any doc whose scope your change touches:
    - `CLAUDE.md` — Silent Override Risks, business rules, module boundaries
@@ -49,6 +49,8 @@ For every PR:
 
 | PR | Title | State | Key outcome |
 |---|---|---|---|
+| (next) | `feat(telephony): Break feature backend — model + service + controller + cron + tests` | 🔨 open, pending review | New `OperatorBreakSession` model + migration. `OperatorBreakService` with start/end/history/auto-close. Cron every 30 min closes breaks at `COMPANY_WORK_END_HOUR` (default 19) + 12h hard cap. All invariants enforced. 15 unit tests pass. Softphone UI + manager UI + Socket events land in companion PRs. |
+| #279 | `docs: session-continuity brief + sync stale docs after PRs #275-#278` | ✅ merged 2026-04-21 | New `audit/CURRENT_WORKSTREAM.md`. Strengthened CLAUDE.md workflow — docs updated in same PR; code-reviewer before push. |
 | #278 | `feat(telephony): non-working-hours missed calls + reason filter` | ✅ merged 2026-04-21 | Queue 40 (non-working-hours queue) now correctly tags MissedCall with `reason=OUT_OF_HOURS`. New "After Hours" filter chip in missed calls UI. Added `isAfterHoursQueue` stickiness on sync. Silent Override Risk #18 added to CLAUDE.md. |
 | #277 | `test(clientchats): automated scenario runner for multi-role flows` | ✅ merged 2026-04-21 | `scripts/clientchats-scenario-runner.ts` — 5 scenarios, ~10-12 min full run. Validates PRs #275 + #276 fixes. Code-reviewer caught 4 criticals + 2 cascading bugs pre-push. |
 | #276 | `feat(clientchats): silence-after-first-reply escalation + admin config UI` | ✅ merged 2026-04-21 | Q1 decision B. After operator sends first reply, each new customer message starts a silence clock. 2 new admin-panel threshold fields. Stale-guarded `updateMany` in `$transaction` closes reply-during-scan race. Dedup scoped to current operator. |
@@ -156,7 +158,7 @@ Target model after refactor (13 permissions):
 
 ## Follow-ups / tech debt (not blocking)
 
-1. **24 pre-existing TypeScript errors** in `agent-presence.service.ts` / `telephony-live.service.ts` referencing `sipRegistered` / `sipLastSeenAt` columns that don't exist on `TelephonyExtension`. Present on master. Production somehow runs but a clean rebuild will fail. Probably a PR #260 regression — the fields were referenced in code but the Prisma migration wasn't added. Separate fix needed.
+1. ~~24 pre-existing TypeScript errors~~ — **RESOLVED.** The errors were stale Prisma client artifacts. Running `npx prisma generate` produces a clean typecheck on both master and feature branches. No code issue. (Verified during break-feature-backend PR.)
 2. **`frontend-followup-P1-6.md`** — Chat bubble should render a red "failed to deliver" badge below messages where `deliveryStatus !== 'SENT'`. Added as TODO in `clientchats-core.service.ts:585`. Medium priority.
 3. **Frontend `AUTO_REASSIGN` string leftover.** PR #275 renamed the backend event type to `AUTO_UNASSIGN`, and PR #276 extended the manager-dashboard ladder to cover both, but the socket payload STILL uses `escalation:reassign` as the event name (per comment in `escalation.service.ts:229`). Safe as-is, but inconsistent with type rename. Rename when touching the socket layer for other reasons.
 4. **Frontend hardening for scenario runner failures.** If the scenario runner's `finally` in scenario 4 fails to restore SLA config (backend mid-deploy), the warning is logged but the DB has the test thresholds baked in. Manual check required post-run. Minor — don't run scenario 4 during deploy windows.

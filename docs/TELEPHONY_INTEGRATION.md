@@ -845,3 +845,48 @@ non-zero = step number that failed.
 
 Rewritten for Git Bash on Windows in PR #268 (uses base64-encoded PowerShell
 for escape-proof VM queries, falls back from `jq` to Node, etc.).
+
+### Operator Break Feature — Backend (break-feature-backend PR)
+
+Lets call-center operators take time away from calls without leaving the
+softphone application entirely. When a break starts, the softphone
+unregisters from SIP so queue dispatch skips them and direct calls fail
+"unreachable". A countdown modal replaces the normal UI; only "Finish
+Break" is clickable. Finish re-registers.
+
+**Data model:** `OperatorBreakSession` — one row per break.
+  - `userId`, `extension` (snapshot)
+  - `startedAt`, `endedAt?`, `durationSec?` (stamped on end)
+  - `isAutoEnded` + `autoEndReason` for system-closed rows
+
+**Service invariants** (enforced by `OperatorBreakService`):
+  - At most one active row per user. Starting while one exists → 409.
+  - Cannot start while on an active call. The service checks
+    `TelephonyStateManager.getAgentState(userId).presence` for ON_CALL or
+    RINGING → 400.
+  - Only the owning user can end their break. No manager force-end (per
+    business decision — logging + manager visibility is the control
+    mechanism).
+  - End is idempotent: calling `/end` without an active session returns
+    `null` and does not error.
+
+**Auto-close cron** (`*/30 * * * *`, every 30 min):
+  1. Any active session started before today's `COMPANY_WORK_END_HOUR`
+     (env, default 19) gets closed with `autoEndReason='company_hours_end'`.
+  2. Any active session older than 12h gets closed with
+     `autoEndReason='max_duration_exceeded'` (defensive cap for breaks
+     that started after the end hour, e.g. 19:30).
+  - Both paths use `updateMany WHERE endedAt IS NULL` so a concurrent
+    operator-initiated end isn't double-closed.
+
+**HTTP endpoints** (see `API_ROUTE_MAP.md` → Operator Breaks):
+  - `POST /v1/telephony/breaks/start` — operator starts
+  - `POST /v1/telephony/breaks/end` — operator ends
+  - `GET /v1/telephony/breaks/my-current` — restore countdown on reload
+  - `GET /v1/telephony/breaks/current` — manager live list
+  - `GET /v1/telephony/breaks/history` — manager paginated history
+
+**What's NOT in this PR:** softphone UI (break button, countdown modal,
+disabled state), manager dashboard "Breaks" tab, live-monitor badges,
+Socket.IO events. Those ship in the companion manager-UI + softphone
+v1.10.0 release PRs.

@@ -300,6 +300,7 @@ model User {
   deviceHandshakeTokens DeviceHandshakeToken[]
   bugReports            BugReport[]               @relation("UserBugReports")
   callReports           CallReport[]
+  operatorBreakSessions OperatorBreakSession[]
 
   @@index([email])
   @@index([isActive])
@@ -1472,6 +1473,46 @@ model TelephonyExtension {
 
   @@index([isActive])
   @@index([sipRegistered, sipLastSeenAt])
+}
+
+/// Operator break session.
+///
+/// Lifecycle:
+///   1. Operator presses "Break" on softphone → OperatorBreakService.start()
+///      creates a row with startedAt=now(), endedAt=null.
+///   2. Softphone unregisters from SIP during the break (queue dispatch
+///      skips them automatically; direct calls fail "unreachable").
+///   3. Operator presses "Finish Break" → OperatorBreakService.endForUser()
+///      sets endedAt + durationSec. Softphone re-registers.
+///   4. If operator forgets, a cron runs at COMPANY_WORK_END_HOUR (default
+///      19) and any session started earlier that day is auto-closed with
+///      isAutoEnded=true + autoEndReason='company_hours_end'. A defensive
+///      hard-cap closes sessions > 12h old with reason='max_duration_exceeded'.
+///
+/// Invariants enforced by the service:
+///   - At most one active (endedAt IS NULL) row per userId. start() throws if
+///     a prior session is active.
+///   - Starting a break is NOT allowed while the user has an active call.
+///   - Only the owning user can end their break (no manager force-end;
+///     this was an explicit business decision — "correct logging is the
+///     control mechanism").
+///
+/// Added April 2026 for PR # (break-feature-backend).
+model OperatorBreakSession {
+  id            String    @id @default(uuid())
+  userId        String
+  extension     String    // snapshot of extension at break start (audit)
+  startedAt     DateTime  @default(now())
+  endedAt       DateTime?
+  durationSec   Int?      // computed on end; null while active
+  isAutoEnded   Boolean   @default(false)
+  autoEndReason String?   // 'company_hours_end' | 'max_duration_exceeded'
+  createdAt     DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startedAt(sort: Desc)])
+  @@index([endedAt])
 }
 
 model DeviceHandshakeToken {

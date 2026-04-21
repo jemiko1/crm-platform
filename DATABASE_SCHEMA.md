@@ -129,6 +129,7 @@
 | **CallEvent** | Raw call events from Asterisk | `eventType`, `ts`, `payload` (JSON), `idempotencyKey` (unique) |
 | **CallMetrics** | Computed call statistics | `callSessionId` (unique), `waitSeconds`, `ringSeconds`, `talkSeconds`, `holdSeconds`, `isSlaMet?` |
 | **MissedCall** | Unanswered calls | `callSessionId` (unique), `reason` (MissedCallReason), `status` (MissedCallStatus), `callerNumber` |
+| **OperatorBreakSession** | Call-center operator break log (break-feature-backend PR) | `userId`, `extension` (snapshot), `startedAt`, `endedAt?`, `durationSec?`, `isAutoEnded`, `autoEndReason?` (`company_hours_end` / `max_duration_exceeded`). Service enforces one-active-session-per-user + cannot-start-during-call. Cron auto-closes at `COMPANY_WORK_END_HOUR` (env, default 19) and 12h hard cap. |
 | **CallbackRequest** | Scheduled return calls | `missedCallId` (unique), `status` (CallbackRequestStatus), `attemptsCount` |
 | **Recording** | Call recordings | `callSessionId`, `url?`, `filePath?`, `durationSeconds?` |
 | **QualityReview** | AI-scored call quality | `callSessionId` (unique), `status` (QualityReviewStatus), `score?`, `summary?`, `flags` (JSON) |
