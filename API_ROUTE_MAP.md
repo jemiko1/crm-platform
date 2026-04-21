@@ -412,6 +412,29 @@ Both paths set `isAutoEnded=true` and stale-guard the update with `WHERE endedAt
 
 ---
 
+## Operator DND (Do Not Disturb)
+
+**File**: `src/telephony/controllers/operator-dnd.controller.ts` (dnd-feature-backend PR)  
+**Base Route**: `/v1/telephony/dnd`  
+**Guards**: `JwtAuthGuard` only. All endpoints are operator-own (use the JWT-derived userId).
+
+Semantically distinct from Break:
+- **Break** = fully offline (softphone unregisters; no calls at all)
+- **DND** = only queue dispatch blocked; softphone stays registered; direct extension-to-extension calls still ring; outbound dialing works normally
+
+Implemented via AMI `QueuePause` with no `Queue` field (pauses across all queues the extension is a member of). State is managed by Asterisk + cached in `TelephonyStateManager` from AMI events — no DB column.
+
+**Endpoints:**
+- `POST /v1/telephony/dnd/enable` - Enable DND. Validates user has an active `TelephonyExtension`, sends AMI `QueuePause` with `Paused=true` across all queues. Returns `{ enabled: true, extension }`. Errors: 400 (no extension).
+- `POST /v1/telephony/dnd/disable` - Disable DND. Same AMI path with `Paused=false`. Idempotent. Returns `{ enabled: false, extension }`.
+- `GET /v1/telephony/dnd/my-state` - Reads the in-memory state cache (updated by AMI QueuePause events). Returns `{ enabled: boolean, extension: string | null }`. Pure in-memory — does not hit AMI or DB.
+
+**Auto-disable on logout:** `POST /auth/logout` has a best-effort hook that verifies the JWT cookie manually (since logout is `@noAuth`), extracts the user id, and calls `OperatorDndService.disableSilently()`. Any failure (missing cookie, invalid JWT, AMI down) is swallowed — the cookie clear always proceeds.
+
+**Manager visibility:** DND state surfaces as `agent.presence: 'PAUSED'` in the existing `call_center.live` live-monitor — no DND-specific manager endpoints needed.
+
+---
+
 ## Client Chats Queue Management (Manager)
 
 **File**: `src/clientchats/controllers/clientchats-manager.controller.ts`  

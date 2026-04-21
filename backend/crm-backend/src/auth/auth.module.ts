@@ -7,12 +7,19 @@ import { AuthController } from "./auth.controller";
 import { PrismaModule } from "../prisma/prisma.module";
 import { JwtStrategy } from "./jwt.strategy";
 import { PermissionsModule } from "../permissions/permissions.module";
+import { TelephonyModule } from "../telephony/telephony.module";
 
 @Module({
   imports: [
     PrismaModule,
     PassportModule,
     PermissionsModule,
+    // TelephonyModule is imported so the AuthController's /logout endpoint
+    // can inject OperatorDndService and disable the user's DND state as
+    // part of logout cleanup. TelephonyModule does NOT import AuthModule
+    // (JwtAuthGuard is referenced via direct class import, not module),
+    // so no circular dependency.
+    TelephonyModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET!,
       signOptions: {

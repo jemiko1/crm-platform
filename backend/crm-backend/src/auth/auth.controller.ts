@@ -1,9 +1,10 @@
 import {
-  Body, Controller, Get, Post, Req, Res, UseGuards,
+  Body, Controller, Get, Logger, Post, Req, Res, UseGuards,
   HttpException, HttpStatus, UnauthorizedException,
 } from "@nestjs/common";
 import type { Request, Response } from "express";
 import { ApiProperty, ApiTags } from "@nestjs/swagger";
+import { JwtService } from "@nestjs/jwt";
 import { IsEmail, IsString, MinLength } from "class-validator";
 import { AuthService } from "./auth.service";
 import { LoginThrottleService } from "./login-throttle.service";
@@ -13,6 +14,7 @@ import { PermissionsService } from "../permissions/permissions.service";
 import { PositionPermissionGuard } from "../common/guards/position-permission.guard";
 import { RequirePermission } from "../common/decorators/require-permission.decorator";
 import { Doc } from "../common/openapi/doc-endpoint.decorator";
+import { OperatorDndService } from "../telephony/services/operator-dnd.service";
 
 class LoginDto {
   @ApiProperty({ format: "email" })
@@ -60,11 +62,15 @@ function resolveClientIp(req: Request): string {
 @ApiTags("Auth")
 @Controller("auth")
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(
     private auth: AuthService,
     private throttle: LoginThrottleService,
     private prisma: PrismaService,
     private permissionsService: PermissionsService,
+    private jwtService: JwtService,
+    private dndService: OperatorDndService,
   ) {}
 
   @Post("login")
@@ -299,9 +305,37 @@ export class AuthController {
     noAuth: true,
     status: 200,
   })
-  logout(@Res({ passthrough: true }) res: Response) {
+  async logout(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const cookieName = process.env.COOKIE_NAME ?? "access_token";
     const secure = authSessionCookieSecure();
+
+    // Best-effort: disable the user's DND state before clearing the
+    // cookie. If an operator logs out while DND is on, leaving them
+    // paused in Asterisk queues means the next operator to take this
+    // extension starts in paused state — confusing. We try to verify
+    // the JWT ourselves (logout is @noAuth, so req.user isn't set).
+    // Any failure (missing cookie, invalid JWT, AMI down, etc.) is
+    // swallowed — we must not block the cookie-clear.
+    const rawToken = (req as any).cookies?.[cookieName] as string | undefined;
+    if (rawToken) {
+      try {
+        // JWTs from auth.service always set `sub` (per CLAUDE.md Silent
+        // Override Risk #12). No `id` fallback — if a legacy token ever
+        // shows up without `sub`, logout still clears the cookie; the
+        // user just doesn't get their DND auto-disabled.
+        const payload = this.jwtService.verify<{ sub?: string }>(rawToken);
+        if (payload.sub) {
+          await this.dndService.disableSilently(payload.sub);
+        }
+      } catch (err) {
+        // Invalid/expired JWT, AMI error, etc — don't block logout.
+        const msg = err instanceof Error ? err.message : String(err);
+        this.logger.debug(`Logout DND disable skipped: ${msg}`);
+      }
+    }
 
     res.clearCookie(cookieName, { path: "/", sameSite: secure ? "none" : "lax", secure });
     return { ok: true };

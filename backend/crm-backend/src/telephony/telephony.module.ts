@@ -34,6 +34,8 @@ import { MissedCallsService } from './services/missed-calls.service';
 import { MissedCallsController } from './controllers/missed-calls.controller';
 import { OperatorBreakService } from './services/operator-break.service';
 import { OperatorBreakController } from './controllers/operator-break.controller';
+import { OperatorDndService } from './services/operator-dnd.service';
+import { OperatorDndController } from './controllers/operator-dnd.controller';
 import { DataScopeService } from '../common/utils/data-scope';
 
 @Module({
@@ -58,6 +60,7 @@ import { DataScopeService } from '../common/utils/data-scope';
     TelephonyPresenceController,
     MissedCallsController,
     OperatorBreakController,
+    OperatorDndController,
   ],
   providers: [
     AgentPresenceService,
@@ -79,6 +82,7 @@ import { DataScopeService } from '../common/utils/data-scope';
     QualityPipelineService,
     MissedCallsService,
     OperatorBreakService,
+    OperatorDndService,
     DataScopeService,
   ],
   exports: [
@@ -95,6 +99,7 @@ import { DataScopeService } from '../common/utils/data-scope';
     AriClientService,
     MissedCallsService,
     OperatorBreakService,
+    OperatorDndService,
   ],
 })
 export class TelephonyModule {}

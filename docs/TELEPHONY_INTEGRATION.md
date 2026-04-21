@@ -890,3 +890,35 @@ Break" is clickable. Finish re-registers.
 disabled state), manager dashboard "Breaks" tab, live-monitor badges,
 Socket.IO events. Those ship in the companion manager-UI + softphone
 v1.10.0 release PRs.
+
+### Operator DND (Do Not Disturb) — Backend (dnd-feature-backend PR)
+
+Separate from Break — DND keeps the softphone registered but blocked
+from queue dispatch. Use case: "today I'm only making outbound calls"
+or "I'm in training, don't route queue calls to me." Direct
+extension-to-extension calls still ring; outbound dialing works.
+
+**Implementation:** AMI `QueuePause` with no `Queue` field (pauses the
+extension in every queue it's a member of). `OperatorDndService`
+wraps the primitive with the operator-lookup logic. No DB column —
+state is authoritative in Asterisk, cached in-memory via
+`TelephonyStateManager` (presence = `PAUSED`).
+
+**HTTP endpoints:**
+  - `POST /v1/telephony/dnd/enable` — operator enables DND
+  - `POST /v1/telephony/dnd/disable` — operator disables DND
+  - `GET /v1/telephony/dnd/my-state` — operator reads own state
+
+All three are operator-own (JwtAuthGuard only). No manager-specific
+endpoints — DND shows up in the existing live-monitor as
+`agent.presence: 'PAUSED'`.
+
+**Auto-disable on logout:** `POST /auth/logout` includes a best-
+effort hook that manually verifies the JWT cookie (since logout is
+`@noAuth`) and calls `OperatorDndService.disableSilently(userId)`.
+Any failure is swallowed so cookie-clear always proceeds. Prevents
+the next operator with this extension from inheriting a paused state.
+
+**What's NOT in this PR:** softphone DND toggle button, visual DND
+badge on live monitor (already backed by existing presence logic).
+Those ship with softphone v1.10.0 + manager UI PRs.
