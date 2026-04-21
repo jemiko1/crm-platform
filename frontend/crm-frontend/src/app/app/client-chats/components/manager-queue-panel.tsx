@@ -42,6 +42,11 @@ interface Props {
 interface EscalationConfig {
   firstResponseTimeoutMins: number;
   reassignAfterMins: number;
+  // Silence-after-reply SLA thresholds (April 2026 audit, Q1 decision B).
+  // Operator has this many minutes to respond to each subsequent customer
+  // message after their first reply. 0 disables that side of the check.
+  postReplyTimeoutMins: number;
+  postReplyReassignAfterMins: number;
   notifyManagerOnEscalation: boolean;
 }
 
@@ -427,50 +432,118 @@ function EscalationTab({
 }) {
   const [timeout, setTimeout_] = useState(config?.firstResponseTimeoutMins ?? 5);
   const [reassign, setReassign] = useState(config?.reassignAfterMins ?? 10);
+  const [postReplyTimeout, setPostReplyTimeout] = useState(
+    config?.postReplyTimeoutMins ?? 10,
+  );
+  const [postReplyReassign, setPostReplyReassign] = useState(
+    config?.postReplyReassignAfterMins ?? 20,
+  );
   const [notifyMgr, setNotifyMgr] = useState(config?.notifyManagerOnEscalation ?? true);
 
   useEffect(() => {
     if (config) {
       setTimeout_(config.firstResponseTimeoutMins);
       setReassign(config.reassignAfterMins);
+      setPostReplyTimeout(config.postReplyTimeoutMins);
+      setPostReplyReassign(config.postReplyReassignAfterMins);
       setNotifyMgr(config.notifyManagerOnEscalation);
     }
   }, [config]);
 
   return (
-    <div className="space-y-3">
-      <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">
-          First response timeout (minutes)
-        </label>
-        <input
-          type="number"
-          min={1}
-          max={120}
-          value={timeout}
-          onChange={(e) => setTimeout_(Number(e.target.value))}
-          className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
-        />
-        <p className="text-[10px] text-gray-400 mt-0.5">
-          Warning sent to managers after this many minutes without agent reply
+    <div className="space-y-4">
+      {/*
+        Two SLA clocks, each with its own warn/unassign pair. First-response
+        fires before any operator reply; post-reply fires on operator
+        silence after they've already engaged. Setting the "warn" field of
+        either pair to 0 disables that clock entirely.
+      */}
+
+      <div className="space-y-2 pb-3 border-b border-gray-100">
+        <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+          First response SLA
+        </div>
+        <p className="text-[11px] text-gray-500 -mt-1">
+          Operator must send their first reply within this window after a new
+          conversation is assigned.
         </p>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            Warn after (minutes)
+          </label>
+          <input
+            type="number"
+            min={0}
+            max={1440}
+            value={timeout}
+            onChange={(e) => setTimeout_(Number(e.target.value))}
+            className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
+          />
+          <p className="text-[10px] text-gray-400 mt-0.5">
+            Manager notified when no operator reply after this many minutes. 0 = disable.
+          </p>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            Auto-unassign after (minutes)
+          </label>
+          <input
+            type="number"
+            min={0}
+            max={1440}
+            value={reassign}
+            onChange={(e) => setReassign(Number(e.target.value))}
+            className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
+          />
+          <p className="text-[10px] text-gray-400 mt-0.5">
+            Conversation returned to queue. Must be ≥ warn threshold. 0 = disable.
+          </p>
+        </div>
       </div>
-      <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">
-          Auto-reassign after (minutes)
-        </label>
-        <input
-          type="number"
-          min={1}
-          max={240}
-          value={reassign}
-          onChange={(e) => setReassign(Number(e.target.value))}
-          className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
-        />
-        <p className="text-[10px] text-gray-400 mt-0.5">
-          Conversation silently reassigned to next available operator
+
+      <div className="space-y-2 pb-3 border-b border-gray-100">
+        <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+          Post-reply silence SLA
+        </div>
+        <p className="text-[11px] text-gray-500 -mt-1">
+          After the operator has replied at least once, each new customer
+          message starts a silence clock. Fires if operator doesn&apos;t answer
+          follow-up questions in time.
         </p>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            Warn after (minutes)
+          </label>
+          <input
+            type="number"
+            min={0}
+            max={1440}
+            value={postReplyTimeout}
+            onChange={(e) => setPostReplyTimeout(Number(e.target.value))}
+            className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
+          />
+          <p className="text-[10px] text-gray-400 mt-0.5">
+            Measured from the customer&apos;s latest message. 0 = disable.
+          </p>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            Auto-unassign after (minutes)
+          </label>
+          <input
+            type="number"
+            min={0}
+            max={1440}
+            value={postReplyReassign}
+            onChange={(e) => setPostReplyReassign(Number(e.target.value))}
+            className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
+          />
+          <p className="text-[10px] text-gray-400 mt-0.5">
+            Must be ≥ post-reply warn threshold. 0 = disable.
+          </p>
+        </div>
       </div>
+
       <label className="flex items-center gap-2 text-sm text-gray-700">
         <input
           type="checkbox"
@@ -478,13 +551,15 @@ function EscalationTab({
           onChange={(e) => setNotifyMgr(e.target.checked)}
           className="w-3.5 h-3.5 rounded border-gray-300 text-teal-800 focus:ring-teal-500"
         />
-        Notify managers on escalation
+        Notify managers on escalation (Socket.IO + event log)
       </label>
       <button
         onClick={() =>
           onSave({
             firstResponseTimeoutMins: timeout,
             reassignAfterMins: reassign,
+            postReplyTimeoutMins: postReplyTimeout,
+            postReplyReassignAfterMins: postReplyReassign,
             notifyManagerOnEscalation: notifyMgr,
           })
         }

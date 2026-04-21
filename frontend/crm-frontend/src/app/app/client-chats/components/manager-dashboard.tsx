@@ -512,17 +512,43 @@ function LiveDashboardTab() {
                 </tr>
               </thead>
               <tbody>
-                {data.recentEscalations.slice(0, 20).map((ev) => (
+                {data.recentEscalations.slice(0, 20).map((ev) => {
+                  // Map event-type enum to user-friendly pill label + color.
+                  // Covers:
+                  //   - First-response: TIMEOUT_WARNING (warn), AUTO_UNASSIGN / legacy AUTO_REASSIGN (critical)
+                  //   - Post-reply silence: POST_REPLY_TIMEOUT_WARNING (warn), POST_REPLY_AUTO_UNASSIGN (critical)
+                  //   - MANAGER_NOTIFIED (info)
+                  // Any unmapped type falls through to a blue pill showing the
+                  // raw type, so we see it if a new enum value is added.
+                  const isWarning =
+                    ev.type === "TIMEOUT_WARNING" ||
+                    ev.type === "POST_REPLY_TIMEOUT_WARNING";
+                  const isCritical =
+                    ev.type === "AUTO_UNASSIGN" ||
+                    ev.type === "AUTO_REASSIGN" ||
+                    ev.type === "POST_REPLY_AUTO_UNASSIGN";
+                  const pillClass = isWarning
+                    ? "bg-amber-50 text-amber-700"
+                    : isCritical
+                      ? "bg-red-50 text-red-700"
+                      : "bg-blue-50 text-blue-700";
+                  const label =
+                    ev.type === "TIMEOUT_WARNING"
+                      ? "SLA Warning"
+                      : ev.type === "POST_REPLY_TIMEOUT_WARNING"
+                        ? "Post-Reply Silence"
+                        : ev.type === "AUTO_UNASSIGN" || ev.type === "AUTO_REASSIGN"
+                          ? "Auto-Unassigned"
+                          : ev.type === "POST_REPLY_AUTO_UNASSIGN"
+                            ? "Unassigned (Silence)"
+                            : ev.type === "MANAGER_NOTIFIED"
+                              ? "Manager Notified"
+                              : ev.type;
+                  return (
                   <tr key={ev.id} className="border-b border-zinc-50 hover:bg-zinc-50/50">
                     <td className="py-2 px-3">
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
-                        ev.type === "TIMEOUT_WARNING" ? "bg-amber-50 text-amber-700" :
-                        ev.type === "AUTO_REASSIGN" ? "bg-red-50 text-red-700" :
-                        "bg-blue-50 text-blue-700"
-                      }`}>
-                        {ev.type === "TIMEOUT_WARNING" ? "SLA Warning" :
-                         ev.type === "AUTO_REASSIGN" ? "Auto-Reassigned" :
-                         ev.type === "MANAGER_NOTIFIED" ? "Manager Notified" : ev.type}
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${pillClass}`}>
+                        {label}
                       </span>
                     </td>
                     <td className="py-2 px-3 text-zinc-600">
@@ -530,7 +556,8 @@ function LiveDashboardTab() {
                     </td>
                     <td className="text-right py-2 px-3 text-zinc-400">{timeAgo(ev.createdAt)}</td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

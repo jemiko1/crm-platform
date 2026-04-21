@@ -2144,11 +2144,20 @@ enum QualityReviewStatus {
 }
 
 model ClientChatEscalationConfig {
-  id                        String   @id @default(uuid())
-  firstResponseTimeoutMins  Int      @default(5)
-  reassignAfterMins         Int      @default(10)
-  notifyManagerOnEscalation Boolean  @default(true)
-  updatedAt                 DateTime @updatedAt
+  id                         String   @id @default(uuid())
+  // First-response SLA: operator has N minutes to send their first reply
+  // after a new conversation is assigned. Two thresholds: warn → unassign.
+  firstResponseTimeoutMins   Int      @default(5)
+  reassignAfterMins          Int      @default(10)
+  // Silence-after-reply SLA (added April 2026 audit, Q1 decision B):
+  // after the operator's first response, each subsequent customer message
+  // starts a new silence clock. If operator doesn't reply to the customer's
+  // latest message within these thresholds, the same warn/unassign sequence
+  // fires. Set either field to 0 to disable that side of the check.
+  postReplyTimeoutMins       Int      @default(10)
+  postReplyReassignAfterMins Int      @default(20)
+  notifyManagerOnEscalation  Boolean  @default(true)
+  updatedAt                  DateTime @updatedAt
 }
 
 model ClientChatEscalationEvent {
