@@ -381,6 +381,37 @@ Complete API route documentation for CRM Platform backend.
 
 ---
 
+## Operator Breaks
+
+**File**: `src/telephony/controllers/operator-break.controller.ts` (break-feature-backend PR)  
+**Base Route**: `/v1/telephony/breaks`  
+**Guards**: `JwtAuthGuard` on all; `PositionPermissionGuard` with `call_center.manage` on the manager endpoints.
+
+Operator break lifecycle: softphone button → unregister SIP → countdown modal → resume. Backend tracks sessions for logging + manager visibility. No manager force-end (per business decision).
+
+**Operator endpoints (caller's own break):**
+- `POST /v1/telephony/breaks/start` - Start a break for the current user. Validates: user has an active `TelephonyExtension`; not currently on an active call (checked against `TelephonyStateManager` presence `ON_CALL`/`RINGING`); no existing active break. Returns `{ id, startedAt, extension }`. Errors: 400 (no extension / on-call), 409 (already on break).
+- `POST /v1/telephony/breaks/end` - End the current user's active break. Idempotent — returns `null` if no active break. Returns `{ id, startedAt, endedAt, durationSec }`.
+- `GET /v1/telephony/breaks/my-current` - Get the current user's active break (or `null`). Used by the softphone to restore the countdown after reload.
+
+**Manager endpoints:**
+- `GET /v1/telephony/breaks/current` - All currently-active breaks across operators. Permission: `call_center.manage`. Returns `[{ id, userId, userName, extension, startedAt, elapsedSec }]`.
+- `GET /v1/telephony/breaks/history` - Paginated history of finished sessions. Permission: `call_center.manage`. Query params:
+    - `userId` - filter to one operator
+    - `from`, `to` - ISO 8601 date range (filters on `startedAt`)
+    - `includeAutoEnded=false` - excludes system-ended rows (default: include)
+    - `page`, `pageSize` (max 200)
+
+**Auto-close cron:** every 30 min, `OperatorBreakService.autoCloseStaleBreaks()` closes any active session that:
+1. Started earlier today AND now is past `COMPANY_WORK_END_HOUR` (default 19) — `autoEndReason='company_hours_end'`
+2. Started more than 12h ago — `autoEndReason='max_duration_exceeded'` (defensive cap)
+
+Both paths set `isAutoEnded=true` and stale-guard the update with `WHERE endedAt IS NULL` (race-safe against operator-initiated end during the scan).
+
+**Socket events** (emitted to managers on `/telephony`): planned for manager UI PR — NOT yet emitted from this backend-only PR.
+
+---
+
 ## Client Chats Queue Management (Manager)
 
 **File**: `src/clientchats/controllers/clientchats-manager.controller.ts`  

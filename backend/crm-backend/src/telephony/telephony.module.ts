@@ -32,6 +32,8 @@ import { RecordingAccessService } from './recording/recording-access.service';
 import { QualityPipelineService } from './quality/quality-pipeline.service';
 import { MissedCallsService } from './services/missed-calls.service';
 import { MissedCallsController } from './controllers/missed-calls.controller';
+import { OperatorBreakService } from './services/operator-break.service';
+import { OperatorBreakController } from './controllers/operator-break.controller';
 import { DataScopeService } from '../common/utils/data-scope';
 
 @Module({
@@ -55,6 +57,7 @@ import { DataScopeService } from '../common/utils/data-scope';
     TelephonySipCredentialsController,
     TelephonyPresenceController,
     MissedCallsController,
+    OperatorBreakController,
   ],
   providers: [
     AgentPresenceService,
@@ -75,6 +78,7 @@ import { DataScopeService } from '../common/utils/data-scope';
     RecordingAccessService,
     QualityPipelineService,
     MissedCallsService,
+    OperatorBreakService,
     DataScopeService,
   ],
   exports: [
@@ -90,6 +94,7 @@ import { DataScopeService } from '../common/utils/data-scope';
     TelephonyStateManager,
     AriClientService,
     MissedCallsService,
+    OperatorBreakService,
   ],
 })
 export class TelephonyModule {}
