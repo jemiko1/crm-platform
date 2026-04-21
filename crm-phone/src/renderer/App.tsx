@@ -177,6 +177,7 @@ export function App() {
       onBreakStart={breakState.start}
       dndEnabled={dndState.enabled}
       dndLoading={dndState.loading}
+      dndError={dndState.error}
       onDndToggle={handleDndToggle}
     />
   );

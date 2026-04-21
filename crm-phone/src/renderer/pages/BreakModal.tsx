@@ -52,8 +52,8 @@ export function BreakModal(props: Props) {
       <div style={styles.body}>
         <div style={styles.iconCircle}>
           <svg
-            width="48"
-            height="48"
+            width="34"
+            height="34"
             viewBox="0 0 24 24"
             fill="none"
             stroke="#f59e0b"
@@ -134,30 +134,38 @@ const styles: Record<string, React.CSSProperties> = {
     textTransform: "uppercase",
   },
   body: {
+    // At the softphone's minimum window size (340x500) the previous
+    // `justifyContent: center` + 2rem padding caused the Log Out
+    // button and footNote to overflow off-screen. Switch to
+    // `justifyContent: flex-start` + scroll overflow so the modal
+    // stays usable at any window size the user drags to (v1.10.2).
     flex: 1,
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    justifyContent: "center",
-    padding: "2rem 1.5rem",
-    gap: "1rem",
+    justifyContent: "flex-start",
+    padding: "1.25rem 1.25rem 1rem",
+    gap: "0.75rem",
+    overflowY: "auto",
   },
   iconCircle: {
-    width: 88,
-    height: 88,
+    width: 64,
+    height: 64,
     borderRadius: "50%",
     background: "rgba(245, 158, 11, 0.15)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: "0.5rem",
+    marginTop: "0.5rem",
+    flexShrink: 0,
   },
   elapsed: {
     color: "#fef3c7",
-    fontSize: "3.5rem",
+    fontSize: "2.75rem",
     fontWeight: 300,
     fontVariantNumeric: "tabular-nums",
     letterSpacing: "0.02em",
+    lineHeight: 1,
   },
   caption: {
     color: "#cbd5e1",
