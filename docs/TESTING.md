@@ -473,3 +473,68 @@ event must NOT overwrite existing non-null fields on a finalized CallSession.
 
 PASS when: terminal fields unchanged; log message present; no duplicate
 CallLeg or CallMetrics rows created.
+
+---
+
+## Client-Chats Scenario Runner (PR #281)
+
+`scripts/clientchats-scenario-runner.ts` — automated end-to-end harness
+that scripts the customer + operator + manager roles against the real
+HTTP API so multi-role scenarios can be tested without human
+coordination.
+
+Covers the April 2026 audit fixes:
+- **A1** — [Chat started] placeholder excluded from first-response calc
+- **A2** — manager-assignConversation stamps joinedAt
+- **A3** — reopen clears firstResponseAt + joinedAt
+- **Q1 decision B** — silence-after-first-reply escalation (warn + unassign)
+
+### Run
+
+```bash
+# Local
+npx tsx scripts/clientchats-scenario-runner.ts
+
+# Specific scenario only
+npx tsx scripts/clientchats-scenario-runner.ts --scenario=3
+
+# Against staging
+BASE_URL=https://crm28demo.asg.ge \
+  ADMIN_EMAIL=admin@crm.local ADMIN_PASSWORD=... \
+  npx tsx scripts/clientchats-scenario-runner.ts
+
+# Cleanup — delete all scenario-runner-prefixed conversations
+npx tsx scripts/clientchats-scenario-runner.ts --cleanup
+```
+
+### Scenarios (5)
+
+| # | Name | Runtime |
+|---|---|---|
+| 1 | Happy path (widget → join → reply → close) | ~5s |
+| 2 | A2: manager-assigned stamps joinedAt | ~5s |
+| 3 | A3: reopen clears SLA clock | ~5s |
+| 4 | Q1-B: silence escalation (warn + unassign) | ~5 min (real cron ticks) |
+| 5 | A1: live-status sanity check | ~10s |
+
+Full suite: ~10-12 minutes including inter-scenario 13s rate-limit
+delays and scenario 4's SLA waits.
+
+### Safety
+
+All synthetic conversations use `externalConversationId` prefix
+`scenario-runner-<ISO-timestamp>-`. Cleanup mode finds + deletes them via
+the API (`DELETE /v1/clientchats/queue/conversations/:id`), with a SQL
+fallback printed for older runs.
+
+**Run against production ONLY during maintenance windows.** The script
+tightens SLA thresholds during scenario 4 (1 min warn / 3 min unassign)
+and restores the original values in a `finally` block. A warning + the
+original values are printed if the restore fails.
+
+### Rate-limit note
+
+`POST /public/clientchats/start` is capped at 5 req/60s per IP. The
+script auto-sleeps 13s between scenarios to stay under the cap. If you
+see 429 errors, reduce to `--scenario=` and run individually.
+
