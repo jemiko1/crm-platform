@@ -76,6 +76,22 @@ This is a stable URL that always points to the latest installer.
 
 ## Changelog
 
+### v1.10.1 — Auto-updater hotfix (April 2026)
+
+Fixes `Update error: (0, builder_util_runtime_1.retry) is not a function` when clicking "Check for Updates" on v1.9.0 / v1.10.0 installs.
+
+Root cause: a copy of `builder-util-runtime@9.2.4` (from `electron-builder`'s own deps, missing the `retry` export added in 9.3.x) was being packaged into the asar instead of the `9.5.1` copy that `electron-updater@6.8.3` requires. At runtime the updater called `retry(...)` on the wrong module and crashed.
+
+Four-part fix (all four are load-bearing — see CLAUDE.md Silent Override Risk #22):
+- **`.npmrc` — `shamefully-hoist=true`.** Forces pnpm to expose every transitive dep at top-level, matching the flat layout that `electron-builder` expects.
+- **`pnpm.overrides` in `package.json`.** Pins `builder-util-runtime` to `9.5.1` and pre-emptively pins `fs-extra`, `js-yaml`, `semver`, `lazy-val` (all shared between `electron-builder` and `electron-updater`) to avoid the same failure mode on a future dep bump.
+- **`packageManager: "pnpm@10.27.0"` in `package.json`.** Corepack refuses wrong-manager installs; the `pnpm.overrides` field is silently ignored by npm, so an accidental `npm install` would reintroduce the bug without this pin.
+- **Removed `package-lock.json`.** A stale npm lockfile would override `pnpm.overrides`. `pnpm-lock.yaml` is now the canonical lockfile.
+
+Verified post-build: extracted `release/win-unpacked/resources/app.asar` contains `builder-util-runtime@9.5.1` with `exports.retry = retry` and a matching `retry.js` sibling.
+
+No functional changes to Break or DND.
+
 ### v1.10.0 — Break + DND (April 2026)
 
 - **Break** — New button in footer. Click → confirm → softphone fully unregisters from SIP for the break → fullscreen countdown modal → click Resume to re-register. Backend `POST /v1/telephony/breaks/start` is called BEFORE SIP unregisters so the CRM audit log and manager live-monitor see the state change instantly.
