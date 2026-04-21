@@ -5,6 +5,7 @@ import { TelephonyStateManager } from '../realtime/telephony-state.manager';
 import { AmiClientService } from '../ami/ami-client.service';
 import { TelephonyCallsService } from '../services/telephony-calls.service';
 import { AgentPresenceService } from '../services/agent-presence.service';
+import { OperatorBreakService } from '../services/operator-break.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 describe('TelephonyGateway', () => {
@@ -26,6 +27,13 @@ describe('TelephonyGateway', () => {
     };
 
     const mockPresence = { onStaleFlipped: undefined };
+    // OperatorBreakService hooks are set by gateway.onModuleInit (not
+    // exercised here since we test it post-bootstrap). Mutable object
+    // so the gateway can write the callback back onto it.
+    const mockBreak: {
+      onBreakStarted?: unknown;
+      onBreakEnded?: unknown;
+    } = { onBreakStarted: undefined, onBreakEnded: undefined };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -36,6 +44,7 @@ describe('TelephonyGateway', () => {
         { provide: TelephonyCallsService, useValue: mockCalls },
         { provide: PrismaService, useValue: { telephonyExtension: { findFirst: jest.fn() }, callSession: { findUnique: jest.fn() }, client: { findFirst: jest.fn() } } },
         { provide: AgentPresenceService, useValue: mockPresence },
+        { provide: OperatorBreakService, useValue: mockBreak },
       ],
     }).compile();
 
@@ -187,6 +196,7 @@ describe('TelephonyGateway', () => {
           { provide: TelephonyCallsService, useValue: { lookupPhone: jest.fn() } },
           { provide: PrismaService, useValue: { telephonyExtension: { findFirst: jest.fn() }, callSession: { findUnique: jest.fn() }, client: { findFirst: jest.fn() } } },
           { provide: AgentPresenceService, useValue: { onStaleFlipped: undefined } },
+          { provide: OperatorBreakService, useValue: { onBreakStarted: undefined, onBreakEnded: undefined } },
         ],
       }).compile();
       const realGateway = realModule.get<TelephonyGateway>(TelephonyGateway);

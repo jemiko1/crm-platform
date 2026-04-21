@@ -395,8 +395,8 @@ Operator break lifecycle: softphone button → unregister SIP → countdown moda
 - `GET /v1/telephony/breaks/my-current` - Get the current user's active break (or `null`). Used by the softphone to restore the countdown after reload.
 
 **Manager endpoints:**
-- `GET /v1/telephony/breaks/current` - All currently-active breaks across operators. Permission: `call_center.manage`. Returns `[{ id, userId, userName, extension, startedAt, elapsedSec }]`.
-- `GET /v1/telephony/breaks/history` - Paginated history of finished sessions. Permission: `call_center.manage`. Query params:
+- `GET /v1/telephony/breaks/current` - All currently-active breaks across operators. Permission: `call_center.live`. Returns `[{ id, userId, userName, extension, startedAt, elapsedSec }]`.
+- `GET /v1/telephony/breaks/history` - Paginated history of finished sessions. Permission: `call_center.statistics`. Query params:
     - `userId` - filter to one operator
     - `from`, `to` - ISO 8601 date range (filters on `startedAt`)
     - `includeAutoEnded=false` - excludes system-ended rows (default: include)
@@ -408,7 +408,9 @@ Operator break lifecycle: softphone button → unregister SIP → countdown moda
 
 Both paths set `isAutoEnded=true` and stale-guard the update with `WHERE endedAt IS NULL` (race-safe against operator-initiated end during the scan).
 
-**Socket events** (emitted to managers on `/telephony`): planned for manager UI PR — NOT yet emitted from this backend-only PR.
+**Socket events** (emitted to managers on `/telephony`, added in manager-UI PR):
+- `operator:break:started` — payload `{ sessionId, userId, extension, startedAt }`. Emitted to `dashboard` + `agent:<userId>` rooms on successful `POST /breaks/start`.
+- `operator:break:ended` — payload `{ sessionId, userId, extension, startedAt, endedAt, durationSec, isAutoEnded, autoEndReason }`. Emitted on operator-initiated end AND cron auto-close.
 
 ---
 

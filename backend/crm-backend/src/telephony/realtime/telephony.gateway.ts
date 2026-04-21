@@ -17,6 +17,7 @@ import type { ActiveCall, AgentState } from './telephony-state.manager';
 import { AmiClientService } from '../ami/ami-client.service';
 import { TelephonyCallsService } from '../services/telephony-calls.service';
 import { AgentPresenceService } from '../services/agent-presence.service';
+import { OperatorBreakService } from '../services/operator-break.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { RawAmiEvent } from '../ami/ami.types';
 
@@ -58,6 +59,7 @@ export class TelephonyGateway
     private readonly callsService: TelephonyCallsService,
     private readonly prisma: PrismaService,
     private readonly presenceService: AgentPresenceService,
+    private readonly breakService: OperatorBreakService,
   ) {}
 
   onModuleInit() {
@@ -86,6 +88,29 @@ export class TelephonyGateway
         sipStaleFlip: true,
         timestamp: new Date().toISOString(),
       });
+    };
+
+    // Operator break events — dashboards need these live so the "On break"
+    // badge + Breaks tab update without polling. Dashboard gets both
+    // started/ended; the operator's own agent room ALSO gets them so
+    // the softphone can restore countdown state on reconnect (future
+    // softphone v1.10.0 PR — no consumer yet, harmless no-op).
+    this.breakService.onBreakStarted = (payload) => {
+      const envelope = {
+        ...payload,
+        startedAt: payload.startedAt.toISOString(),
+      };
+      this.server.to('dashboard').emit('operator:break:started', envelope);
+      this.server.to(`agent:${payload.userId}`).emit('operator:break:started', envelope);
+    };
+    this.breakService.onBreakEnded = (payload) => {
+      const envelope = {
+        ...payload,
+        startedAt: payload.startedAt.toISOString(),
+        endedAt: payload.endedAt.toISOString(),
+      };
+      this.server.to('dashboard').emit('operator:break:ended', envelope);
+      this.server.to(`agent:${payload.userId}`).emit('operator:break:ended', envelope);
     };
   }
 
