@@ -98,6 +98,38 @@ export interface CallerLookupIncident {
   createdAt: string;
 }
 
+/**
+ * Operator break session (v1.10.0). The softphone unregisters SIP for
+ * the duration of a break — queue dispatch stops, inbound direct calls
+ * stop, the operator cannot dial. `id` + `startedAt` drive the elapsed
+ * counter in the modal. Backend auto-closes stale sessions at end of
+ * business hours + via a 12h hard cap (see audit/CURRENT_WORKSTREAM.md).
+ */
+export interface BreakSession {
+  id: string;
+  startedAt: string; // ISO 8601
+  extension: string;
+}
+
+/**
+ * Response from GET /v1/telephony/breaks/my-current. Null means the
+ * operator has no active break. Cold-start path uses this to decide
+ * whether to show the Break modal on app restore.
+ */
+export type MyCurrentBreak = BreakSession | null;
+
+/**
+ * Do-Not-Disturb state. `enabled=true` means the operator's extension
+ * is paused in all queues (queue dispatch skips them) but SIP remains
+ * registered. Direct extension-to-extension calls still ring.
+ * Hydrated from GET /v1/telephony/dnd/my-state which reads live AMI
+ * cache — no DB persistence (see CLAUDE.md Silent Override Risk #20).
+ */
+export interface DndState {
+  enabled: boolean;
+  extension: string | null;
+}
+
 export interface CallerLookupResult {
   client?: CallerLookupClient;
   lead?: {

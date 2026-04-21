@@ -99,4 +99,31 @@ contextBridge.exposeInMainWorld("crmPhone", {
       return () => ipcRenderer.removeListener(IPC.UPDATE_STATUS, handler);
     },
   },
+  /**
+   * Operator break (v1.10.0). All three calls hit the main-process IPC
+   * handler which performs the authenticated backend fetch. Unlike DND,
+   * Break also drives a full SIP unregister on start and re-register
+   * on end — the renderer coordinates the SIP transition AFTER the
+   * backend acknowledges the state change (so a race between the
+   * backend POST and the SIP unregister can't leave Asterisk queuing
+   * calls to a desk that has since gone on break).
+   */
+  break: {
+    start: () => ipcRenderer.invoke(IPC.BREAK_START),
+    end: () => ipcRenderer.invoke(IPC.BREAK_END),
+    myCurrent: () => ipcRenderer.invoke(IPC.BREAK_MY_CURRENT),
+  },
+  /**
+   * Do-Not-Disturb (v1.10.0). Softphone stays registered — backend
+   * sends AMI `QueuePause` to pause the extension in all queues the
+   * extension is a member of. Direct extension calls and outbound
+   * dialing are unaffected. State lives in Asterisk only (see CLAUDE.md
+   * Silent Override Risk #20) so `myState` queries the live AMI cache,
+   * not the CRM DB.
+   */
+  dnd: {
+    enable: () => ipcRenderer.invoke(IPC.DND_ENABLE),
+    disable: () => ipcRenderer.invoke(IPC.DND_DISABLE),
+    myState: () => ipcRenderer.invoke(IPC.DND_MY_STATE),
+  },
 });
