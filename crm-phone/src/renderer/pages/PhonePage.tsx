@@ -17,13 +17,26 @@ interface Props {
   onHangup: () => Promise<void>;
   onHold: () => Promise<void>;
   onUnhold: () => Promise<void>;
-  onDtmf: (tone: string) => Promise<void>;
-  onToggleMute: () => Promise<void>;
+  onDtmf: (tone: string) => void;
+  onToggleMute: () => void;
   onLogout: () => Promise<void>;
   /** Number requested from an external source (CRM click-to-call). Loads
    *  into the dial input but does NOT auto-dial. */
   prefillNumber?: string | null;
   onPrefillConsumed?: () => void;
+  // ── v1.10.0 break + DND props ──
+  /** True while a break-start request is in flight. Disables the button
+   *  so a double-click doesn't queue two starts. */
+  breakStarting: boolean;
+  /** Human-readable error from the last failed break-start attempt.
+   *  Rendered inline under the button. */
+  breakError: string | null;
+  /** Invoked by the Break button. Parent coordinates SIP unregister +
+   *  modal render when the promise resolves true. */
+  onBreakStart: () => Promise<boolean>;
+  dndEnabled: boolean;
+  dndLoading: boolean;
+  onDndToggle: (target: boolean) => Promise<void>;
 }
 
 const DTMF_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
@@ -33,6 +46,8 @@ export function PhonePage(props: Props) {
     session, sipRegistered, callState, activeCall, muted,
     onDial, onAnswer, onHangup, onHold, onUnhold, onDtmf, onToggleMute, onLogout,
     prefillNumber, onPrefillConsumed,
+    breakStarting, breakError, onBreakStart,
+    dndEnabled, dndLoading, onDndToggle,
   } = props;
   const [dialNumber, setDialNumber] = useState("");
   const [showSettings, setShowSettings] = useState(false);
@@ -144,6 +159,30 @@ export function PhonePage(props: Props) {
           <span style={styles.extLabel}>Ext {ext}</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          {/* DND toggle — only shown when registered + has extension, so
+              we never let the user fire an AMI QueuePause for an
+              extension that doesn't exist or is offline. */}
+          {sipRegistered && session.telephonyExtension && (
+            <button
+              onClick={() => {
+                if (dndLoading) return;
+                onDndToggle(!dndEnabled);
+              }}
+              disabled={dndLoading}
+              aria-label={
+                dndEnabled ? "Do Not Disturb is on" : "Do Not Disturb is off"
+              }
+              aria-pressed={dndEnabled}
+              title={
+                dndEnabled
+                  ? "Do Not Disturb is on — queue calls skip you. Click to turn off."
+                  : "Turn on Do Not Disturb — queue calls will skip your extension."
+              }
+              style={dndEnabled ? styles.dndBtnActive : styles.dndBtn}
+            >
+              {dndLoading ? "…" : "DND"}
+            </button>
+          )}
           <span style={{
             ...styles.sipDot,
             background: sipRegistered ? "#22c55e" : "#ef4444",
@@ -298,9 +337,55 @@ export function PhonePage(props: Props) {
             No extension assigned. Contact admin.
           </div>
         )}
-        <button onClick={onLogout} style={styles.logoutBtn}>
-          Log Out
-        </button>
+        {breakError && (
+          <div style={styles.breakError}>{breakError}</div>
+        )}
+        <div style={styles.footerButtons}>
+          {/* Break — gated on SIP registered + idle. We don't allow
+              starting a break during an active call; the backend
+              would reject with 400 anyway (`on an active call`), but
+              disabling the button is faster feedback. */}
+          {session.telephonyExtension && (
+            <button
+              onClick={async () => {
+                if (breakStarting) return;
+                // Friendly confirm — we don't want an accidental click
+                // to tear down SIP during a busy call-center shift.
+                const ok = window.confirm(
+                  "Start a break?\n\nYou'll be unregistered from the phone system until you resume.",
+                );
+                if (!ok) return;
+                await onBreakStart();
+              }}
+              disabled={
+                breakStarting ||
+                !sipRegistered ||
+                callState !== "idle"
+              }
+              title={
+                !sipRegistered
+                  ? "You must be registered to start a break"
+                  : callState !== "idle"
+                    ? "Finish the current call before taking a break"
+                    : "Start a break — SIP will be unregistered"
+              }
+              style={{
+                ...styles.breakBtn,
+                opacity:
+                  breakStarting || !sipRegistered || callState !== "idle" ? 0.5 : 1,
+                cursor:
+                  breakStarting || !sipRegistered || callState !== "idle"
+                    ? "not-allowed"
+                    : "pointer",
+              }}
+            >
+              {breakStarting ? "Starting…" : "Break"}
+            </button>
+          )}
+          <button onClick={onLogout} style={styles.logoutBtn}>
+            Log Out
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -507,7 +592,7 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: "center" as const,
   },
   logoutBtn: {
-    width: "100%",
+    flex: 1,
     padding: "0.5rem",
     borderRadius: "0.375rem",
     border: "1px solid #334155",
@@ -515,5 +600,50 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#94a3b8",
     fontSize: "0.8rem",
     cursor: "pointer",
+  },
+  footerButtons: {
+    display: "flex",
+    gap: "0.5rem",
+  },
+  breakBtn: {
+    flex: 1,
+    padding: "0.5rem",
+    borderRadius: "0.375rem",
+    border: "1px solid #f59e0b",
+    background: "#78350f33",
+    color: "#fbbf24",
+    fontSize: "0.8rem",
+    fontWeight: 600,
+  },
+  breakError: {
+    padding: "0.4rem 0.5rem",
+    borderRadius: "0.375rem",
+    background: "rgba(220, 38, 38, 0.15)",
+    border: "1px solid rgba(220, 38, 38, 0.35)",
+    color: "#fca5a5",
+    fontSize: "0.72rem",
+    textAlign: "center" as const,
+  },
+  dndBtn: {
+    padding: "2px 8px",
+    fontSize: "0.7rem",
+    fontWeight: 700,
+    borderRadius: "0.25rem",
+    border: "1px solid #334155",
+    background: "transparent",
+    color: "#64748b",
+    cursor: "pointer",
+    letterSpacing: "0.05em",
+  },
+  dndBtnActive: {
+    padding: "2px 8px",
+    fontSize: "0.7rem",
+    fontWeight: 700,
+    borderRadius: "0.25rem",
+    border: "1px solid #ef4444",
+    background: "#7f1d1d",
+    color: "#fecaca",
+    cursor: "pointer",
+    letterSpacing: "0.05em",
   },
 };

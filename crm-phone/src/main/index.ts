@@ -364,6 +364,66 @@ function setupIpc(): void {
     } catch { return []; }
   });
 
+  // ────────────────────────────────────────────────────────────
+  // Break + DND (v1.10.0). Every handler below is a thin
+  // authenticated-fetch wrapper around the CRM backend. The JWT never
+  // leaves the main process. On failure we return a well-shaped
+  // `{ ok: false, reason }` so the renderer can show a specific error
+  // without leaking internals.
+  // ────────────────────────────────────────────────────────────
+
+  async function callBackend(
+    method: "GET" | "POST",
+    path: string,
+  ): Promise<{ ok: true; data: any } | { ok: false; status?: number; reason: string }> {
+    const session = getSession();
+    if (!session) return { ok: false, reason: "no-session" };
+    try {
+      const baseUrl = getCrmBaseUrl();
+      const res = await fetch(`${baseUrl}${path}`, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.accessToken}`,
+        },
+      });
+      if (res.status === 401) {
+        console.log(`[BREAK/DND] 401 from ${path} — JWT expired, clearing session`);
+        setSession(null);
+        onSoftphoneLogout();
+        return { ok: false, status: 401, reason: "unauthorized" };
+      }
+      if (!res.ok) {
+        // Try to pick up a specific message (e.g. "on an active call", "no extension")
+        let reason = `http-${res.status}`;
+        try {
+          const body = (await res.json()) as { message?: string };
+          if (body.message) reason = body.message;
+        } catch { /* non-JSON body — keep default */ }
+        return { ok: false, status: res.status, reason };
+      }
+      // Some endpoints return 200 with no body (e.g. /breaks/end returns null when idempotent)
+      const text = await res.text();
+      const data = text ? JSON.parse(text) : null;
+      return { ok: true, data };
+    } catch (err: any) {
+      // Log only the short error code / name, not `err.message`. Node's
+      // undici has historically surfaced full request URLs (potentially
+      // with secrets in query strings) inside error messages. Code-
+      // reviewer W3 (v1.10.0) flagged this as precautionary hardening.
+      const shortError = err?.code ?? err?.name ?? "unknown";
+      console.log(`[BREAK/DND] Network error on ${path}:`, shortError);
+      return { ok: false, reason: "network-error" };
+    }
+  }
+
+  ipcMain.handle(IPC.BREAK_START, () => callBackend("POST", "/v1/telephony/breaks/start"));
+  ipcMain.handle(IPC.BREAK_END, () => callBackend("POST", "/v1/telephony/breaks/end"));
+  ipcMain.handle(IPC.BREAK_MY_CURRENT, () => callBackend("GET", "/v1/telephony/breaks/my-current"));
+  ipcMain.handle(IPC.DND_ENABLE, () => callBackend("POST", "/v1/telephony/dnd/enable"));
+  ipcMain.handle(IPC.DND_DISABLE, () => callBackend("POST", "/v1/telephony/dnd/disable"));
+  ipcMain.handle(IPC.DND_MY_STATE, () => callBackend("GET", "/v1/telephony/dnd/my-state"));
+
   ipcMain.handle("debug:get-log-path", () => logFile);
   ipcMain.handle("debug:get-logs", () => {
     try { return fs.readFileSync(logFile, "utf-8"); } catch { return "No log file"; }

@@ -50,4 +50,17 @@ export const IPC = {
   UPDATE_STATUS: "update:status",
   UPDATE_INSTALL: "update:install",
   UPDATE_GET_VERSION: "update:get-version",
+
+  /**
+   * Break / DND channels (v1.10.0). All handlers live in the main
+   * process so the JWT never leaves secure context. Break goes through
+   * a full SIP unregister on start + re-register on resume; DND only
+   * flips the AMI QueuePause flag and leaves SIP alone.
+   */
+  BREAK_START: "break:start",
+  BREAK_END: "break:end",
+  BREAK_MY_CURRENT: "break:my-current",
+  DND_ENABLE: "dnd:enable",
+  DND_DISABLE: "dnd:disable",
+  DND_MY_STATE: "dnd:my-state",
 } as const;
