@@ -380,15 +380,25 @@ describe('ClientChatsCoreService', () => {
   });
 
   describe('assignConversation', () => {
-    it('should update assignedUserId', async () => {
-      prisma.clientChatConversation.findUnique.mockResolvedValue({ id: 'conv-1' });
+    it('should update assignedUserId and stamp joinedAt for previously-unassigned conversation', async () => {
+      // A2 bug fix (April 2026 audit): manager hand-assignment stamps joinedAt
+      // so pickup-time and resolution-time analytics don't silently drop it.
+      prisma.clientChatConversation.findUnique.mockResolvedValue({
+        id: 'conv-1',
+        assignedUserId: null,
+        joinedAt: null,
+      });
 
       await service.assignConversation('conv-1', 'user-2');
 
       expect(prisma.clientChatConversation.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'conv-1' },
-          data: { assignedUserId: 'user-2', lastOperatorActivityAt: null },
+          data: expect.objectContaining({
+            assignedUserId: 'user-2',
+            lastOperatorActivityAt: null,
+            joinedAt: expect.any(Date),
+          }),
         }),
       );
     });

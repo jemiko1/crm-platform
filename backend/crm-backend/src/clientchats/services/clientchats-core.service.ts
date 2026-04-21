@@ -602,9 +602,22 @@ export class ClientChatsCoreService {
 
     const previousAssignedUserId = conversation.assignedUserId;
 
+    // Bug A2 fix: when a manager hand-assigns a conversation to an operator,
+    // treat it as a pickup event and stamp joinedAt (if not already set).
+    // Previously only self-pickup via joinConversation() set this field, which
+    // silently excluded manager-assigned conversations from pickup-time and
+    // resolution-time analytics. See audit/CLIENTCHATS_ANALYTICS_BUGS.md.
+    const data: Record<string, unknown> = {
+      assignedUserId: userId,
+      lastOperatorActivityAt: null,
+    };
+    if (userId && !conversation.joinedAt) {
+      data.joinedAt = new Date();
+    }
+
     const updated = await this.prisma.clientChatConversation.update({
       where: { id: conversationId },
-      data: { assignedUserId: userId, lastOperatorActivityAt: null },
+      data,
     });
     this.events.emitConversationUpdated(updated as any, previousAssignedUserId);
     return updated;
@@ -779,15 +792,25 @@ export class ClientChatsCoreService {
     });
     if (!conversation) throw new NotFoundException('Conversation not found');
 
+    // Bug A3 fix: reopen resets the SLA clock. Without this, a reopened
+    // conversation inherits firstResponseAt/joinedAt from the original thread,
+    // making it impossible for the escalation service to detect operator
+    // silence on the reopened version (the `firstResponseAt IS NULL` filter
+    // excludes them) and inflating analytics with stale response times.
+    // If `keepOperator: false`, clear joinedAt too — the new operator hasn't
+    // picked it up yet. If `keepOperator: true`, clear only firstResponseAt
+    // (they kept the handler, but the clock for their next reply restarts).
     const data: Record<string, unknown> = {
       status: ClientChatStatus.LIVE,
       resolvedAt: null,
+      firstResponseAt: null,
       reopenRequestedBy: null,
       reopenRequestedAt: null,
     };
 
     if (!keepOperator) {
       data.assignedUserId = null;
+      data.joinedAt = null;
     }
 
     const updated = await this.prisma.clientChatConversation.update({
