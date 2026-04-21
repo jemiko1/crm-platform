@@ -43,6 +43,7 @@ export class MissedCallsService {
   async findAll(params: {
     status?: string;
     queueId?: string;
+    reason?: string; // MissedCallReason filter (e.g. OUT_OF_HOURS)
     claimedByMe?: string; // userId to filter "my claims"
     page?: number;
     pageSize?: number;
@@ -62,6 +63,20 @@ export class MissedCallsService {
 
     if (params.queueId) {
       where.queueId = params.queueId;
+    }
+
+    // Allow filtering by reason (OUT_OF_HOURS / ABANDONED / NO_ANSWER).
+    // Validated against the known enum values; unknown values fall through
+    // to "no filter" rather than throwing, so a stale frontend wouldn't
+    // break the list. (Added April 2026 for after-hours queue support.)
+    if (
+      params.reason &&
+      ['OUT_OF_HOURS', 'ABANDONED', 'NO_ANSWER'].includes(params.reason)
+    ) {
+      where.reason = params.reason as
+        | 'OUT_OF_HOURS'
+        | 'ABANDONED'
+        | 'NO_ANSWER';
     }
 
     if (params.claimedByMe) {
@@ -94,6 +109,16 @@ export class MissedCallsService {
       ? Prisma.sql`AND mc."claimedByUserId" = ${params.claimedByMe}`
       : Prisma.empty;
 
+    // Reason filter: only applied when one of the known enum values. The
+    // validation above already filters out unknowns from `where.reason`,
+    // so we re-check here rather than risk SQL injection through the
+    // untrusted string. Enum-literal-safe Prisma.sql.
+    const reasonCondition =
+      params.reason &&
+      ['OUT_OF_HOURS', 'ABANDONED', 'NO_ANSWER'].includes(params.reason)
+        ? Prisma.sql`AND mc."reason" = ${params.reason}::"MissedCallReason"`
+        : Prisma.empty;
+
     // Get distinct caller numbers' latest MissedCall IDs, ordered newest first,
     // paginated. The inner query picks one row per number (the most recent).
     const idRows = await this.prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
@@ -106,6 +131,7 @@ export class MissedCallsService {
           AND cs.direction = 'IN'
           ${queueCondition}
           ${claimedByCondition}
+          ${reasonCondition}
         ORDER BY mc."callerNumber", mc."detectedAt" DESC
       ) dedup
       ORDER BY dedup."detectedAt" DESC
@@ -121,6 +147,7 @@ export class MissedCallsService {
         AND cs.direction = 'IN'
         ${queueCondition}
         ${claimedByCondition}
+        ${reasonCondition}
     `);
     const total = Number(totalRows[0]?.count ?? 0);
 
