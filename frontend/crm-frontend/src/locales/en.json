@@ -720,9 +720,45 @@
       "logs": "Call Logs",
       "missed": "Missed Calls",
       "live": "Live Monitor",
+      "breaks": "Breaks",
       "reports": "Reports",
       "quality": "Quality",
       "statistics": "Statistics"
+    }
+  },
+  "breaks": {
+    "live": {
+      "title": "Currently on break",
+      "loading": "Loading…",
+      "count": "{n} operator(s)",
+      "empty": "No operators currently on break."
+    },
+    "history": {
+      "title": "History",
+      "includeAutoEnded": "Include system-ended",
+      "loading": "Loading…",
+      "empty": "No break history in this range.",
+      "systemEnded": "⚠ System",
+      "operatorEnded": "Operator",
+      "endedByCompanyHours": "Auto-closed at end of business hours",
+      "endedByMaxDuration": "Auto-closed after 12h hard cap",
+      "pageInfo": "Page {page} of {total} · {count} rows",
+      "prev": "Previous",
+      "next": "Next"
+    },
+    "col": {
+      "operator": "Operator",
+      "extension": "Extension",
+      "startedAt": "Started",
+      "endedAt": "Ended",
+      "elapsed": "Elapsed",
+      "duration": "Duration",
+      "closedBy": "Closed by"
+    },
+    "units": {
+      "h": "h",
+      "m": "m",
+      "s": "s"
     }
   },
   "clickToCall": {

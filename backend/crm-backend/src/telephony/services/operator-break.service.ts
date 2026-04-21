@@ -28,6 +28,29 @@ import { TelephonyStateManager } from '../realtime/telephony-state.manager';
  * direct calls both fail "unreachable". End re-registers. See
  * docs/TELEPHONY_INTEGRATION.md.
  */
+/**
+ * Event payloads emitted to Socket.IO dashboards via callback hooks.
+ * Follows the same decoupling pattern as `AgentPresenceService.onStaleFlipped` —
+ * the service declares intent, the TelephonyGateway wires the actual emit in
+ * its own `onModuleInit`. Avoids a circular import between service ↔ gateway.
+ */
+export interface BreakStartedPayload {
+  sessionId: string;
+  userId: string;
+  extension: string;
+  startedAt: Date;
+}
+export interface BreakEndedPayload {
+  sessionId: string;
+  userId: string;
+  extension: string;
+  startedAt: Date;
+  endedAt: Date;
+  durationSec: number;
+  isAutoEnded: boolean;
+  autoEndReason: string | null;
+}
+
 @Injectable()
 export class OperatorBreakService {
   private readonly logger = new Logger(OperatorBreakService.name);
@@ -40,6 +63,17 @@ export class OperatorBreakService {
   // cron-jobs table — "Overlap-guarded").
   private autoCloseRunning = false;
 
+  /**
+   * Hooks consumed by TelephonyGateway for Socket.IO emission. The gateway
+   * wires these in its onModuleInit — we don't inject the gateway directly
+   * to avoid the implicit cycle (gateway imports service providers).
+   *
+   * Consumers MUST NOT throw — the service ignores thrown errors so a bad
+   * emit can't abort a break transaction, but it will log.
+   */
+  onBreakStarted?: (payload: BreakStartedPayload) => void;
+  onBreakEnded?: (payload: BreakEndedPayload) => void;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly stateManager: TelephonyStateManager,
@@ -47,6 +81,24 @@ export class OperatorBreakService {
     const parsed = parseInt(process.env.COMPANY_WORK_END_HOUR ?? '19', 10);
     this.companyWorkEndHour =
       Number.isInteger(parsed) && parsed >= 0 && parsed < 24 ? parsed : 19;
+  }
+
+  private fireBreakStarted(payload: BreakStartedPayload): void {
+    try {
+      this.onBreakStarted?.(payload);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`onBreakStarted hook threw: ${msg}`);
+    }
+  }
+
+  private fireBreakEnded(payload: BreakEndedPayload): void {
+    try {
+      this.onBreakEnded?.(payload);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`onBreakEnded hook threw: ${msg}`);
+    }
   }
 
   /**
@@ -116,6 +168,13 @@ export class OperatorBreakService {
         `Break started: user=${userId} ext=${ext.extension} session=${session.id}`,
       );
 
+      this.fireBreakStarted({
+        sessionId: session.id,
+        userId,
+        extension: session.extension,
+        startedAt: session.startedAt,
+      });
+
       return session;
     } catch (err) {
       if (
@@ -177,6 +236,17 @@ export class OperatorBreakService {
     this.logger.log(
       `Break ended: user=${userId} session=${active.id} duration=${durationSec}s`,
     );
+
+    this.fireBreakEnded({
+      sessionId: active.id,
+      userId,
+      extension: active.extension,
+      startedAt: active.startedAt,
+      endedAt,
+      durationSec,
+      isAutoEnded: false,
+      autoEndReason: null,
+    });
 
     return {
       id: active.id,
@@ -346,7 +416,7 @@ export class OperatorBreakService {
 
     const candidates = await this.prisma.operatorBreakSession.findMany({
       where: { endedAt: null },
-      select: { id: true, userId: true, startedAt: true },
+      select: { id: true, userId: true, startedAt: true, extension: true },
     });
 
     if (candidates.length === 0) return;
@@ -390,6 +460,16 @@ export class OperatorBreakService {
         this.logger.warn(
           `Auto-closed break ${candidate.id} (user=${candidate.userId}): reason=${reason} duration=${durationSec}s`,
         );
+        this.fireBreakEnded({
+          sessionId: candidate.id,
+          userId: candidate.userId,
+          extension: candidate.extension,
+          startedAt: candidate.startedAt,
+          endedAt,
+          durationSec,
+          isAutoEnded: true,
+          autoEndReason: reason,
+        });
       }
     }
 

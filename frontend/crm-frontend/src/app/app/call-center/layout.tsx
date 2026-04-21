@@ -13,6 +13,10 @@ const TABS = [
   { href: "/app/call-center/logs", label: "Call Logs", labelKey: "callCenter.tabs.logs", anyPermission: ["call_logs.own", "call_logs.department", "call_logs.department_tree", "call_logs.all"] },
   { href: "/app/call-center/missed", label: "Missed Calls", labelKey: "callCenter.tabs.missed", permission: "missed_calls.access" },
   { href: "/app/call-center/live", label: "Live Monitor", labelKey: "callCenter.tabs.live", permission: "call_center.live" },
+  // Breaks tab — managers see currently-on-break operators + history.
+  // anyPermission: live-monitor managers see active breaks;
+  // statistics-only managers see history tab inside the page.
+  { href: "/app/call-center/breaks", label: "Breaks", labelKey: "callCenter.tabs.breaks", anyPermission: ["call_center.live", "call_center.statistics"] },
   { href: "/app/call-center/reports", label: "Reports", labelKey: "callCenter.tabs.reports", permission: "call_center.reports" },
   { href: "/app/call-center/quality", label: "Quality", labelKey: "callCenter.tabs.quality", permission: "call_center.quality" },
   { href: "/app/call-center/statistics", label: "Statistics", labelKey: "callCenter.tabs.statistics", permission: "call_center.statistics" },

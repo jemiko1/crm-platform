@@ -131,6 +131,42 @@ describe("OperatorBreakService", () => {
       expect(prisma.operatorBreakSession.create).not.toHaveBeenCalled();
     });
 
+    // Callback contract — the TelephonyGateway wires onBreakStarted to
+    // emit `operator:break:started` to manager dashboards. If this
+    // callback stops firing, manager live-view silently stops updating.
+    it("fires onBreakStarted with sessionId + userId + extension + startedAt", async () => {
+      const callback = jest.fn();
+      service.onBreakStarted = callback;
+      await service.start("user-1");
+      expect(callback).toHaveBeenCalledTimes(1);
+      expect(callback).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sessionId: "bk-1",
+          userId: "user-1",
+          extension: "200",
+          startedAt: expect.any(Date),
+        }),
+      );
+    });
+
+    it("does NOT fire onBreakStarted when start() throws (extension missing)", async () => {
+      prisma.telephonyExtension.findUnique.mockResolvedValue(null);
+      const callback = jest.fn();
+      service.onBreakStarted = callback;
+      await expect(service.start("user-1")).rejects.toThrow();
+      expect(callback).not.toHaveBeenCalled();
+    });
+
+    it("swallows errors from onBreakStarted — bad callback must not abort start", async () => {
+      service.onBreakStarted = () => {
+        throw new Error("manager dashboard is on fire");
+      };
+      // start() must still return normally; the session is persisted.
+      const result = await service.start("user-1");
+      expect(result.id).toBe("bk-1");
+      expect(prisma.operatorBreakSession.create).toHaveBeenCalled();
+    });
+
     // TOCTOU race: the findFirst sees no active session (the other
     // caller hasn't committed yet), then the create hits the partial
     // unique index and Prisma throws P2002. Service translates to the
@@ -145,7 +181,6 @@ describe("OperatorBreakService", () => {
       // constructor name in practice but we also need the `code` prop.
       Object.setPrototypeOf(
         p2002,
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
         require("@prisma/client").Prisma.PrismaClientKnownRequestError.prototype,
       );
       prisma.operatorBreakSession.create.mockRejectedValue(p2002);
@@ -191,6 +226,58 @@ describe("OperatorBreakService", () => {
       expect(prisma.operatorBreakSession.update).not.toHaveBeenCalled();
     });
 
+    // Callback: operator-initiated end fires onBreakEnded with
+    // isAutoEnded=false. Auto-close cron is tested separately under
+    // the autoCloseStaleBreaks describe block.
+    it("fires onBreakEnded with isAutoEnded=false on operator-initiated end", async () => {
+      const startedAt = new Date(Date.now() - 5 * 60 * 1000);
+      prisma.operatorBreakSession.findFirst.mockResolvedValue({
+        id: "bk-1",
+        startedAt,
+        endedAt: null,
+        extension: "200",
+      });
+      prisma.operatorBreakSession.updateMany.mockResolvedValue({ count: 1 });
+
+      const callback = jest.fn();
+      service.onBreakEnded = callback;
+      await service.endForUser("user-1");
+
+      expect(callback).toHaveBeenCalledTimes(1);
+      expect(callback).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sessionId: "bk-1",
+          userId: "user-1",
+          extension: "200",
+          isAutoEnded: false,
+          autoEndReason: null,
+          durationSec: expect.any(Number),
+        }),
+      );
+    });
+
+    it("does NOT fire onBreakEnded when no active session exists", async () => {
+      prisma.operatorBreakSession.findFirst.mockResolvedValue(null);
+      const callback = jest.fn();
+      service.onBreakEnded = callback;
+      await service.endForUser("user-1");
+      expect(callback).not.toHaveBeenCalled();
+    });
+
+    it("does NOT fire onBreakEnded when race-guarded update misses (count=0)", async () => {
+      prisma.operatorBreakSession.findFirst.mockResolvedValue({
+        id: "bk-raced",
+        startedAt: new Date(),
+        endedAt: null,
+        extension: "200",
+      });
+      prisma.operatorBreakSession.updateMany.mockResolvedValue({ count: 0 });
+      const callback = jest.fn();
+      service.onBreakEnded = callback;
+      await service.endForUser("user-1");
+      expect(callback).not.toHaveBeenCalled();
+    });
+
     // Race: cron auto-closes the session between findFirst and updateMany.
     // The stale-guarded updateMany matches 0 rows and we return null
     // instead of overwriting the auto-close metadata.
@@ -214,8 +301,18 @@ describe("OperatorBreakService", () => {
      * Helper to run the cron with a controlled "now" and a set of
      * candidate sessions. Verifies which ones get auto-closed.
      */
-    async function runAutoCloseWith(candidates: Array<{ id: string; userId: string; startedAt: Date }>): Promise<void> {
-      prisma.operatorBreakSession.findMany.mockResolvedValue(candidates);
+    async function runAutoCloseWith(
+      candidates: Array<{
+        id: string;
+        userId: string;
+        startedAt: Date;
+        extension?: string;
+      }>,
+    ): Promise<void> {
+      // Default extension so the fire payload is realistic — the service
+      // reads `candidate.extension` and forwards it on `operator:break:ended`.
+      const enriched = candidates.map((c) => ({ extension: "200", ...c }));
+      prisma.operatorBreakSession.findMany.mockResolvedValue(enriched);
       await service.autoCloseStaleBreaks();
     }
 
@@ -296,8 +393,64 @@ describe("OperatorBreakService", () => {
       }
     });
 
+    it("fires onBreakEnded for each auto-closed session with isAutoEnded=true", async () => {
+      // Low-severity gap the reviewer flagged: the cron's `fireBreakEnded`
+      // call inside the for-loop was covered only by static inspection. If
+      // a future refactor accidentally drops it, manager dashboards would
+      // silently miss auto-close events. This pins the emit contract.
+      const callback = jest.fn();
+      service.onBreakEnded = callback;
+
+      const now = new Date();
+      now.setHours(20, 0, 0, 0);
+      jest.useFakeTimers();
+      jest.setSystemTime(now);
+      try {
+        const sessionStart = new Date(now);
+        sessionStart.setHours(17, 30, 0, 0);
+        await runAutoCloseWith([
+          {
+            id: "bk-cron-a",
+            userId: "user-a",
+            startedAt: sessionStart,
+            extension: "205",
+          },
+          {
+            id: "bk-cron-b",
+            userId: "user-b",
+            startedAt: sessionStart,
+            extension: "206",
+          },
+        ]);
+        expect(callback).toHaveBeenCalledTimes(2);
+        expect(callback).toHaveBeenCalledWith(
+          expect.objectContaining({
+            sessionId: "bk-cron-a",
+            userId: "user-a",
+            extension: "205",
+            isAutoEnded: true,
+            autoEndReason: "company_hours_end",
+          }),
+        );
+        expect(callback).toHaveBeenCalledWith(
+          expect.objectContaining({
+            sessionId: "bk-cron-b",
+            userId: "user-b",
+            extension: "206",
+            isAutoEnded: true,
+            autoEndReason: "company_hours_end",
+          }),
+        );
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
     it("race-safe: updateMany returning count=0 (someone ended it meanwhile) is silently skipped", async () => {
       prisma.operatorBreakSession.updateMany.mockResolvedValue({ count: 0 });
+      const callback = jest.fn();
+      service.onBreakEnded = callback;
+
       const startedAt = new Date(Date.now() - 13 * 60 * 60 * 1000);
       // Should not throw; just logs a debug and moves on.
       await runAutoCloseWith([
@@ -305,6 +458,10 @@ describe("OperatorBreakService", () => {
       ]);
       // updateMany was called, but did nothing — that's the race guard.
       expect(prisma.operatorBreakSession.updateMany).toHaveBeenCalled();
+      // Critical: a race-lost close must NOT emit a phantom
+      // operator:break:ended, or managers would see a duplicate with the
+      // manual end (endForUser already fired its own).
+      expect(callback).not.toHaveBeenCalled();
     });
 
     // Overlap guard — if a previous tick is still running (slow DB,
