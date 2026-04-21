@@ -349,7 +349,7 @@ Complete API route documentation for CRM Platform backend.
 **Guards**: `JwtAuthGuard + PositionPermissionGuard`
 
 **Endpoints**:
-- `GET /v1/telephony/missed-calls` - List missed calls. Permission: `missed_calls.access`. Query params:
+- `GET /v1/telephony/missed-calls` - List missed calls. Permission: `missed_calls.access`. `Cache-Control: no-store` (prevents 304 stale-cache trap, see CLAUDE.md Silent Override Risk #23). Query params:
     - `status` - filter by `MissedCallStatus` (NEW / CLAIMED / ATTEMPTED / HANDLED / IGNORED / EXPIRED). Default: actionable statuses.
     - `queueId` - filter by specific Asterisk queue.
     - `reason` - **(added PR #278)** filter by `MissedCallReason` (`OUT_OF_HOURS` / `ABANDONED` / `NO_ANSWER`). Unknown values silently ignored.

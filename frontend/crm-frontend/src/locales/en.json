@@ -724,6 +724,10 @@
       "reports": "Reports",
       "quality": "Quality",
       "statistics": "Statistics"
+    },
+    "logs": {
+      "errorTitle": "Could not load calls",
+      "errorHint": "Try a hard refresh (Ctrl+Shift+R). If it persists, check that you have permission to view call logs."
     }
   },
   "breaks": {

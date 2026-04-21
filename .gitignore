@@ -98,3 +98,10 @@ PERFORMANCE_PROFILE.md
 DEPENDENCY_HEALTH.md
 TEST_PLANS.md
 ENV_DIFF_REPORT.md
+
+# Ad-hoc debugging artifacts (SQL snippets, JWT mint scripts, etc.)
+# Reviewer in the call-logs-cache fix flagged these leaking into
+# commits as a risk — one such file contained prod admin UUIDs +
+# path to the JWT secret reader.
+tmp-*
+/tmp/

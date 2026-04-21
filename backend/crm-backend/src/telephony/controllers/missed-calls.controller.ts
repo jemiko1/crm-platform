@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Header,
   Patch,
   Param,
   Query,
@@ -21,7 +22,12 @@ import { MissedCallsService } from '../services/missed-calls.service';
 export class MissedCallsController {
   constructor(private readonly missedCallsService: MissedCallsService) {}
 
+  // Cache-Control: no-store on live list endpoints — see
+  // telephony-calls.controller.ts for the full failure mode doc. The
+  // TL;DR is that Express's default ETag weak hashing causes 304 +
+  // stale browser cache for paginated live data.
   @Get()
+  @Header('Cache-Control', 'no-store')
   @UseGuards(PositionPermissionGuard)
   @RequirePermission('missed_calls.access')
   @Doc({
