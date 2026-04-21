@@ -2,6 +2,8 @@
 
 ## Working Mode
 
+> **New session starting work?** Read `audit/CURRENT_WORKSTREAM.md` FIRST. It's a continuously-updated handoff brief covering recent PRs, in-flight work, business decisions, deferred items, and open questions — saves you from re-deriving state from git history.
+
 The project owner is a non-programmer founder. For all technical decisions (libraries, config, patterns, structure, tooling), decide based on what you see in the codebase and proceed without asking. Only ask about business logic decisions — who can access what, what should happen when X occurs, user-facing behavior, and workflow rules.
 
 ## Project Overview
@@ -109,7 +111,16 @@ Before telling me "ready to test":
 5. `apiGet/apiPost/apiPatch/apiDelete` for all HTTP calls — never raw `fetch()`
 6. Permissions added if needed (seed-permissions.ts + backend guard + frontend hook)
 7. **i18n: All user-facing strings translated** — use `useI18nContext()` + `t()` for every string in frontend components. Add keys to both `src/locales/en.json` and `src/locales/ka.json`. Never hardcode user-facing text in English or Georgian directly in components.
-8. Documentation updated (CLAUDE.md, API_ROUTE_MAP.md, FRONTEND_ROUTE_MAP.md, DATABASE_SCHEMA.md)
+8. **Documentation updated in the SAME PR** (not a separate follow-up):
+    - `CLAUDE.md` — Silent Override Risks / module boundaries / business rules changes
+    - `API_ROUTE_MAP.md` — any endpoint, request/response, guard changes
+    - `DATABASE_SCHEMA.md` — any schema changes (new models, columns, enums)
+    - `FRONTEND_ROUTE_MAP.md` — any new page / route / major component
+    - `docs/TELEPHONY_INTEGRATION.md` — any softphone / Asterisk / AMI changes
+    - `docs/TESTING.md` — any new test tooling or manual test plan
+    - `audit/CURRENT_WORKSTREAM.md` — **always** update "Recent PRs shipped"
+    - **Any other `docs/*.md`** when its subsystem changes (AMI_BRIDGE, CORE_INTEGRATION, LOCAL_DEVELOPMENT, BRIDGE_MONITOR, DESIGN_SYSTEM, DEVELOPMENT_GUIDELINES)
+9. **Code review before PR** — run `code-reviewer` agent (and `db-reviewer` for schema/migration changes) against the branch before `git push`. Address critical + warning findings. Record the review round-trip in the PR body.
 
 ---
 
@@ -148,7 +159,7 @@ Flag any situation where a value lives in more than one place. Known risks:
 15. **`timestampevents=yes` lives in `/etc/asterisk/manager.conf`, NOT `manager_custom.conf`** (PR #263) — FreePBX 15/16 does not support overriding the `[general]` section via `_custom.conf`. This is an exception to rule #123 above. A FreePBX "Apply Config" click from the web GUI WILL silently wipe it. If AMI event timestamps disappear from stats, check this setting first.
 16. **Stats — missing CallMetrics ≠ silent drop** (PR #255) — any change to the stats-ingestion or stats-read path must preserve the `reason: "unknown"` behavior for CallSessions without CallMetrics. Silently dropping them masks ingest bugs. See `audit/STATS_STANDARDS.md` (M3 decision).
 17. **Replayed `call_end` events merge, don't overwrite** (PR #255) — telephony ingestion applies field-level merge on duplicate terminal events. Only null/missing fields are overwritten. Changing this to a full-replace can corrupt finalized call records when the AMI bridge buffers/replays events. See `audit/STATS_STANDARDS.md` (M7 decision).
-18. **`TelephonyQueue.isAfterHoursQueue` is sticky — env var only bootstraps, DB is authoritative** (PR #280) — `asterisk-sync.service.ts` writes `isAfterHoursQueue` ONLY on CREATE (using the `AFTER_HOURS_QUEUES` env var list). On subsequent UPDATE ticks (every 5 min) it leaves the flag untouched so admin/DB changes persist. Consequence: **changing `AFTER_HOURS_QUEUES` env var has NO effect on queue rows that already exist**. To toggle an existing queue, update the DB directly (or use a future admin UI). `MissedCallReason.OUT_OF_HOURS` classification depends on this flag; silent drift here = OUT_OF_HOURS calls mis-tagged as NO_ANSWER.
+18. **`TelephonyQueue.isAfterHoursQueue` is sticky — env var only bootstraps, DB is authoritative** (PR #278) — `asterisk-sync.service.ts` writes `isAfterHoursQueue` ONLY on CREATE (using the `AFTER_HOURS_QUEUES` env var list). On subsequent UPDATE ticks (every 5 min) it leaves the flag untouched so admin/DB changes persist. Consequence: **changing `AFTER_HOURS_QUEUES` env var has NO effect on queue rows that already exist**. To toggle an existing queue, update the DB directly (or use a future admin UI). `MissedCallReason.OUT_OF_HOURS` classification depends on this flag; silent drift here = OUT_OF_HOURS calls mis-tagged as NO_ANSWER.
 
 ---
 
@@ -206,14 +217,17 @@ Each NestJS module owns its domain: controller + service + DTOs + module file. K
 
 ---
 
-## For Subagents
+## For New Sessions / Subagents
 
-When working as a subagent, read this file first. Key rules:
+**Before doing anything, read `audit/CURRENT_WORKSTREAM.md`** — it's a continuously-updated handoff brief listing recent PRs, in-flight work, business decisions, deferred items, and open questions. Catches you up in 3 minutes.
+
+Then key rules for any work:
 1. Check the **Verification Commands** section — run relevant checks before reporting done
 2. Do not modify files outside your assigned module without explicit instruction
 3. Use `apiGet/apiPost` (not raw `fetch()`) and `useListItems()` (not hardcoded dropdowns)
 4. Never commit to master — work on feature branches only
 5. Check **Silent Override Risks** if your change touches config, env vars, or cross-module boundaries
+6. Follow the **Pre-Completion Checklist** — docs updated in the SAME PR, code-reviewer before push
 
 ---
 
@@ -369,6 +383,11 @@ When building access-controlled features: add to seed-permissions.ts → backend
 ---
 
 ## Deeper Documentation
+
+### Session continuity (read this FIRST when resuming work)
+- **`audit/CURRENT_WORKSTREAM.md`** — living handoff brief. Lists recent PRs, in-flight work, business decisions, deferred items, open questions. Updated in every feature PR. Read this at the start of any new session.
+
+### Reference
 - DATABASE_SCHEMA.md — every table, relationship, enum
 - API_ROUTE_MAP.md — every endpoint with method, auth, request/response
 - FRONTEND_ROUTE_MAP.md — all 47 pages, components, status
@@ -380,3 +399,12 @@ When building access-controlled features: add to seed-permissions.ts → backend
 - docs/CORE_INTEGRATION.md — core MySQL → CRM sync architecture, field mappings, bridge operations, troubleshooting
 - docs/AMI_BRIDGE.md — AMI bridge architecture, deployment, troubleshooting, network topology
 - docs/BRIDGE_MONITOR.md — bridge monitor dashboard, API, deployment
+
+### Audit artifacts (April 2026 telephony audit)
+- audit/MONDAY_ADMIN_CHEATSHEET.md — symptom→fix table + emergency SQL (open on phone during incidents)
+- audit/MONDAY_ADMIN_UI_SETUP.md — RoleGroup permission walkthrough
+- audit/PHASE3_REHEARSAL_RUNBOOK.md — live-call rehearsal plan
+- audit/PHASE1_SUMMARY.md — audit findings summary
+- audit/STATS_STANDARDS.md — M3/M5/M7 decisions for call stats correctness
+- audit/ROLLBACK.md — roll-back steps for audit PRs
+- audit/RBAC_ADMIN_CHECK.md — permission coverage verification
