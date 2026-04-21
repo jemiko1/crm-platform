@@ -174,10 +174,15 @@ export class EscalationService {
     },
     config: { notifyManagerOnEscalation: boolean },
   ) {
+    // Renamed from AUTO_REASSIGN to AUTO_UNASSIGN (April 2026 audit). The
+    // old event name implied the system picked a new operator, but it only
+    // unassigns — conversation returns to the queue for manual pickup.
+    // For backward compat with historical log readers, we also check the
+    // legacy type in the dedupe query below.
     const existing = await this.prisma.clientChatEscalationEvent.findFirst({
       where: {
         conversationId: conv.id,
-        type: 'AUTO_REASSIGN',
+        type: { in: ['AUTO_UNASSIGN', 'AUTO_REASSIGN'] },
         createdAt: { gt: new Date(Date.now() - 10 * 60_000) },
       },
     });
@@ -197,7 +202,7 @@ export class EscalationService {
     await this.prisma.clientChatEscalationEvent.create({
       data: {
         conversationId: conv.id,
-        type: 'AUTO_REASSIGN',
+        type: 'AUTO_UNASSIGN',
         fromUserId: previousUserId,
         toUserId: null,
         metadata: { reason: 'Unassigned after timeout — returned to queue' },
@@ -219,11 +224,14 @@ export class EscalationService {
     }
 
     if (config.notifyManagerOnEscalation) {
+      // Socket event name stays 'escalation:reassign' for now — the frontend
+      // listeners are wired to it (manager-dashboard.tsx:450). We renamed
+      // only the persisted event TYPE. Frontend rename is a follow-up.
       this.events.emitToManagers('escalation:reassign', {
         conversationId: conv.id,
         fromUserId: previousUserId,
         toUserId: null,
-        type: 'AUTO_REASSIGN',
+        type: 'AUTO_UNASSIGN',
       });
 
       await this.prisma.clientChatEscalationEvent.create({

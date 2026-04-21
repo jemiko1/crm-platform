@@ -75,6 +75,7 @@ describe("ClientChatsCoreService", () => {
       prisma.clientChatConversation.findUnique.mockResolvedValue({
         id: "c1",
         assignedUserId: null,
+        joinedAt: null,
       });
       prisma.clientChatConversation.update.mockResolvedValue({
         id: "c1",
@@ -83,6 +84,101 @@ describe("ClientChatsCoreService", () => {
       const res = await service.assignConversation("c1", "u1");
       expect(res.assignedUserId).toBe("u1");
       expect(events.emitConversationUpdated).toHaveBeenCalled();
+    });
+
+    // Bug A2 regression: manager hand-assigning a conversation must stamp
+    // joinedAt, otherwise pickup-time and resolution-time analytics silently
+    // exclude the conversation (the SQL filters on joinedAt IS NOT NULL).
+    it("sets joinedAt when assigning an operator to a previously-unassigned conversation", async () => {
+      prisma.clientChatConversation.findUnique.mockResolvedValue({
+        id: "c1",
+        assignedUserId: null,
+        joinedAt: null,
+      });
+      prisma.clientChatConversation.update.mockResolvedValue({
+        id: "c1",
+        assignedUserId: "u1",
+      });
+      await service.assignConversation("c1", "u1");
+      expect(prisma.clientChatConversation.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            assignedUserId: "u1",
+            joinedAt: expect.any(Date),
+          }),
+        }),
+      );
+    });
+
+    it("does NOT overwrite joinedAt on subsequent reassign", async () => {
+      const originalJoinedAt = new Date("2026-04-20T10:00:00Z");
+      prisma.clientChatConversation.findUnique.mockResolvedValue({
+        id: "c1",
+        assignedUserId: "u1",
+        joinedAt: originalJoinedAt,
+      });
+      prisma.clientChatConversation.update.mockResolvedValue({ id: "c1" });
+      await service.assignConversation("c1", "u2");
+      const updateCall = prisma.clientChatConversation.update.mock.calls[0][0];
+      expect(updateCall.data.joinedAt).toBeUndefined();
+      expect(updateCall.data.assignedUserId).toBe("u2");
+    });
+
+    it("does NOT stamp joinedAt when unassigning (userId=null)", async () => {
+      prisma.clientChatConversation.findUnique.mockResolvedValue({
+        id: "c1",
+        assignedUserId: "u1",
+        joinedAt: null,
+      });
+      prisma.clientChatConversation.update.mockResolvedValue({ id: "c1" });
+      await service.assignConversation("c1", null);
+      const updateCall = prisma.clientChatConversation.update.mock.calls[0][0];
+      expect(updateCall.data.joinedAt).toBeUndefined();
+      expect(updateCall.data.assignedUserId).toBeNull();
+    });
+  });
+
+  // Bug A3 regression: reopen must clear firstResponseAt so the SLA clock
+  // restarts for the reopened conversation. Without this, the escalation
+  // service's "no first response" filter (firstResponseAt IS NULL) would
+  // never catch silence on a reopened thread, and analytics would inherit
+  // the original thread's response time.
+  describe("approveReopen", () => {
+    it("clears firstResponseAt and joinedAt when reopening without keeping operator", async () => {
+      prisma.clientChatConversation.findUnique.mockResolvedValue({
+        id: "c1",
+        status: "CLOSED",
+        assignedUserId: "u1",
+        firstResponseAt: new Date("2026-04-20T10:05:00Z"),
+        joinedAt: new Date("2026-04-20T10:00:00Z"),
+        reopenRequestedBy: null,
+      });
+      prisma.clientChatConversation.update.mockResolvedValue({ id: "c1" });
+      await service.approveReopen("c1", false);
+      const updateCall = prisma.clientChatConversation.update.mock.calls[0][0];
+      expect(updateCall.data.firstResponseAt).toBeNull();
+      expect(updateCall.data.joinedAt).toBeNull();
+      expect(updateCall.data.assignedUserId).toBeNull();
+      expect(updateCall.data.status).toBe("LIVE");
+    });
+
+    it("clears firstResponseAt but keeps joinedAt when keepOperator=true", async () => {
+      prisma.clientChatConversation.findUnique.mockResolvedValue({
+        id: "c1",
+        status: "CLOSED",
+        assignedUserId: "u1",
+        firstResponseAt: new Date("2026-04-20T10:05:00Z"),
+        joinedAt: new Date("2026-04-20T10:00:00Z"),
+        reopenRequestedBy: null,
+      });
+      prisma.clientChatConversation.update.mockResolvedValue({ id: "c1" });
+      await service.approveReopen("c1", true);
+      const updateCall = prisma.clientChatConversation.update.mock.calls[0][0];
+      expect(updateCall.data.firstResponseAt).toBeNull();
+      expect(updateCall.data.joinedAt).toBeUndefined();
+      // assignedUserId should NOT be touched when keeping operator
+      expect(updateCall.data.assignedUserId).toBeUndefined();
+      expect(updateCall.data.status).toBe("LIVE");
     });
   });
 

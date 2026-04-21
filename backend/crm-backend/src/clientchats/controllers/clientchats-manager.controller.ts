@@ -232,25 +232,43 @@ export class ClientChatsManagerController {
       chatCounts.map((c) => [c.assignedUserId, c._count]),
     );
 
-    const responseTimeData = operatorIds.length > 0
-      ? await this.prisma.clientChatConversation.findMany({
-          where: {
-            assignedUserId: { in: operatorIds },
-            firstResponseAt: { not: null },
-            createdAt: { gte: new Date(Date.now() - 24 * 60 * 60_000) },
-          },
-          select: { assignedUserId: true, createdAt: true, firstResponseAt: true },
-        })
-      : [];
+    // Bug A1 fix (live-status version): response time is measured from the
+    // first non-system inbound message, not from conversation createdAt.
+    // See `ClientChatsAnalyticsService` for the full rationale — the web
+    // widget's "[Chat started]" placeholder would otherwise inflate times.
+    const since24h = new Date(Date.now() - 24 * 60 * 60_000);
+    const responseTimeData =
+      operatorIds.length > 0
+        ? await this.prisma.$queryRaw<
+            { assignedUserId: string; clockStart: Date; firstResponseAt: Date }[]
+          >`
+            SELECT c."assignedUserId",
+                   COALESCE(
+                     (SELECT MIN(m."sentAt")
+                      FROM "ClientChatMessage" m
+                      WHERE m."conversationId" = c.id
+                        AND m."direction" = 'IN'
+                        AND m."text" <> '[Chat started]'),
+                     c."createdAt"
+                   ) AS "clockStart",
+                   c."firstResponseAt" AS "firstResponseAt"
+            FROM "ClientChatConversation" c
+            WHERE c."assignedUserId" = ANY (${operatorIds})
+              AND c."firstResponseAt" IS NOT NULL
+              AND c."createdAt" >= ${since24h}
+          `
+        : [];
 
     const avgResponseMap = new Map<string, number>();
     const grouped = new Map<string, number[]>();
     for (const r of responseTimeData) {
       if (!r.assignedUserId || !r.firstResponseAt) continue;
-      const mins =
+      const mins = Math.max(
+        0,
         (new Date(r.firstResponseAt).getTime() -
-          new Date(r.createdAt).getTime()) /
-        60_000;
+          new Date(r.clockStart).getTime()) /
+          60_000,
+      );
       const arr = grouped.get(r.assignedUserId) ?? [];
       arr.push(mins);
       grouped.set(r.assignedUserId, arr);

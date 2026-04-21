@@ -1,6 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
+/**
+ * Text marker inserted by ClientChatsPublicController.startChat when a
+ * customer opens the web-chat widget (before typing anything). Excluded from
+ * first-response-time analytics because it's system-generated — counting it
+ * as the clock-start inflates response time by however long the customer
+ * spent typing their first real message (bug A1 from the April 2026 audit).
+ *
+ * If additional synthetic inbound markers are added (e.g. for other channels),
+ * extend this list and they'll be automatically excluded from clock-start
+ * selection.
+ */
+const SYSTEM_INBOUND_TEXT_MARKERS = ['[Chat started]'] as const;
+
 @Injectable()
 export class ClientChatsAnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -21,9 +34,9 @@ export class ClientChatsAnalyticsService {
       totalConversations,
       totalMessages,
       statusCounts,
-      responseTimeData,
+      responseTimeRows,
+      pickupTimeRows,
       resolutionTimeData,
-      pickupTimeData,
     ] = await Promise.all([
       this.prisma.clientChatConversation.count({
         where: { createdAt: { gte: fromDate, lte: toDate } },
@@ -39,13 +52,49 @@ export class ClientChatsAnalyticsService {
         _count: true,
       }),
 
-      this.prisma.clientChatConversation.findMany({
-        where: {
-          createdAt: { gte: fromDate, lte: toDate },
-          firstResponseAt: { not: null },
-        },
-        select: { createdAt: true, firstResponseAt: true },
-      }),
+      // Bug A1 fix: response time measured from the first NON-SYSTEM inbound
+      // message's sentAt, not from the conversation's createdAt. The web-
+      // widget's "[Chat started]" marker is a system-generated inbound
+      // created when the visitor OPENS the widget; counting it would inflate
+      // response time by however long the customer spent typing.
+      //
+      // Fallback: COALESCE to createdAt if the conversation has ZERO
+      // non-system inbound messages (edge case — an empty widget session
+      // the operator replied to pre-emptively, or a conversation created
+      // by assignment without any inbound).
+      this.prisma.$queryRaw<{ clockStart: Date; firstResponseAt: Date }[]>`
+        SELECT COALESCE(
+                 (SELECT MIN(m."sentAt")
+                  FROM "ClientChatMessage" m
+                  WHERE m."conversationId" = c.id
+                    AND m."direction" = 'IN'
+                    AND m."text" NOT IN (${SYSTEM_INBOUND_TEXT_MARKERS[0]})),
+                 c."createdAt"
+               ) AS "clockStart",
+               c."firstResponseAt" AS "firstResponseAt"
+        FROM "ClientChatConversation" c
+        WHERE c."createdAt" >= ${fromDate}
+          AND c."createdAt" <= ${toDate}
+          AND c."firstResponseAt" IS NOT NULL
+      `,
+
+      // Pickup time: joinedAt - first non-system inbound sentAt (same
+      // clock-start logic).
+      this.prisma.$queryRaw<{ clockStart: Date; joinedAt: Date }[]>`
+        SELECT COALESCE(
+                 (SELECT MIN(m."sentAt")
+                  FROM "ClientChatMessage" m
+                  WHERE m."conversationId" = c.id
+                    AND m."direction" = 'IN'
+                    AND m."text" NOT IN (${SYSTEM_INBOUND_TEXT_MARKERS[0]})),
+                 c."createdAt"
+               ) AS "clockStart",
+               c."joinedAt" AS "joinedAt"
+        FROM "ClientChatConversation" c
+        WHERE c."createdAt" >= ${fromDate}
+          AND c."createdAt" <= ${toDate}
+          AND c."joinedAt" IS NOT NULL
+      `,
 
       this.prisma.clientChatConversation.findMany({
         where: {
@@ -55,30 +104,28 @@ export class ClientChatsAnalyticsService {
         },
         select: { joinedAt: true, resolvedAt: true },
       }),
-
-      this.prisma.clientChatConversation.findMany({
-        where: {
-          createdAt: { gte: fromDate, lte: toDate },
-          joinedAt: { not: null },
-        },
-        select: { createdAt: true, joinedAt: true },
-      }),
     ]);
 
     let avgFirstResponseMinutes: number | null = null;
-    if (responseTimeData.length > 0) {
-      const totalMs = responseTimeData.reduce((sum, c) => {
-        return sum + (c.firstResponseAt!.getTime() - c.createdAt.getTime());
+    if (responseTimeRows.length > 0) {
+      const totalMs = responseTimeRows.reduce((sum, c) => {
+        const firstResponseAt = new Date(c.firstResponseAt).getTime();
+        const clockStart = new Date(c.clockStart).getTime();
+        // Guard against clock-skew anomalies: if firstResponseAt < clockStart
+        // (shouldn't happen but defensive), treat as zero rather than negative.
+        return sum + Math.max(0, firstResponseAt - clockStart);
       }, 0);
-      avgFirstResponseMinutes = Math.round(totalMs / responseTimeData.length / 60000);
+      avgFirstResponseMinutes = Math.round(totalMs / responseTimeRows.length / 60000);
     }
 
     let avgPickupTimeMinutes: number | null = null;
-    if (pickupTimeData.length > 0) {
-      const totalMs = pickupTimeData.reduce((sum, c) => {
-        return sum + (c.joinedAt!.getTime() - c.createdAt.getTime());
+    if (pickupTimeRows.length > 0) {
+      const totalMs = pickupTimeRows.reduce((sum, c) => {
+        const joinedAt = new Date(c.joinedAt).getTime();
+        const clockStart = new Date(c.clockStart).getTime();
+        return sum + Math.max(0, joinedAt - clockStart);
       }, 0);
-      avgPickupTimeMinutes = +(totalMs / pickupTimeData.length / 60000).toFixed(1);
+      avgPickupTimeMinutes = +(totalMs / pickupTimeRows.length / 60000).toFixed(1);
     }
 
     let avgResolutionMinutes: number | null = null;
@@ -175,30 +222,61 @@ export class ClientChatsAnalyticsService {
       _count: true,
     });
 
+    // Bug A1 fix (also applied at per-agent level): clock-start is the first
+    // non-system inbound message, falling back to createdAt only when the
+    // conversation has zero real inbound messages.
     const responseTimeByAgent = await this.prisma.$queryRaw<
       { assignedUserId: string; avgMs: number }[]
     >`
-      SELECT "assignedUserId",
-             AVG(EXTRACT(EPOCH FROM ("firstResponseAt" - "createdAt")) * 1000)::float as "avgMs"
-      FROM "ClientChatConversation"
-      WHERE "createdAt" >= ${fromDate}
-        AND "createdAt" <= ${toDate}
-        AND "assignedUserId" IS NOT NULL
-        AND "firstResponseAt" IS NOT NULL
-      GROUP BY "assignedUserId"
+      SELECT c."assignedUserId",
+             AVG(
+               GREATEST(
+                 EXTRACT(EPOCH FROM (
+                   c."firstResponseAt" - COALESCE(
+                     (SELECT MIN(m."sentAt")
+                      FROM "ClientChatMessage" m
+                      WHERE m."conversationId" = c.id
+                        AND m."direction" = 'IN'
+                        AND m."text" NOT IN (${SYSTEM_INBOUND_TEXT_MARKERS[0]})),
+                     c."createdAt"
+                   )
+                 )) * 1000,
+                 0
+               )
+             )::float as "avgMs"
+      FROM "ClientChatConversation" c
+      WHERE c."createdAt" >= ${fromDate}
+        AND c."createdAt" <= ${toDate}
+        AND c."assignedUserId" IS NOT NULL
+        AND c."firstResponseAt" IS NOT NULL
+      GROUP BY c."assignedUserId"
     `;
 
     const pickupTimeByAgent = await this.prisma.$queryRaw<
       { assignedUserId: string; avgMs: number }[]
     >`
-      SELECT "assignedUserId",
-             AVG(EXTRACT(EPOCH FROM ("joinedAt" - "createdAt")) * 1000)::float as "avgMs"
-      FROM "ClientChatConversation"
-      WHERE "createdAt" >= ${fromDate}
-        AND "createdAt" <= ${toDate}
-        AND "assignedUserId" IS NOT NULL
-        AND "joinedAt" IS NOT NULL
-      GROUP BY "assignedUserId"
+      SELECT c."assignedUserId",
+             AVG(
+               GREATEST(
+                 EXTRACT(EPOCH FROM (
+                   c."joinedAt" - COALESCE(
+                     (SELECT MIN(m."sentAt")
+                      FROM "ClientChatMessage" m
+                      WHERE m."conversationId" = c.id
+                        AND m."direction" = 'IN'
+                        AND m."text" NOT IN (${SYSTEM_INBOUND_TEXT_MARKERS[0]})),
+                     c."createdAt"
+                   )
+                 )) * 1000,
+                 0
+               )
+             )::float as "avgMs"
+      FROM "ClientChatConversation" c
+      WHERE c."createdAt" >= ${fromDate}
+        AND c."createdAt" <= ${toDate}
+        AND c."assignedUserId" IS NOT NULL
+        AND c."joinedAt" IS NOT NULL
+      GROUP BY c."assignedUserId"
     `;
 
     const resolutionTimeByAgent = await this.prisma.$queryRaw<
