@@ -736,7 +736,14 @@
     "phoneNotRunning": "CRM28 softphone არ მუშაობს. ზარის დასაწყებად გახსენით softphone და შედით სისტემაში.",
     "phoneNotRegistered": "Softphone მუშაობს, მაგრამ ტელეფონის სერვერთან არ არის რეგისტრირებული. სცადეთ softphone-დან გამოსვლა და შესვლა.",
     "dialFailed": "softphone-თან დაკავშირება ვერ მოხერხდა. ცდა არ ჩაწერილა.",
-    "callError": "ზარის დროს დაფიქსირდა შეცდომა."
+    "callError": "ზარის დროს დაფიქსირდა შეცდომა.",
+    "reasonFilter": "მიზეზი:",
+    "reason": {
+      "all": "ყველა",
+      "out_of_hours": "არასამუშაო საათები",
+      "abandoned": "მიტოვებული",
+      "no_answer": "უპასუხო"
+    }
   },
   "callReports": {
     "title": "ზარის ანგარიშები",

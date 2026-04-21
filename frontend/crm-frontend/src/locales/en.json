@@ -736,7 +736,14 @@
     "phoneNotRunning": "CRM28 Softphone is not running. Open the softphone and log in to place calls.",
     "phoneNotRegistered": "Softphone is running but not registered with the phone server. Try logging out and back in on the softphone.",
     "dialFailed": "Could not reach the softphone. No attempt recorded.",
-    "callError": "Something went wrong while placing the call."
+    "callError": "Something went wrong while placing the call.",
+    "reasonFilter": "Reason:",
+    "reason": {
+      "all": "All",
+      "out_of_hours": "After Hours",
+      "abandoned": "Abandoned",
+      "no_answer": "No Answer"
+    }
   },
   "callReports": {
     "title": "Call Reports",

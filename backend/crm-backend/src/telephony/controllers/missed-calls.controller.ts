@@ -32,6 +32,7 @@ export class MissedCallsController {
   async findAll(
     @Query('status') status?: string,
     @Query('queueId') queueId?: string,
+    @Query('reason') reason?: string,
     @Query('myClaimsOnly') myClaimsOnly?: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
@@ -40,6 +41,7 @@ export class MissedCallsController {
     return this.missedCallsService.findAll({
       status,
       queueId,
+      reason,
       claimedByMe: myClaimsOnly === 'true' ? req?.user?.id : undefined,
       page: page ? parseInt(page, 10) : undefined,
       pageSize: pageSize ? parseInt(pageSize, 10) : undefined,

@@ -64,6 +64,13 @@ export class AsteriskSyncService implements OnModuleInit {
     let upserted = 0;
 
     for (const q of queues) {
+      // `isAfterHoursQueue` is ONLY set on CREATE, never on UPDATE. This
+      // makes the flag sticky — admins can toggle it in the DB (or via a
+      // future admin UI) without the next sync cycle reverting their
+      // change based on the env var. The env var is only the BOOTSTRAP
+      // default for newly-discovered queues. (April 2026 audit — was
+      // previously reset every 5 min, making queue 40's after-hours flag
+      // impossible to set without also updating the env var.)
       await this.prisma.telephonyQueue.upsert({
         where: { name: q.name },
         create: {
@@ -74,8 +81,8 @@ export class AsteriskSyncService implements OnModuleInit {
         },
         update: {
           strategy: this.mapStrategy(q.strategy),
-          isAfterHoursQueue: this.afterHoursQueues.has(q.name),
           isActive: true,
+          // Deliberately do NOT write isAfterHoursQueue here.
         },
       });
       upserted++;

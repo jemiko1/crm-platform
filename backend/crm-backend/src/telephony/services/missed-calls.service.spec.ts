@@ -117,6 +117,39 @@ describe('MissedCallsService', () => {
       expect(res.data[0].missedCallCount).toBe(3);
       expect(res.data[1].missedCallCount).toBe(1);
     });
+
+    // Reason filter (April 2026) — scope list to OUT_OF_HOURS for queue 40
+    // arrivals during non-working hours. Unknown reason values silently
+    // fall through to "no filter" rather than breaking the list.
+    it('passes valid reason filter through to the raw query', async () => {
+      prisma.$queryRaw
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ count: BigInt(0) }]);
+
+      await service.findAll({ reason: 'OUT_OF_HOURS' });
+
+      // The Prisma.sql template is passed to $queryRaw as an array of
+      // template parts and values. We can't easily inspect the compiled
+      // SQL, but we can verify the mock was called with a structure
+      // that includes the reason value.
+      const firstCall = prisma.$queryRaw.mock.calls[0][0];
+      const flat = JSON.stringify(firstCall);
+      expect(flat).toContain('OUT_OF_HOURS');
+    });
+
+    it('silently ignores unknown reason values', async () => {
+      prisma.$queryRaw
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ count: BigInt(0) }]);
+
+      await service.findAll({ reason: "'; DROP TABLE users; --" });
+
+      const firstCall = prisma.$queryRaw.mock.calls[0][0];
+      const flat = JSON.stringify(firstCall);
+      // Unknown reason doesn't leak into the SQL (validated against enum
+      // whitelist in both the where clause and the Prisma.sql guard).
+      expect(flat).not.toContain('DROP TABLE');
+    });
   });
 
   describe('claim', () => {

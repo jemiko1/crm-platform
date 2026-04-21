@@ -169,6 +169,7 @@ export default function MissedCallsPage() {
 
   const { dial, appDetected, sipRegistered } = useDesktopPhone(currentUserId);
   const [status, setStatus] = useState("");
+  const [reason, setReason] = useState<"" | "OUT_OF_HOURS" | "ABANDONED" | "NO_ANSWER">("");
   const [myClaimsOnly, setMyClaimsOnly] = useState(false);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -191,6 +192,7 @@ export default function MissedCallsPage() {
     try {
       const params = new URLSearchParams();
       if (status) params.set("status", status);
+      if (reason) params.set("reason", reason);
       if (myClaimsOnly) params.set("myClaimsOnly", "true");
       params.set("page", String(page));
       params.set("pageSize", "25");
@@ -205,7 +207,7 @@ export default function MissedCallsPage() {
     } finally {
       setLoading(false);
     }
-  }, [status, myClaimsOnly, page]);
+  }, [status, reason, myClaimsOnly, page]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -341,6 +343,48 @@ export default function MissedCallsPage() {
             ].join(" ")}
           >
             {t(f.labelKey, f.label)}
+          </button>
+        ))}
+      </div>
+
+      {/*
+        Reason filter pills — independent axis from status. Lets the manager
+        scope the list to after-hours calls specifically (queue 40 arrivals
+        during the non-working window) without also filtering out the status
+        dimension. "All reasons" is the default; click again to deselect.
+      */}
+      <div className="flex flex-wrap items-center gap-2 text-[11px]">
+        <span className="text-zinc-500">
+          {t("missedCalls.reasonFilter", "Reason:")}
+        </span>
+        <button
+          onClick={() => { setReason(""); setPage(1); }}
+          className={[
+            "rounded-full px-2.5 py-1 text-xs font-medium transition-all",
+            reason === ""
+              ? "bg-zinc-900 text-white shadow-sm"
+              : "bg-white text-zinc-600 ring-1 ring-zinc-200 hover:bg-zinc-50",
+          ].join(" ")}
+        >
+          {t("missedCalls.reason.all", "All")}
+        </button>
+        {(["OUT_OF_HOURS", "ABANDONED", "NO_ANSWER"] as const).map((r) => (
+          <button
+            key={r}
+            // Match status-chip behavior: click to set, "All" chip above
+            // clears. No toggle-off on re-click — consistent UX.
+            onClick={() => { setReason(r); setPage(1); }}
+            className={[
+              "rounded-full px-2.5 py-1 text-xs font-medium transition-all",
+              reason === r
+                ? "bg-zinc-900 text-white shadow-sm"
+                : "bg-white text-zinc-600 ring-1 ring-zinc-200 hover:bg-zinc-50",
+            ].join(" ")}
+          >
+            {t(
+              `missedCalls.reason.${r.toLowerCase()}`,
+              REASON_BADGES[r]?.label ?? r,
+            )}
           </button>
         ))}
       </div>
