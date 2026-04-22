@@ -295,7 +295,7 @@ const styles: Record<string, React.CSSProperties> = {
   container: {
     display: "flex",
     flexDirection: "column",
-    height: "100vh",
+    height: "100%",
     background: SURFACE_GRADIENT,
     color: TEXT_STRONG,
     fontFamily:
@@ -309,12 +309,14 @@ const styles: Record<string, React.CSSProperties> = {
     paddingLeft: "0.9rem",
     WebkitAppRegion: "drag" as any,
     flexShrink: 0,
-    borderBottom: `1px solid ${BORDER_SOFT}`,
+    backgroundColor: "#115e59",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
+    zIndex: 1,
   },
   backBtn: {
     background: "transparent",
     border: "none",
-    color: BRAND,
+    color: "#ffffff",
     fontSize: "0.85rem",
     fontWeight: 600,
     cursor: "pointer",
@@ -322,7 +324,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "2px 6px",
     borderRadius: 6,
   },
-  titleText: { fontSize: "0.85rem", fontWeight: 600, color: TEXT_STRONG },
+  titleText: { fontSize: "0.85rem", fontWeight: 600, color: "#ffffff" },
   content: {
     flex: 1,
     overflow: "auto",

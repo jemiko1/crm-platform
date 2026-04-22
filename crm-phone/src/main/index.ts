@@ -100,9 +100,10 @@ function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 380,
     height: 680,
-    minWidth: 340,
-    minHeight: 500,
-    resizable: true,
+    useContentSize: true,
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false,
     frame: false,
     transparent: false,
     backgroundColor: "#115e59",

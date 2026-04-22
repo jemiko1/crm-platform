@@ -135,7 +135,7 @@ const styles: Record<string, React.CSSProperties> = {
   overlay: {
     display: "flex",
     flexDirection: "column",
-    height: "100vh",
+    height: "100%",
     background: SURFACE_GRADIENT,
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
@@ -149,11 +149,14 @@ const styles: Record<string, React.CSSProperties> = {
     paddingLeft: "0.85rem",
     WebkitAppRegion: "drag" as any,
     flexShrink: 0,
+    backgroundColor: "#115e59",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
+    zIndex: 1,
   },
   titleText: {
     fontSize: "0.85rem",
     fontWeight: 600,
-    color: TEXT_STRONG,
+    color: "#ffffff",
   },
   body: {
     flex: 1,

@@ -6,20 +6,24 @@
     <title>CRM28 Phone</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
       body {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        /* Teal body bg + 6px padding on L/R/B creates a teal frame
+        /* Teal body bg + 4px padding on L/R/B creates a teal frame
            around the app content. Top has no padding because the
            titlebar already paints teal edge-to-edge. */
         background: #115e59;
         color: #1a1a1a;
-        height: 100vh;
         padding: 0 4px 4px 4px;
-        overflow: hidden;
         user-select: none;
         -webkit-app-region: drag;
       }
       #root {
+        width: 100%;
         height: 100%;
       }
       button, input, a, select { -webkit-app-region: no-drag; }

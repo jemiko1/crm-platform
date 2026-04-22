@@ -114,7 +114,7 @@ const styles: Record<string, React.CSSProperties> = {
   container: {
     display: "flex",
     flexDirection: "column",
-    height: "100vh",
+    height: "100%",
     background: SURFACE_GRADIENT,
     color: TEXT_STRONG,
     fontFamily:
@@ -128,9 +128,12 @@ const styles: Record<string, React.CSSProperties> = {
     paddingLeft: "0.85rem",
     WebkitAppRegion: "drag" as any,
     flexShrink: 0,
+    backgroundColor: "#115e59",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
+    zIndex: 1,
   },
   titleText: {
-    color: TEXT_MUTED,
+    color: "#ffffff",
     fontSize: "0.72rem",
     fontWeight: 700,
     letterSpacing: "0.14em",
