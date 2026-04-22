@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import type { BreakSession } from "../../shared/types";
+import { GLASS } from "../theme";
 
 interface Props {
   session: BreakSession;
@@ -116,7 +117,17 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     height: "100vh",
-    background: "linear-gradient(180deg, #1e1b4b 0%, #312e81 100%)",
+    // Same Glass backdrop as PhonePage but with an amber glow swapped
+    // in for the cyan one, signaling "paused state" without leaving
+    // the visual language. The purple stays so the modal still feels
+    // like the same app, not a separate screen.
+    background: [
+      "radial-gradient(at 20% 10%, rgba(251, 191, 36, 0.22), transparent 45%)",
+      "radial-gradient(at 80% 90%, rgba(139, 92, 246, 0.22), transparent 45%)",
+      "#0b1120",
+    ].join(", "),
+    color: GLASS.textStrong,
+    backgroundAttachment: "fixed",
   },
   titleBar: {
     display: "flex",
@@ -124,97 +135,117 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "center",
     height: 36,
     WebkitAppRegion: "drag" as any,
-    background: "rgba(0,0,0,0.3)",
+    background: "rgba(2, 6, 23, 0.45)",
+    backdropFilter: "blur(12px)",
+    WebkitBackdropFilter: "blur(12px)",
+    borderBottom: "1px solid rgba(255, 255, 255, 0.04)",
   },
   titleText: {
-    color: "#fbbf24",
-    fontSize: "0.85rem",
-    fontWeight: 600,
-    letterSpacing: "0.05em",
+    color: "#fcd34d",
+    fontSize: "0.72rem",
+    fontWeight: 700,
+    letterSpacing: "0.14em",
     textTransform: "uppercase",
   },
   body: {
     // At the softphone's minimum window size (340x500) the previous
     // `justifyContent: center` + 2rem padding caused the Log Out
-    // button and footNote to overflow off-screen. Switch to
+    // button and footNote to overflow off-screen. Keep
     // `justifyContent: flex-start` + scroll overflow so the modal
-    // stays usable at any window size the user drags to (v1.10.2).
+    // stays usable at any window size.
     flex: 1,
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "flex-start",
-    padding: "1.25rem 1.25rem 1rem",
-    gap: "0.75rem",
+    padding: "1.5rem 1.25rem 1.25rem",
+    gap: "0.85rem",
     overflowY: "auto",
   },
   iconCircle: {
-    width: 64,
-    height: 64,
+    width: 68,
+    height: 68,
     borderRadius: "50%",
-    background: "rgba(245, 158, 11, 0.15)",
+    background: "rgba(251, 191, 36, 0.16)",
+    border: "1px solid rgba(251, 191, 36, 0.3)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: "0.5rem",
+    marginTop: "0.25rem",
     flexShrink: 0,
+    boxShadow:
+      "0 8px 24px rgba(251, 191, 36, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.06) inset",
   },
   elapsed: {
-    color: "#fef3c7",
-    fontSize: "2.75rem",
+    // Gradient clip-text — amber → orange. The background is painted
+    // only onto the text, giving a premium look without adding another
+    // element. Fallback `color` keeps the text readable if the browser
+    // ever drops support for background-clip: text (not an issue in
+    // Chromium, but defensive).
+    background: GLASS.amberGradient,
+    WebkitBackgroundClip: "text",
+    backgroundClip: "text",
+    color: "transparent",
+    fontSize: "3rem",
     fontWeight: 300,
     fontVariantNumeric: "tabular-nums",
     letterSpacing: "0.02em",
     lineHeight: 1,
+    marginTop: "0.25rem",
   },
   caption: {
-    color: "#cbd5e1",
-    fontSize: "0.9rem",
+    color: GLASS.textBody,
+    fontSize: "0.85rem",
     textAlign: "center",
-    lineHeight: 1.4,
+    lineHeight: 1.5,
     maxWidth: 260,
   },
   subCaption: {
-    color: "#94a3b8",
-    fontSize: "0.75rem",
+    color: GLASS.textMuted,
+    fontSize: "0.7rem",
     marginTop: "-0.25rem",
+    letterSpacing: "0.05em",
   },
   error: {
     color: "#fca5a5",
-    fontSize: "0.8rem",
-    background: "rgba(220, 38, 38, 0.15)",
+    fontSize: "0.78rem",
+    background: "rgba(220, 38, 38, 0.16)",
     border: "1px solid rgba(220, 38, 38, 0.35)",
-    padding: "0.5rem 0.75rem",
-    borderRadius: 6,
+    padding: "0.55rem 0.8rem",
+    borderRadius: 8,
     maxWidth: 280,
     textAlign: "center",
   },
   resumeBtn: {
     marginTop: "0.75rem",
-    padding: "0.75rem 2.5rem",
-    background: "#22c55e",
+    padding: "0.85rem 2.5rem",
+    background: GLASS.successGradient,
     color: "white",
     border: "none",
-    borderRadius: 8,
-    fontSize: "1rem",
-    fontWeight: 600,
+    borderRadius: 999,
+    fontSize: "0.95rem",
+    fontWeight: 700,
+    letterSpacing: "0.05em",
     cursor: "pointer",
-    minWidth: 200,
+    minWidth: 220,
+    boxShadow: GLASS.successShadow,
   },
   logoutBtn: {
     padding: "0.55rem 1.5rem",
-    background: "transparent",
-    color: "#94a3b8",
-    border: "1px solid #475569",
-    borderRadius: 6,
-    fontSize: "0.85rem",
+    ...GLASS.glassCard,
+    color: GLASS.textMuted,
+    borderRadius: 999,
+    fontSize: "0.8rem",
     cursor: "pointer",
-    minWidth: 200,
+    minWidth: 220,
+    fontWeight: 600,
+    letterSpacing: "0.02em",
   },
   footNote: {
-    color: "#64748b",
-    fontSize: "0.7rem",
+    color: GLASS.textSubtle,
+    fontSize: "0.68rem",
     marginTop: "0.75rem",
     textAlign: "center",
+    letterSpacing: "0.04em",
   },
 };

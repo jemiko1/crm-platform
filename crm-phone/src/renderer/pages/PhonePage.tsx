@@ -226,15 +226,41 @@ export function PhonePage(props: Props) {
         silently becomes no-ops.
       */}
       <div style={styles.scrollArea}>
-      {callState !== "idle" && activeCall && (
+      {callState !== "idle" && activeCall && (() => {
+        // Compose the best display name for the caller and derive a
+        // 1–2-character avatar initial from whatever's available. We
+        // fall back to the phone number's last digit if we have only
+        // the number (so the avatar still feels alive rather than blank).
+        const displayName =
+          callerLookup?.client?.name ||
+          activeCall.remoteName ||
+          activeCall.remoteNumber ||
+          "?";
+        const initials = (() => {
+          const name =
+            callerLookup?.client?.name || activeCall.remoteName || "";
+          if (name) {
+            const parts = name.trim().split(/\s+/);
+            const first = parts[0]?.[0] ?? "";
+            const last = parts.length > 1 ? (parts[parts.length - 1][0] ?? "") : "";
+            return (first + last).toUpperCase() || name[0]?.toUpperCase() || "?";
+          }
+          const digits = (activeCall.remoteNumber ?? "").replace(/\D/g, "");
+          return digits.slice(-2) || "?";
+        })();
+
+        return (
         <>
           <div style={styles.callDisplay}>
             <span style={styles.callDirection}>
               {activeCall.direction === "inbound" ? "Incoming" : "Outgoing"}
             </span>
-            <span style={styles.callNumber}>
-              {callerLookup?.client?.name || activeCall.remoteName || activeCall.remoteNumber}
-            </span>
+
+            <div style={styles.avatarCircle} aria-hidden="true">
+              <span style={styles.avatarInitials}>{initials}</span>
+            </div>
+
+            <span style={styles.callNumber}>{displayName}</span>
             {callerLookup?.client?.name && (
               <span style={styles.callSubNumber}>{activeCall.remoteNumber}</span>
             )}
@@ -242,47 +268,62 @@ export function PhonePage(props: Props) {
             {callState === "connecting" ? (
               <div style={styles.connectingWrap}>
                 <div style={styles.connectingSpinner} />
-                <span style={styles.connectingText}>Connecting...</span>
+                <span style={styles.connectingText}>Connecting…</span>
               </div>
             ) : (
-              <span style={styles.callStatus}>
-                {callState === "dialing" ? "Dialing..." :
-                 callState === "connected" ? "Connected" :
-                 callState === "hold" ? "On Hold" : callState}
+              <span
+                style={{
+                  ...styles.pill,
+                  ...(callState === "connected"
+                    ? GLASS.pillOnline
+                    : callState === "hold"
+                    ? GLASS.pillBreak
+                    : GLASS.pillDndOff),
+                  marginTop: "0.25rem",
+                }}
+              >
+                {callState === "dialing"
+                  ? "Dialing…"
+                  : callState === "connected"
+                  ? "Connected"
+                  : callState === "hold"
+                  ? "On Hold"
+                  : callState}
               </span>
             )}
 
-            <div style={styles.callActions}>
-              {(callState === "connected" || callState === "hold") && (
-                <>
-                  <button
-                    onClick={onToggleMute}
-                    style={muted ? styles.activeActionBtn : styles.actionBtn}
-                  >
-                    {muted ? "Unmute" : "Mute"}
-                  </button>
-                  <button
-                    onClick={callState === "hold" ? onUnhold : onHold}
-                    style={callState === "hold" ? styles.activeActionBtn : styles.actionBtn}
-                  >
-                    {callState === "hold" ? "Resume" : "Hold"}
-                  </button>
-                </>
-              )}
-              <button onClick={onHangup} style={styles.hangupBtn}>
-                Hang Up
-              </button>
-            </div>
+            {(callState === "connected" || callState === "hold") && (
+              <div style={styles.callActions}>
+                <button
+                  onClick={onToggleMute}
+                  style={muted ? styles.activeActionBtn : styles.actionBtn}
+                  aria-pressed={muted}
+                >
+                  {muted ? "Unmute" : "Mute"}
+                </button>
+                <button
+                  onClick={callState === "hold" ? onUnhold : onHold}
+                  style={callState === "hold" ? styles.activeActionBtn : styles.actionBtn}
+                  aria-pressed={callState === "hold"}
+                >
+                  {callState === "hold" ? "Resume" : "Hold"}
+                </button>
+                <button
+                  onClick={() => {
+                    const phone = activeCall.remoteNumber;
+                    const url = `https://crm28.asg.ge/app/call-center/reports?openReport=true&phone=${encodeURIComponent(phone || "")}`;
+                    window.crmPhone.app.openExternal(url);
+                  }}
+                  style={styles.actionBtn}
+                  title="Open the call report form in the CRM"
+                >
+                  📋 Report
+                </button>
+              </div>
+            )}
 
-            <button
-              onClick={() => {
-                const phone = activeCall.remoteNumber;
-                const url = `https://crm28.asg.ge/app/call-center/reports?openReport=true&phone=${encodeURIComponent(phone || "")}`;
-                window.crmPhone.app.openExternal(url);
-              }}
-              style={styles.reportBtn}
-            >
-              📋 Fill Report
+            <button onClick={onHangup} style={styles.hangupBtn}>
+              Hang Up
             </button>
           </div>
 
@@ -290,7 +331,8 @@ export function PhonePage(props: Props) {
             <CallerCard lookup={callerLookup} callingNumber={activeCall.remoteNumber} />
           )}
         </>
-      )}
+        );
+      })()}
 
       {callState === "idle" && (
         <>
@@ -530,14 +572,55 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    padding: "1.25rem 1rem",
-    gap: "0.5rem",
+    padding: "1.25rem 1rem 0.75rem",
+    gap: "0.35rem",
     flexShrink: 0,
   },
-  callDirection: { fontSize: "0.75rem", color: "#64748b", textTransform: "uppercase" as const },
-  callNumber: { fontSize: "1.5rem", fontWeight: 700, color: "#f1f5f9" },
-  callSubNumber: { fontSize: "0.8rem", color: "#64748b", letterSpacing: "0.05em" },
-  callStatus: { fontSize: "0.875rem", color: "#60a5fa" },
+  callDirection: {
+    fontSize: "0.65rem",
+    color: GLASS.textMuted,
+    textTransform: "uppercase" as const,
+    letterSpacing: "0.12em",
+    fontWeight: 700,
+  },
+  avatarCircle: {
+    width: 84,
+    height: 84,
+    borderRadius: "50%",
+    // Same cyan→purple gradient as the active-tab underline so the
+    // avatar feels tied to the brand rather than a stock stock-photo
+    // stand-in. Subtle ring echoing the glass-card border keeps it
+    // consistent with the rest of the visual language.
+    background: "linear-gradient(135deg, #06b6d4 0%, #8b5cf6 100%)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    margin: "0.25rem 0 0.5rem",
+    boxShadow:
+      "0 8px 24px rgba(6, 182, 212, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.12) inset",
+  },
+  avatarInitials: {
+    color: "#ffffff",
+    fontSize: "2rem",
+    fontWeight: 600,
+    letterSpacing: "0.01em",
+    textShadow: "0 1px 2px rgba(0, 0, 0, 0.2)",
+  },
+  callNumber: {
+    fontSize: "1.35rem",
+    fontWeight: 600,
+    color: GLASS.textStrong,
+    letterSpacing: "-0.01em",
+    textAlign: "center" as const,
+    lineHeight: 1.25,
+    padding: "0 0.5rem",
+  },
+  callSubNumber: {
+    fontSize: "0.8rem",
+    color: GLASS.textMuted,
+    letterSpacing: "0.05em",
+    fontVariantNumeric: "tabular-nums",
+  },
   connectingWrap: {
     display: "flex",
     alignItems: "center",
@@ -545,58 +628,73 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: "0.25rem",
   },
   connectingSpinner: {
-    width: 18,
-    height: 18,
-    border: "2px solid #334155",
-    borderTopColor: "#60a5fa",
+    width: 14,
+    height: 14,
+    border: "2px solid rgba(6, 182, 212, 0.2)",
+    borderTopColor: "#06b6d4",
     borderRadius: "50%",
     animation: "spin 0.8s linear infinite",
   },
   connectingText: {
-    fontSize: "0.875rem",
-    color: "#60a5fa",
+    fontSize: "0.8rem",
+    color: GLASS.textBody,
+    letterSpacing: "0.02em",
   },
-  callActions: { display: "flex", gap: "0.75rem", marginTop: "1.5rem" },
+  callActions: {
+    display: "flex",
+    gap: "0.5rem",
+    marginTop: "1rem",
+    padding: "0 0.25rem",
+    flexWrap: "wrap" as const,
+    justifyContent: "center",
+  },
   actionBtn: {
-    padding: "0.6rem 1.2rem",
-    borderRadius: "0.5rem",
-    border: "1px solid #334155",
-    background: "#1e293b",
-    color: "#e2e8f0",
-    fontSize: "0.8rem",
-    cursor: "pointer",
-  },
-  activeActionBtn: {
-    padding: "0.6rem 1.2rem",
-    borderRadius: "0.5rem",
-    border: "1px solid #f59e0b",
-    background: "#78350f",
-    color: "#fbbf24",
-    fontSize: "0.8rem",
+    padding: "0.55rem 1rem",
+    borderRadius: 999,
+    ...GLASS.glassCard,
+    color: GLASS.textBody,
+    fontSize: "0.78rem",
     fontWeight: 600,
     cursor: "pointer",
+    letterSpacing: "0.02em",
+    minWidth: 72,
+  },
+  activeActionBtn: {
+    padding: "0.55rem 1rem",
+    borderRadius: 999,
+    ...GLASS.pillBreak,
+    fontSize: "0.78rem",
+    fontWeight: 700,
+    cursor: "pointer",
+    letterSpacing: "0.02em",
+    minWidth: 72,
   },
   reportBtn: {
+    // Kept for backwards compatibility (any caller may still reference
+    // it). The in-call view now routes Report through `actionBtn`.
     marginTop: "0.5rem",
     padding: "0.5rem 1rem",
-    borderRadius: "0.5rem",
-    border: "1px solid #334155",
-    background: "#1e293b",
-    color: "#94a3b8",
+    borderRadius: 999,
+    ...GLASS.glassCard,
+    color: GLASS.textMuted,
     fontSize: "0.75rem",
     cursor: "pointer",
     width: "100%",
     textAlign: "center" as const,
   },
   hangupBtn: {
-    padding: "0.6rem 1.5rem",
-    borderRadius: "0.5rem",
+    marginTop: "1.1rem",
+    padding: "0.85rem 2.5rem",
+    borderRadius: 999,
     border: "none",
-    background: "#dc2626",
+    background: GLASS.dangerGradient,
     color: "#fff",
-    fontSize: "0.8rem",
-    fontWeight: 600,
+    fontSize: "0.9rem",
+    fontWeight: 700,
+    letterSpacing: "0.05em",
     cursor: "pointer",
+    boxShadow: GLASS.dangerShadow,
+    minWidth: 220,
   },
   viewTabs: {
     display: "flex",
@@ -685,28 +783,24 @@ const styles: Record<string, React.CSSProperties> = {
     // v1.10.2: removed `marginTop: auto` now that scrollArea handles
     // the flex-fill. With the new layout the footer is the last
     // flex child of the container and doesn't need margin pushing.
-    borderTop: "1px solid #1e293b",
-    background: "#0f172a",
+    // Semi-transparent dark strip at the bottom; glass-card buttons
+    // sit on top so the radial glow still bleeds through.
+    borderTop: "1px solid rgba(255, 255, 255, 0.04)",
+    background: "rgba(2, 6, 23, 0.5)",
+    backdropFilter: "blur(12px)",
+    WebkitBackdropFilter: "blur(12px)",
     flexShrink: 0,
-  },
-  noExtWarning: {
-    padding: "0.5rem",
-    borderRadius: "0.375rem",
-    background: "#78350f33",
-    border: "1px solid #d97706",
-    color: "#fbbf24",
-    fontSize: "0.75rem",
-    textAlign: "center" as const,
   },
   logoutBtn: {
     flex: 1,
-    padding: "0.5rem",
-    borderRadius: "0.375rem",
-    border: "1px solid #334155",
-    background: "transparent",
-    color: "#94a3b8",
-    fontSize: "0.8rem",
+    padding: "0.6rem 0.8rem",
+    borderRadius: 999,
+    ...GLASS.glassCard,
+    color: GLASS.textMuted,
+    fontSize: "0.78rem",
+    fontWeight: 600,
     cursor: "pointer",
+    letterSpacing: "0.02em",
   },
   footerButtons: {
     display: "flex",
@@ -714,21 +808,30 @@ const styles: Record<string, React.CSSProperties> = {
   },
   breakBtn: {
     flex: 1,
-    padding: "0.5rem",
-    borderRadius: "0.375rem",
-    border: "1px solid #f59e0b",
-    background: "#78350f33",
-    color: "#fbbf24",
-    fontSize: "0.8rem",
-    fontWeight: 600,
+    padding: "0.6rem 0.8rem",
+    borderRadius: 999,
+    ...GLASS.pillBreak,
+    fontSize: "0.78rem",
+    fontWeight: 700,
+    cursor: "pointer",
+    letterSpacing: "0.02em",
   },
   breakError: {
-    padding: "0.4rem 0.5rem",
-    borderRadius: "0.375rem",
-    background: "rgba(220, 38, 38, 0.15)",
+    padding: "0.45rem 0.6rem",
+    borderRadius: 8,
+    background: "rgba(220, 38, 38, 0.16)",
     border: "1px solid rgba(220, 38, 38, 0.35)",
     color: "#fca5a5",
     fontSize: "0.72rem",
+    textAlign: "center" as const,
+  },
+  noExtWarning: {
+    padding: "0.55rem",
+    borderRadius: 8,
+    background: "rgba(245, 158, 11, 0.14)",
+    border: "1px solid rgba(245, 158, 11, 0.3)",
+    color: "#fbbf24",
+    fontSize: "0.75rem",
     textAlign: "center" as const,
   },
 };
