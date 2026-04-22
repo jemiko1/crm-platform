@@ -26,8 +26,9 @@ cd C:\CRM-Platform\crm-phone
 pnpm run dev
 ```
 
-This starts two watchers via `concurrently`:
-- `tsc --watch` for the main process (rebuilds `dist/main/*.js` on save)
+This starts three watchers via `concurrently`:
+- `esbuild --watch` for the main process (bundles to `dist/main/index.js`)
+- `esbuild --watch` for the preload script (bundles to `dist/main/preload.js`)
 - `vite` for the renderer (serves on `http://localhost:5173` with HMR)
 
 Leave this running. First build takes ~5s.

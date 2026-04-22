@@ -10,8 +10,9 @@
     "url": "https://github.com/jemiko1/crm-platform.git"
   },
   "scripts": {
-    "dev": "concurrently \"pnpm run dev:main\" \"pnpm run dev:renderer\"",
-    "dev:main": "tsc -p tsconfig.main.json --watch",
+    "dev": "concurrently \"pnpm run dev:main\" \"pnpm run dev:preload\" \"pnpm run dev:renderer\"",
+    "dev:main": "esbuild src/main/index.ts --bundle --platform=node --outfile=dist/main/index.js --external:electron --external:electron-updater --external:electron-store --format=cjs --sourcemap --watch",
+    "dev:preload": "esbuild src/main/preload.ts --bundle --platform=node --outfile=dist/main/preload.js --external:electron --format=cjs --sourcemap --watch",
     "dev:renderer": "vite",
     "build:main": "esbuild src/main/index.ts --bundle --platform=node --outfile=dist/main/index.js --external:electron --external:electron-updater --external:electron-store --format=cjs --sourcemap",
     "build:preload": "esbuild src/main/preload.ts --bundle --platform=node --outfile=dist/main/preload.js --external:electron --format=cjs --sourcemap",
