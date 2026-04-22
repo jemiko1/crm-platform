@@ -22,8 +22,8 @@ export const BRAND_HOVER = "rgb(10, 140, 68)";
 /** Tiny bit darker for the pressed state of the primary button. */
 export const BRAND_PRESSED = "rgb(6, 95, 45)";
 
-/** Main app surface — pure white. */
-export const SURFACE_GRADIENT = "#ffffff";
+/** Main app surface — light gray. */
+export const SURFACE_GRADIENT = "#f4f4f5";
 
 /** Flat white for cards that need to pop off the surface. */
 export const SURFACE_CARD = "#ffffff";
