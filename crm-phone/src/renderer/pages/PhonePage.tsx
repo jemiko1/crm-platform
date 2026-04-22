@@ -5,6 +5,7 @@ import { CallerCard } from "./CallerCard";
 import { CallHistory } from "./CallHistory";
 import { SettingsPage } from "./SettingsPage";
 import { startRingtone, stopRingtone } from "../ringtone";
+import { GLASS } from "../theme";
 
 interface Props {
   session: AppSession;
@@ -416,33 +417,53 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     height: "100vh",
-    background: "linear-gradient(180deg, #0f172a 0%, #1e293b 100%)",
+    // Glass direction: deep slate base with cyan+purple radial glows.
+    // Defined in src/renderer/theme.ts so the break modal / login /
+    // incoming-call popup can all share the same backdrop.
+    background: GLASS.containerBackground,
+    color: GLASS.textStrong,
+    // Prevent the body from showing through during window resize.
+    backgroundAttachment: "fixed",
   },
   titleBar: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: "0.5rem 1rem",
-    background: "#020617",
+    padding: "0.5rem 0.75rem",
+    // Subtle darkened strip at the top of the window. Not fully opaque
+    // so the radial glow still bleeds through.
+    background: "rgba(2, 6, 23, 0.55)",
+    backdropFilter: "blur(12px)",
+    WebkitBackdropFilter: "blur(12px)",
+    borderBottom: "1px solid rgba(255, 255, 255, 0.04)",
     WebkitAppRegion: "drag" as any,
     flexShrink: 0,
   },
-  titleText: { fontSize: "0.8rem", fontWeight: 600, color: "#94a3b8" },
-  headerBtn: {
-    background: "none",
-    border: "none",
-    color: "#64748b",
-    fontSize: "0.9rem",
-    cursor: "pointer",
-    padding: "2px 6px",
+  titleText: {
+    fontSize: "0.78rem",
+    fontWeight: 600,
+    color: GLASS.textBody,
+    letterSpacing: "0.02em",
   },
-  closeBtn: {
-    background: "none",
-    border: "none",
-    color: "#64748b",
+  headerBtn: {
+    background: "rgba(255, 255, 255, 0.06)",
+    border: "1px solid rgba(255, 255, 255, 0.08)",
+    color: GLASS.textMuted,
     fontSize: "0.85rem",
     cursor: "pointer",
-    padding: "2px 6px",
+    padding: "2px 8px",
+    borderRadius: 6,
+    lineHeight: 1.2,
+  },
+  closeBtn: {
+    background: "rgba(239, 68, 68, 0.12)",
+    border: "1px solid rgba(239, 68, 68, 0.25)",
+    color: "#fca5a5",
+    fontSize: "0.8rem",
+    cursor: "pointer",
+    padding: "2px 8px",
+    borderRadius: 6,
+    lineHeight: 1.2,
   },
   statusBar: {
     display: "flex",
