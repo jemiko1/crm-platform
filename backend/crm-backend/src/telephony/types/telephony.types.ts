@@ -134,6 +134,12 @@ export interface QueueKpis {
 }
 
 export interface CallerLookupResult {
+  employee?: {
+    id: string;
+    extension: string;
+    displayName: string;
+    email: string | null;
+  };
   client?: {
     id: string;
     coreId: number | null;
