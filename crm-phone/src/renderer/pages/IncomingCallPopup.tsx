@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { WindowControls, WINDOW_CONTROLS_WIDTH } from "../components/WindowControls";
+import { WindowControls } from "../components/WindowControls";
 import type { ActiveCall, CallState, CallerLookupResult } from "../../shared/types";
 import {
   BORDER_SOFT,
@@ -38,9 +38,8 @@ export function IncomingCallPopup({ call, callState, lookup, onAnswer, onReject 
   return (
     <div style={styles.overlay}>
       <div style={styles.titleBar}>
-        <WindowControls />
         <span style={styles.titleText}>CRM28 Softphone</span>
-        <div style={{ width: WINDOW_CONTROLS_WIDTH }} />
+        <WindowControls />
       </div>
 
       <div style={styles.body}>
@@ -146,7 +145,8 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: "0.5rem 0.85rem",
+    height: 34,
+    paddingLeft: "0.85rem",
     WebkitAppRegion: "drag" as any,
     flexShrink: 0,
   },

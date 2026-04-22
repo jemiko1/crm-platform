@@ -5,7 +5,7 @@ import { CallerCard } from "./CallerCard";
 import { CallHistory } from "./CallHistory";
 import { SettingsPage } from "./SettingsPage";
 import { startRingtone, stopRingtone } from "../ringtone";
-import { WindowControls, WINDOW_CONTROLS_WIDTH } from "../components/WindowControls";
+import { WindowControls } from "../components/WindowControls";
 import {
   BRAND,
   BRAND_PRESSED,
@@ -236,9 +236,8 @@ export function PhonePage(props: Props) {
     <div style={styles.container}>
       {/* Title bar — drag handle for the frameless window. */}
       <div style={styles.titleBar}>
-        <WindowControls />
         <span style={styles.titleText}>CRM28 Softphone</span>
-        <div style={{ width: WINDOW_CONTROLS_WIDTH }} />
+        <WindowControls />
       </div>
 
       {/* Status bar — presence pill on the left (with live dot), call
@@ -766,7 +765,8 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: "0.5rem 0.85rem 0.4rem",
+    height: 34,
+    paddingLeft: "0.85rem",
     WebkitAppRegion: "drag" as any,
     flexShrink: 0,
   },
@@ -775,7 +775,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     color: TEXT_MUTED,
     letterSpacing: "0.02em",
-    textAlign: "center" as const,
   },
   // Status bar (presence + timer + settings)
   statusBar: {

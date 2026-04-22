@@ -1,82 +1,74 @@
 import React, { useState } from "react";
 
-const SIZE = 12;
+type BtnConfig = {
+  icon: string;
+  title: string;
+  label: string;
+  isClose?: boolean;
+};
 
-const BUTTONS = [
-  {
-    color: "#ff5f57",
-    hoverIcon: "×",
-    hoverColor: "rgba(100,0,0,0.50)",
-    title: "Close to tray",
-    label: "Close",
-  },
-  {
-    color: "#febc2e",
-    hoverIcon: "−",
-    hoverColor: "rgba(80,55,0,0.50)",
-    title: "Minimize to tray",
-    label: "Minimize",
-  },
-  {
-    color: "#28c840",
-    hoverIcon: "+",
-    hoverColor: "rgba(0,55,0,0.50)",
-    title: "Hide to tray",
-    label: "Hide",
-  },
-] as const;
+const BUTTONS: BtnConfig[] = [
+  { icon: "−", title: "Minimize to tray", label: "Minimize" },
+  { icon: "□", title: "Hide to tray",     label: "Maximize" },
+  { icon: "×", title: "Close to tray",    label: "Close", isClose: true },
+];
 
 /**
- * macOS-style traffic-light window controls.
- * All three call `app.hide()` — the window stays alive in the tray.
- * Hover over the group reveals icon glyphs; each dot dims slightly.
+ * Windows-style window controls — minimize, maximize, close.
+ * All three call `app.hide()` so the window stays alive in the tray.
+ * Close gets a red hover; min/max get a neutral grey hover.
  */
 export const WindowControls: React.FC = () => {
-  const [hovered, setHovered] = useState(false);
+  const [activeBtn, setActiveBtn] = useState<string | null>(null);
 
   return (
     <div
       style={{
         display: "flex",
-        gap: 6,
-        alignItems: "center",
+        alignItems: "stretch",
         WebkitAppRegion: "no-drag" as any,
         flexShrink: 0,
+        height: "100%",
       }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
     >
-      {BUTTONS.map(({ color, hoverIcon, hoverColor, title, label }) => (
-        <button
-          key={label}
-          onClick={() => window.crmPhone?.app?.hide?.()}
-          title={title}
-          aria-label={label}
-          style={{
-            width: SIZE,
-            height: SIZE,
-            borderRadius: "50%",
-            background: color,
-            border: "none",
-            cursor: "pointer",
-            padding: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "0.5rem",
-            fontWeight: 900,
-            lineHeight: 1,
-            color: hovered ? hoverColor : "transparent",
-            transition: "filter 0.12s, color 0.12s",
-            filter: hovered ? "brightness(0.88)" : "brightness(1)",
-          }}
-        >
-          {hoverIcon}
-        </button>
-      ))}
+      {BUTTONS.map(({ icon, title, label, isClose }) => {
+        const isHov = activeBtn === label;
+        return (
+          <button
+            key={label}
+            onClick={() => window.crmPhone?.app?.hide?.()}
+            title={title}
+            aria-label={label}
+            onMouseEnter={() => setActiveBtn(label)}
+            onMouseLeave={() => setActiveBtn(null)}
+            style={{
+              width: isClose ? 34 : 28,
+              height: "100%",
+              background: isHov
+                ? isClose
+                  ? "#c42b1c"
+                  : "rgba(0,0,0,0.07)"
+                : "transparent",
+              border: "none",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: isClose ? "1rem" : "0.85rem",
+              lineHeight: 1,
+              color: isHov && isClose ? "#ffffff" : "rgba(30,30,30,0.55)",
+              transition: "background 0.1s, color 0.1s",
+              padding: 0,
+              borderRadius: 0,
+            }}
+          >
+            {icon}
+          </button>
+        );
+      })}
     </div>
   );
 };
 
-/** Pixel width of the control group — use as phantom spacer in title bars. */
-export const WINDOW_CONTROLS_WIDTH = SIZE * 3 + 6 * 2; // 48px
+/** Total width: 28 + 28 + 34 = 90px. */
+export const WINDOW_CONTROLS_WIDTH = 28 + 28 + 34; // 90px
