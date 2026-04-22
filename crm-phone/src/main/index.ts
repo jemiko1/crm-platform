@@ -432,6 +432,7 @@ function setupIpc(): void {
   ipcMain.on(IPC.APP_QUIT, () => { mainWindow?.destroy(); app.quit(); });
   ipcMain.on(IPC.APP_SHOW, () => { mainWindow?.show(); mainWindow?.focus(); });
   ipcMain.on(IPC.APP_HIDE, () => { mainWindow?.hide(); });
+  ipcMain.on(IPC.APP_MINIMIZE, () => { mainWindow?.minimize(); });
 
   ipcMain.handle(IPC.APP_OPEN_EXTERNAL, async (_e, url: string) => {
     if (typeof url === "string" && (url.startsWith("https://") || url.startsWith("http://"))) {

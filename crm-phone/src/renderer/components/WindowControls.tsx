@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 
 /**
- * Single close button — sends the window to the tray (not a real quit).
- * Styled as a rounded squircle: subtle neutral default, red on hover.
+ * Single close-style button — minimizes to taskbar (not tray).
+ * Always visible: neutral pill at rest, red on hover.
  */
 export const WindowControls: React.FC = () => {
   const [hovered, setHovered] = useState(false);
@@ -10,20 +10,20 @@ export const WindowControls: React.FC = () => {
   return (
     <div style={{ WebkitAppRegion: "no-drag" as any, flexShrink: 0 }}>
       <button
-        onClick={() => window.crmPhone?.app?.hide?.()}
-        title="Minimize to tray"
-        aria-label="Close"
+        onClick={() => window.crmPhone?.app?.minimize?.()}
+        title="Minimize"
+        aria-label="Minimize"
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
           width: 34,
           height: 22,
-          borderRadius: 7,
-          background: hovered ? "#e53935" : "rgba(0,0,0,0.06)",
-          border: hovered ? "1px solid #c62828" : "1px solid rgba(0,0,0,0.12)",
+          borderRadius: 6,
+          background: hovered ? "#e53935" : "rgba(0,0,0,0.10)",
+          border: `1px solid ${hovered ? "#c62828" : "rgba(0,0,0,0.20)"}`,
           boxShadow: hovered
             ? "0 2px 6px rgba(229,57,53,0.35)"
-            : "0 1px 2px rgba(0,0,0,0.08)",
+            : "0 1px 2px rgba(0,0,0,0.10)",
           cursor: "pointer",
           display: "flex",
           alignItems: "center",
@@ -37,8 +37,8 @@ export const WindowControls: React.FC = () => {
           height="10"
           viewBox="0 0 10 10"
           fill="none"
-          stroke={hovered ? "#ffffff" : "rgba(0,0,0,0.45)"}
-          strokeWidth="1.6"
+          stroke={hovered ? "#ffffff" : "rgba(0,0,0,0.55)"}
+          strokeWidth="1.7"
           strokeLinecap="round"
         >
           <line x1="1.5" y1="1.5" x2="8.5" y2="8.5" />
@@ -49,5 +49,4 @@ export const WindowControls: React.FC = () => {
   );
 };
 
-/** Width of the control group — phantom spacer in title bars is not needed (single btn). */
 export const WINDOW_CONTROLS_WIDTH = 34;

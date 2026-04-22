@@ -243,14 +243,19 @@ export function PhonePage(props: Props) {
       {/* Status bar — presence pill on the left (with live dot), call
           timer on the right when in call, settings gear always visible. */}
       <div style={styles.statusBar}>
-        <div
-          style={{ ...styles.presencePill, ...presencePill.style }}
-          title={`${userName} · Ext ${ext}`}
-        >
-          <span
-            style={{ ...styles.presenceDot, background: presencePill.dotColor }}
-          />
-          <span>{presencePill.text}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+          <div
+            style={{ ...styles.presencePill, ...presencePill.style }}
+            title={`${userName} · Ext ${ext}`}
+          >
+            <span
+              style={{ ...styles.presenceDot, background: presencePill.dotColor }}
+            />
+            <span>{presencePill.text}</span>
+          </div>
+          {dndEnabled && (
+            <span style={styles.dndBadge}>DND Active</span>
+          )}
         </div>
 
         <div style={styles.statusRight}>
@@ -414,16 +419,18 @@ function DialpadView(props: {
           style={styles.numberInput}
           onKeyDown={(e) => e.key === "Enter" && handleDial()}
         />
-        {dialNumber && (
-          <button
-            onClick={() => setDialNumber("")}
-            style={styles.clearBtn}
-            aria-label="Clear number"
-            title="Clear"
-          >
-            ⌫
-          </button>
-        )}
+        <button
+          onClick={() => dialNumber && setDialNumber("")}
+          style={{
+            ...styles.clearBtn,
+            visibility: dialNumber ? "visible" : "hidden",
+          }}
+          aria-label="Clear number"
+          title="Clear"
+          tabIndex={dialNumber ? 0 : -1}
+        >
+          ⌫
+        </button>
       </div>
 
       <div style={styles.dialpadGrid}>
@@ -794,6 +801,8 @@ const styles: Record<string, React.CSSProperties> = {
     paddingLeft: "0.85rem",
     WebkitAppRegion: "drag" as any,
     flexShrink: 0,
+    boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
+    zIndex: 1,
   },
   titleText: {
     fontSize: "0.78rem",
@@ -824,6 +833,19 @@ const styles: Record<string, React.CSSProperties> = {
     height: 7,
     borderRadius: "50%",
     flexShrink: 0,
+  },
+  dndBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+    padding: "3px 8px",
+    borderRadius: 999,
+    background: "rgba(220,38,38,0.10)",
+    border: "1px solid rgba(220,38,38,0.28)",
+    color: "#dc2626",
+    fontSize: "0.7rem",
+    fontWeight: 700,
+    letterSpacing: "0.04em",
   },
   statusRight: {
     display: "flex",
