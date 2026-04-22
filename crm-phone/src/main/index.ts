@@ -47,6 +47,26 @@ console.log("[INIT] CRM28 Phone starting, log file:", logFile);
 app.name = "CRM28 Phone";
 app.setAppUserModelId("ge.asg.crm28-phone");
 
+// Dev-mode taskbar icon fix: Windows uses the .exe's embedded icon for
+// pinned shortcuts (electron.exe ships with the default atom icon). By
+// registering our AppUserModelID in the Registry with a custom
+// IconResource, Windows uses *that* icon for any window/shortcut tagged
+// with this AUMID — including pinned taskbar items.
+// In packaged builds this is unnecessary: electron-builder embeds the
+// icon directly into CRM28 Phone.exe.
+if (!app.isPackaged && process.platform === "win32") {
+  try {
+    const iconAbsPath = path.resolve(__dirname, "../../resources/icon.ico");
+    const { execFileSync } = require("child_process");
+    const regKey = "HKCU\\Software\\Classes\\AppUserModelId\\ge.asg.crm28-phone";
+    execFileSync("reg", ["add", regKey, "/v", "DisplayName", "/t", "REG_SZ", "/d", "CRM28 Phone", "/f"], { stdio: "ignore" });
+    execFileSync("reg", ["add", regKey, "/v", "IconResource", "/t", "REG_SZ", "/d", `${iconAbsPath},0`, "/f"], { stdio: "ignore" });
+    console.log("[INIT] Registered AppUserModelID icon:", iconAbsPath);
+  } catch (e) {
+    console.error("[INIT] Failed to register AppUserModelID icon:", e);
+  }
+}
+
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let sipRegistered = false;

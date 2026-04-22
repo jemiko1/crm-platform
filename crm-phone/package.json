@@ -1,6 +1,6 @@
 {
   "name": "crm28-phone",
-  "version": "1.10.2",
+  "version": "1.11.0",
   "description": "CRM28 Desktop Softphone",
   "main": "dist/main/index.js",
   "packageManager": "pnpm@10.27.0",
@@ -18,6 +18,8 @@
     "build:preload": "esbuild src/main/preload.ts --bundle --platform=node --outfile=dist/main/preload.js --external:electron --format=cjs --sourcemap",
     "build:renderer": "vite build",
     "build": "pnpm run build:main && pnpm run build:preload && pnpm run build:renderer",
+    "brand-electron-exe": "tools\\rcedit-x64.exe node_modules\\electron\\dist\\electron.exe --set-icon resources\\icon.ico --set-version-string FileDescription \"CRM28 Phone\" --set-version-string ProductName \"CRM28 Phone\" --set-version-string CompanyName ASG",
+    "postinstall": "node -e \"if(process.platform==='win32'){try{require('child_process').execSync('pnpm run brand-electron-exe',{stdio:'inherit'})}catch(e){console.error('brand-electron-exe failed:',e.message)}}\"",
     "start": "electron dist/main/index.js",
     "pack": "pnpm run build && electron-builder --win",
     "release": "pnpm run build && electron-builder --win --publish always",
