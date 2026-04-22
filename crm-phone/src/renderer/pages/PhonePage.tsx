@@ -234,9 +234,22 @@ export function PhonePage(props: Props) {
 
   return (
     <div style={styles.container}>
-      {/* Title bar — drag handle for the frameless window. */}
+      {/* Title bar — drag handle for the frameless window. Shows extension
+          + email once registered so the operator can verify they're logged
+          in on the right account (there are ~15 extensions; a wrong login
+          silently routes calls to the wrong agent). */}
       <div style={styles.titleBar}>
-        <span style={styles.titleText}>CRM28 Softphone</span>
+        <span style={styles.titleText}>
+          CRM28
+          {sipRegistered && session.telephonyExtension?.extension && (
+            <>
+              {" · "}
+              <span style={styles.titleExt}>Ext {session.telephonyExtension.extension}</span>
+              {" · "}
+              <span style={styles.titleEmail}>{session.user.email}</span>
+            </>
+          )}
+        </span>
         <WindowControls />
       </div>
 
@@ -853,6 +866,19 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     color: TEXT_MUTED,
     letterSpacing: "0.02em",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    paddingRight: "0.5rem",
+  },
+  titleExt: {
+    color: BRAND,
+    fontWeight: 700,
+    fontVariantNumeric: "tabular-nums",
+  },
+  titleEmail: {
+    color: TEXT_MUTED,
+    fontWeight: 500,
   },
   // Status bar (presence + timer + settings)
   statusBar: {
