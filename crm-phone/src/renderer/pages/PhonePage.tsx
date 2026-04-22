@@ -5,6 +5,7 @@ import { CallerCard } from "./CallerCard";
 import { CallHistory } from "./CallHistory";
 import { SettingsPage } from "./SettingsPage";
 import { startRingtone, stopRingtone } from "../ringtone";
+import { WindowControls, WINDOW_CONTROLS_WIDTH } from "../components/WindowControls";
 import {
   BRAND,
   BRAND_PRESSED,
@@ -233,36 +234,11 @@ export function PhonePage(props: Props) {
 
   return (
     <div style={styles.container}>
-      {/* Title bar — translucent so the mint wash shows through.
-          Drag-handle for the frameless window. */}
+      {/* Title bar — drag handle for the frameless window. */}
       <div style={styles.titleBar}>
+        <WindowControls />
         <span style={styles.titleText}>CRM28 Softphone</span>
-        <div style={styles.titleBtnRow}>
-          <button
-            onClick={() => window.crmPhone.app.hide()}
-            style={styles.titleBtn}
-            title="Minimize to tray"
-            aria-label="Minimize"
-          >
-            −
-          </button>
-          <button
-            onClick={() => window.crmPhone.app.hide()}
-            style={styles.titleBtn}
-            title="Maximize (unused)"
-            aria-label="Maximize"
-          >
-            □
-          </button>
-          <button
-            onClick={() => window.crmPhone.app.hide()}
-            style={{ ...styles.titleBtn, color: "#b91c1c" }}
-            title="Close to tray"
-            aria-label="Close"
-          >
-            ×
-          </button>
-        </div>
+        <div style={{ width: WINDOW_CONTROLS_WIDTH }} />
       </div>
 
       {/* Status bar — presence pill on the left (with live dot), call
@@ -795,29 +771,12 @@ const styles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
   },
   titleText: {
-    fontSize: "0.85rem",
+    fontSize: "0.78rem",
     fontWeight: 600,
-    color: TEXT_STRONG,
-    letterSpacing: "-0.01em",
-  },
-  titleBtnRow: {
-    display: "flex",
-    gap: "0.15rem",
-    WebkitAppRegion: "no-drag" as any,
-  },
-  titleBtn: {
-    width: 26,
-    height: 22,
-    background: "transparent",
-    border: "none",
     color: TEXT_MUTED,
-    fontSize: "0.95rem",
-    lineHeight: 1,
-    cursor: "pointer",
-    borderRadius: 4,
-    padding: 0,
+    letterSpacing: "0.02em",
+    textAlign: "center" as const,
   },
-
   // Status bar (presence + timer + settings)
   statusBar: {
     display: "flex",

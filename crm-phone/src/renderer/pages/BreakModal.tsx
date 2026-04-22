@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { WindowControls, WINDOW_CONTROLS_WIDTH } from "../components/WindowControls";
 import type { BreakSession } from "../../shared/types";
 import {
   BORDER_SOFT,
@@ -57,7 +58,9 @@ export function BreakModal(props: Props) {
   return (
     <div style={styles.container}>
       <div style={styles.titleBar}>
+        <WindowControls />
         <span style={styles.titleText}>On Break</span>
+        <div style={{ width: WINDOW_CONTROLS_WIDTH }} />
       </div>
 
       <div style={styles.body}>
@@ -121,8 +124,9 @@ const styles: Record<string, React.CSSProperties> = {
   titleBar: {
     display: "flex",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "space-between",
     height: 40,
+    padding: "0 0.85rem",
     WebkitAppRegion: "drag" as any,
     flexShrink: 0,
   },

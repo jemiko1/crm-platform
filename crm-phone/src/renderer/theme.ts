@@ -22,10 +22,9 @@ export const BRAND_HOVER = "rgb(10, 140, 68)";
 /** Tiny bit darker for the pressed state of the primary button. */
 export const BRAND_PRESSED = "rgb(6, 95, 45)";
 
-/** Vertical gradient used on the main surface — very subtle mint
- *  wash on white so the UI never feels clinical. */
-export const SURFACE_GRADIENT =
-  "linear-gradient(180deg, #f4faf7 0%, #e9f3ee 100%)";
+/** Main app surface — pure near-white so the emerald accent pops
+ *  without competing with a tinted backdrop. */
+export const SURFACE_GRADIENT = "#fafafa";
 
 /** Flat white for cards that need to pop off the surface. */
 export const SURFACE_CARD = "#ffffff";

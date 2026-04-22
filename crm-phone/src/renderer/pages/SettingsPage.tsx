@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
+import { WindowControls } from "../components/WindowControls";
 import {
   BORDER_SOFT,
   BRAND,
@@ -151,7 +152,7 @@ export function SettingsPage({ onBack, onLogout }: Props) {
       <div style={styles.titleBar}>
         <button onClick={onBack} style={styles.backBtn}>← Back</button>
         <span style={styles.titleText}>Settings</span>
-        <span style={{ width: 60 }} />
+        <WindowControls />
       </div>
 
       <div style={styles.content}>
