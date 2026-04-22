@@ -1,35 +1,45 @@
 import React, { useEffect, useState } from "react";
 import type { BreakSession } from "../../shared/types";
-import { GLASS } from "../theme";
+import {
+  BORDER_SOFT,
+  BRAND,
+  SHADOW_CARD,
+  SHADOW_CTA,
+  SURFACE_CARD,
+  SURFACE_GRADIENT,
+  TEXT_BODY,
+  TEXT_MUTED,
+  TEXT_STRONG,
+  TEXT_SUBTLE,
+} from "../theme";
 
 interface Props {
   session: BreakSession;
   onResume: () => Promise<void>;
-  onLogout: () => Promise<void>;
   loading: boolean;
   error: string | null;
 }
 
 /**
  * Fullscreen overlay shown while the operator is on break. SIP is
- * unregistered at this point — dial / answer are unreachable, so we
- * make that obvious by replacing the entire PhonePage. The elapsed
- * counter ticks every second. The only actions available are
- * "Resume" (end break + re-register SIP) and "Log Out" (end break +
- * logout). Logout also calls `onResume` first via the parent — we
- * don't block logout during break.
+ * unregistered at this point — dial / answer are unreachable. The
+ * elapsed counter ticks every second.
  *
- * Auto-close: the backend closes stale breaks at COMPANY_WORK_END_HOUR
- * (default 19:00) and after 12h. If that fires while the softphone is
- * running, the break session is closed on the backend but the modal
- * stays up (no push from backend yet). The user clicks Resume and gets
- * a successful (idempotent) response — the cron already did the work.
+ * v1.11.0 design change: Log Out is removed from this screen. The
+ * only action here is **Resume**. Operators who want to log out
+ * resume the break first (one extra tap, but avoids the ambiguity of
+ * "did my break session close cleanly on logout?"). If an operator
+ * is stuck unable to resume, closing the app + reopening will
+ * cold-start into a fresh break modal via the `GET /breaks/my-current`
+ * restore path; from there the modal still only offers Resume.
+ *
+ * Auto-close safety net stays in place: the backend cron closes stale
+ * breaks at COMPANY_WORK_END_HOUR (default 19:00) and after 12h, so an
+ * operator who closes the app without resuming does NOT get stuck on
+ * break forever.
  */
 export function BreakModal(props: Props) {
-  const { session, onResume, onLogout, loading, error } = props;
-  // Re-render every second to keep the elapsed counter live. We don't
-  // mutate state inside every tick — just bump a counter to trigger
-  // render. Cheaper than recomputing from Date.now on a data prop.
+  const { session, onResume, loading, error } = props;
   const [, forceTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => forceTick((n) => n + 1), 1000);
@@ -47,18 +57,18 @@ export function BreakModal(props: Props) {
   return (
     <div style={styles.container}>
       <div style={styles.titleBar}>
-        <div style={styles.titleText}>On Break</div>
+        <span style={styles.titleText}>On Break</span>
       </div>
 
       <div style={styles.body}>
-        <div style={styles.iconCircle}>
+        <div style={styles.iconCircle} aria-hidden="true">
           <svg
             width="34"
             height="34"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="#f59e0b"
-            strokeWidth="2"
+            stroke={BRAND}
+            strokeWidth="1.8"
             strokeLinecap="round"
             strokeLinejoin="round"
           >
@@ -72,11 +82,9 @@ export function BreakModal(props: Props) {
 
         <div style={styles.elapsed}>{elapsedText}</div>
         <div style={styles.caption}>
-          SIP unregistered — you won't receive calls until you resume.
+          You're unregistered. Resume when you're ready to take calls again.
         </div>
-        <div style={styles.subCaption}>
-          Extension {session.extension}
-        </div>
+        <div style={styles.subCaption}>Extension {session.extension}</div>
 
         {error && <div style={styles.error}>{error}</div>}
 
@@ -85,23 +93,11 @@ export function BreakModal(props: Props) {
           disabled={loading}
           style={{
             ...styles.resumeBtn,
-            opacity: loading ? 0.5 : 1,
+            opacity: loading ? 0.65 : 1,
             cursor: loading ? "not-allowed" : "pointer",
           }}
         >
           {loading ? "Resuming…" : "Resume"}
-        </button>
-
-        <button
-          onClick={onLogout}
-          disabled={loading}
-          style={{
-            ...styles.logoutBtn,
-            opacity: loading ? 0.5 : 1,
-            cursor: loading ? "not-allowed" : "pointer",
-          }}
-        >
-          Log Out
         </button>
 
         <div style={styles.footNote}>
@@ -117,75 +113,51 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     height: "100vh",
-    // Same Glass backdrop as PhonePage but with an amber glow swapped
-    // in for the cyan one, signaling "paused state" without leaving
-    // the visual language. The purple stays so the modal still feels
-    // like the same app, not a separate screen.
-    background: [
-      "radial-gradient(at 20% 10%, rgba(251, 191, 36, 0.22), transparent 45%)",
-      "radial-gradient(at 80% 90%, rgba(139, 92, 246, 0.22), transparent 45%)",
-      "#0b1120",
-    ].join(", "),
-    color: GLASS.textStrong,
-    backgroundAttachment: "fixed",
+    background: SURFACE_GRADIENT,
+    color: TEXT_STRONG,
+    fontFamily:
+      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
   },
   titleBar: {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    height: 36,
+    height: 40,
     WebkitAppRegion: "drag" as any,
-    background: "rgba(2, 6, 23, 0.45)",
-    backdropFilter: "blur(12px)",
-    WebkitBackdropFilter: "blur(12px)",
-    borderBottom: "1px solid rgba(255, 255, 255, 0.04)",
+    flexShrink: 0,
   },
   titleText: {
-    color: "#fcd34d",
+    color: TEXT_MUTED,
     fontSize: "0.72rem",
     fontWeight: 700,
     letterSpacing: "0.14em",
     textTransform: "uppercase",
   },
   body: {
-    // At the softphone's minimum window size (340x500) the previous
-    // `justifyContent: center` + 2rem padding caused the Log Out
-    // button and footNote to overflow off-screen. Keep
-    // `justifyContent: flex-start` + scroll overflow so the modal
-    // stays usable at any window size.
     flex: 1,
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "flex-start",
-    padding: "1.5rem 1.25rem 1.25rem",
+    padding: "1.5rem 1.25rem 1.5rem",
     gap: "0.85rem",
     overflowY: "auto",
   },
   iconCircle: {
-    width: 68,
-    height: 68,
+    width: 72,
+    height: 72,
     borderRadius: "50%",
-    background: "rgba(251, 191, 36, 0.16)",
-    border: "1px solid rgba(251, 191, 36, 0.3)",
+    background: SURFACE_CARD,
+    border: `1px solid ${BORDER_SOFT}`,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: "0.25rem",
     flexShrink: 0,
-    boxShadow:
-      "0 8px 24px rgba(251, 191, 36, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.06) inset",
+    boxShadow: SHADOW_CARD,
+    marginTop: "0.25rem",
   },
   elapsed: {
-    // Gradient clip-text — amber → orange. The background is painted
-    // only onto the text, giving a premium look without adding another
-    // element. Fallback `color` keeps the text readable if the browser
-    // ever drops support for background-clip: text (not an issue in
-    // Chromium, but defensive).
-    background: GLASS.amberGradient,
-    WebkitBackgroundClip: "text",
-    backgroundClip: "text",
-    color: "transparent",
+    color: BRAND,
     fontSize: "3rem",
     fontWeight: 300,
     fontVariantNumeric: "tabular-nums",
@@ -194,23 +166,22 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: "0.25rem",
   },
   caption: {
-    color: GLASS.textBody,
-    fontSize: "0.85rem",
+    color: TEXT_BODY,
+    fontSize: "0.88rem",
     textAlign: "center",
     lineHeight: 1.5,
-    maxWidth: 260,
+    maxWidth: 280,
   },
   subCaption: {
-    color: GLASS.textMuted,
-    fontSize: "0.7rem",
-    marginTop: "-0.25rem",
+    color: TEXT_MUTED,
+    fontSize: "0.72rem",
     letterSpacing: "0.05em",
   },
   error: {
-    color: "#fca5a5",
+    color: "#b91c1c",
     fontSize: "0.78rem",
-    background: "rgba(220, 38, 38, 0.16)",
-    border: "1px solid rgba(220, 38, 38, 0.35)",
+    background: "rgba(239, 68, 68, 0.08)",
+    border: "1px solid rgba(239, 68, 68, 0.25)",
     padding: "0.55rem 0.8rem",
     borderRadius: 8,
     maxWidth: 280,
@@ -219,30 +190,18 @@ const styles: Record<string, React.CSSProperties> = {
   resumeBtn: {
     marginTop: "0.75rem",
     padding: "0.85rem 2.5rem",
-    background: GLASS.successGradient,
+    background: BRAND,
     color: "white",
     border: "none",
     borderRadius: 999,
     fontSize: "0.95rem",
     fontWeight: 700,
-    letterSpacing: "0.05em",
-    cursor: "pointer",
+    letterSpacing: "0.06em",
     minWidth: 220,
-    boxShadow: GLASS.successShadow,
-  },
-  logoutBtn: {
-    padding: "0.55rem 1.5rem",
-    ...GLASS.glassCard,
-    color: GLASS.textMuted,
-    borderRadius: 999,
-    fontSize: "0.8rem",
-    cursor: "pointer",
-    minWidth: 220,
-    fontWeight: 600,
-    letterSpacing: "0.02em",
+    boxShadow: SHADOW_CTA,
   },
   footNote: {
-    color: GLASS.textSubtle,
+    color: TEXT_SUBTLE,
     fontSize: "0.68rem",
     marginTop: "0.75rem",
     textAlign: "center",

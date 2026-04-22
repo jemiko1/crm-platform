@@ -1,4 +1,15 @@
 import React, { useEffect, useState, useCallback } from "react";
+import {
+  BORDER_SOFT,
+  BRAND,
+  CARD,
+  SHADOW_CARD,
+  SURFACE_CARD,
+  SURFACE_GRADIENT,
+  TEXT_BODY,
+  TEXT_MUTED,
+  TEXT_STRONG,
+} from "../theme";
 
 interface AudioDevice {
   deviceId: string;
@@ -21,9 +32,17 @@ interface UpdateStatus {
 
 interface Props {
   onBack: () => void;
+  /**
+   * v1.11.0: Log Out moved from the PhonePage footer and the Break
+   * modal into this screen. It's the last action in the list so the
+   * operator has to scroll past every other setting first, which
+   * makes it a deliberate "I'm done for the day" choice rather than
+   * something clicked by accident during a busy shift.
+   */
+  onLogout?: () => Promise<void>;
 }
 
-export function SettingsPage({ onBack }: Props) {
+export function SettingsPage({ onBack, onLogout }: Props) {
   const [settings, setSettings] = useState<Settings>({
     muteRingtone: false,
     overrideApps: true,
@@ -243,6 +262,29 @@ export function SettingsPage({ onBack }: Props) {
             <span style={styles.updateError}>Update error: {updateStatus.message}</span>
           )}
         </div>
+
+        {/* Account section — logout lives at the bottom so it's never
+            the first button the operator reaches. Only rendered when
+            a logout handler is wired (App.tsx always provides one
+            when a session exists; the prop is optional only for
+            future uses of this page that might skip it). */}
+        {onLogout && (
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>Account</h3>
+            <button
+              onClick={async () => {
+                const ok = window.confirm(
+                  "Log out of CRM28 Softphone?\n\nYou'll need to sign in again before you can receive or make calls.",
+                );
+                if (!ok) return;
+                await onLogout();
+              }}
+              style={styles.logoutBtn}
+            >
+              Log Out
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -253,25 +295,32 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     height: "100vh",
-    background: "linear-gradient(180deg, #0f172a 0%, #1e293b 100%)",
+    background: SURFACE_GRADIENT,
+    color: TEXT_STRONG,
+    fontFamily:
+      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
   },
   titleBar: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: "0.5rem 1rem",
-    background: "#020617",
+    padding: "0.55rem 0.9rem",
     WebkitAppRegion: "drag" as any,
+    flexShrink: 0,
+    borderBottom: `1px solid ${BORDER_SOFT}`,
   },
   backBtn: {
-    background: "none",
+    background: "transparent",
     border: "none",
-    color: "#60a5fa",
-    fontSize: "0.8rem",
+    color: BRAND,
+    fontSize: "0.85rem",
+    fontWeight: 600,
     cursor: "pointer",
     WebkitAppRegion: "no-drag" as any,
+    padding: "2px 6px",
+    borderRadius: 6,
   },
-  titleText: { fontSize: "0.8rem", fontWeight: 600, color: "#94a3b8" },
+  titleText: { fontSize: "0.85rem", fontWeight: 600, color: TEXT_STRONG },
   content: {
     flex: 1,
     overflow: "auto",
@@ -283,42 +332,44 @@ const styles: Record<string, React.CSSProperties> = {
   section: {
     display: "flex",
     flexDirection: "column",
-    gap: "0.5rem",
+    gap: "0.55rem",
   },
   sectionTitle: {
-    fontSize: "0.8rem",
+    fontSize: "0.72rem",
     fontWeight: 700,
-    color: "#94a3b8",
+    color: TEXT_MUTED,
     textTransform: "uppercase" as const,
-    letterSpacing: "0.05em",
+    letterSpacing: "0.08em",
     margin: 0,
   },
   checkRow: {
     display: "flex",
     alignItems: "center",
-    gap: "0.5rem",
+    gap: "0.55rem",
     cursor: "pointer",
-    padding: "0.4rem 0",
+    padding: "0.5rem 0.75rem",
+    ...CARD,
   },
   checkbox: {
-    accentColor: "#3b82f6",
+    accentColor: BRAND,
     width: 16,
     height: 16,
     cursor: "pointer",
   },
   checkLabel: {
     fontSize: "0.85rem",
-    color: "#e2e8f0",
+    color: TEXT_BODY,
   },
   select: {
     width: "100%",
-    padding: "0.5rem",
-    borderRadius: "0.375rem",
-    border: "1px solid #334155",
-    background: "#1e293b",
-    color: "#f1f5f9",
-    fontSize: "0.8rem",
+    padding: "0.6rem 0.75rem",
+    borderRadius: 10,
+    border: `1px solid ${BORDER_SOFT}`,
+    background: SURFACE_CARD,
+    color: TEXT_STRONG,
+    fontSize: "0.85rem",
     outline: "none",
+    boxShadow: "0 1px 2px rgba(15, 60, 40, 0.04)",
   },
   testRow: {
     display: "flex",
@@ -326,25 +377,27 @@ const styles: Record<string, React.CSSProperties> = {
     gap: "0.5rem",
   },
   testBtn: {
-    padding: "0.4rem 0.8rem",
-    borderRadius: "0.375rem",
-    border: "1px solid #334155",
-    background: "#1e293b",
-    color: "#e2e8f0",
-    fontSize: "0.75rem",
+    padding: "0.45rem 0.9rem",
+    borderRadius: 999,
+    border: `1px solid ${BORDER_SOFT}`,
+    background: SURFACE_CARD,
+    color: TEXT_BODY,
+    fontSize: "0.78rem",
+    fontWeight: 600,
     cursor: "pointer",
     whiteSpace: "nowrap" as const,
+    boxShadow: "0 1px 2px rgba(15, 60, 40, 0.04)",
   },
   meterBg: {
     flex: 1,
     height: 8,
     borderRadius: 4,
-    background: "#334155",
+    background: "rgba(15, 60, 40, 0.08)",
     overflow: "hidden",
   },
   meterFill: {
     height: "100%",
-    background: "#22c55e",
+    background: BRAND,
     borderRadius: 4,
     transition: "width 0.1s",
   },
@@ -352,34 +405,40 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: "0.4rem 0",
+    padding: "0.5rem 0.75rem",
+    ...CARD,
   },
-  versionLabel: { fontSize: "0.85rem", color: "#94a3b8" },
-  versionValue: { fontSize: "0.85rem", color: "#e2e8f0", fontFamily: "monospace" },
+  versionLabel: { fontSize: "0.85rem", color: TEXT_MUTED },
+  versionValue: {
+    fontSize: "0.85rem",
+    color: TEXT_STRONG,
+    fontFamily: "SF Mono, Menlo, Consolas, monospace",
+  },
   updateRow: {
     display: "flex",
     flexDirection: "column" as const,
     gap: "0.5rem",
   },
   updateBtn: {
-    padding: "0.5rem 1rem",
-    borderRadius: "0.375rem",
-    border: "1px solid #3b82f6",
+    padding: "0.55rem 1rem",
+    borderRadius: 10,
+    border: `1px solid ${BRAND}`,
     background: "transparent",
-    color: "#60a5fa",
-    fontSize: "0.8rem",
+    color: BRAND,
+    fontSize: "0.82rem",
+    fontWeight: 600,
     cursor: "pointer",
     textAlign: "center" as const,
   },
   progressBg: {
     height: 6,
     borderRadius: 3,
-    background: "#334155",
+    background: "rgba(15, 60, 40, 0.08)",
     overflow: "hidden",
   },
   progressFill: {
     height: "100%",
-    background: "#3b82f6",
+    background: BRAND,
     borderRadius: 3,
     transition: "width 0.3s",
   },
@@ -387,22 +446,39 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    background: "#1e3a5f",
-    borderRadius: "0.375rem",
-    padding: "0.5rem 0.75rem",
-    border: "1px solid #3b82f6",
+    background: "rgba(8, 117, 56, 0.08)",
+    borderRadius: 10,
+    padding: "0.55rem 0.8rem",
+    border: `1px solid rgba(8, 117, 56, 0.25)`,
   },
-  updateBannerText: { fontSize: "0.8rem", color: "#93c5fd" },
+  updateBannerText: { fontSize: "0.82rem", color: BRAND },
   restartBtn: {
-    padding: "0.3rem 0.75rem",
-    borderRadius: "0.25rem",
+    padding: "0.35rem 0.85rem",
+    borderRadius: 999,
     border: "none",
-    background: "#3b82f6",
+    background: BRAND,
     color: "#fff",
     fontSize: "0.75rem",
     cursor: "pointer",
-    fontWeight: 600,
+    fontWeight: 700,
   },
-  upToDate: { fontSize: "0.8rem", color: "#4ade80" },
-  updateError: { fontSize: "0.8rem", color: "#f87171" },
+  upToDate: { fontSize: "0.82rem", color: BRAND, fontWeight: 600 },
+  updateError: { fontSize: "0.82rem", color: "#b91c1c" },
+  logoutBtn: {
+    marginTop: "0.25rem",
+    padding: "0.75rem 1rem",
+    borderRadius: 10,
+    border: `1px solid rgba(239, 68, 68, 0.35)`,
+    background: "rgba(239, 68, 68, 0.06)",
+    color: "#b91c1c",
+    fontSize: "0.85rem",
+    fontWeight: 700,
+    cursor: "pointer",
+    letterSpacing: "0.02em",
+    width: "100%",
+    // Respect the `boxShadow: SHADOW_CARD` floor so the button still
+    // feels connected to the rest of the page's cards, but tinted red
+    // to flag it as a destructive-ish action.
+    boxShadow: SHADOW_CARD,
+  },
 };

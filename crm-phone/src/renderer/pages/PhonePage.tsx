@@ -5,7 +5,26 @@ import { CallerCard } from "./CallerCard";
 import { CallHistory } from "./CallHistory";
 import { SettingsPage } from "./SettingsPage";
 import { startRingtone, stopRingtone } from "../ringtone";
-import { GLASS } from "../theme";
+import {
+  BRAND,
+  BRAND_PRESSED,
+  BRAND_SOFT,
+  BORDER_SOFT,
+  CARD,
+  PILL_AVAILABLE,
+  PILL_BREAK,
+  PILL_INCALL,
+  PILL_OFFLINE,
+  SHADOW_CARD,
+  SHADOW_CTA,
+  SHADOW_DANGER,
+  SURFACE_CARD,
+  SURFACE_GRADIENT,
+  TEXT_BODY,
+  TEXT_MUTED,
+  TEXT_STRONG,
+  TEXT_SUBTLE,
+} from "../theme";
 
 interface Props {
   session: AppSession;
@@ -25,15 +44,9 @@ interface Props {
    *  into the dial input but does NOT auto-dial. */
   prefillNumber?: string | null;
   onPrefillConsumed?: () => void;
-  // ── v1.10.0 break + DND props ──
-  /** True while a break-start request is in flight. Disables the button
-   *  so a double-click doesn't queue two starts. */
+  // ── Break + DND props ──
   breakStarting: boolean;
-  /** Human-readable error from the last failed break-start attempt.
-   *  Rendered inline under the button. */
   breakError: string | null;
-  /** Invoked by the Break button. Parent coordinates SIP unregister +
-   *  modal render when the promise resolves true. */
   onBreakStart: () => Promise<boolean>;
   dndEnabled: boolean;
   dndLoading: boolean;
@@ -41,7 +54,26 @@ interface Props {
   onDndToggle: (target: boolean) => Promise<void>;
 }
 
-const DTMF_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
+/**
+ * DTMF keypad layout. The letter subtitle (ABC, DEF…) matches the
+ * familiar phone keypad and gives each key more presence in the grid.
+ */
+const DTMF_KEYS: Array<{ digit: string; letters?: string }> = [
+  { digit: "1" },
+  { digit: "2", letters: "ABC" },
+  { digit: "3", letters: "DEF" },
+  { digit: "4", letters: "GHI" },
+  { digit: "5", letters: "JKL" },
+  { digit: "6", letters: "MNO" },
+  { digit: "7", letters: "PQRS" },
+  { digit: "8", letters: "TUV" },
+  { digit: "9", letters: "WXYZ" },
+  { digit: "*" },
+  { digit: "0", letters: "+" },
+  { digit: "#" },
+];
+
+type Tab = "keypad" | "history" | "dnd" | "break";
 
 export function PhonePage(props: Props) {
   const {
@@ -51,24 +83,24 @@ export function PhonePage(props: Props) {
     breakStarting, breakError, onBreakStart,
     dndEnabled, dndLoading, dndError, onDndToggle,
   } = props;
+
   const [dialNumber, setDialNumber] = useState("");
   const [showSettings, setShowSettings] = useState(false);
-  const [idleView, setIdleView] = useState<"dialpad" | "history">("dialpad");
+  const [tab, setTab] = useState<Tab>("keypad");
   const [callerLookup, setCallerLookup] = useState<CallerLookupResult | null>(null);
   const wasRinging = useRef(false);
   const lookupDone = useRef<string | null>(null);
 
-  // When an external dial request arrives (e.g., click-to-call from the CRM
-  // web UI), load it into the dial input and switch to the dialpad view.
-  // We do NOT auto-dial — the operator presses the green Call button.
+  // External click-to-call — load number + jump to keypad, don't auto-dial.
   useEffect(() => {
     if (!prefillNumber) return;
     setDialNumber(prefillNumber);
-    setIdleView("dialpad");
+    setTab("keypad");
     setShowSettings(false);
     onPrefillConsumed?.();
   }, [prefillNumber, onPrefillConsumed]);
 
+  // Caller lookup — fire once per call.
   useEffect(() => {
     if (activeCall && activeCall.remoteNumber && lookupDone.current !== activeCall.remoteNumber) {
       lookupDone.current = activeCall.remoteNumber;
@@ -86,9 +118,9 @@ export function PhonePage(props: Props) {
     }
   }, [activeCall]);
 
+  // Ringtone + always-on-top while an inbound call is ringing.
   useEffect(() => {
     const ringing = callState === "ringing" && activeCall?.direction === "inbound";
-
     if (ringing && !wasRinging.current) {
       wasRinging.current = true;
       window.crmPhone.settings.get().then((s: any) => {
@@ -96,7 +128,6 @@ export function PhonePage(props: Props) {
         if (s.overrideApps) window.crmPhone.window.setAlwaysOnTop(true);
       });
     }
-
     if (!ringing && wasRinging.current) {
       wasRinging.current = false;
       stopRingtone();
@@ -104,9 +135,59 @@ export function PhonePage(props: Props) {
     }
   }, [callState, activeCall]);
 
+  // ── Derived display values ──
+
   const userName =
     (session.user.firstName ? `${session.user.firstName} ${session.user.lastName || ""}` : session.user.email).trim();
-  const ext = session.telephonyExtension?.extension || "No ext";
+  const ext = session.telephonyExtension?.extension || "—";
+  const hasActiveCall = callState !== "idle" && !!activeCall;
+  const isInboundRinging =
+    (callState === "ringing" || callState === "connecting") &&
+    activeCall?.direction === "inbound";
+
+  // ── Settings overlay takes the whole window. Break modal and
+  // inbound ringing are handled in App.tsx BEFORE this component
+  // ever renders, so we only need to handle Settings here. ──
+
+  if (showSettings) {
+    return (
+      <SettingsPage
+        onBack={() => setShowSettings(false)}
+        onLogout={onLogout}
+      />
+    );
+  }
+
+  if (isInboundRinging && activeCall) {
+    return (
+      <IncomingCallPopup
+        call={activeCall}
+        callState={callState}
+        lookup={callerLookup}
+        onAnswer={onAnswer}
+        onReject={onHangup}
+      />
+    );
+  }
+
+  // ── Action handlers that the bottom tab bar needs ──
+
+  const handleDndTabClick = async () => {
+    if (dndLoading) return;
+    await onDndToggle(!dndEnabled);
+  };
+
+  const handleBreakTabClick = async () => {
+    if (breakStarting) return;
+    if (!sipRegistered) return;
+    if (callState !== "idle") return;
+    if (!session.telephonyExtension) return;
+    const ok = window.confirm(
+      "Start a break?\n\nYou'll be unregistered from the phone system until you resume.",
+    );
+    if (!ok) return;
+    await onBreakStart();
+  };
 
   const handleDial = () => {
     if (dialNumber.trim()) {
@@ -123,432 +204,674 @@ export function PhonePage(props: Props) {
     }
   };
 
-  if (showSettings) {
-    return <SettingsPage onBack={() => setShowSettings(false)} />;
-  }
+  // Presence pill text — "Available", "On Call", "On Hold", "Offline".
+  const presencePill = (() => {
+    if (!sipRegistered) {
+      return { text: "Offline", style: PILL_OFFLINE, dotColor: "#ef4444" };
+    }
+    if (callState === "connected") {
+      return { text: "In Call", style: PILL_INCALL, dotColor: BRAND };
+    }
+    if (callState === "hold") {
+      return { text: "On Hold", style: PILL_BREAK, dotColor: "#d97706" };
+    }
+    if (callState === "dialing" || callState === "ringing") {
+      return { text: "Connecting", style: PILL_INCALL, dotColor: BRAND };
+    }
+    return { text: "Available", style: PILL_AVAILABLE, dotColor: BRAND };
+  })();
 
-  if ((callState === "ringing" || callState === "connecting") && activeCall?.direction === "inbound") {
-    return (
-      <IncomingCallPopup
-        call={activeCall}
-        callState={callState}
-        lookup={callerLookup}
-        onAnswer={onAnswer}
-        onReject={onHangup}
-      />
-    );
-  }
+  // Tabs are "action-like" when they represent an immediate toggle
+  // (DND) or a state-entry (Break) — rendered in the bar but not
+  // selected as the currently visible screen. Keypad and History
+  // are real content tabs.
+  const currentContent: "keypad" | "history" | "call" = hasActiveCall
+    ? "call"
+    : tab === "history"
+    ? "history"
+    : "keypad";
 
   return (
     <div style={styles.container}>
+      {/* Title bar — translucent so the mint wash shows through.
+          Drag-handle for the frameless window. */}
       <div style={styles.titleBar}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
-          </svg>
-          <span style={styles.titleText}>CRM28 Phone</span>
-        </div>
-        <div style={{ display: "flex", gap: "0.5rem", WebkitAppRegion: "no-drag" as any }}>
-          <button onClick={() => setShowSettings(true)} style={styles.headerBtn} title="Settings">⚙</button>
-          <button onClick={() => window.crmPhone.app.hide()} style={styles.headerBtn} title="Minimize to tray">—</button>
-          <button onClick={() => window.crmPhone.app.hide()} style={styles.closeBtn} title="Close to tray">✕</button>
-        </div>
-      </div>
-
-      <div style={styles.statusBar}>
-        <div style={styles.userInfo}>
-          <span style={styles.userName}>{userName}</span>
-          <span style={styles.extLabel}>Ext {ext}</span>
-        </div>
-        <div style={styles.pillBar}>
-          {/* DND toggle — only shown when registered + has extension, so
-              we never let the user fire an AMI QueuePause for an
-              extension that doesn't exist or is offline. */}
-          {sipRegistered && session.telephonyExtension && (
-            <button
-              onClick={() => {
-                if (dndLoading) return;
-                onDndToggle(!dndEnabled);
-              }}
-              disabled={dndLoading}
-              aria-label={
-                dndEnabled ? "Do Not Disturb is on" : "Do Not Disturb is off"
-              }
-              aria-pressed={dndEnabled}
-              title={
-                dndEnabled
-                  ? "Do Not Disturb is on — queue calls skip you. Click to turn off."
-                  : "Turn on Do Not Disturb — queue calls will skip your extension."
-              }
-              style={{
-                ...styles.pill,
-                ...(dndEnabled ? GLASS.pillDndOn : GLASS.pillDndOff),
-                cursor: dndLoading ? "wait" : "pointer",
-                opacity: dndLoading ? 0.7 : 1,
-              }}
-            >
-              {dndLoading ? "…" : "DND"}
-            </button>
-          )}
-          <span
-            style={{
-              ...styles.pill,
-              ...(sipRegistered ? GLASS.pillOnline : GLASS.pillOffline),
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-            }}
+        <span style={styles.titleText}>CRM28 Softphone</span>
+        <div style={styles.titleBtnRow}>
+          <button
+            onClick={() => window.crmPhone.app.hide()}
+            style={styles.titleBtn}
+            title="Minimize to tray"
+            aria-label="Minimize"
           >
-            <span
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: "50%",
-                background: sipRegistered ? "#10b981" : "#ef4444",
-                boxShadow: sipRegistered
-                  ? "0 0 8px rgba(16, 185, 129, 0.8)"
-                  : "0 0 8px rgba(239, 68, 68, 0.6)",
-              }}
-            />
-            {sipRegistered ? "Online" : "Offline"}
-          </span>
+            −
+          </button>
+          <button
+            onClick={() => window.crmPhone.app.hide()}
+            style={styles.titleBtn}
+            title="Maximize (unused)"
+            aria-label="Maximize"
+          >
+            □
+          </button>
+          <button
+            onClick={() => window.crmPhone.app.hide()}
+            style={{ ...styles.titleBtn, color: "#b91c1c" }}
+            title="Close to tray"
+            aria-label="Close"
+          >
+            ×
+          </button>
         </div>
       </div>
 
-      {/*
-        v1.10.2: Wrap the dynamic middle region in a scroll container.
-        At the default window size (380x680) the in-call layout
-        (callDisplay + CallerCard + DTMF pad) exceeded viewport height
-        and clipped the footer (Break / Log Out buttons). The scroll
-        wrapper keeps the footer pinned and lets the middle overflow
-        gracefully. `min-height: 0` is load-bearing — without it a
-        flex child can't shrink below its content size and scrolling
-        silently becomes no-ops.
-      */}
-      <div style={styles.scrollArea}>
-      {callState !== "idle" && activeCall && (() => {
-        // Compose the best display name for the caller and derive a
-        // 1–2-character avatar initial from whatever's available. We
-        // fall back to the phone number's last digit if we have only
-        // the number (so the avatar still feels alive rather than blank).
-        const displayName =
-          callerLookup?.client?.name ||
-          activeCall.remoteName ||
-          activeCall.remoteNumber ||
-          "?";
-        const initials = (() => {
-          const name =
-            callerLookup?.client?.name || activeCall.remoteName || "";
-          if (name) {
-            const parts = name.trim().split(/\s+/);
-            const first = parts[0]?.[0] ?? "";
-            const last = parts.length > 1 ? (parts[parts.length - 1][0] ?? "") : "";
-            return (first + last).toUpperCase() || name[0]?.toUpperCase() || "?";
-          }
-          const digits = (activeCall.remoteNumber ?? "").replace(/\D/g, "");
-          return digits.slice(-2) || "?";
-        })();
+      {/* Status bar — presence pill on the left (with live dot), call
+          timer on the right when in call, settings gear always visible. */}
+      <div style={styles.statusBar}>
+        <div
+          style={{ ...styles.presencePill, ...presencePill.style }}
+          title={`${userName} · Ext ${ext}`}
+        >
+          <span
+            style={{ ...styles.presenceDot, background: presencePill.dotColor }}
+          />
+          <span>{presencePill.text}</span>
+        </div>
 
-        return (
-        <>
-          <div style={styles.callDisplay}>
-            <span style={styles.callDirection}>
-              {activeCall.direction === "inbound" ? "Incoming" : "Outgoing"}
-            </span>
-
-            <div style={styles.avatarCircle} aria-hidden="true">
-              <span style={styles.avatarInitials}>{initials}</span>
-            </div>
-
-            <span style={styles.callNumber}>{displayName}</span>
-            {callerLookup?.client?.name && (
-              <span style={styles.callSubNumber}>{activeCall.remoteNumber}</span>
-            )}
-
-            {callState === "connecting" ? (
-              <div style={styles.connectingWrap}>
-                <div style={styles.connectingSpinner} />
-                <span style={styles.connectingText}>Connecting…</span>
-              </div>
-            ) : (
-              <span
-                style={{
-                  ...styles.pill,
-                  ...(callState === "connected"
-                    ? GLASS.pillOnline
-                    : callState === "hold"
-                    ? GLASS.pillBreak
-                    : GLASS.pillDndOff),
-                  marginTop: "0.25rem",
-                }}
-              >
-                {callState === "dialing"
-                  ? "Dialing…"
-                  : callState === "connected"
-                  ? "Connected"
-                  : callState === "hold"
-                  ? "On Hold"
-                  : callState}
-              </span>
-            )}
-
-            {(callState === "connected" || callState === "hold") && (
-              <div style={styles.callActions}>
-                <button
-                  onClick={onToggleMute}
-                  style={muted ? styles.activeActionBtn : styles.actionBtn}
-                  aria-pressed={muted}
-                >
-                  {muted ? "Unmute" : "Mute"}
-                </button>
-                <button
-                  onClick={callState === "hold" ? onUnhold : onHold}
-                  style={callState === "hold" ? styles.activeActionBtn : styles.actionBtn}
-                  aria-pressed={callState === "hold"}
-                >
-                  {callState === "hold" ? "Resume" : "Hold"}
-                </button>
-                <button
-                  onClick={() => {
-                    const phone = activeCall.remoteNumber;
-                    const url = `https://crm28.asg.ge/app/call-center/reports?openReport=true&phone=${encodeURIComponent(phone || "")}`;
-                    window.crmPhone.app.openExternal(url);
-                  }}
-                  style={styles.actionBtn}
-                  title="Open the call report form in the CRM"
-                >
-                  📋 Report
-                </button>
-              </div>
-            )}
-
-            <button onClick={onHangup} style={styles.hangupBtn}>
-              Hang Up
-            </button>
-          </div>
-
-          {callerLookup && (callState === "connected" || callState === "hold") && (
-            <CallerCard lookup={callerLookup} callingNumber={activeCall.remoteNumber} />
+        <div style={styles.statusRight}>
+          {hasActiveCall && activeCall && (
+            <CallTimer startedAt={activeCall.answeredAt ?? activeCall.startedAt} />
           )}
-        </>
-        );
-      })()}
+          <button
+            onClick={() => setShowSettings(true)}
+            style={styles.gearBtn}
+            title="Settings"
+            aria-label="Settings"
+          >
+            ⚙
+          </button>
+        </div>
+      </div>
 
-      {callState === "idle" && (
-        <>
-          <div style={styles.viewTabs}>
-            <button
-              onClick={() => setIdleView("dialpad")}
-              style={idleView === "dialpad" ? styles.viewTabActive : styles.viewTab}
-            >
-              Dialpad
-            </button>
-            <button
-              onClick={() => setIdleView("history")}
-              style={idleView === "history" ? styles.viewTabActive : styles.viewTab}
-            >
-              History
-            </button>
-          </div>
+      {/* Global error banners */}
+      {(breakError || dndError) && (
+        <div style={styles.errorBar}>
+          {breakError && <div style={styles.errorLine}>Break: {breakError}</div>}
+          {dndError && <div style={styles.errorLine}>DND: {dndError}</div>}
+        </div>
+      )}
 
-          {idleView === "dialpad" ? (
-            <>
-              <div style={styles.dialInput}>
-                <input
-                  type="text"
-                  value={dialNumber}
-                  onChange={(e) => setDialNumber(e.target.value)}
-                  placeholder="Enter number..."
-                  style={styles.numberInput}
-                  onKeyDown={(e) => e.key === "Enter" && handleDial()}
-                />
-              </div>
-
-              <div style={styles.dialPad}>
-                {DTMF_KEYS.map((key) => (
-                  <button key={key} onClick={() => handleKeyPress(key)} style={styles.dialKey}>
-                    {key}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                onClick={handleDial}
-                disabled={!sipRegistered || !dialNumber.trim()}
-                style={{
-                  ...styles.callBtn,
-                  opacity: !sipRegistered || !dialNumber.trim() ? 0.5 : 1,
-                }}
-              >
-                Call
-              </button>
-            </>
-          ) : (
+      {/* Main content area — swaps between call view, dialpad, or history */}
+      <div style={styles.scrollArea}>
+        {currentContent === "call" && activeCall ? (
+          <InCallView
+            activeCall={activeCall}
+            callState={callState}
+            muted={muted}
+            callerLookup={callerLookup}
+            onToggleMute={onToggleMute}
+            onHold={onHold}
+            onUnhold={onUnhold}
+            onHangup={onHangup}
+            handleKeyPress={handleKeyPress}
+          />
+        ) : currentContent === "history" ? (
+          <div style={styles.historyWrap}>
             <CallHistory
               extension={ext}
               onDial={(number) => {
                 setDialNumber(number);
-                setIdleView("dialpad");
+                setTab("keypad");
                 onDial(number);
               }}
             />
-          )}
-        </>
-      )}
+          </div>
+        ) : (
+          <DialpadView
+            dialNumber={dialNumber}
+            setDialNumber={setDialNumber}
+            sipRegistered={sipRegistered}
+            handleDial={handleDial}
+            handleKeyPress={handleKeyPress}
+          />
+        )}
+      </div>
 
-      {(callState === "connected" || callState === "hold") && (
-        <div style={styles.dialPad}>
-          {DTMF_KEYS.map((key) => (
-            <button key={key} onClick={() => handleKeyPress(key)} style={styles.dialKey}>
-              {key}
+      {/* Bottom tab bar — Keypad / History / DND / Break.
+          DND and Break are action-toggles rather than content-tabs;
+          they're disabled while inapplicable (e.g. during a call). */}
+      <nav style={styles.bottomNav} aria-label="Softphone primary navigation">
+        <TabButton
+          label="Keypad"
+          icon={<KeypadIcon />}
+          active={tab === "keypad" && !hasActiveCall}
+          onClick={() => {
+            setTab("keypad");
+          }}
+        />
+        <TabButton
+          label="History"
+          icon={<HistoryIcon />}
+          active={tab === "history" && !hasActiveCall}
+          disabled={hasActiveCall}
+          onClick={() => {
+            if (hasActiveCall) return;
+            setTab("history");
+          }}
+        />
+        <TabButton
+          label="DND"
+          icon={<DndIcon />}
+          active={dndEnabled}
+          loading={dndLoading}
+          disabled={!sipRegistered || !session.telephonyExtension}
+          onClick={handleDndTabClick}
+          title={
+            dndEnabled
+              ? "Do Not Disturb is ON — queue calls skip you. Click to turn off."
+              : "Turn on Do Not Disturb — queue calls will skip your extension."
+          }
+        />
+        <TabButton
+          label="Break"
+          icon={<BreakIcon />}
+          disabled={
+            breakStarting ||
+            !sipRegistered ||
+            callState !== "idle" ||
+            !session.telephonyExtension
+          }
+          loading={breakStarting}
+          onClick={handleBreakTabClick}
+          title={
+            !sipRegistered
+              ? "Must be registered to start a break"
+              : callState !== "idle"
+                ? "Finish the current call first"
+                : "Start a break — SIP will be unregistered"
+          }
+        />
+      </nav>
+    </div>
+  );
+}
+
+// ── Sub-components ───────────────────────────────────────────────
+
+function CallTimer({ startedAt }: { startedAt: string }) {
+  // Render a live-ticking mm:ss (or hh:mm:ss) next to the status pill
+  // so the operator always knows how long they've been on the call.
+  const [, force] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => force((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const elapsed = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000),
+  );
+  const h = Math.floor(elapsed / 3600);
+  const m = Math.floor((elapsed % 3600) / 60);
+  const s = elapsed % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const text =
+    h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+  return <span style={styles.callTimer}>{text}</span>;
+}
+
+function DialpadView(props: {
+  dialNumber: string;
+  setDialNumber: (v: string) => void;
+  sipRegistered: boolean;
+  handleDial: () => void;
+  handleKeyPress: (k: string) => void;
+}) {
+  const { dialNumber, setDialNumber, sipRegistered, handleDial, handleKeyPress } = props;
+  return (
+    <div style={styles.dialpadBody}>
+      <div style={styles.numberInputWrap}>
+        <input
+          type="text"
+          value={dialNumber}
+          onChange={(e) => setDialNumber(e.target.value)}
+          placeholder="Enter number or name"
+          style={styles.numberInput}
+          onKeyDown={(e) => e.key === "Enter" && handleDial()}
+        />
+        {dialNumber && (
+          <button
+            onClick={() => setDialNumber("")}
+            style={styles.clearBtn}
+            aria-label="Clear number"
+            title="Clear"
+          >
+            ⌫
+          </button>
+        )}
+      </div>
+
+      <div style={styles.dialpadGrid}>
+        {DTMF_KEYS.map((k) => (
+          <button
+            key={k.digit}
+            onClick={() => handleKeyPress(k.digit)}
+            style={styles.dialKey}
+          >
+            <span style={styles.dialDigit}>{k.digit}</span>
+            {k.letters && <span style={styles.dialLetters}>{k.letters}</span>}
+          </button>
+        ))}
+      </div>
+
+      <button
+        onClick={handleDial}
+        disabled={!sipRegistered || !dialNumber.trim()}
+        style={{
+          ...styles.callBtn,
+          opacity: !sipRegistered || !dialNumber.trim() ? 0.5 : 1,
+          cursor: !sipRegistered || !dialNumber.trim() ? "not-allowed" : "pointer",
+        }}
+        aria-label="Call"
+      >
+        <PhoneIcon />
+      </button>
+    </div>
+  );
+}
+
+function InCallView(props: {
+  activeCall: ActiveCall;
+  callState: CallState;
+  muted: boolean;
+  callerLookup: CallerLookupResult | null;
+  onToggleMute: () => void;
+  onHold: () => Promise<void>;
+  onUnhold: () => Promise<void>;
+  onHangup: () => Promise<void>;
+  handleKeyPress: (k: string) => void;
+}) {
+  const { activeCall, callState, muted, callerLookup, onToggleMute, onHold, onUnhold, onHangup } = props;
+  const [keypadOpen, setKeypadOpen] = useState(false);
+  const displayName =
+    callerLookup?.client?.name ||
+    activeCall.remoteName ||
+    activeCall.remoteNumber ||
+    "Unknown";
+  const canControl = callState === "connected" || callState === "hold";
+
+  return (
+    <div style={styles.callBody}>
+      <div style={styles.avatar} aria-hidden="true">
+        <PersonIcon />
+      </div>
+
+      <div style={styles.callName}>{displayName}</div>
+      <div style={styles.callNumber}>{activeCall.remoteNumber}</div>
+
+      <div style={styles.callActions}>
+        <ActionCard
+          icon={<MicIcon muted={muted} />}
+          label={muted ? "Unmute" : "Mute"}
+          active={muted}
+          disabled={!canControl}
+          onClick={onToggleMute}
+        />
+        <ActionCard
+          icon={<PauseIcon />}
+          label={callState === "hold" ? "Resume" : "Hold"}
+          active={callState === "hold"}
+          disabled={!canControl}
+          onClick={() => (callState === "hold" ? onUnhold() : onHold())}
+        />
+        <ActionCard
+          icon={<TransferIcon />}
+          label="Transfer"
+          disabled={!canControl}
+          onClick={() => {
+            // TODO — real transfer UI would collect a destination
+            // extension via a prompt or inline input. Stubbed for now.
+            window.alert("Transfer is not implemented yet.");
+          }}
+        />
+        <ActionCard
+          icon={<KeypadIcon />}
+          label="Keypad"
+          active={keypadOpen}
+          disabled={!canControl}
+          onClick={() => setKeypadOpen((v) => !v)}
+        />
+      </div>
+
+      {keypadOpen && (
+        <div style={styles.dtmfGridInline}>
+          {DTMF_KEYS.map((k) => (
+            <button
+              key={k.digit}
+              onClick={() => props.handleKeyPress(k.digit)}
+              style={styles.dialKeySmall}
+            >
+              {k.digit}
             </button>
           ))}
         </div>
       )}
-      </div>{/* end scrollArea */}
 
-      <div style={styles.footer}>
-        {!session.telephonyExtension && (
-          <div style={styles.noExtWarning}>
-            No extension assigned. Contact admin.
-          </div>
-        )}
-        {breakError && (
-          <div style={styles.breakError}>{breakError}</div>
-        )}
-        {dndError && (
-          // Surfaced to the user instead of only the hidden useDnd
-          // state (v1.10.2 fix). Most common cause when this appears:
-          // AMI is unreachable from the backend, or the logged-in
-          // user has no active TelephonyExtension.
-          <div style={styles.breakError}>DND: {dndError}</div>
-        )}
-        <div style={styles.footerButtons}>
-          {/* Break — gated on SIP registered + idle. We don't allow
-              starting a break during an active call; the backend
-              would reject with 400 anyway (`on an active call`), but
-              disabling the button is faster feedback. */}
-          {session.telephonyExtension && (
-            <button
-              onClick={async () => {
-                if (breakStarting) return;
-                // Friendly confirm — we don't want an accidental click
-                // to tear down SIP during a busy call-center shift.
-                const ok = window.confirm(
-                  "Start a break?\n\nYou'll be unregistered from the phone system until you resume.",
-                );
-                if (!ok) return;
-                await onBreakStart();
-              }}
-              disabled={
-                breakStarting ||
-                !sipRegistered ||
-                callState !== "idle"
-              }
-              title={
-                !sipRegistered
-                  ? "You must be registered to start a break"
-                  : callState !== "idle"
-                    ? "Finish the current call before taking a break"
-                    : "Start a break — SIP will be unregistered"
-              }
-              style={{
-                ...styles.breakBtn,
-                opacity:
-                  breakStarting || !sipRegistered || callState !== "idle" ? 0.5 : 1,
-                cursor:
-                  breakStarting || !sipRegistered || callState !== "idle"
-                    ? "not-allowed"
-                    : "pointer",
-              }}
-            >
-              {breakStarting ? "Starting…" : "Break"}
-            </button>
-          )}
-          <button onClick={onLogout} style={styles.logoutBtn}>
-            Log Out
-          </button>
+      <button
+        onClick={() => {
+          const phone = activeCall.remoteNumber;
+          const url = `https://crm28.asg.ge/app/call-center/reports?openReport=true&phone=${encodeURIComponent(phone || "")}`;
+          window.crmPhone.app.openExternal(url);
+        }}
+        style={styles.reportBtn}
+      >
+        <ReportIcon /> <span>CREATE REPORT</span>
+      </button>
+
+      <button onClick={onHangup} style={styles.hangupBar} aria-label="Hang up">
+        <HangupIcon />
+      </button>
+
+      {callerLookup && canControl && (
+        <div style={{ width: "100%", marginTop: "0.75rem" }}>
+          <CallerCard lookup={callerLookup} callingNumber={activeCall.remoteNumber} />
         </div>
-      </div>
+      )}
     </div>
   );
 }
+
+function ActionCard(props: {
+  icon: React.ReactNode;
+  label: string;
+  active?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  const { icon, label, active, disabled, onClick } = props;
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={active}
+      style={{
+        ...styles.actionCard,
+        ...(active ? styles.actionCardActive : null),
+        opacity: disabled ? 0.45 : 1,
+        cursor: disabled ? "not-allowed" : "pointer",
+      }}
+    >
+      <span style={styles.actionIcon}>{icon}</span>
+      <span style={styles.actionLabel}>{label}</span>
+    </button>
+  );
+}
+
+function TabButton(props: {
+  label: string;
+  icon: React.ReactNode;
+  active?: boolean;
+  loading?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  title?: string;
+}) {
+  const { label, icon, active, loading, disabled, onClick, title } = props;
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled || loading}
+      title={title}
+      aria-pressed={active}
+      style={{
+        ...styles.tab,
+        color: active ? BRAND : TEXT_MUTED,
+        opacity: disabled ? 0.45 : 1,
+        cursor: disabled ? "not-allowed" : "pointer",
+      }}
+    >
+      <span style={styles.tabIcon}>{icon}</span>
+      <span style={styles.tabLabel}>{loading ? "…" : label}</span>
+    </button>
+  );
+}
+
+// ── Icons ────────────────────────────────────────────────────────
+// Inline SVGs avoid a runtime dep + let us recolor via currentColor.
+// Every icon is 22×22 on the outside — consistent stroke weight.
+
+const iconProps = {
+  width: 22,
+  height: 22,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 2,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+};
+
+function KeypadIcon() {
+  return (
+    <svg {...iconProps}>
+      <circle cx="5" cy="6" r="1" />
+      <circle cx="12" cy="6" r="1" />
+      <circle cx="19" cy="6" r="1" />
+      <circle cx="5" cy="12" r="1" />
+      <circle cx="12" cy="12" r="1" />
+      <circle cx="19" cy="12" r="1" />
+      <circle cx="5" cy="18" r="1" />
+      <circle cx="12" cy="18" r="1" />
+      <circle cx="19" cy="18" r="1" />
+    </svg>
+  );
+}
+
+function HistoryIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M3 3v5h5" />
+      <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  );
+}
+
+function DndIcon() {
+  return (
+    <svg {...iconProps}>
+      <circle cx="12" cy="12" r="9" />
+      <line x1="8" y1="12" x2="16" y2="12" />
+    </svg>
+  );
+}
+
+function BreakIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M17 8h1a4 4 0 1 1 0 8h-1" />
+      <path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8z" />
+      <line x1="6" y1="1" x2="6" y2="4" />
+      <line x1="10" y1="1" x2="10" y2="4" />
+      <line x1="14" y1="1" x2="14" y2="4" />
+    </svg>
+  );
+}
+
+function PersonIcon() {
+  return (
+    <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke={BRAND} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  );
+}
+
+function PhoneIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
+    </svg>
+  );
+}
+
+function HangupIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: "rotate(135deg)" }}>
+      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
+    </svg>
+  );
+}
+
+function MicIcon({ muted }: { muted: boolean }) {
+  return (
+    <svg {...iconProps}>
+      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+      <line x1="12" y1="19" x2="12" y2="23" />
+      <line x1="8" y1="23" x2="16" y2="23" />
+      {muted && <line x1="4" y1="4" x2="20" y2="20" stroke="#dc2626" strokeWidth="2.5" />}
+    </svg>
+  );
+}
+
+function PauseIcon() {
+  return (
+    <svg {...iconProps}>
+      <rect x="6" y="4" width="4" height="16" />
+      <rect x="14" y="4" width="4" height="16" />
+    </svg>
+  );
+}
+
+function TransferIcon() {
+  return (
+    <svg {...iconProps}>
+      <polyline points="17 1 21 5 17 9" />
+      <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+      <polyline points="7 23 3 19 7 15" />
+      <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+    </svg>
+  );
+}
+
+function ReportIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="8" y1="13" x2="16" y2="13" />
+      <line x1="8" y1="17" x2="13" y2="17" />
+    </svg>
+  );
+}
+
+// ── Styles ───────────────────────────────────────────────────────
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
     display: "flex",
     flexDirection: "column",
     height: "100vh",
-    // Glass direction: deep slate base with cyan+purple radial glows.
-    // Defined in src/renderer/theme.ts so the break modal / login /
-    // incoming-call popup can all share the same backdrop.
-    background: GLASS.containerBackground,
-    color: GLASS.textStrong,
-    // Prevent the body from showing through during window resize.
-    backgroundAttachment: "fixed",
+    background: SURFACE_GRADIENT,
+    color: TEXT_STRONG,
+    fontFamily:
+      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
   },
+
+  // Title bar (draggable)
   titleBar: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: "0.5rem 0.75rem",
-    // Subtle darkened strip at the top of the window. Not fully opaque
-    // so the radial glow still bleeds through.
-    background: "rgba(2, 6, 23, 0.55)",
-    backdropFilter: "blur(12px)",
-    WebkitBackdropFilter: "blur(12px)",
-    borderBottom: "1px solid rgba(255, 255, 255, 0.04)",
+    padding: "0.5rem 0.85rem 0.4rem",
     WebkitAppRegion: "drag" as any,
     flexShrink: 0,
   },
   titleText: {
-    fontSize: "0.78rem",
-    fontWeight: 600,
-    color: GLASS.textBody,
-    letterSpacing: "0.02em",
-  },
-  headerBtn: {
-    background: "rgba(255, 255, 255, 0.06)",
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    color: GLASS.textMuted,
     fontSize: "0.85rem",
-    cursor: "pointer",
-    padding: "2px 8px",
-    borderRadius: 6,
-    lineHeight: 1.2,
+    fontWeight: 600,
+    color: TEXT_STRONG,
+    letterSpacing: "-0.01em",
   },
-  closeBtn: {
-    background: "rgba(239, 68, 68, 0.12)",
-    border: "1px solid rgba(239, 68, 68, 0.25)",
-    color: "#fca5a5",
-    fontSize: "0.8rem",
-    cursor: "pointer",
-    padding: "2px 8px",
-    borderRadius: 6,
-    lineHeight: 1.2,
+  titleBtnRow: {
+    display: "flex",
+    gap: "0.15rem",
+    WebkitAppRegion: "no-drag" as any,
   },
+  titleBtn: {
+    width: 26,
+    height: 22,
+    background: "transparent",
+    border: "none",
+    color: TEXT_MUTED,
+    fontSize: "0.95rem",
+    lineHeight: 1,
+    cursor: "pointer",
+    borderRadius: 4,
+    padding: 0,
+  },
+
+  // Status bar (presence + timer + settings)
   statusBar: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: "0.85rem 1rem 0.7rem",
-    borderBottom: "1px solid rgba(255, 255, 255, 0.04)",
+    padding: "0.5rem 0.95rem 0.75rem",
     flexShrink: 0,
   },
-  pillBar: {
+  presencePill: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "5px 12px",
+    borderRadius: 999,
+    fontSize: "0.8rem",
+    fontWeight: 600,
+    boxShadow: "0 1px 2px rgba(15, 60, 40, 0.04)",
+  },
+  presenceDot: {
+    width: 7,
+    height: 7,
+    borderRadius: "50%",
+    flexShrink: 0,
+  },
+  statusRight: {
     display: "flex",
     alignItems: "center",
-    gap: "0.4rem",
+    gap: "0.5rem",
   },
-  pill: {
-    padding: "3px 10px",
-    borderRadius: 999,
-    fontSize: "0.68rem",
-    fontWeight: 700,
-    letterSpacing: "0.06em",
-    textTransform: "uppercase" as const,
-    lineHeight: 1.4,
+  callTimer: {
+    fontSize: "0.85rem",
+    fontWeight: 600,
+    color: BRAND,
+    fontVariantNumeric: "tabular-nums",
+    letterSpacing: "0.02em",
   },
+  gearBtn: {
+    width: 30,
+    height: 30,
+    border: "none",
+    background: "transparent",
+    color: TEXT_MUTED,
+    fontSize: "1.1rem",
+    cursor: "pointer",
+    borderRadius: 6,
+  },
+
+  // Error banners (break/dnd errors)
+  errorBar: {
+    margin: "0 0.9rem 0.5rem",
+    padding: "0.5rem 0.75rem",
+    background: "rgba(239, 68, 68, 0.08)",
+    border: "1px solid rgba(239, 68, 68, 0.25)",
+    borderRadius: 10,
+    color: "#b91c1c",
+    fontSize: "0.75rem",
+    flexShrink: 0,
+  },
+  errorLine: { marginBottom: 2 },
+
+  // Main scrollable middle region (keeps nav pinned).
   scrollArea: {
     flex: 1,
     minHeight: 0,
@@ -556,282 +879,250 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
   },
-  userInfo: { display: "flex", flexDirection: "column", gap: 2 },
-  userName: {
-    fontSize: "0.9rem",
-    fontWeight: 600,
-    color: GLASS.textStrong,
-    letterSpacing: "-0.01em",
-  },
-  extLabel: {
-    fontSize: "0.7rem",
-    color: GLASS.textMuted,
-    letterSpacing: "0.05em",
-  },
-  callDisplay: {
+
+  // Dialpad
+  dialpadBody: {
     display: "flex",
     flexDirection: "column",
-    alignItems: "center",
-    padding: "1.25rem 1rem 0.75rem",
-    gap: "0.35rem",
-    flexShrink: 0,
+    alignItems: "stretch",
+    padding: "0 0.9rem",
+    gap: "0.6rem",
   },
-  callDirection: {
-    fontSize: "0.65rem",
-    color: GLASS.textMuted,
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.12em",
-    fontWeight: 700,
-  },
-  avatarCircle: {
-    width: 84,
-    height: 84,
-    borderRadius: "50%",
-    // Same cyan→purple gradient as the active-tab underline so the
-    // avatar feels tied to the brand rather than a stock stock-photo
-    // stand-in. Subtle ring echoing the glass-card border keeps it
-    // consistent with the rest of the visual language.
-    background: "linear-gradient(135deg, #06b6d4 0%, #8b5cf6 100%)",
+  numberInputWrap: {
+    position: "relative" as const,
+    ...CARD,
+    padding: "0.7rem 1rem",
     display: "flex",
     alignItems: "center",
-    justifyContent: "center",
-    margin: "0.25rem 0 0.5rem",
-    boxShadow:
-      "0 8px 24px rgba(6, 182, 212, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.12) inset",
   },
-  avatarInitials: {
-    color: "#ffffff",
-    fontSize: "2rem",
-    fontWeight: 600,
-    letterSpacing: "0.01em",
-    textShadow: "0 1px 2px rgba(0, 0, 0, 0.2)",
-  },
-  callNumber: {
-    fontSize: "1.35rem",
-    fontWeight: 600,
-    color: GLASS.textStrong,
-    letterSpacing: "-0.01em",
-    textAlign: "center" as const,
-    lineHeight: 1.25,
-    padding: "0 0.5rem",
-  },
-  callSubNumber: {
-    fontSize: "0.8rem",
-    color: GLASS.textMuted,
-    letterSpacing: "0.05em",
-    fontVariantNumeric: "tabular-nums",
-  },
-  connectingWrap: {
-    display: "flex",
-    alignItems: "center",
-    gap: "0.5rem",
-    marginTop: "0.25rem",
-  },
-  connectingSpinner: {
-    width: 14,
-    height: 14,
-    border: "2px solid rgba(6, 182, 212, 0.2)",
-    borderTopColor: "#06b6d4",
-    borderRadius: "50%",
-    animation: "spin 0.8s linear infinite",
-  },
-  connectingText: {
-    fontSize: "0.8rem",
-    color: GLASS.textBody,
-    letterSpacing: "0.02em",
-  },
-  callActions: {
-    display: "flex",
-    gap: "0.5rem",
-    marginTop: "1rem",
-    padding: "0 0.25rem",
-    flexWrap: "wrap" as const,
-    justifyContent: "center",
-  },
-  actionBtn: {
-    padding: "0.55rem 1rem",
-    borderRadius: 999,
-    ...GLASS.glassCard,
-    color: GLASS.textBody,
-    fontSize: "0.78rem",
-    fontWeight: 600,
-    cursor: "pointer",
-    letterSpacing: "0.02em",
-    minWidth: 72,
-  },
-  activeActionBtn: {
-    padding: "0.55rem 1rem",
-    borderRadius: 999,
-    ...GLASS.pillBreak,
-    fontSize: "0.78rem",
-    fontWeight: 700,
-    cursor: "pointer",
-    letterSpacing: "0.02em",
-    minWidth: 72,
-  },
-  reportBtn: {
-    // Kept for backwards compatibility (any caller may still reference
-    // it). The in-call view now routes Report through `actionBtn`.
-    marginTop: "0.5rem",
-    padding: "0.5rem 1rem",
-    borderRadius: 999,
-    ...GLASS.glassCard,
-    color: GLASS.textMuted,
-    fontSize: "0.75rem",
-    cursor: "pointer",
-    width: "100%",
-    textAlign: "center" as const,
-  },
-  hangupBtn: {
-    marginTop: "1.1rem",
-    padding: "0.85rem 2.5rem",
-    borderRadius: 999,
-    border: "none",
-    background: GLASS.dangerGradient,
-    color: "#fff",
-    fontSize: "0.9rem",
-    fontWeight: 700,
-    letterSpacing: "0.05em",
-    cursor: "pointer",
-    boxShadow: GLASS.dangerShadow,
-    minWidth: 220,
-  },
-  viewTabs: {
-    display: "flex",
-    padding: "0.75rem 1rem 0.25rem",
-    gap: "0.25rem",
-  },
-  viewTab: {
-    flex: 1,
-    padding: "0.45rem 0",
-    background: "transparent",
-    border: "none",
-    borderBottom: "2px solid transparent",
-    color: GLASS.textMuted,
-    fontSize: "0.78rem",
-    fontWeight: 600,
-    cursor: "pointer",
-    letterSpacing: "0.02em",
-  },
-  viewTabActive: {
-    flex: 1,
-    padding: "0.45rem 0",
-    background: "transparent",
-    border: "none",
-    // Gradient bottom-border: subtle cyan → purple stroke that echoes
-    // the radial glows in the backdrop.
-    borderBottom: "2px solid transparent",
-    borderImage: "linear-gradient(90deg, #06b6d4, #8b5cf6) 1",
-    color: GLASS.textStrong,
-    fontSize: "0.78rem",
-    fontWeight: 700,
-    cursor: "pointer",
-    letterSpacing: "0.02em",
-  },
-  dialInput: { padding: "0.9rem 1rem 0.5rem" },
   numberInput: {
-    width: "100%",
-    padding: "0.9rem 1rem",
-    borderRadius: 14,
-    ...GLASS.glassSunken,
-    color: GLASS.textStrong,
-    fontSize: "1.4rem",
-    textAlign: "center" as const,
+    flex: 1,
+    background: "transparent",
+    border: "none",
     outline: "none",
-    letterSpacing: "0.15em",
-    fontFeatureSettings: '"tnum"',
-    fontVariantNumeric: "tabular-nums",
+    color: TEXT_STRONG,
+    fontSize: "1rem",
+    letterSpacing: "0.02em",
+    fontFamily: "inherit",
   },
-  dialPad: {
+  clearBtn: {
+    width: 28,
+    height: 28,
+    border: "none",
+    background: "transparent",
+    color: TEXT_SUBTLE,
+    fontSize: "0.9rem",
+    cursor: "pointer",
+    borderRadius: 4,
+  },
+  dialpadGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(3, 1fr)",
     gap: "0.5rem",
-    padding: "0.5rem 1rem",
   },
   dialKey: {
-    padding: "0.8rem",
-    borderRadius: 14,
-    ...GLASS.glassCard,
-    color: GLASS.textStrong,
-    fontSize: "1.3rem",
-    fontWeight: 500,
-    cursor: "pointer",
-    textAlign: "center" as const,
-    transition: "background 120ms ease, transform 80ms ease",
-    fontVariantNumeric: "tabular-nums",
-  },
-  callBtn: {
-    margin: "0.6rem 1rem 0.25rem",
-    padding: "0.85rem",
-    borderRadius: 999,
-    border: "none",
-    background: GLASS.ctaGradient,
-    color: "#fff",
-    fontSize: "1rem",
-    fontWeight: 700,
-    letterSpacing: "0.05em",
-    cursor: "pointer",
-    boxShadow: GLASS.ctaShadow,
-    // Subtle inner highlight so the gradient button feels 3D.
-    backgroundBlendMode: "normal",
-  },
-  footer: {
-    padding: "0.75rem 1rem",
+    ...CARD,
+    padding: "0.7rem 0",
     display: "flex",
     flexDirection: "column",
-    gap: "0.5rem",
-    // v1.10.2: removed `marginTop: auto` now that scrollArea handles
-    // the flex-fill. With the new layout the footer is the last
-    // flex child of the container and doesn't need margin pushing.
-    // Semi-transparent dark strip at the bottom; glass-card buttons
-    // sit on top so the radial glow still bleeds through.
-    borderTop: "1px solid rgba(255, 255, 255, 0.04)",
-    background: "rgba(2, 6, 23, 0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
+    cursor: "pointer",
+    transition: "transform 80ms ease, box-shadow 120ms ease",
+    minHeight: 58,
+  },
+  dialDigit: {
+    fontSize: "1.35rem",
+    fontWeight: 500,
+    color: TEXT_STRONG,
+    lineHeight: 1,
+    fontVariantNumeric: "tabular-nums",
+  },
+  dialLetters: {
+    fontSize: "0.6rem",
+    color: TEXT_MUTED,
+    letterSpacing: "0.18em",
+    fontWeight: 600,
+  },
+  callBtn: {
+    alignSelf: "center",
+    width: 62,
+    height: 62,
+    borderRadius: 999,
+    border: "none",
+    background: BRAND,
+    color: "white",
+    fontSize: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxShadow: SHADOW_CTA,
+    marginTop: "0.25rem",
+    marginBottom: "0.5rem",
+    transition: "background 120ms ease, transform 80ms ease",
+  },
+
+  // History tab wrap (gives CallHistory some padding)
+  historyWrap: {
+    padding: "0 0.9rem",
+    flex: 1,
+  },
+
+  // In-call
+  callBody: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    padding: "0.5rem 1rem 0.9rem",
+    gap: "0.35rem",
+    flex: 1,
+  },
+  avatar: {
+    width: 104,
+    height: 104,
+    borderRadius: "50%",
+    background: SURFACE_CARD,
+    border: `1px solid ${BORDER_SOFT}`,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    // Layered shadow: soft outer + subtle inner highlight, mimicking
+    // the neumorphic avatar in the reference image.
+    boxShadow:
+      "0 6px 18px rgba(15, 60, 40, 0.10), 0 1px 2px rgba(15, 60, 40, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9)",
+    marginBottom: "0.4rem",
+    flexShrink: 0,
+  },
+  callName: {
+    fontSize: "1.25rem",
+    fontWeight: 600,
+    color: TEXT_STRONG,
+    textAlign: "center",
+    lineHeight: 1.2,
+    padding: "0 0.5rem",
+  },
+  callNumber: {
+    fontSize: "0.85rem",
+    color: TEXT_MUTED,
+    fontVariantNumeric: "tabular-nums",
+    letterSpacing: "0.04em",
+    marginBottom: "0.75rem",
+  },
+  callActions: {
+    display: "grid",
+    gridTemplateColumns: "repeat(4, 1fr)",
+    gap: "0.4rem",
+    width: "100%",
+  },
+  actionCard: {
+    ...CARD,
+    padding: "0.55rem 0.3rem",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    minHeight: 66,
+    color: TEXT_BODY,
+    transition: "background 120ms ease, box-shadow 120ms ease",
+  },
+  actionCardActive: {
+    background: BRAND_SOFT,
+    color: BRAND,
+    border: `1px solid rgba(8, 117, 56, 0.25)`,
+  },
+  actionIcon: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    height: 22,
+  },
+  actionLabel: {
+    fontSize: "0.68rem",
+    fontWeight: 600,
+    letterSpacing: "0.01em",
+  },
+  dtmfGridInline: {
+    width: "100%",
+    marginTop: "0.5rem",
+    display: "grid",
+    gridTemplateColumns: "repeat(3, 1fr)",
+    gap: "0.3rem",
+  },
+  dialKeySmall: {
+    ...CARD,
+    padding: "0.5rem 0",
+    textAlign: "center",
+    color: TEXT_STRONG,
+    fontSize: "1rem",
+    fontWeight: 500,
+    cursor: "pointer",
+  },
+  reportBtn: {
+    marginTop: "0.8rem",
+    width: "100%",
+    padding: "0.75rem",
+    borderRadius: 10,
+    border: "none",
+    background: BRAND,
+    color: "white",
+    fontSize: "0.85rem",
+    fontWeight: 700,
+    letterSpacing: "0.06em",
+    cursor: "pointer",
+    boxShadow: SHADOW_CTA,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  hangupBar: {
+    marginTop: "0.5rem",
+    width: "100%",
+    padding: "0.85rem",
+    borderRadius: 10,
+    border: "none",
+    background: "#ef4444",
+    color: "white",
+    cursor: "pointer",
+    boxShadow: SHADOW_DANGER,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  // Bottom tab navigation
+  bottomNav: {
+    display: "grid",
+    gridTemplateColumns: "repeat(4, 1fr)",
+    padding: "0.5rem 0.25rem 0.6rem",
+    borderTop: `1px solid ${BORDER_SOFT}`,
+    background: "rgba(255, 255, 255, 0.55)",
     backdropFilter: "blur(12px)",
     WebkitBackdropFilter: "blur(12px)",
     flexShrink: 0,
   },
-  logoutBtn: {
-    flex: 1,
-    padding: "0.6rem 0.8rem",
-    borderRadius: 999,
-    ...GLASS.glassCard,
-    color: GLASS.textMuted,
-    fontSize: "0.78rem",
-    fontWeight: 600,
-    cursor: "pointer",
-    letterSpacing: "0.02em",
-  },
-  footerButtons: {
+  tab: {
     display: "flex",
-    gap: "0.5rem",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
+    background: "transparent",
+    border: "none",
+    padding: "0.3rem 0",
+    transition: "color 120ms ease",
   },
-  breakBtn: {
-    flex: 1,
-    padding: "0.6rem 0.8rem",
-    borderRadius: 999,
-    ...GLASS.pillBreak,
-    fontSize: "0.78rem",
-    fontWeight: 700,
-    cursor: "pointer",
+  tabIcon: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    height: 22,
+  },
+  tabLabel: {
+    fontSize: "0.68rem",
+    fontWeight: 600,
     letterSpacing: "0.02em",
-  },
-  breakError: {
-    padding: "0.45rem 0.6rem",
-    borderRadius: 8,
-    background: "rgba(220, 38, 38, 0.16)",
-    border: "1px solid rgba(220, 38, 38, 0.35)",
-    color: "#fca5a5",
-    fontSize: "0.72rem",
-    textAlign: "center" as const,
-  },
-  noExtWarning: {
-    padding: "0.55rem",
-    borderRadius: 8,
-    background: "rgba(245, 158, 11, 0.14)",
-    border: "1px solid rgba(245, 158, 11, 0.3)",
-    color: "#fbbf24",
-    fontSize: "0.75rem",
-    textAlign: "center" as const,
   },
 };

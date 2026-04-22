@@ -53,7 +53,7 @@ describe("OperatorDndService", () => {
       expect(ami.sendAction).toHaveBeenCalledWith(
         expect.objectContaining({
           Action: "QueuePause",
-          Interface: "PJSIP/200",
+          Interface: "Local/200@from-queue/n",
           Paused: "true",
           Reason: "Operator DND",
         }),
@@ -91,7 +91,7 @@ describe("OperatorDndService", () => {
       expect(ami.sendAction).toHaveBeenCalledWith(
         expect.objectContaining({
           Action: "QueuePause",
-          Interface: "PJSIP/200",
+          Interface: "Local/200@from-queue/n",
           Paused: "false",
         }),
       );
@@ -104,6 +104,39 @@ describe("OperatorDndService", () => {
       await service.disable("user-1");
       await service.disable("user-1");
       expect(ami.sendAction).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("error translation", () => {
+    // Field report (April 2026): DND returned generic 500s because
+    // the Interface format was wrong (PJSIP/ext vs Local/ext@from-queue/n
+    // that FreePBX actually uses). The first fix was the Interface
+    // string; these tests cover the second fix — turning AMI "Interface
+    // not found" and "not connected" errors into a clear 400 with a
+    // message the operator can act on.
+    it("translates AMI 'Interface not found' into a 400 with operator-actionable message", async () => {
+      ami.sendAction.mockRejectedValue(
+        Object.assign(new Error(""), { message: "Interface not found" }),
+      );
+      await expect(service.enable("user-1")).rejects.toMatchObject({
+        status: 400,
+        message: expect.stringMatching(/not a member of any queue/i),
+      });
+    });
+
+    it("translates AMI 'not connected' into a 400 retry-soon message", async () => {
+      ami.sendAction.mockRejectedValue(new Error("AMI not connected"));
+      await expect(service.enable("user-1")).rejects.toMatchObject({
+        status: 400,
+        message: expect.stringMatching(/currently unreachable/i),
+      });
+    });
+
+    it("passes unknown AMI errors through unchanged (will become 500)", async () => {
+      ami.sendAction.mockRejectedValue(new Error("kaboom unexpected"));
+      await expect(service.enable("user-1")).rejects.toThrow(
+        /kaboom unexpected/,
+      );
     });
   });
 

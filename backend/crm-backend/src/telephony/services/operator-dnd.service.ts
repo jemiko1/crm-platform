@@ -114,6 +114,21 @@ export class OperatorDndService {
    * Send AMI `QueuePause` for the extension. Omitting the `Queue` field
    * pauses/unpauses across every queue the extension is a member of,
    * which is exactly what "DND" means semantically.
+   *
+   * **Interface format** — FreePBX registers queue members as
+   * `Local/<ext>@from-queue/n` channels, NOT as `PJSIP/<ext>` endpoints.
+   * (The `n` suffix prevents further dialplan processing when the
+   * Local channel answers.) AMI matches the Interface string verbatim
+   * against queue member records; sending `PJSIP/200` returns "Interface
+   * not found" even though the extension exists as a device. Verified
+   * via `QueueStatus` on production — every member shows as
+   * `Local/<ext>@from-queue/n`.
+   *
+   * If your PBX uses a different convention (e.g. hosted SIP trunks
+   * registered directly as PJSIP endpoints in queues), plumb the
+   * format through an env var or per-queue setting rather than
+   * editing this string — the Silent Override Risk writeup will
+   * save the next person 45 minutes of AMI debugging.
    */
   private async sendQueuePause(
     extension: string,
@@ -122,10 +137,35 @@ export class OperatorDndService {
   ): Promise<void> {
     const action: Record<string, string> = {
       Action: 'QueuePause',
-      Interface: `PJSIP/${extension}`,
+      Interface: `Local/${extension}@from-queue/n`,
       Paused: paused ? 'true' : 'false',
     };
     if (reason) action.Reason = reason;
-    await this.ami.sendAction(action);
+    try {
+      await this.ami.sendAction(action);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      // AMI returns "Interface not found" when the extension isn't a
+      // member of ANY queue. This is a legit 400-class case (user
+      // config issue, not a server fault) — surface it cleanly
+      // instead of bubbling up as a 500.
+      if (/interface not found/i.test(msg)) {
+        throw new BadRequestException(
+          `Extension ${extension} is not a member of any queue — DND has no effect. Ask your admin to add you to a queue.`,
+        );
+      }
+      // AMI disconnected between `sendQueuePause` call and action
+      // resolution — common during a backend redeploy or bridge
+      // restart. Surface as a clear retry-soon error.
+      if (/not connected/i.test(msg)) {
+        throw new BadRequestException(
+          'Phone system is currently unreachable. Try again in a moment.',
+        );
+      }
+      // Anything else — preserve the raw message for the
+      // HttpExceptionFilter to log, but let it become a 500 since
+      // we don't understand what happened.
+      throw err;
+    }
   }
 }
