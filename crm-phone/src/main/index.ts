@@ -431,9 +431,17 @@ function setupIpc(): void {
 
   ipcMain.on(IPC.APP_QUIT, () => { mainWindow?.destroy(); app.quit(); });
   ipcMain.on(IPC.APP_SHOW, () => { mainWindow?.show(); mainWindow?.focus(); });
-  // Minimize to taskbar (not tray) — window stays visible in Windows taskbar.
-  ipcMain.on(IPC.APP_HIDE, () => { mainWindow?.minimize(); });
-  ipcMain.on(IPC.APP_MINIMIZE, () => { mainWindow?.minimize(); });
+  // Minimize to taskbar. setSkipTaskbar(false) first because a previously
+  // hidden window (hide()) loses its taskbar slot on Windows — restoring
+  // it before minimize() keeps the button visible in the taskbar.
+  const minimizeToTaskbar = () => {
+    if (!mainWindow) return;
+    mainWindow.setSkipTaskbar(false);
+    if (!mainWindow.isVisible()) mainWindow.show();
+    mainWindow.minimize();
+  };
+  ipcMain.on(IPC.APP_HIDE, minimizeToTaskbar);
+  ipcMain.on(IPC.APP_MINIMIZE, minimizeToTaskbar);
 
   ipcMain.handle(IPC.APP_OPEN_EXTERNAL, async (_e, url: string) => {
     if (typeof url === "string" && (url.startsWith("https://") || url.startsWith("http://"))) {
