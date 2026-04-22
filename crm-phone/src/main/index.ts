@@ -436,6 +436,10 @@ function setupIpc(): void {
   // it before minimize() keeps the button visible in the taskbar.
   const minimizeToTaskbar = () => {
     if (!mainWindow) return;
+    // Re-apply the custom icon every time we restore the taskbar slot —
+    // setSkipTaskbar(false) on Windows resets the taskbar button to the
+    // default Electron exe icon unless we explicitly call setIcon() again.
+    mainWindow.setIcon(getAppIcon());
     mainWindow.setSkipTaskbar(false);
     if (!mainWindow.isVisible()) mainWindow.show();
     mainWindow.minimize();
