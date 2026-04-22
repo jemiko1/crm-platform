@@ -508,6 +508,19 @@ function InCallView(props: {
       <div style={styles.callName}>{displayName}</div>
       <div style={styles.callNumber}>{activeCall.remoteNumber}</div>
 
+      {/* Caller context — building name + Open-in-CRM28 link. Sits
+          directly under the number so the operator sees WHO they're
+          talking to in context before reaching the action row.
+          Per the April 2026 field review: no intel labels, no
+          duplicated name/number, just building + CRM link. */}
+      {callerLookup && (
+        <CallerCard
+          lookup={callerLookup}
+          callingNumber={activeCall.remoteNumber}
+          compact
+        />
+      )}
+
       <div style={styles.callActions}>
         <ActionCard
           icon={<MicIcon muted={muted} />}
@@ -570,12 +583,6 @@ function InCallView(props: {
       <button onClick={onHangup} style={styles.hangupBar} aria-label="Hang up">
         <HangupIcon />
       </button>
-
-      {callerLookup && canControl && (
-        <div style={{ width: "100%", marginTop: "0.75rem" }}>
-          <CallerCard lookup={callerLookup} callingNumber={activeCall.remoteNumber} />
-        </div>
-      )}
     </div>
   );
 }
@@ -922,15 +929,20 @@ const styles: Record<string, React.CSSProperties> = {
   },
   dialKey: {
     ...CARD,
-    padding: "0.7rem 0",
+    padding: "0.65rem 0",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
     gap: 2,
     cursor: "pointer",
-    transition: "transform 80ms ease, box-shadow 120ms ease",
+    transition:
+      "transform 80ms ease, box-shadow 120ms ease, background 120ms ease",
     minHeight: 58,
+    // Slight hover lift via :hover would need a stylesheet; inline
+    // styles don't support it. We cover the pressed feel via
+    // `:active` in the component with active={true} styling where
+    // relevant. For now the card's elevation is consistent.
   },
   dialDigit: {
     fontSize: "1.35rem",
@@ -963,24 +975,33 @@ const styles: Record<string, React.CSSProperties> = {
     transition: "background 120ms ease, transform 80ms ease",
   },
 
-  // History tab wrap (gives CallHistory some padding)
+  // History tab wrap — CallHistory's own container handles flex/
+  // scroll; we just apply outer padding so the rows don't butt
+  // against the side walls.
   historyWrap: {
-    padding: "0 0.9rem",
+    padding: "0.35rem 0.9rem 0.5rem",
     flex: 1,
+    minHeight: 0,
+    display: "flex",
+    flexDirection: "column",
   },
 
-  // In-call
+  // In-call — tight vertical rhythm so avatar + name + building +
+  // actions + CREATE REPORT + Hangup fit within the default 680px
+  // window height without needing to scroll. Scroll gracefully kicks
+  // in at smaller window sizes via the parent scrollArea.
   callBody: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    padding: "0.5rem 1rem 0.9rem",
-    gap: "0.35rem",
+    padding: "0.35rem 0.9rem 0.75rem",
+    gap: "0.25rem",
     flex: 1,
+    minHeight: 0,
   },
   avatar: {
-    width: 104,
-    height: 104,
+    width: 92,
+    height: 92,
     borderRadius: "50%",
     background: SURFACE_CARD,
     border: `1px solid ${BORDER_SOFT}`,
@@ -991,11 +1012,11 @@ const styles: Record<string, React.CSSProperties> = {
     // the neumorphic avatar in the reference image.
     boxShadow:
       "0 6px 18px rgba(15, 60, 40, 0.10), 0 1px 2px rgba(15, 60, 40, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9)",
-    marginBottom: "0.4rem",
+    marginBottom: "0.3rem",
     flexShrink: 0,
   },
   callName: {
-    fontSize: "1.25rem",
+    fontSize: "1.18rem",
     fontWeight: 600,
     color: TEXT_STRONG,
     textAlign: "center",
@@ -1003,17 +1024,17 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "0 0.5rem",
   },
   callNumber: {
-    fontSize: "0.85rem",
+    fontSize: "0.8rem",
     color: TEXT_MUTED,
     fontVariantNumeric: "tabular-nums",
     letterSpacing: "0.04em",
-    marginBottom: "0.75rem",
   },
   callActions: {
     display: "grid",
     gridTemplateColumns: "repeat(4, 1fr)",
     gap: "0.4rem",
     width: "100%",
+    marginTop: "0.5rem",
   },
   actionCard: {
     ...CARD,
@@ -1023,9 +1044,9 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
-    minHeight: 66,
+    minHeight: 64,
     color: TEXT_BODY,
-    transition: "background 120ms ease, box-shadow 120ms ease",
+    transition: "background 120ms ease, box-shadow 120ms ease, transform 80ms ease",
   },
   actionCardActive: {
     background: BRAND_SOFT,
@@ -1060,36 +1081,38 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: "pointer",
   },
   reportBtn: {
-    marginTop: "0.8rem",
+    marginTop: "0.75rem",
     width: "100%",
     padding: "0.75rem",
-    borderRadius: 10,
+    borderRadius: 12,
     border: "none",
     background: BRAND,
     color: "white",
-    fontSize: "0.85rem",
+    fontSize: "0.82rem",
     fontWeight: 700,
-    letterSpacing: "0.06em",
+    letterSpacing: "0.08em",
     cursor: "pointer",
     boxShadow: SHADOW_CTA,
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
+    transition: "transform 80ms ease, box-shadow 120ms ease",
   },
   hangupBar: {
-    marginTop: "0.5rem",
+    marginTop: "0.4rem",
     width: "100%",
-    padding: "0.85rem",
-    borderRadius: 10,
+    padding: "0.8rem",
+    borderRadius: 12,
     border: "none",
-    background: "#ef4444",
+    background: "linear-gradient(180deg, #ef4444 0%, #dc2626 100%)",
     color: "white",
     cursor: "pointer",
     boxShadow: SHADOW_DANGER,
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
+    transition: "transform 80ms ease, box-shadow 120ms ease",
   },
 
   // Bottom tab navigation

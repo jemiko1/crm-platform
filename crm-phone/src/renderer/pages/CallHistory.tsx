@@ -1,4 +1,15 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  BORDER_SOFT,
+  BRAND,
+  BRAND_SOFT,
+  CARD,
+  SHADOW_CARD,
+  SURFACE_CARD,
+  TEXT_BODY,
+  TEXT_MUTED,
+  TEXT_STRONG,
+} from "../theme";
 
 interface HistoryEntry {
   id: string;
@@ -13,7 +24,7 @@ interface HistoryEntry {
   durationSec: number | null;
 }
 
-type Tab = "all" | "missed" | "inbound" | "outbound";
+type Tab = "all" | "missed" | "incoming" | "outgoing";
 
 interface Props {
   extension: string;
@@ -24,6 +35,7 @@ export function CallHistory({ extension, onDial }: Props) {
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("all");
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -34,192 +46,357 @@ export function CallHistory({ extension, onDial }: Props) {
       .finally(() => setLoading(false));
   }, [extension]);
 
-  const filtered = entries.filter((e) => {
-    if (tab === "all") return true;
-    if (tab === "missed") return e.disposition === "MISSED" || e.disposition === "ABANDONED" || e.disposition === "NOANSWER";
-    if (tab === "inbound") return e.direction === "IN";
-    if (tab === "outbound") return e.direction === "OUT";
-    return true;
-  });
+  const counts = useMemo(() => {
+    let missed = 0;
+    for (const e of entries) {
+      if (isMissed(e)) missed += 1;
+    }
+    return { total: entries.length, missed };
+  }, [entries]);
 
-  const missedCount = entries.filter(
-    (e) => e.disposition === "MISSED" || e.disposition === "ABANDONED" || e.disposition === "NOANSWER",
-  ).length;
+  const filtered = useMemo(() => {
+    return entries.filter((e) => {
+      if (tab === "all") return true;
+      if (tab === "missed") return isMissed(e);
+      if (tab === "incoming") return e.direction === "IN" && !isMissed(e);
+      if (tab === "outgoing") return e.direction === "OUT";
+      return true;
+    });
+  }, [entries, tab]);
 
   return (
     <div style={styles.container}>
+      <div style={styles.topRow}>
+        <span style={styles.headerLabel}>History</span>
+        {/* Clear-all is render-only — the backend doesn't yet expose
+            a bulk-delete endpoint. The visual affordance matches the
+            reference; when the endpoint lands it'll be wired here. */}
+        <button
+          style={styles.clearAllBtn}
+          title="Clear all (coming soon)"
+          onClick={() => {
+            window.alert(
+              "Clearing call history isn't implemented yet. Your admin can archive logs from the web CRM.",
+            );
+          }}
+        >
+          Clear all
+        </button>
+      </div>
+
       <div style={styles.tabs}>
-        {(["all", "missed", "inbound", "outbound"] as Tab[]).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            style={tab === t ? styles.tabActive : styles.tab}
-          >
-            {t === "all" ? "All" : t === "missed" ? `Missed${missedCount ? ` (${missedCount})` : ""}` : t === "inbound" ? "In" : "Out"}
-          </button>
-        ))}
+        <TabChip
+          label="All"
+          tone="brand"
+          active={tab === "all"}
+          onClick={() => setTab("all")}
+        />
+        <TabChip
+          label={counts.missed > 0 ? `Missed (${counts.missed})` : "Missed"}
+          tone="danger"
+          active={tab === "missed"}
+          onClick={() => setTab("missed")}
+        />
+        <TabChip
+          label="Incoming"
+          tone="brand"
+          active={tab === "incoming"}
+          onClick={() => setTab("incoming")}
+        />
+        <TabChip
+          label="Outgoing"
+          tone="brand"
+          active={tab === "outgoing"}
+          onClick={() => setTab("outgoing")}
+        />
       </div>
 
       <div style={styles.list}>
-        {loading && <div style={styles.empty}>Loading...</div>}
+        {loading && <div style={styles.empty}>Loading…</div>}
         {!loading && filtered.length === 0 && (
-          <div style={styles.empty}>No calls</div>
+          <div style={styles.empty}>
+            {tab === "missed"
+              ? "No missed calls. 🎉"
+              : "No calls yet."}
+          </div>
         )}
         {!loading &&
           filtered.map((entry) => (
-            <HistoryRow key={entry.id} entry={entry} onDial={onDial} />
+            <HistoryRow
+              key={entry.id}
+              entry={entry}
+              onDial={onDial}
+              hovered={hoveredId === entry.id}
+              onHover={setHoveredId}
+            />
           ))}
       </div>
     </div>
   );
 }
 
-function HistoryRow({
-  entry,
-  onDial,
-}: {
-  entry: HistoryEntry;
-  onDial: (n: string) => void;
-}) {
-  const isMissed = entry.disposition === "MISSED" || entry.disposition === "ABANDONED" || entry.disposition === "NOANSWER";
-  const isInbound = entry.direction === "IN";
-  const remoteNumber = isInbound ? entry.callerNumber : (entry.calleeNumber || "");
-  const displayName = entry.remoteName || remoteNumber || "Unknown";
-  const date = new Date(entry.startAt);
-  const timeStr = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  const dayStr = date.toLocaleDateString([], { month: "short", day: "numeric" });
+// ── Helpers ──────────────────────────────────────────────────────
 
+function isMissed(e: HistoryEntry): boolean {
+  const d = e.disposition;
+  return d === "MISSED" || d === "ABANDONED" || d === "NOANSWER";
+}
+
+/**
+ * Compact time label — `HH:MM` when today, `Yesterday`, or `MMM D`
+ * for anything older. Matches the reference design.
+ */
+function formatRelativeTime(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  if (sameDay) {
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+  const y = new Date(now);
+  y.setDate(now.getDate() - 1);
+  const isYesterday =
+    d.getFullYear() === y.getFullYear() &&
+    d.getMonth() === y.getMonth() &&
+    d.getDate() === y.getDate();
+  if (isYesterday) return "Yesterday";
+  return d.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+// ── TabChip ──────────────────────────────────────────────────────
+
+function TabChip(props: {
+  label: string;
+  tone: "brand" | "danger";
+  active: boolean;
+  onClick: () => void;
+}) {
+  const { label, tone, active, onClick } = props;
+  const activeBg = tone === "danger" ? "#fde2e2" : BRAND_SOFT;
+  const activeBorder =
+    tone === "danger" ? "rgba(220, 38, 38, 0.3)" : "rgba(8, 117, 56, 0.25)";
+  const activeText = tone === "danger" ? "#b91c1c" : BRAND;
   return (
-    <div style={styles.row}>
-      <div style={styles.rowLeft}>
-        <span style={{ ...styles.arrow, color: isMissed ? "#ef4444" : isInbound ? "#22c55e" : "#3b82f6" }}>
-          {isMissed ? "✕" : isInbound ? "↙" : "↗"}
-        </span>
-        <div style={styles.rowInfo}>
-          <span style={styles.rowName}>{displayName}</span>
-          {entry.remoteName && remoteNumber && (
-            <span style={styles.rowNumber}>{remoteNumber}</span>
-          )}
-          <span style={styles.rowMeta}>
-            {dayStr} {timeStr}
-            {entry.durationSec != null && entry.durationSec > 0
-              ? ` · ${formatDuration(entry.durationSec)}`
-              : ""}
-          </span>
-        </div>
-      </div>
-      {remoteNumber && (
-        <button onClick={() => onDial(remoteNumber)} style={styles.callBtn} title="Call">
-          📞
-        </button>
-      )}
-    </div>
+    <button
+      onClick={onClick}
+      aria-pressed={active}
+      style={{
+        ...styles.tabChip,
+        background: active ? activeBg : SURFACE_CARD,
+        border: `1px solid ${active ? activeBorder : BORDER_SOFT}`,
+        color: active ? activeText : TEXT_MUTED,
+        boxShadow: active ? "none" : "0 1px 2px rgba(15, 60, 40, 0.04)",
+        fontWeight: active ? 700 : 600,
+      }}
+    >
+      {label}
+    </button>
   );
 }
 
-function formatDuration(sec: number): string {
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+// ── HistoryRow ───────────────────────────────────────────────────
+
+function HistoryRow(props: {
+  entry: HistoryEntry;
+  onDial: (n: string) => void;
+  hovered: boolean;
+  onHover: (id: string | null) => void;
+}) {
+  const { entry, onDial, hovered, onHover } = props;
+  const missed = isMissed(entry);
+  const isInbound = entry.direction === "IN";
+  const remoteNumber = isInbound ? entry.callerNumber : (entry.calleeNumber || "");
+  const displayName = entry.remoteName || remoteNumber || "Unknown";
+
+  // Three visual states: missed (red ↙), incoming answered (green ↙),
+  // outgoing (green ↗). Row is clickable to redial.
+  const arrowColor = missed ? "#dc2626" : BRAND;
+  const arrowBg = missed ? "rgba(239, 68, 68, 0.1)" : BRAND_SOFT;
+  const arrowSymbol = isInbound ? "↙" : "↗";
+
+  return (
+    <button
+      onClick={() => remoteNumber && onDial(remoteNumber)}
+      onMouseEnter={() => onHover(entry.id)}
+      onMouseLeave={() => onHover(null)}
+      style={{
+        ...styles.row,
+        background: hovered ? "#f3f9f6" : "transparent",
+      }}
+      title={`Call ${remoteNumber}`}
+    >
+      <span style={{ ...styles.arrowCircle, background: arrowBg, color: arrowColor }}>
+        {arrowSymbol}
+      </span>
+      <div style={styles.rowInfo}>
+        <span style={styles.rowName}>{displayName}</span>
+        {entry.remoteName && remoteNumber && (
+          <span style={styles.rowNumber}>{remoteNumber}</span>
+        )}
+        {!entry.remoteName && (
+          <span style={styles.rowNumber}>
+            {missed ? "Missed call" : isInbound ? "Incoming" : "Outgoing"}
+          </span>
+        )}
+      </div>
+      <div style={styles.rowRight}>
+        <span style={styles.rowTime}>{formatRelativeTime(entry.startAt)}</span>
+        <InfoIcon />
+      </div>
+    </button>
+  );
 }
+
+function InfoIcon() {
+  return (
+    <span style={styles.infoIcon} aria-hidden="true">
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <circle cx="12" cy="12" r="9" />
+        <line x1="12" y1="11" x2="12" y2="16" />
+        <circle cx="12" cy="8" r="0.5" fill="currentColor" />
+      </svg>
+    </span>
+  );
+}
+
+// ── Styles ───────────────────────────────────────────────────────
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
     display: "flex",
     flexDirection: "column",
     flex: 1,
-    overflow: "hidden",
+    minHeight: 0,
+    gap: "0.5rem",
+  },
+  topRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    padding: "0 0.1rem",
+  },
+  headerLabel: {
+    fontSize: "1.05rem",
+    fontWeight: 700,
+    color: TEXT_STRONG,
+    letterSpacing: "-0.01em",
+  },
+  clearAllBtn: {
+    background: "transparent",
+    border: "none",
+    color: BRAND,
+    fontSize: "0.72rem",
+    fontWeight: 600,
+    cursor: "pointer",
+    padding: "2px 4px",
+    letterSpacing: "0.02em",
   },
   tabs: {
     display: "flex",
-    gap: "2px",
-    padding: "0.5rem 1rem 0",
+    gap: "0.4rem",
+    paddingBottom: "0.1rem",
+    overflowX: "auto" as const,
+    scrollbarWidth: "none" as const,
   },
-  tab: {
-    flex: 1,
-    padding: "0.35rem 0",
-    background: "transparent",
-    border: "none",
-    borderBottom: "2px solid transparent",
-    color: "#64748b",
-    fontSize: "0.7rem",
-    fontWeight: 600,
+  tabChip: {
+    padding: "5px 12px",
+    borderRadius: 999,
+    fontSize: "0.74rem",
     cursor: "pointer",
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.05em",
-  },
-  tabActive: {
-    flex: 1,
-    padding: "0.35rem 0",
-    background: "transparent",
-    border: "none",
-    borderBottom: "2px solid #3b82f6",
-    color: "#60a5fa",
-    fontSize: "0.7rem",
-    fontWeight: 600,
-    cursor: "pointer",
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.05em",
+    whiteSpace: "nowrap" as const,
+    letterSpacing: "0.01em",
+    transition: "background 120ms ease, color 120ms ease",
+    flexShrink: 0,
   },
   list: {
     flex: 1,
-    overflowY: "auto",
-    padding: "0.25rem 0.75rem",
+    minHeight: 0,
+    overflowY: "auto" as const,
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.3rem",
+    paddingRight: "0.1rem",
   },
   empty: {
     textAlign: "center" as const,
-    color: "#64748b",
-    fontSize: "0.8rem",
+    color: TEXT_MUTED,
+    fontSize: "0.85rem",
     padding: "2rem 0",
   },
   row: {
+    width: "100%",
     display: "flex",
     alignItems: "center",
-    justifyContent: "space-between",
-    padding: "0.4rem 0.25rem",
-    borderBottom: "1px solid #1e293b",
+    gap: "0.75rem",
+    padding: "0.5rem 0.6rem",
+    borderRadius: 12,
+    background: "transparent",
+    border: `1px solid transparent`,
+    cursor: "pointer",
+    textAlign: "left" as const,
+    color: TEXT_STRONG,
+    transition: "background 120ms ease",
   },
-  rowLeft: {
+  arrowCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: "50%",
     display: "flex",
     alignItems: "center",
-    gap: "0.5rem",
-    minWidth: 0,
-    flex: 1,
-  },
-  arrow: {
-    fontSize: "0.85rem",
+    justifyContent: "center",
+    fontSize: "1rem",
     fontWeight: 700,
-    width: "1rem",
-    textAlign: "center" as const,
     flexShrink: 0,
+    lineHeight: 1,
   },
   rowInfo: {
     display: "flex",
     flexDirection: "column",
     minWidth: 0,
+    flex: 1,
+    gap: 2,
   },
   rowName: {
-    fontSize: "0.8rem",
+    fontSize: "0.88rem",
     fontWeight: 600,
-    color: "#e2e8f0",
+    color: TEXT_STRONG,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap" as const,
+    letterSpacing: "-0.005em",
   },
   rowNumber: {
-    fontSize: "0.65rem",
-    color: "#94a3b8",
+    fontSize: "0.72rem",
+    color: TEXT_MUTED,
+    fontVariantNumeric: "tabular-nums",
+    letterSpacing: "0.02em",
   },
-  rowMeta: {
-    fontSize: "0.65rem",
-    color: "#64748b",
-  },
-  callBtn: {
-    background: "none",
-    border: "none",
-    fontSize: "0.9rem",
-    cursor: "pointer",
-    padding: "0.2rem 0.4rem",
+  rowRight: {
+    display: "flex",
+    alignItems: "center",
+    gap: "0.5rem",
     flexShrink: 0,
+  },
+  rowTime: {
+    fontSize: "0.72rem",
+    color: TEXT_MUTED,
+    fontVariantNumeric: "tabular-nums",
+  },
+  infoIcon: {
+    color: TEXT_MUTED,
+    display: "inline-flex",
+    opacity: 0.7,
   },
 };
