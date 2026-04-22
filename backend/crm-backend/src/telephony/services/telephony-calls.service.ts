@@ -176,6 +176,42 @@ export class TelephonyCallsService {
   async lookupPhone(phone: string): Promise<CallerLookupResult> {
     const normalized = this.phoneResolver.localDigits(phone);
 
+    // Always attempt an exact-extension employee match first. Extensions are
+    // 3–4 digits, so searching clients with a <7-digit substring produces
+    // false positives (e.g. "214" would match any phone number containing
+    // "214"). For short inputs, only search employees by extension.
+    const extensionMatch = await this.prisma.telephonyExtension.findUnique({
+      where: { extension: normalized },
+      select: {
+        id: true,
+        extension: true,
+        displayName: true,
+        user: { select: { email: true } },
+      },
+    });
+
+    const employee = extensionMatch
+      ? {
+          id: extensionMatch.id,
+          extension: extensionMatch.extension,
+          displayName: extensionMatch.displayName,
+          email: extensionMatch.user?.email ?? null,
+        }
+      : undefined;
+
+    // Short-digit guard: inputs normalized to fewer than 7 digits are almost
+    // certainly internal extensions or garbage. Never run a client `contains`
+    // query with such a short pattern — it creates false positives.
+    if (normalized.length < 7) {
+      return {
+        employee,
+        openWorkOrders: [],
+        openIncidents: [],
+        recentIncidents: [],
+        recentCalls: [],
+      };
+    }
+
     const client = await this.prisma.client.findFirst({
       where: {
         isActive: true,
@@ -318,6 +354,7 @@ export class TelephonyCallsService {
     }
 
     return {
+      employee,
       client: client
         ? {
             id: client.id,
@@ -391,40 +428,69 @@ export class TelephonyCallsService {
       take: 100,
     });
 
+    // Collect remote numbers per session and normalize each unique value
+    // to its local-digits form. Phone strings in CDR rows can appear as
+    // `995555123456`, `+995555123456`, or `0555123456` while clients may be
+    // stored in any of those shapes. Match by the normalized form using the
+    // same `contains` strategy used by the per-call popup (lookupPhone).
     const remoteNumbers = new Set<string>();
     for (const s of sessions) {
       const remote = s.direction === 'IN' ? s.callerNumber : (s.calleeNumber ?? '');
       if (remote) remoteNumbers.add(remote);
     }
 
-    const nameMap = new Map<string, string>();
-    if (remoteNumbers.size > 0) {
+    // Map normalized (local-digits) → client display name. Skip anything
+    // shorter than 7 digits to avoid false-positive substring matches
+    // (same guard used in lookupPhone).
+    const nameByNormalized = new Map<string, string>();
+    const rawToNormalized = new Map<string, string>();
+    for (const raw of remoteNumbers) {
+      const local = this.phoneResolver.localDigits(raw);
+      rawToNormalized.set(raw, local);
+    }
+
+    const normalizedCandidates = [...new Set([...rawToNormalized.values()])].filter(
+      (n) => n.length >= 7,
+    );
+
+    if (normalizedCandidates.length > 0) {
+      // Single batched query: OR over every normalized candidate. Returns
+      // all clients whose phone contains any candidate substring; we then
+      // reverse-map each client back to the candidate(s) it matched.
       const clients = await this.prisma.client.findMany({
         where: {
-          OR: [
-            { primaryPhone: { in: [...remoteNumbers] } },
-            { secondaryPhone: { in: [...remoteNumbers] } },
-          ],
+          OR: normalizedCandidates.flatMap((local) => [
+            { primaryPhone: { contains: local } },
+            { secondaryPhone: { contains: local } },
+          ]),
         },
         select: { firstName: true, lastName: true, primaryPhone: true, secondaryPhone: true },
       });
       for (const c of clients) {
         const name = [c.firstName, c.lastName].filter(Boolean).join(' ');
-        if (name) {
-          if (c.primaryPhone) nameMap.set(c.primaryPhone, name);
-          if (c.secondaryPhone) nameMap.set(c.secondaryPhone, name);
+        if (!name) continue;
+        for (const local of normalizedCandidates) {
+          if (nameByNormalized.has(local)) continue;
+          if (
+            (c.primaryPhone && c.primaryPhone.includes(local)) ||
+            (c.secondaryPhone && c.secondaryPhone.includes(local))
+          ) {
+            nameByNormalized.set(local, name);
+          }
         }
       }
     }
 
     return sessions.map((s) => {
       const remote = s.direction === 'IN' ? s.callerNumber : (s.calleeNumber ?? '');
+      const normalized = remote ? rawToNormalized.get(remote) : undefined;
+      const remoteName = normalized ? (nameByNormalized.get(normalized) ?? null) : null;
       return {
         id: s.id,
         direction: s.direction,
         callerNumber: s.callerNumber,
         calleeNumber: s.calleeNumber,
-        remoteName: nameMap.get(remote) ?? null,
+        remoteName,
         startAt: s.startAt,
         answerAt: s.answerAt,
         endAt: s.endAt,
