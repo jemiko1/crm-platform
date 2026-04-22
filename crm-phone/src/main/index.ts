@@ -105,6 +105,7 @@ function createWindow(): void {
     resizable: true,
     frame: false,
     transparent: false,
+    backgroundColor: "#115e59",
     skipTaskbar: false,
     show: false,
     icon: getAppIcon(),
