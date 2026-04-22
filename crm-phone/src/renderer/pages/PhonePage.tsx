@@ -338,6 +338,7 @@ export function PhonePage(props: Props) {
           label="DND"
           icon={<DndIcon />}
           active={dndEnabled}
+          activeDanger
           loading={dndLoading}
           disabled={!sipRegistered || !session.telephonyExtension}
           onClick={handleDndTabClick}
@@ -592,12 +593,14 @@ function TabButton(props: {
   label: string;
   icon: React.ReactNode;
   active?: boolean;
+  activeDanger?: boolean;
   loading?: boolean;
   disabled?: boolean;
   onClick: () => void;
   title?: string;
 }) {
-  const { label, icon, active, loading, disabled, onClick, title } = props;
+  const { label, icon, active, activeDanger, loading, disabled, onClick, title } = props;
+  const danger = active && activeDanger;
   return (
     <button
       onClick={onClick}
@@ -606,13 +609,35 @@ function TabButton(props: {
       aria-pressed={active}
       style={{
         ...styles.tab,
-        color: active ? BRAND : TEXT_MUTED,
+        color: danger ? "#dc2626" : active ? BRAND : TEXT_MUTED,
         opacity: disabled ? 0.45 : 1,
         cursor: disabled ? "not-allowed" : "pointer",
       }}
     >
-      <span style={styles.tabIcon}>{icon}</span>
-      <span style={styles.tabLabel}>{loading ? "…" : label}</span>
+      <span
+        style={{
+          ...styles.tabIcon,
+          ...(danger
+            ? {
+                background: "rgba(220,38,38,0.10)",
+                borderRadius: "50%",
+                padding: 4,
+                boxShadow: "0 0 0 1.5px rgba(220,38,38,0.25)",
+              }
+            : null),
+        }}
+      >
+        {icon}
+      </span>
+      <span
+        style={{
+          ...styles.tabLabel,
+          fontWeight: danger ? 700 : 600,
+          letterSpacing: danger ? "0.03em" : "0.02em",
+        }}
+      >
+        {loading ? "…" : label}
+      </span>
     </button>
   );
 }
@@ -1078,10 +1103,8 @@ const styles: Record<string, React.CSSProperties> = {
     display: "grid",
     gridTemplateColumns: "repeat(4, 1fr)",
     padding: "0.5rem 0.25rem 0.6rem",
-    borderTop: `1px solid ${BORDER_SOFT}`,
-    background: "rgba(255, 255, 255, 0.55)",
-    backdropFilter: "blur(12px)",
-    WebkitBackdropFilter: "blur(12px)",
+    background: "#ffffff",
+    boxShadow: "0 -4px 14px rgba(0,0,0,0.07)",
     flexShrink: 0,
   },
   tab: {

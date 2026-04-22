@@ -105,7 +105,7 @@ export function CallHistory({ extension, onDial }: Props) {
         />
         <TabChip
           label="Outgoing"
-          tone="brand"
+          tone="blue"
           active={tab === "outgoing"}
           onClick={() => setTab("outgoing")}
         />
@@ -170,15 +170,20 @@ function formatRelativeTime(iso: string): string {
 
 function TabChip(props: {
   label: string;
-  tone: "brand" | "danger";
+  tone: "brand" | "danger" | "blue";
   active: boolean;
   onClick: () => void;
 }) {
   const { label, tone, active, onClick } = props;
-  const activeBg = tone === "danger" ? "#fde2e2" : BRAND_SOFT;
+  const activeBg =
+    tone === "danger" ? "#fde2e2" : tone === "blue" ? "rgba(37,99,235,0.10)" : BRAND_SOFT;
   const activeBorder =
-    tone === "danger" ? "rgba(220, 38, 38, 0.3)" : "rgba(8, 117, 56, 0.25)";
-  const activeText = tone === "danger" ? "#b91c1c" : BRAND;
+    tone === "danger"
+      ? "rgba(220,38,38,0.30)"
+      : tone === "blue"
+        ? "rgba(37,99,235,0.28)"
+        : "rgba(8,117,56,0.25)";
+  const activeText = tone === "danger" ? "#b91c1c" : tone === "blue" ? "#2563eb" : BRAND;
   return (
     <button
       onClick={onClick}
@@ -212,9 +217,13 @@ function HistoryRow(props: {
   const displayName = entry.remoteName || remoteNumber || "Unknown";
 
   // Three visual states: missed (red ↙), incoming answered (green ↙),
-  // outgoing (green ↗). Row is clickable to redial.
-  const arrowColor = missed ? "#dc2626" : BRAND;
-  const arrowBg = missed ? "rgba(239, 68, 68, 0.1)" : BRAND_SOFT;
+  // outgoing (blue ↗). Row is clickable to redial.
+  const arrowColor = missed ? "#dc2626" : isInbound ? BRAND : "#2563eb";
+  const arrowBg = missed
+    ? "rgba(220,38,38,0.10)"
+    : isInbound
+      ? BRAND_SOFT
+      : "rgba(37,99,235,0.10)";
   const arrowSymbol = isInbound ? "↙" : "↗";
 
   return (
@@ -224,7 +233,7 @@ function HistoryRow(props: {
       onMouseLeave={() => onHover(null)}
       style={{
         ...styles.row,
-        background: hovered ? "#f3f9f6" : "transparent",
+        background: hovered ? "#f4f4f5" : "transparent",
       }}
       title={`Call ${remoteNumber}`}
     >

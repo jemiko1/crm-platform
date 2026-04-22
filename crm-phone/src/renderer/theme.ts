@@ -22,9 +22,8 @@ export const BRAND_HOVER = "rgb(10, 140, 68)";
 /** Tiny bit darker for the pressed state of the primary button. */
 export const BRAND_PRESSED = "rgb(6, 95, 45)";
 
-/** Main app surface — pure near-white so the emerald accent pops
- *  without competing with a tinted backdrop. */
-export const SURFACE_GRADIENT = "#fafafa";
+/** Main app surface — pure white. */
+export const SURFACE_GRADIENT = "#ffffff";
 
 /** Flat white for cards that need to pop off the surface. */
 export const SURFACE_CARD = "#ffffff";
@@ -35,10 +34,10 @@ export const BORDER_MEDIUM = "rgba(15, 60, 40, 0.14)";
 
 // ── Text ──────────────────────────────────────────────────────────
 
-export const TEXT_STRONG = "#0f3c28"; // near-black emerald — primary text
-export const TEXT_BODY = "#2d5543"; // darker body
-export const TEXT_MUTED = "#6b8a7a"; // secondary / subtitles
-export const TEXT_SUBTLE = "#9fb2a8"; // placeholders / tertiary
+export const TEXT_STRONG = "#1a1a1a"; // near-black — primary text
+export const TEXT_BODY = "#333333"; // body copy
+export const TEXT_MUTED = "#666666"; // secondary / subtitles
+export const TEXT_SUBTLE = "#999999"; // placeholders / tertiary
 
 // ── Shadows ───────────────────────────────────────────────────────
 

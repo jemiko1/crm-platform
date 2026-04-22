@@ -1,74 +1,53 @@
 import React, { useState } from "react";
 
-type BtnConfig = {
-  icon: string;
-  title: string;
-  label: string;
-  isClose?: boolean;
-};
-
-const BUTTONS: BtnConfig[] = [
-  { icon: "−", title: "Minimize to tray", label: "Minimize" },
-  { icon: "□", title: "Hide to tray",     label: "Maximize" },
-  { icon: "×", title: "Close to tray",    label: "Close", isClose: true },
-];
-
 /**
- * Windows-style window controls — minimize, maximize, close.
- * All three call `app.hide()` so the window stays alive in the tray.
- * Close gets a red hover; min/max get a neutral grey hover.
+ * Single close button — sends the window to the tray (not a real quit).
+ * Styled as a rounded squircle: subtle neutral default, red on hover.
  */
 export const WindowControls: React.FC = () => {
-  const [activeBtn, setActiveBtn] = useState<string | null>(null);
+  const [hovered, setHovered] = useState(false);
 
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "stretch",
-        WebkitAppRegion: "no-drag" as any,
-        flexShrink: 0,
-        height: "100%",
-      }}
-    >
-      {BUTTONS.map(({ icon, title, label, isClose }) => {
-        const isHov = activeBtn === label;
-        return (
-          <button
-            key={label}
-            onClick={() => window.crmPhone?.app?.hide?.()}
-            title={title}
-            aria-label={label}
-            onMouseEnter={() => setActiveBtn(label)}
-            onMouseLeave={() => setActiveBtn(null)}
-            style={{
-              width: isClose ? 34 : 28,
-              height: "100%",
-              background: isHov
-                ? isClose
-                  ? "#c42b1c"
-                  : "rgba(0,0,0,0.07)"
-                : "transparent",
-              border: "none",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: isClose ? "1rem" : "0.85rem",
-              lineHeight: 1,
-              color: isHov && isClose ? "#ffffff" : "rgba(30,30,30,0.55)",
-              transition: "background 0.1s, color 0.1s",
-              padding: 0,
-              borderRadius: 0,
-            }}
-          >
-            {icon}
-          </button>
-        );
-      })}
+    <div style={{ WebkitAppRegion: "no-drag" as any, flexShrink: 0 }}>
+      <button
+        onClick={() => window.crmPhone?.app?.hide?.()}
+        title="Minimize to tray"
+        aria-label="Close"
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{
+          width: 34,
+          height: 22,
+          borderRadius: 7,
+          background: hovered ? "#e53935" : "rgba(0,0,0,0.06)",
+          border: hovered ? "1px solid #c62828" : "1px solid rgba(0,0,0,0.12)",
+          boxShadow: hovered
+            ? "0 2px 6px rgba(229,57,53,0.35)"
+            : "0 1px 2px rgba(0,0,0,0.08)",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          transition: "background 0.12s, box-shadow 0.12s, border-color 0.12s",
+          padding: 0,
+        }}
+      >
+        <svg
+          width="10"
+          height="10"
+          viewBox="0 0 10 10"
+          fill="none"
+          stroke={hovered ? "#ffffff" : "rgba(0,0,0,0.45)"}
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        >
+          <line x1="1.5" y1="1.5" x2="8.5" y2="8.5" />
+          <line x1="8.5" y1="1.5" x2="1.5" y2="8.5" />
+        </svg>
+      </button>
     </div>
   );
 };
 
-/** Total width: 28 + 28 + 34 = 90px. */
-export const WINDOW_CONTROLS_WIDTH = 28 + 28 + 34; // 90px
+/** Width of the control group — phantom spacer in title bars is not needed (single btn). */
+export const WINDOW_CONTROLS_WIDTH = 34;
