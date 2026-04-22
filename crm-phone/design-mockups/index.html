@@ -1,0 +1,966 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>CRM28 Phone — UI direction mockups</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #f1f5f9;
+    color: #0f172a;
+    padding: 2rem;
+    line-height: 1.5;
+  }
+  h1 { font-size: 1.6rem; margin-bottom: 0.5rem; }
+  h2 { font-size: 1.1rem; margin: 2rem 0 0.25rem; }
+  p.intro { color: #475569; margin-bottom: 2rem; max-width: 780px; }
+  .directions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 2rem;
+  }
+  .direction {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .direction h3 { font-size: 1.3rem; margin-bottom: 0.25rem; }
+  .direction .tagline { color: #64748b; margin-bottom: 1rem; font-size: 0.9rem; }
+  .direction .principles {
+    font-size: 0.85rem;
+    color: #334155;
+    background: #f8fafc;
+    border-radius: 6px;
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+  }
+  .direction .principles b { color: #0f172a; }
+  .phones {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .phone {
+    width: 300px;
+    height: 540px;
+    border-radius: 24px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    font-size: 0.8rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  }
+  .phone .label {
+    padding: 0.4rem;
+    text-align: center;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* ═════════════════════════════════════════════════════════════
+     Direction 1 — "FOCUS"
+     ═══════════════════════════════════════════════════════════════
+     White background, single accent blue. Apple-style simplicity.
+     Every non-essential element removed. Big tap targets.
+  */
+  .dir-focus .phone { background: white; color: #0f172a; }
+  .dir-focus .phone-header {
+    background: white;
+    padding: 1rem 1.25rem 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .dir-focus .phone-header .user { font-weight: 600; font-size: 0.95rem; }
+  .dir-focus .phone-header .ext { font-size: 0.7rem; color: #64748b; }
+  .dir-focus .phone-header .status {
+    display: flex; align-items: center; gap: 0.4rem;
+    font-size: 0.75rem; color: #64748b;
+  }
+  .dir-focus .phone-header .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #10b981;
+  }
+  .dir-focus .dnd {
+    padding: 2px 10px; border: 1px solid #e2e8f0;
+    border-radius: 4px; font-size: 0.68rem; font-weight: 600;
+    color: #64748b; background: white;
+  }
+  .dir-focus .number-display {
+    padding: 1.5rem 1.25rem 0.5rem;
+    font-size: 1.8rem;
+    font-weight: 300;
+    letter-spacing: 0.08em;
+    text-align: center;
+    color: #0f172a;
+    min-height: 60px;
+  }
+  .dir-focus .dialpad {
+    padding: 0.5rem 1.25rem;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem 1rem;
+    flex: 1;
+    align-content: start;
+  }
+  .dir-focus .dialpad button {
+    height: 54px;
+    background: transparent;
+    border: none;
+    font-size: 1.4rem;
+    font-weight: 300;
+    color: #0f172a;
+    cursor: pointer;
+  }
+  .dir-focus .dialpad button:hover { background: #f1f5f9; border-radius: 50%; }
+  .dir-focus .call-btn {
+    margin: 0.5rem 1.25rem;
+    padding: 0.9rem;
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 999px;
+    font-weight: 600;
+  }
+  .dir-focus .phone-footer {
+    padding: 0.5rem 1.25rem 0.75rem;
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    color: #94a3b8;
+    border-top: 1px solid #f1f5f9;
+  }
+  .dir-focus .phone-footer button {
+    background: none; border: none; color: #64748b;
+    font-size: 0.75rem; cursor: pointer;
+    padding: 0.3rem 0.6rem;
+  }
+
+  /* In-call variant for FOCUS */
+  .dir-focus .phone.in-call { background: white; }
+  .dir-focus .in-call .call-info {
+    flex: 1;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 1rem; gap: 0.3rem;
+  }
+  .dir-focus .in-call .caller-name { font-size: 1.4rem; font-weight: 600; }
+  .dir-focus .in-call .caller-number { color: #64748b; font-size: 0.9rem; }
+  .dir-focus .in-call .call-duration { color: #10b981; font-size: 0.95rem; margin-top: 0.75rem; font-variant-numeric: tabular-nums; }
+  .dir-focus .in-call .client-card {
+    width: 100%; background: #f1f5f9; border-radius: 10px;
+    padding: 0.75rem; margin-top: 1rem; font-size: 0.8rem;
+  }
+  .dir-focus .in-call .client-card b { color: #0f172a; }
+  .dir-focus .in-call .actions {
+    display: flex; gap: 0.5rem; padding: 0.75rem 1.25rem;
+  }
+  .dir-focus .in-call .actions button {
+    flex: 1; padding: 0.7rem; border-radius: 8px;
+    border: 1px solid #e2e8f0; background: white; font-size: 0.75rem;
+    cursor: pointer;
+  }
+  .dir-focus .in-call .hangup {
+    padding: 1rem 1.25rem; margin: 0 1.25rem 1rem;
+    background: #dc2626; color: white; border: none;
+    border-radius: 999px; font-weight: 600;
+  }
+
+  /* Break variant for FOCUS */
+  .dir-focus .phone.on-break {
+    background: linear-gradient(180deg, white 0%, #fef3c7 100%);
+  }
+  .dir-focus .on-break .body {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 1rem; padding: 2rem 1rem;
+  }
+  .dir-focus .on-break .timer {
+    font-size: 3rem; font-weight: 300;
+    font-variant-numeric: tabular-nums;
+    color: #92400e;
+  }
+  .dir-focus .on-break .label { color: #92400e; font-size: 0.85rem; }
+  .dir-focus .on-break .resume {
+    padding: 0.85rem 3rem; background: #f59e0b; color: white;
+    border: none; border-radius: 999px; font-weight: 600;
+  }
+
+  /* ═════════════════════════════════════════════════════════════
+     Direction 2 — "GLASS"
+     ═══════════════════════════════════════════════════════════════
+     Frosted dark. Uses depth + blur. Modern iOS/macOS vibe.
+     Accent cyan. Feels premium.
+  */
+  .dir-glass .phone {
+    background:
+      radial-gradient(at 20% 10%, rgba(6, 182, 212, 0.25), transparent 40%),
+      radial-gradient(at 80% 90%, rgba(139, 92, 246, 0.25), transparent 40%),
+      #0f172a;
+    color: #f1f5f9;
+    position: relative;
+  }
+  .dir-glass .glass-card {
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+  .dir-glass .phone-header {
+    padding: 0.8rem 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(0,0,0,0.2);
+  }
+  .dir-glass .phone-header .user { font-weight: 600; font-size: 0.9rem; }
+  .dir-glass .phone-header .ext { font-size: 0.68rem; color: #94a3b8; }
+  .dir-glass .pill-bar { display: flex; gap: 0.4rem; align-items: center; }
+  .dir-glass .pill {
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    background: rgba(16, 185, 129, 0.2);
+    color: #6ee7b7;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+  }
+  .dir-glass .pill.dnd-off {
+    background: rgba(148,163,184,0.12); color: #cbd5e1;
+    border-color: rgba(148,163,184,0.3);
+  }
+  .dir-glass .number-display {
+    margin: 1rem; padding: 1rem;
+    border-radius: 14px;
+    font-size: 1.6rem; font-weight: 300;
+    text-align: center; letter-spacing: 0.1em; min-height: 60px;
+  }
+  .dir-glass .dialpad {
+    padding: 0 1rem; display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem; flex: 1;
+  }
+  .dir-glass .dialpad button {
+    border-radius: 14px; aspect-ratio: 1.8;
+    border: none; color: #f1f5f9;
+    font-size: 1.2rem; font-weight: 500;
+    cursor: pointer;
+  }
+  .dir-glass .call-btn {
+    margin: 0.5rem 1rem;
+    padding: 0.85rem;
+    background: linear-gradient(135deg, #06b6d4, #0ea5e9);
+    color: white; border: none; border-radius: 999px; font-weight: 700;
+    box-shadow: 0 6px 16px rgba(6,182,212,0.4);
+  }
+  .dir-glass .phone-footer {
+    padding: 0.5rem 1rem 0.75rem; display: flex; gap: 0.4rem;
+  }
+  .dir-glass .phone-footer button {
+    flex: 1; padding: 0.5rem; border: none; border-radius: 8px;
+    font-size: 0.7rem; cursor: pointer;
+    color: #cbd5e1;
+  }
+  .dir-glass .phone-footer .break-btn {
+    background: rgba(251, 191, 36, 0.15); color: #fcd34d;
+    border: 1px solid rgba(251, 191, 36, 0.3);
+  }
+  .dir-glass .phone-footer .logout-btn {
+    background: rgba(148,163,184,0.1); color: #94a3b8;
+    border: 1px solid rgba(148,163,184,0.2);
+  }
+
+  .dir-glass .in-call .call-info {
+    flex: 1;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 1rem; gap: 0.4rem;
+  }
+  .dir-glass .in-call .avatar {
+    width: 80px; height: 80px; border-radius: 50%;
+    background: linear-gradient(135deg, #06b6d4, #8b5cf6);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2rem; font-weight: 600; color: white;
+    margin-bottom: 0.75rem;
+  }
+  .dir-glass .in-call .caller-name { font-size: 1.3rem; font-weight: 600; }
+  .dir-glass .in-call .caller-number { color: #94a3b8; font-size: 0.85rem; }
+  .dir-glass .in-call .call-duration {
+    color: #6ee7b7; font-size: 1rem; margin-top: 0.5rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .dir-glass .in-call .client-card {
+    margin: 0 1rem; padding: 0.75rem;
+    border-radius: 12px; font-size: 0.78rem;
+    color: #e2e8f0;
+  }
+  .dir-glass .in-call .actions {
+    padding: 0.5rem 1rem; display: flex; gap: 0.4rem;
+  }
+  .dir-glass .in-call .actions button {
+    flex: 1; padding: 0.55rem; border-radius: 10px;
+    font-size: 0.72rem;
+    color: #cbd5e1;
+  }
+  .dir-glass .in-call .hangup {
+    margin: 0.4rem 1rem 1rem; padding: 0.85rem;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white; border: none; border-radius: 999px; font-weight: 700;
+    box-shadow: 0 6px 16px rgba(220,38,38,0.4);
+  }
+
+  .dir-glass .on-break .body {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 0.75rem; padding: 2rem 1rem;
+  }
+  .dir-glass .on-break .timer {
+    font-size: 3rem; font-weight: 200;
+    font-variant-numeric: tabular-nums;
+    background: linear-gradient(135deg, #fcd34d, #f59e0b);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .dir-glass .on-break .resume {
+    padding: 0.8rem 2.5rem;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white; border: none; border-radius: 999px;
+    font-weight: 700;
+    box-shadow: 0 6px 16px rgba(16,185,129,0.4);
+  }
+
+  /* ═════════════════════════════════════════════════════════════
+     Direction 3 — "COMMAND"
+     ═══════════════════════════════════════════════════════════════
+     Dense, pro-operator workflow. Max information per square inch.
+     Linear.app-style. Inspired by CRM manager dashboards.
+     Good for users who spend 8h/day in the app.
+  */
+  .dir-command .phone {
+    background: #18181b;
+    color: #f4f4f5;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+  }
+  .dir-command .phone-header {
+    background: #09090b;
+    padding: 0.5rem 0.75rem;
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid #27272a;
+    font-size: 0.72rem;
+  }
+  .dir-command .phone-header .user { font-weight: 600; }
+  .dir-command .chip {
+    display: inline-block; padding: 1px 6px; border-radius: 3px;
+    font-size: 0.62rem; font-weight: 600; letter-spacing: 0.05em;
+  }
+  .dir-command .chip.online { background: #14532d; color: #4ade80; }
+  .dir-command .chip.offline { background: #7f1d1d; color: #fca5a5; }
+  .dir-command .chip.dnd-on { background: #713f12; color: #facc15; }
+  .dir-command .chip.dnd-off { background: #27272a; color: #a1a1aa; }
+  .dir-command .quick-stats {
+    padding: 0.5rem 0.75rem;
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.5rem;
+    font-size: 0.65rem;
+    background: #09090b;
+    border-bottom: 1px solid #27272a;
+  }
+  .dir-command .quick-stats .stat { color: #a1a1aa; }
+  .dir-command .quick-stats .val { color: #f4f4f5; font-weight: 600; font-size: 0.85rem; }
+  .dir-command .number-display {
+    padding: 1rem 0.75rem 0.5rem;
+    font-size: 1.4rem; letter-spacing: 0.15em;
+    text-align: center;
+    color: #f4f4f5;
+  }
+  .dir-command .dialpad {
+    padding: 0.3rem 0.75rem;
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 0.3rem; flex: 1;
+  }
+  .dir-command .dialpad button {
+    padding: 0.6rem; border-radius: 3px;
+    background: #27272a; border: 1px solid #3f3f46;
+    color: #f4f4f5;
+    font-family: inherit;
+    font-size: 1rem; font-weight: 500; cursor: pointer;
+  }
+  .dir-command .dialpad button:hover { background: #3f3f46; }
+  .dir-command .call-btn {
+    margin: 0.3rem 0.75rem;
+    padding: 0.7rem;
+    background: #16a34a; color: white; border: none;
+    border-radius: 3px; font-weight: 700;
+    font-family: inherit;
+    letter-spacing: 0.05em;
+  }
+  .dir-command .phone-footer {
+    padding: 0.4rem 0.75rem; display: flex; gap: 0.3rem;
+    font-size: 0.7rem; border-top: 1px solid #27272a;
+    background: #09090b;
+  }
+  .dir-command .phone-footer button {
+    flex: 1; padding: 0.4rem; border-radius: 3px;
+    font-family: inherit; cursor: pointer; font-size: 0.65rem;
+    font-weight: 700; letter-spacing: 0.05em;
+  }
+  .dir-command .phone-footer .break-btn {
+    background: #713f12; color: #facc15;
+    border: 1px solid #a16207;
+  }
+  .dir-command .phone-footer .logout-btn {
+    background: #27272a; color: #a1a1aa;
+    border: 1px solid #3f3f46;
+  }
+  .dir-command .in-call .call-bar {
+    background: #14532d; padding: 0.5rem 0.75rem;
+    display: flex; justify-content: space-between; align-items: center;
+    color: #4ade80; font-size: 0.7rem;
+  }
+  .dir-command .in-call .call-bar .duration { font-weight: 700; }
+  .dir-command .in-call .caller-block {
+    padding: 0.75rem;
+  }
+  .dir-command .in-call .caller-name {
+    font-size: 1.1rem; font-weight: 700;
+  }
+  .dir-command .in-call .caller-meta {
+    font-size: 0.7rem; color: #a1a1aa; margin-top: 0.25rem;
+  }
+  .dir-command .in-call .client-card {
+    margin: 0 0.75rem;
+    padding: 0.5rem; background: #27272a;
+    border: 1px solid #3f3f46;
+    border-radius: 3px;
+    font-size: 0.68rem;
+  }
+  .dir-command .in-call .client-card .row {
+    display: flex; justify-content: space-between;
+    padding: 2px 0;
+  }
+  .dir-command .in-call .client-card .label { color: #a1a1aa; }
+  .dir-command .in-call .client-card .val { color: #f4f4f5; }
+  .dir-command .in-call .actions {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 0.3rem; padding: 0.5rem 0.75rem; margin-top: auto;
+  }
+  .dir-command .in-call .actions button {
+    padding: 0.45rem; border-radius: 3px;
+    background: #27272a; border: 1px solid #3f3f46;
+    color: #d4d4d8; font-family: inherit;
+    font-size: 0.65rem; font-weight: 700;
+    letter-spacing: 0.05em; cursor: pointer;
+  }
+  .dir-command .in-call .hangup {
+    margin: 0 0.75rem 0.5rem; padding: 0.7rem;
+    background: #dc2626; border: none; color: white;
+    border-radius: 3px; font-weight: 700;
+    font-family: inherit; letter-spacing: 0.05em;
+  }
+
+  .dir-command .on-break .body {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 1rem; gap: 0.75rem;
+  }
+  .dir-command .on-break .title {
+    background: #713f12; color: #facc15;
+    padding: 3px 12px; border-radius: 3px;
+    font-size: 0.7rem; font-weight: 700;
+    letter-spacing: 0.1em;
+  }
+  .dir-command .on-break .timer {
+    font-size: 3rem; font-weight: 300;
+    font-variant-numeric: tabular-nums;
+    color: #facc15;
+    font-family: inherit;
+  }
+  .dir-command .on-break .status-row {
+    background: #27272a; border: 1px solid #3f3f46;
+    padding: 0.4rem 0.75rem; border-radius: 3px;
+    font-size: 0.65rem; color: #a1a1aa;
+  }
+  .dir-command .on-break .resume {
+    padding: 0.7rem 2rem; background: #16a34a;
+    color: white; border: none; border-radius: 3px;
+    font-weight: 700; font-family: inherit;
+    letter-spacing: 0.05em;
+  }
+
+  /* ═════════════════════════════════════════════════════════════
+     Direction 4 — "WARM"
+     ═══════════════════════════════════════════════════════════════
+     Soft pastel gradient, friendly rounded shapes, generous spacing.
+     Aims for approachable / emotionally neutral. Nice for
+     customer-facing roles where you want operators to feel
+     supported, not like they're operating machinery.
+  */
+  .dir-warm .phone {
+    background: linear-gradient(160deg, #fdf2f8 0%, #e0f2fe 50%, #ede9fe 100%);
+    color: #1e293b;
+  }
+  .dir-warm .phone-header {
+    padding: 1rem 1.25rem; display: flex;
+    justify-content: space-between; align-items: center;
+  }
+  .dir-warm .phone-header .user { font-weight: 600; font-size: 0.95rem; }
+  .dir-warm .phone-header .ext { font-size: 0.7rem; color: #64748b; }
+  .dir-warm .phone-header .status-group { display: flex; gap: 0.5rem; align-items: center; }
+  .dir-warm .phone-header .status {
+    background: white; padding: 4px 10px;
+    border-radius: 999px; font-size: 0.7rem;
+    display: flex; align-items: center; gap: 0.3rem;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .dir-warm .phone-header .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #34d399;
+  }
+  .dir-warm .dnd {
+    background: white; padding: 4px 10px;
+    border-radius: 999px; font-size: 0.65rem;
+    font-weight: 600; color: #64748b;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .dir-warm .number-display {
+    margin: 1rem 1.25rem; padding: 1.25rem;
+    background: white; border-radius: 20px;
+    font-size: 1.5rem; font-weight: 400;
+    text-align: center; letter-spacing: 0.1em; min-height: 50px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  .dir-warm .dialpad {
+    padding: 0 1.25rem; display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem; flex: 1;
+  }
+  .dir-warm .dialpad button {
+    aspect-ratio: 1.8; border-radius: 18px;
+    background: white;
+    border: 1px solid rgba(255,255,255,0.8);
+    color: #1e293b; font-size: 1.3rem; font-weight: 500;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .dir-warm .dialpad button:hover { background: #f8fafc; }
+  .dir-warm .call-btn {
+    margin: 0.75rem 1.25rem;
+    padding: 0.9rem;
+    background: #ec4899;
+    color: white; border: none; border-radius: 999px; font-weight: 700;
+    box-shadow: 0 4px 12px rgba(236, 72, 153, 0.35);
+  }
+  .dir-warm .phone-footer {
+    padding: 0.5rem 1.25rem 0.75rem;
+    display: flex; gap: 0.5rem;
+  }
+  .dir-warm .phone-footer button {
+    flex: 1; padding: 0.6rem; border-radius: 12px;
+    font-size: 0.75rem; font-weight: 600;
+    border: none; cursor: pointer;
+  }
+  .dir-warm .phone-footer .break-btn {
+    background: rgba(252, 211, 77, 0.4); color: #92400e;
+  }
+  .dir-warm .phone-footer .logout-btn {
+    background: white; color: #64748b;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+
+  .dir-warm .in-call .call-info {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; padding: 1.25rem;
+    gap: 0.3rem;
+  }
+  .dir-warm .in-call .avatar {
+    width: 72px; height: 72px; border-radius: 50%;
+    background: linear-gradient(135deg, #ec4899, #8b5cf6);
+    color: white; font-size: 1.6rem; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 0.75rem;
+  }
+  .dir-warm .in-call .caller-name { font-size: 1.2rem; font-weight: 600; }
+  .dir-warm .in-call .caller-number { color: #64748b; font-size: 0.85rem; }
+  .dir-warm .in-call .call-duration {
+    color: #10b981; font-size: 1rem; margin-top: 0.4rem;
+    font-variant-numeric: tabular-nums; font-weight: 500;
+  }
+  .dir-warm .in-call .client-card {
+    margin: 0 1.25rem; padding: 0.85rem;
+    background: white; border-radius: 16px;
+    font-size: 0.8rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  .dir-warm .in-call .actions {
+    display: flex; gap: 0.5rem;
+    padding: 0.5rem 1.25rem;
+  }
+  .dir-warm .in-call .actions button {
+    flex: 1; padding: 0.7rem; border-radius: 12px;
+    background: white; border: none; font-size: 0.78rem;
+    color: #475569; font-weight: 500; cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .dir-warm .in-call .hangup {
+    margin: 0.5rem 1.25rem 1rem; padding: 0.9rem;
+    background: #ef4444; color: white;
+    border: none; border-radius: 999px; font-weight: 700;
+    box-shadow: 0 4px 12px rgba(239,68,68,0.35);
+  }
+
+  .dir-warm .on-break .body {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 2rem 1rem; gap: 0.75rem;
+  }
+  .dir-warm .on-break .timer {
+    font-size: 3rem; font-weight: 300;
+    font-variant-numeric: tabular-nums;
+    color: #be185d;
+  }
+  .dir-warm .on-break .caption {
+    color: #9f1239; font-size: 0.85rem; text-align: center;
+    max-width: 220px; line-height: 1.4;
+  }
+  .dir-warm .on-break .resume {
+    padding: 0.9rem 3rem;
+    background: #10b981; color: white;
+    border: none; border-radius: 999px; font-weight: 700;
+    box-shadow: 0 4px 12px rgba(16,185,129,0.35);
+  }
+
+  .pick {
+    display: inline-block;
+    margin-top: 1rem;
+    padding: 0.5rem 1rem;
+    background: #0f172a; color: white;
+    border-radius: 8px;
+    font-size: 0.85rem;
+  }
+
+  footer {
+    margin-top: 3rem; padding-top: 1.5rem;
+    border-top: 1px solid #e2e8f0;
+    color: #64748b; font-size: 0.85rem;
+    max-width: 780px;
+  }
+</style>
+</head>
+<body>
+
+<h1>CRM28 Phone — UI direction mockups</h1>
+<p class="intro">
+  Four distinct visual directions for the softphone. Each one shows three key states:
+  <b>Idle</b> (dialpad visible), <b>In-call</b> (active call with caller info), and
+  <b>On break</b> (fullscreen modal). Pick whichever feel you want me to run with
+  and I'll do the full polish pass on the real app. Mix & match is fine too — e.g.
+  "<i>Focus</i> layout but <i>Glass</i> colors".
+</p>
+
+<div class="directions">
+
+  <!-- ═══════════════════════════════ DIRECTION 1 — FOCUS ═══════════════════════════════ -->
+  <div class="direction dir-focus">
+    <h3>1. Focus</h3>
+    <p class="tagline">Apple-style minimal. White. One accent color. Generous whitespace.</p>
+    <div class="principles">
+      <b>Vibe:</b> calm, precise, no visual noise. Think iPhone dialer.<br>
+      <b>Color:</b> white background, single blue accent (#2563eb), text is near-black.<br>
+      <b>Who it suits:</b> operators who prefer "get out of my way" UI.
+    </div>
+    <div class="phones">
+      <div class="phone">
+        <div class="phone-header">
+          <div>
+            <div class="user">David Beridze</div>
+            <div class="ext">Ext 201</div>
+          </div>
+          <div class="status"><span class="dot"></span>Online <button class="dnd">DND</button></div>
+        </div>
+        <div class="number-display">555 0143</div>
+        <div class="dialpad">
+          <button>1</button><button>2</button><button>3</button>
+          <button>4</button><button>5</button><button>6</button>
+          <button>7</button><button>8</button><button>9</button>
+          <button>*</button><button>0</button><button>#</button>
+        </div>
+        <button class="call-btn">Call</button>
+        <div class="phone-footer">
+          <button>☕ Break</button>
+          <button>Log out</button>
+        </div>
+      </div>
+      <div class="phone in-call">
+        <div class="phone-header">
+          <div>
+            <div class="user">David Beridze</div>
+            <div class="ext">Ext 201</div>
+          </div>
+          <div class="status"><span class="dot"></span>Online</div>
+        </div>
+        <div class="call-info">
+          <div class="caller-name">Nino Kvaratskhelia</div>
+          <div class="caller-number">+995 555 011 234</div>
+          <div class="call-duration">02:34</div>
+          <div class="client-card">
+            <b>Flat 14B, Tbilisi Towers</b><br>
+            2 open work orders · Lead: Negotiation
+          </div>
+        </div>
+        <div class="actions">
+          <button>Mute</button>
+          <button>Hold</button>
+          <button>📋 Report</button>
+        </div>
+        <button class="hangup">Hang up</button>
+      </div>
+      <div class="phone on-break">
+        <div class="phone-header">
+          <div><b>On Break</b></div>
+        </div>
+        <div class="body">
+          <div class="timer">05:42</div>
+          <div class="label">You're unregistered.<br>Resume to take calls.</div>
+          <button class="resume">Resume</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════ DIRECTION 2 — GLASS ═══════════════════════════════ -->
+  <div class="direction dir-glass">
+    <h3>2. Glass</h3>
+    <p class="tagline">Dark, frosted. Cyan+purple gradients. iOS / macOS premium feel.</p>
+    <div class="principles">
+      <b>Vibe:</b> premium, modern, a little Apple-ish, a little Linear-ish.<br>
+      <b>Color:</b> dark slate base, cyan+purple radial glows, frosted-glass cards.<br>
+      <b>Who it suits:</b> teams who want the app to feel "cool" to have open.
+    </div>
+    <div class="phones">
+      <div class="phone">
+        <div class="phone-header">
+          <div>
+            <div class="user">David Beridze</div>
+            <div class="ext">Ext 201 · Online</div>
+          </div>
+          <div class="pill-bar"><span class="pill dnd-off">DND</span></div>
+        </div>
+        <div class="glass-card number-display">555 0143</div>
+        <div class="dialpad">
+          <button class="glass-card">1</button><button class="glass-card">2</button><button class="glass-card">3</button>
+          <button class="glass-card">4</button><button class="glass-card">5</button><button class="glass-card">6</button>
+          <button class="glass-card">7</button><button class="glass-card">8</button><button class="glass-card">9</button>
+          <button class="glass-card">*</button><button class="glass-card">0</button><button class="glass-card">#</button>
+        </div>
+        <button class="call-btn">📞 Call</button>
+        <div class="phone-footer">
+          <button class="break-btn">☕ Break</button>
+          <button class="logout-btn">Log out</button>
+        </div>
+      </div>
+      <div class="phone in-call">
+        <div class="phone-header">
+          <div>
+            <div class="user">David Beridze</div>
+            <div class="ext">Ext 201</div>
+          </div>
+          <div class="pill-bar"><span class="pill">Connected · 02:34</span></div>
+        </div>
+        <div class="call-info">
+          <div class="avatar">NK</div>
+          <div class="caller-name">Nino Kvaratskhelia</div>
+          <div class="caller-number">+995 555 011 234</div>
+        </div>
+        <div class="glass-card client-card" style="padding: 0.75rem;">
+          Flat 14B, Tbilisi Towers · 2 open WOs · Lead: Negotiation
+        </div>
+        <div class="actions">
+          <button class="glass-card">Mute</button>
+          <button class="glass-card">Hold</button>
+          <button class="glass-card">📋</button>
+        </div>
+        <button class="hangup">Hang up</button>
+      </div>
+      <div class="phone on-break">
+        <div class="phone-header">
+          <div><b style="color:#fcd34d">On Break</b></div>
+        </div>
+        <div class="body">
+          <div class="timer">05:42</div>
+          <div style="color:#cbd5e1;font-size:0.8rem;text-align:center;max-width:240px;line-height:1.4">
+            SIP unregistered — queue calls won't ring until you resume.
+          </div>
+          <button class="resume">Resume</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════ DIRECTION 3 — COMMAND ═══════════════════════════════ -->
+  <div class="direction dir-command">
+    <h3>3. Command</h3>
+    <p class="tagline">Dense, pro, monospace. Linear.app / Bloomberg-terminal energy.</p>
+    <div class="principles">
+      <b>Vibe:</b> information-dense, every pixel earns its place, keyboard-first.<br>
+      <b>Color:</b> near-black, single neutral gray scale, accent emerald + amber.<br>
+      <b>Who it suits:</b> call-center veterans who do 100+ calls/day and want stats at a glance.
+    </div>
+    <div class="phones">
+      <div class="phone">
+        <div class="phone-header">
+          <span class="user">D. BERIDZE · ext 201</span>
+          <span class="pill-bar"><span class="chip online">ONLINE</span> <span class="chip dnd-off">DND OFF</span></span>
+        </div>
+        <div class="quick-stats">
+          <div><div class="stat">CALLS TODAY</div><div class="val">42</div></div>
+          <div><div class="stat">AVG HANDLE</div><div class="val">2:47</div></div>
+          <div><div class="stat">MISSED Q</div><div class="val">3</div></div>
+        </div>
+        <div class="number-display">555 0143</div>
+        <div class="dialpad">
+          <button>1</button><button>2</button><button>3</button>
+          <button>4</button><button>5</button><button>6</button>
+          <button>7</button><button>8</button><button>9</button>
+          <button>*</button><button>0</button><button>#</button>
+        </div>
+        <button class="call-btn">CALL · ENTER</button>
+        <div class="phone-footer">
+          <button class="break-btn">BREAK · F2</button>
+          <button class="logout-btn">LOGOUT · F10</button>
+        </div>
+      </div>
+      <div class="phone in-call">
+        <div class="phone-header">
+          <span class="user">D. BERIDZE · ext 201</span>
+          <span class="chip online">CONNECTED</span>
+        </div>
+        <div class="call-bar">
+          <span>→ +995 555 011 234</span>
+          <span class="duration">02:34</span>
+        </div>
+        <div class="caller-block">
+          <div class="caller-name">Nino Kvaratskhelia</div>
+          <div class="caller-meta">Flat 14B, Tbilisi Towers · Lead #4221</div>
+        </div>
+        <div class="client-card">
+          <div class="row"><span class="label">OPEN WOS</span><span class="val">2</span></div>
+          <div class="row"><span class="label">LAST CALL</span><span class="val">3d ago</span></div>
+          <div class="row"><span class="label">LEAD STAGE</span><span class="val">NEGOTIATION</span></div>
+          <div class="row"><span class="label">ASSIGNED</span><span class="val">Giorgi K.</span></div>
+        </div>
+        <div class="actions">
+          <button>MUTE · M</button>
+          <button>HOLD · H</button>
+          <button>REPORT · R</button>
+        </div>
+        <button class="hangup">HANG UP · ESC</button>
+      </div>
+      <div class="phone on-break">
+        <div class="phone-header">
+          <span class="user">D. BERIDZE · ext 201</span>
+          <span class="chip dnd-on">ON BREAK</span>
+        </div>
+        <div class="body">
+          <div class="title">ON BREAK</div>
+          <div class="timer">05:42</div>
+          <div class="status-row">SIP UNREGISTERED · Q-DISPATCH OFF</div>
+          <button class="resume">RESUME · ENTER</button>
+          <div class="status-row" style="margin-top:auto">AUTO-CLOSE IN 13h 14m</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════ DIRECTION 4 — WARM ═══════════════════════════════ -->
+  <div class="direction dir-warm">
+    <h3>4. Warm</h3>
+    <p class="tagline">Pastel gradients. Rounded. Feels supportive, not clinical.</p>
+    <div class="principles">
+      <b>Vibe:</b> friendly, low-stress, approachable. Notion / Headspace feel.<br>
+      <b>Color:</b> soft pink→blue→lavender gradient, white cards, pink accent.<br>
+      <b>Who it suits:</b> customer-care roles where you want operators to feel calm during long shifts.
+    </div>
+    <div class="phones">
+      <div class="phone">
+        <div class="phone-header">
+          <div>
+            <div class="user">David Beridze</div>
+            <div class="ext">Ext 201</div>
+          </div>
+          <div class="status-group">
+            <span class="status"><span class="dot"></span>Online</span>
+            <span class="dnd">DND</span>
+          </div>
+        </div>
+        <div class="number-display">555 0143</div>
+        <div class="dialpad">
+          <button>1</button><button>2</button><button>3</button>
+          <button>4</button><button>5</button><button>6</button>
+          <button>7</button><button>8</button><button>9</button>
+          <button>*</button><button>0</button><button>#</button>
+        </div>
+        <button class="call-btn">Call</button>
+        <div class="phone-footer">
+          <button class="break-btn">Take a break</button>
+          <button class="logout-btn">Log out</button>
+        </div>
+      </div>
+      <div class="phone in-call">
+        <div class="phone-header">
+          <div>
+            <div class="user">David Beridze</div>
+            <div class="ext">Ext 201</div>
+          </div>
+          <div class="status-group"><span class="status"><span class="dot"></span>On call</span></div>
+        </div>
+        <div class="call-info">
+          <div class="avatar">NK</div>
+          <div class="caller-name">Nino Kvaratskhelia</div>
+          <div class="caller-number">+995 555 011 234</div>
+          <div class="call-duration">02:34</div>
+        </div>
+        <div class="client-card">
+          <b>Flat 14B, Tbilisi Towers</b><br>
+          2 open work orders · Lead: Negotiation
+        </div>
+        <div class="actions">
+          <button>Mute</button>
+          <button>Hold</button>
+          <button>Report</button>
+        </div>
+        <button class="hangup">Hang up</button>
+      </div>
+      <div class="phone on-break">
+        <div class="phone-header">
+          <div><b>Taking a break</b></div>
+        </div>
+        <div class="body">
+          <div class="timer">05:42</div>
+          <div class="caption">You're unregistered. Take your time — resume when you're ready.</div>
+          <button class="resume">I'm back</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <p><b>How to pick:</b> open this file in your browser (double-click
+  <code>crm-phone/design-mockups/index.html</code>), look at all four side by side,
+  and tell me which feels right. Describe any tweaks you want — e.g.
+  "Focus but with Glass's call button", "Warm but without the gradient",
+  "Command but a bit less dense". Once you pick, I'll do the full
+  refactor of the real softphone CSS to match.</p>
+  <p style="margin-top: 0.75rem;"><b>What each direction costs:</b></p>
+  <ul style="margin-left: 1.5rem; margin-top: 0.25rem;">
+    <li><b>Focus</b> — smallest code change, easiest to maintain. Minimal risk.</li>
+    <li><b>Glass</b> — backdrop-filter is Electron/Chromium-only (that's fine, we're already Electron). Bigger CSS surface.</li>
+    <li><b>Command</b> — biggest opinion-change. Would also need a new "stats today" backend endpoint for the header row (quick call-center metrics).</li>
+    <li><b>Warm</b> — pure CSS. Mood shift is the biggest ask; some users may feel it's "too casual" for a business tool.</li>
+  </ul>
+</footer>
+
+</body>
+</html>

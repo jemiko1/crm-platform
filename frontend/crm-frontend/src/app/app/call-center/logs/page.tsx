@@ -73,9 +73,16 @@ export default function CallLogsPage() {
   const [loading, setLoading] = useState(true);
   const [calls, setCalls] = useState<CallSession[]>([]);
   const [meta, setMeta] = useState({ page: 1, pageSize: 25, total: 0, totalPages: 1 });
+  // Surface fetch errors instead of silently blanking the table. A
+  // field report (April 2026) had an operator staring at an empty
+  // table for hours because a stale HTTP 304 returned a zero-byte
+  // body AND the old catch block swallowed every error. Visible
+  // error state makes the failure mode diagnosable from the UI.
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetchCalls({
         from: new Date(from).toISOString(),
@@ -87,8 +94,11 @@ export default function CallLogsPage() {
       });
       setCalls(res?.data ?? []);
       setMeta(res?.meta ?? { page: 1, pageSize: 25, total: 0, totalPages: 1 });
-    } catch {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg || "Could not load calls");
       setCalls([]);
+      setMeta({ page: 1, pageSize: 25, total: 0, totalPages: 1 });
     } finally {
       setLoading(false);
     }
@@ -130,6 +140,24 @@ export default function CallLogsPage() {
           </select>
         </div>
       </div>
+
+      {error && (
+        <div
+          role="alert"
+          className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"
+        >
+          <div className="font-medium">
+            {t("callCenter.logs.errorTitle", "Could not load calls")}
+          </div>
+          <div className="mt-0.5 text-xs text-rose-700">{error}</div>
+          <div className="mt-1.5 text-xs text-rose-700">
+            {t(
+              "callCenter.logs.errorHint",
+              "Try a hard refresh (Ctrl+Shift+R). If it persists, check that you have permission to view call logs.",
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Table */}
       <div className="rounded-3xl bg-white shadow-sm ring-1 ring-zinc-200 overflow-clip">

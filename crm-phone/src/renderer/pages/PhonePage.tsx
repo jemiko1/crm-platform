@@ -36,6 +36,7 @@ interface Props {
   onBreakStart: () => Promise<boolean>;
   dndEnabled: boolean;
   dndLoading: boolean;
+  dndError: string | null;
   onDndToggle: (target: boolean) => Promise<void>;
 }
 
@@ -47,7 +48,7 @@ export function PhonePage(props: Props) {
     onDial, onAnswer, onHangup, onHold, onUnhold, onDtmf, onToggleMute, onLogout,
     prefillNumber, onPrefillConsumed,
     breakStarting, breakError, onBreakStart,
-    dndEnabled, dndLoading, onDndToggle,
+    dndEnabled, dndLoading, dndError, onDndToggle,
   } = props;
   const [dialNumber, setDialNumber] = useState("");
   const [showSettings, setShowSettings] = useState(false);
@@ -193,6 +194,17 @@ export function PhonePage(props: Props) {
         </div>
       </div>
 
+      {/*
+        v1.10.2: Wrap the dynamic middle region in a scroll container.
+        At the default window size (380x680) the in-call layout
+        (callDisplay + CallerCard + DTMF pad) exceeded viewport height
+        and clipped the footer (Break / Log Out buttons). The scroll
+        wrapper keeps the footer pinned and lets the middle overflow
+        gracefully. `min-height: 0` is load-bearing — without it a
+        flex child can't shrink below its content size and scrolling
+        silently becomes no-ops.
+      */}
+      <div style={styles.scrollArea}>
       {callState !== "idle" && activeCall && (
         <>
           <div style={styles.callDisplay}>
@@ -330,6 +342,7 @@ export function PhonePage(props: Props) {
           ))}
         </div>
       )}
+      </div>{/* end scrollArea */}
 
       <div style={styles.footer}>
         {!session.telephonyExtension && (
@@ -339,6 +352,13 @@ export function PhonePage(props: Props) {
         )}
         {breakError && (
           <div style={styles.breakError}>{breakError}</div>
+        )}
+        {dndError && (
+          // Surfaced to the user instead of only the hidden useDnd
+          // state (v1.10.2 fix). Most common cause when this appears:
+          // AMI is unreachable from the backend, or the logged-in
+          // user has no active TelephonyExtension.
+          <div style={styles.breakError}>DND: {dndError}</div>
         )}
         <div style={styles.footerButtons}>
           {/* Break — gated on SIP registered + idle. We don't allow
@@ -405,6 +425,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "0.5rem 1rem",
     background: "#020617",
     WebkitAppRegion: "drag" as any,
+    flexShrink: 0,
   },
   titleText: { fontSize: "0.8rem", fontWeight: 600, color: "#94a3b8" },
   headerBtn: {
@@ -429,6 +450,14 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     padding: "0.75rem 1rem",
     borderBottom: "1px solid #1e293b",
+    flexShrink: 0,
+  },
+  scrollArea: {
+    flex: 1,
+    minHeight: 0,
+    overflowY: "auto",
+    display: "flex",
+    flexDirection: "column",
   },
   userInfo: { display: "flex", flexDirection: "column" },
   userName: { fontSize: "0.875rem", fontWeight: 600, color: "#f1f5f9" },
@@ -580,7 +609,12 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     gap: "0.5rem",
-    marginTop: "auto",
+    // v1.10.2: removed `marginTop: auto` now that scrollArea handles
+    // the flex-fill. With the new layout the footer is the last
+    // flex child of the container and doesn't need margin pushing.
+    borderTop: "1px solid #1e293b",
+    background: "#0f172a",
+    flexShrink: 0,
   },
   noExtWarning: {
     padding: "0.5rem",

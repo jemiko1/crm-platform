@@ -76,6 +76,26 @@ This is a stable URL that always points to the latest installer.
 
 ## Changelog
 
+### v1.10.2 — DND visibility + layout fixes (April 2026)
+
+**DND clicking produced no visible feedback:**
+- The hook was calling `setError(res.reason)` but nothing in `PhonePage` rendered it. Errors fell into the void.
+- No diagnostic logs — the renderer's devtools console and the main-process log file had nothing to attribute a silent failure to.
+
+Fix:
+- `useDnd` now logs every transition (`[DND] hydrating…`, `[DND] toggle(true): starting`, etc.) to both the renderer devtools console AND the main-process log at `%APPDATA%/crm-phone/crm-phone-debug.log`. Any AMI / JWT / preload-mismatch failure is now attributable.
+- `PhonePage` renders a small red error chip in the footer whenever `dndError` is non-null. Same treatment as `breakError` got in v1.10.0.
+- `useDnd` now catches synchronously-chained throws (e.g. `window.crmPhone.dnd` undefined after a partial upgrade) and surfaces the message instead of leaving it on React's async unhandled-rejection void.
+
+**Break modal was clipping at small window sizes:**
+- Icon shrunk 88px → 64px, elapsed counter 3.5rem → 2.75rem
+- Body switched from `justifyContent: center` to `flex-start` + `overflowY: auto`
+- Padding tightened, flex-shrink applied to chrome elements
+
+**Phone body was trimming content during calls:**
+- At default 380×680, a connected call with CallerCard + DTMF pad + footer overflowed the viewport and the Log Out / Break buttons were pushed off-screen.
+- Introduced a `scrollArea` div (`flex: 1; min-height: 0; overflow-y: auto`) around the dynamic middle region. The title bar and footer now stay pinned; only the middle scrolls.
+
 ### v1.10.1 — Auto-updater hotfix (April 2026)
 
 Fixes `Update error: (0, builder_util_runtime_1.retry) is not a function` when clicking "Check for Updates" on v1.9.0 / v1.10.0 installs.

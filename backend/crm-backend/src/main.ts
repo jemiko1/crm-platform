@@ -24,6 +24,27 @@ async function bootstrap() {
   // per-IP login throttle and any future rate limiter that keys on req.ip.
   app.getHttpAdapter().getInstance().set("trust proxy", true);
 
+  // Disable Express's default weak-ETag on JSON responses.
+  //
+  // See CLAUDE.md Silent Override Risk #23 for the full story. TL;DR:
+  // Express adds `ETag: W/"<hash>"` on every JSON response. The browser
+  // caches that body keyed by the ETag and sends `If-None-Match` on
+  // subsequent identical requests. If the response body hashes the
+  // same as it did on first load (very common for paginated list
+  // endpoints that happened to be empty when the user first arrived),
+  // Express returns `304 Not Modified` with 0 bytes — and the browser
+  // reuses the stale cached body. Field symptom: operator sees an
+  // empty Call Logs table for hours even as the DB fills up.
+  //
+  // This whole app serves authenticated JSON with `credentials:
+  // include`. There is no endpoint that legitimately benefits from
+  // ETag revalidation — caching should always be an explicit, opt-in
+  // decision per endpoint rather than the default. Flipping the global
+  // default off kills the entire bug class. Per-endpoint
+  // `@Header('Cache-Control', 'no-store')` remains on the telephony
+  // list controllers as belt-and-suspenders.
+  app.getHttpAdapter().getInstance().set("etag", false);
+
   app.use(helmet());
   app.use(compression());
   app.use(cookieParser());
