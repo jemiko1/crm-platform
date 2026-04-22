@@ -259,8 +259,8 @@ export function PhonePage(props: Props) {
         </div>
 
         <div style={styles.statusRight}>
-          {hasActiveCall && activeCall && (
-            <CallTimer startedAt={activeCall.answeredAt ?? activeCall.startedAt} />
+          {(callState === "connected" || callState === "hold") && activeCall?.answeredAt && (
+            <CallTimer startedAt={activeCall.answeredAt} />
           )}
           <button
             onClick={() => setShowSettings(true)}
@@ -491,6 +491,8 @@ function InCallView(props: {
       <div style={styles.callName}>{displayName}</div>
       <div style={styles.callNumber}>{activeCall.remoteNumber}</div>
 
+      <VoiceWave active={callState === "connected"} />
+
       {/* Caller context — building name + Open-in-CRM28 link. Sits
           directly under the number so the operator sees WHO they're
           talking to in context before reaching the action row.
@@ -553,12 +555,17 @@ function InCallView(props: {
       )}
 
       <button
+        disabled={!canControl}
         onClick={() => {
           const phone = activeCall.remoteNumber;
           const url = `https://crm28.asg.ge/app/call-center/reports?openReport=true&phone=${encodeURIComponent(phone || "")}`;
           window.crmPhone.app.openExternal(url);
         }}
-        style={styles.reportBtn}
+        style={{
+          ...styles.reportBtn,
+          opacity: canControl ? 1 : 0.45,
+          cursor: canControl ? "pointer" : "not-allowed",
+        }}
       >
         <ReportIcon /> <span>CREATE REPORT</span>
       </button>
@@ -646,6 +653,43 @@ function TabButton(props: {
         {loading ? "…" : label}
       </span>
     </button>
+  );
+}
+
+// ── VoiceWave ────────────────────────────────────────────────────
+
+const WAVE_DELAYS = [0, 0.15, 0.3, 0.45, 0.6, 0.45, 0.3, 0.15, 0];
+
+function VoiceWave({ active }: { active: boolean }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 3,
+        height: 28,
+        marginBottom: "0.1rem",
+      }}
+    >
+      {WAVE_DELAYS.map((delay, i) => (
+        <span
+          key={i}
+          style={{
+            display: "inline-block",
+            width: 3,
+            borderRadius: 2,
+            background: BRAND,
+            height: active ? 4 : 4,
+            animation: active
+              ? `waveBar 0.9s ease-in-out ${delay}s infinite`
+              : "none",
+            opacity: active ? 1 : 0.25,
+            transition: "opacity 0.3s",
+          }}
+        />
+      ))}
+    </div>
   );
 }
 

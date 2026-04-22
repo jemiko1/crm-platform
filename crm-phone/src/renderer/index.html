@@ -33,6 +33,12 @@
         0%   { transform: scale(0.65); opacity: 0.55; }
         100% { transform: scale(1.15); opacity: 0; }
       }
+      /* Voice activity bars — each bar pulses between a short and tall
+         height. Components stagger animation-delay per bar. */
+      @keyframes waveBar {
+        0%, 100% { height: 4px; opacity: 0.45; }
+        50%       { height: 22px; opacity: 1; }
+      }
 
       /* Chromium's default scrollbar is thick, grey, and on-the-left
          in some RTL contexts. Force a thin, tinted, always-on-the-
