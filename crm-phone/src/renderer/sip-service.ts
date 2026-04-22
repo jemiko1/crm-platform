@@ -532,6 +532,13 @@ class SipService {
     try {
       await inviter.invite();
     } catch (err: any) {
+      // Clear currentSession too — the Inviter is dead on the wire but
+      // `setupSession` already set it. If we leave it hanging, the
+      // collision guard in handleIncoming() would see a non-null
+      // currentSession with _callState === "idle" (mixed state) and
+      // let the next incoming INVITE silently overwrite it. Clearing
+      // here keeps (currentSession != null) ⇔ (_callState != idle).
+      this.currentSession = null;
       this._callState = "idle";
       this._activeCall = null;
       this.emitStateChange();
@@ -654,6 +661,28 @@ class SipService {
 
   private handleIncoming(invitation: Invitation): void {
     const remoteNumber = invitation.remoteIdentity.uri.user || "Unknown";
+
+    // Collision guard: if a call is already in progress (outbound dialing,
+    // ringing, or connected), reject the new INVITE with 486 Busy Here.
+    // Without this, the new Invitation would overwrite currentSession,
+    // orphaning the in-flight outbound Inviter and silently killing the
+    // user's dial attempt. For queue calls, 486 rolls the call back to
+    // the queue for another agent.
+    if (this.currentSession && this._callState !== "idle") {
+      rlog(
+        "[SIP-R] Rejecting incoming call from",
+        remoteNumber,
+        "— already in state:",
+        this._callState,
+      );
+      try {
+        invitation.reject({ statusCode: 486, reasonPhrase: "Busy Here" });
+      } catch (err: any) {
+        rerr("[SIP-R] Failed to reject colliding INVITE:", err?.message);
+      }
+      return;
+    }
+
     rlog("[SIP-R] Incoming call from:", remoteNumber);
     this.setupSession(invitation, "inbound", remoteNumber);
 

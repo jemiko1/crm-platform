@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useAuth } from "./hooks/useAuth";
 import { usePhone } from "./hooks/usePhone";
 import { useBreak } from "./hooks/useBreak";
@@ -76,39 +76,21 @@ export function App() {
   }, [breakState]);
 
   /**
-   * Logout during break: end the break first so the session closes
-   * cleanly, then run the normal logout flow. If break-end fails (e.g.
-   * network), the auto-close cron will eventually close it — we don't
-   * block logout on backend success because the operator wants OUT.
+   * Logout flow. DND is reset before calling auth.logout() so a stale
+   * DND toggle doesn't survive a re-login into a different account.
    *
-   * `logoutInFlight` guards against a confused user mashing the Log
-   * Out button during a slow round-trip. Without it, `breakState.end`'s
-   * own `inFlight` would fail the second call silently, but the rest
-   * of the sequence (reset + auth.logout) would still fire twice,
-   * which can surface a cosmetic 401 toast on the second logout.
+   * v1.11.0: Log Out is no longer available on the Break screen — the
+   * operator must Resume first. This avoids the ambiguity of "did the
+   * break close cleanly on the way out?" and keeps the break modal a
+   * single-purpose pause surface. If the operator closes the app
+   * without resuming, the backend's auto-close cron still takes care
+   * of the stale break session at end-of-business or after 12h.
    */
-  const logoutInFlight = useRef(false);
-  const handleLogoutDuringBreak = useCallback(async () => {
-    if (logoutInFlight.current) return;
-    logoutInFlight.current = true;
-    try {
-      await breakState.end(null); // don't re-register; we're logging out
-    } catch {
-      /* swallow — cron will clean up */
-    }
-    try {
-      breakState.reset();
-      dndState.reset();
-      await auth.logout();
-    } finally {
-      logoutInFlight.current = false;
-    }
-  }, [auth, breakState, dndState]);
-
-  const handleNormalLogout = useCallback(async () => {
+  const handleLogout = useCallback(async () => {
     dndState.reset();
+    breakState.reset();
     await auth.logout();
-  }, [auth, dndState]);
+  }, [auth, breakState, dndState]);
 
   const handleDndToggle = useCallback(
     async (target: boolean) => {
@@ -148,7 +130,6 @@ export function App() {
       <BreakModal
         session={breakState.active}
         onResume={handleResume}
-        onLogout={handleLogoutDuringBreak}
         loading={breakState.loading}
         error={breakState.error}
       />
@@ -169,7 +150,7 @@ export function App() {
       onUnhold={phone.unhold}
       onDtmf={phone.dtmf}
       onToggleMute={phone.toggleMute}
-      onLogout={handleNormalLogout}
+      onLogout={handleLogout}
       prefillNumber={prefillNumber}
       onPrefillConsumed={() => setPrefillNumber(null)}
       breakStarting={breakState.loading}
@@ -190,19 +171,23 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     justifyContent: "center",
     height: "100vh",
-    background: "#0f172a",
+    // Match PhonePage / BreakModal so there's no jarring dark→light flash
+    // while the session is restoring.
+    background:
+      "linear-gradient(180deg, #f4faf7 0%, #e9f3ee 100%)",
     gap: "1rem",
   },
   spinner: {
     width: 32,
     height: 32,
-    border: "3px solid #334155",
-    borderTopColor: "#3b82f6",
+    border: "3px solid rgba(15, 60, 40, 0.12)",
+    borderTopColor: "rgb(8, 117, 56)",
     borderRadius: "50%",
     animation: "spin 0.8s linear infinite",
   },
   splashText: {
-    color: "#64748b",
+    color: "#6b8a7a",
     fontSize: "0.9rem",
+    letterSpacing: "0.02em",
   },
 };

@@ -44,7 +44,28 @@ console.log = (...args: any[]) => { writeLog("", args); origLog(...args); };
 console.error = (...args: any[]) => { writeLog("ERROR ", args); origErr(...args); };
 console.log("[INIT] CRM28 Phone starting, log file:", logFile);
 
+app.name = "CRM28 Phone";
 app.setAppUserModelId("ge.asg.crm28-phone");
+
+// Dev-mode taskbar icon fix: Windows uses the .exe's embedded icon for
+// pinned shortcuts (electron.exe ships with the default atom icon). By
+// registering our AppUserModelID in the Registry with a custom
+// IconResource, Windows uses *that* icon for any window/shortcut tagged
+// with this AUMID — including pinned taskbar items.
+// In packaged builds this is unnecessary: electron-builder embeds the
+// icon directly into CRM28 Phone.exe.
+if (!app.isPackaged && process.platform === "win32") {
+  try {
+    const iconAbsPath = path.resolve(__dirname, "../../resources/icon.ico");
+    const { execFileSync } = require("child_process");
+    const regKey = "HKCU\\Software\\Classes\\AppUserModelId\\ge.asg.crm28-phone";
+    execFileSync("reg", ["add", regKey, "/v", "DisplayName", "/t", "REG_SZ", "/d", "CRM28 Phone", "/f"], { stdio: "ignore" });
+    execFileSync("reg", ["add", regKey, "/v", "IconResource", "/t", "REG_SZ", "/d", `${iconAbsPath},0`, "/f"], { stdio: "ignore" });
+    console.log("[INIT] Registered AppUserModelID icon:", iconAbsPath);
+  } catch (e) {
+    console.error("[INIT] Failed to register AppUserModelID icon:", e);
+  }
+}
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -431,7 +452,21 @@ function setupIpc(): void {
 
   ipcMain.on(IPC.APP_QUIT, () => { mainWindow?.destroy(); app.quit(); });
   ipcMain.on(IPC.APP_SHOW, () => { mainWindow?.show(); mainWindow?.focus(); });
-  ipcMain.on(IPC.APP_HIDE, () => { mainWindow?.hide(); });
+  // Minimize to taskbar. setSkipTaskbar(false) first because a previously
+  // hidden window (hide()) loses its taskbar slot on Windows — restoring
+  // it before minimize() keeps the button visible in the taskbar.
+  const minimizeToTaskbar = () => {
+    if (!mainWindow) return;
+    // Re-apply the custom icon every time we restore the taskbar slot —
+    // setSkipTaskbar(false) on Windows resets the taskbar button to the
+    // default Electron exe icon unless we explicitly call setIcon() again.
+    mainWindow.setIcon(getAppIcon());
+    mainWindow.setSkipTaskbar(false);
+    if (!mainWindow.isVisible()) mainWindow.show();
+    mainWindow.minimize();
+  };
+  ipcMain.on(IPC.APP_HIDE, minimizeToTaskbar);
+  ipcMain.on(IPC.APP_MINIMIZE, minimizeToTaskbar);
 
   ipcMain.handle(IPC.APP_OPEN_EXTERNAL, async (_e, url: string) => {
     if (typeof url === "string" && (url.startsWith("https://") || url.startsWith("http://"))) {
