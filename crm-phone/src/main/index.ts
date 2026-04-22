@@ -431,7 +431,8 @@ function setupIpc(): void {
 
   ipcMain.on(IPC.APP_QUIT, () => { mainWindow?.destroy(); app.quit(); });
   ipcMain.on(IPC.APP_SHOW, () => { mainWindow?.show(); mainWindow?.focus(); });
-  ipcMain.on(IPC.APP_HIDE, () => { mainWindow?.hide(); });
+  // Minimize to taskbar (not tray) — window stays visible in Windows taskbar.
+  ipcMain.on(IPC.APP_HIDE, () => { mainWindow?.minimize(); });
   ipcMain.on(IPC.APP_MINIMIZE, () => { mainWindow?.minimize(); });
 
   ipcMain.handle(IPC.APP_OPEN_EXTERNAL, async (_e, url: string) => {
