@@ -160,7 +160,7 @@ export function PhonePage(props: Props) {
           <span style={styles.userName}>{userName}</span>
           <span style={styles.extLabel}>Ext {ext}</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <div style={styles.pillBar}>
           {/* DND toggle — only shown when registered + has extension, so
               we never let the user fire an AMI QueuePause for an
               extension that doesn't exist or is offline. */}
@@ -180,16 +180,36 @@ export function PhonePage(props: Props) {
                   ? "Do Not Disturb is on — queue calls skip you. Click to turn off."
                   : "Turn on Do Not Disturb — queue calls will skip your extension."
               }
-              style={dndEnabled ? styles.dndBtnActive : styles.dndBtn}
+              style={{
+                ...styles.pill,
+                ...(dndEnabled ? GLASS.pillDndOn : GLASS.pillDndOff),
+                cursor: dndLoading ? "wait" : "pointer",
+                opacity: dndLoading ? 0.7 : 1,
+              }}
             >
               {dndLoading ? "…" : "DND"}
             </button>
           )}
-          <span style={{
-            ...styles.sipDot,
-            background: sipRegistered ? "#22c55e" : "#ef4444",
-          }} />
-          <span style={styles.sipText}>
+          <span
+            style={{
+              ...styles.pill,
+              ...(sipRegistered ? GLASS.pillOnline : GLASS.pillOffline),
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                background: sipRegistered ? "#10b981" : "#ef4444",
+                boxShadow: sipRegistered
+                  ? "0 0 8px rgba(16, 185, 129, 0.8)"
+                  : "0 0 8px rgba(239, 68, 68, 0.6)",
+              }}
+            />
             {sipRegistered ? "Online" : "Offline"}
           </span>
         </div>
@@ -469,9 +489,23 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: "0.75rem 1rem",
-    borderBottom: "1px solid #1e293b",
+    padding: "0.85rem 1rem 0.7rem",
+    borderBottom: "1px solid rgba(255, 255, 255, 0.04)",
     flexShrink: 0,
+  },
+  pillBar: {
+    display: "flex",
+    alignItems: "center",
+    gap: "0.4rem",
+  },
+  pill: {
+    padding: "3px 10px",
+    borderRadius: 999,
+    fontSize: "0.68rem",
+    fontWeight: 700,
+    letterSpacing: "0.06em",
+    textTransform: "uppercase" as const,
+    lineHeight: 1.4,
   },
   scrollArea: {
     flex: 1,
@@ -480,11 +514,18 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
   },
-  userInfo: { display: "flex", flexDirection: "column" },
-  userName: { fontSize: "0.875rem", fontWeight: 600, color: "#f1f5f9" },
-  extLabel: { fontSize: "0.75rem", color: "#64748b" },
-  sipDot: { width: 8, height: 8, borderRadius: "50%" },
-  sipText: { fontSize: "0.75rem", color: "#94a3b8" },
+  userInfo: { display: "flex", flexDirection: "column", gap: 2 },
+  userName: {
+    fontSize: "0.9rem",
+    fontWeight: 600,
+    color: GLASS.textStrong,
+    letterSpacing: "-0.01em",
+  },
+  extLabel: {
+    fontSize: "0.7rem",
+    color: GLASS.textMuted,
+    letterSpacing: "0.05em",
+  },
   callDisplay: {
     display: "flex",
     flexDirection: "column",
@@ -559,71 +600,82 @@ const styles: Record<string, React.CSSProperties> = {
   },
   viewTabs: {
     display: "flex",
-    padding: "0.5rem 1rem 0",
-    gap: "2px",
+    padding: "0.75rem 1rem 0.25rem",
+    gap: "0.25rem",
   },
   viewTab: {
     flex: 1,
-    padding: "0.4rem 0",
+    padding: "0.45rem 0",
     background: "transparent",
     border: "none",
     borderBottom: "2px solid transparent",
-    color: "#64748b",
-    fontSize: "0.8rem",
+    color: GLASS.textMuted,
+    fontSize: "0.78rem",
     fontWeight: 600,
     cursor: "pointer",
+    letterSpacing: "0.02em",
   },
   viewTabActive: {
     flex: 1,
-    padding: "0.4rem 0",
+    padding: "0.45rem 0",
     background: "transparent",
     border: "none",
-    borderBottom: "2px solid #3b82f6",
-    color: "#60a5fa",
-    fontSize: "0.8rem",
-    fontWeight: 600,
+    // Gradient bottom-border: subtle cyan → purple stroke that echoes
+    // the radial glows in the backdrop.
+    borderBottom: "2px solid transparent",
+    borderImage: "linear-gradient(90deg, #06b6d4, #8b5cf6) 1",
+    color: GLASS.textStrong,
+    fontSize: "0.78rem",
+    fontWeight: 700,
     cursor: "pointer",
+    letterSpacing: "0.02em",
   },
-  dialInput: { padding: "1rem", paddingBottom: "0.5rem" },
+  dialInput: { padding: "0.9rem 1rem 0.5rem" },
   numberInput: {
     width: "100%",
-    padding: "0.75rem 1rem",
-    borderRadius: "0.5rem",
-    border: "1px solid #334155",
-    background: "#1e293b",
-    color: "#f1f5f9",
-    fontSize: "1.25rem",
+    padding: "0.9rem 1rem",
+    borderRadius: 14,
+    ...GLASS.glassSunken,
+    color: GLASS.textStrong,
+    fontSize: "1.4rem",
     textAlign: "center" as const,
     outline: "none",
-    letterSpacing: "0.1em",
+    letterSpacing: "0.15em",
+    fontFeatureSettings: '"tnum"',
+    fontVariantNumeric: "tabular-nums",
   },
   dialPad: {
     display: "grid",
     gridTemplateColumns: "repeat(3, 1fr)",
     gap: "0.5rem",
-    padding: "0.5rem 1.5rem",
+    padding: "0.5rem 1rem",
   },
   dialKey: {
-    padding: "0.75rem",
-    borderRadius: "0.75rem",
-    border: "1px solid #334155",
-    background: "#1e293b",
-    color: "#f1f5f9",
-    fontSize: "1.25rem",
-    fontWeight: 600,
+    padding: "0.8rem",
+    borderRadius: 14,
+    ...GLASS.glassCard,
+    color: GLASS.textStrong,
+    fontSize: "1.3rem",
+    fontWeight: 500,
     cursor: "pointer",
     textAlign: "center" as const,
+    transition: "background 120ms ease, transform 80ms ease",
+    fontVariantNumeric: "tabular-nums",
   },
   callBtn: {
-    margin: "0.5rem 1.5rem",
-    padding: "0.75rem",
-    borderRadius: "0.75rem",
+    margin: "0.6rem 1rem 0.25rem",
+    padding: "0.85rem",
+    borderRadius: 999,
     border: "none",
-    background: "#22c55e",
+    background: GLASS.ctaGradient,
     color: "#fff",
     fontSize: "1rem",
     fontWeight: 700,
+    letterSpacing: "0.05em",
     cursor: "pointer",
+    boxShadow: GLASS.ctaShadow,
+    // Subtle inner highlight so the gradient button feels 3D.
+    backgroundBlendMode: "normal",
   },
   footer: {
     padding: "0.75rem 1rem",
@@ -678,27 +730,5 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#fca5a5",
     fontSize: "0.72rem",
     textAlign: "center" as const,
-  },
-  dndBtn: {
-    padding: "2px 8px",
-    fontSize: "0.7rem",
-    fontWeight: 700,
-    borderRadius: "0.25rem",
-    border: "1px solid #334155",
-    background: "transparent",
-    color: "#64748b",
-    cursor: "pointer",
-    letterSpacing: "0.05em",
-  },
-  dndBtnActive: {
-    padding: "2px 8px",
-    fontSize: "0.7rem",
-    fontWeight: 700,
-    borderRadius: "0.25rem",
-    border: "1px solid #ef4444",
-    background: "#7f1d1d",
-    color: "#fecaca",
-    cursor: "pointer",
-    letterSpacing: "0.05em",
   },
 };
