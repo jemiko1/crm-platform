@@ -42,6 +42,8 @@ export default function CallbacksPage() {
   const [loading, setLoading] = useState(true);
   const [callbacks, setCallbacks] = useState<CallbackRequest[]>([]);
   const [meta, setMeta] = useState({ page: 1, pageSize: 25, total: 0, totalPages: 1 });
+  // H7 — surface fetch errors instead of silently blanking the list.
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -54,8 +56,9 @@ export default function CallbacksPage() {
       const data = res?.data ?? (Array.isArray(res) ? res as unknown as CallbackRequest[] : []);
       setCallbacks(data);
       setMeta(res?.meta ?? { page: 1, pageSize: 25, total: data.length, totalPages: 1 });
-    } catch {
-      setCallbacks([]);
+      setFetchError(null);
+    } catch (err: any) {
+      setFetchError(err?.message ?? 'Failed to load callbacks');
     } finally {
       setLoading(false);
     }
@@ -88,6 +91,18 @@ export default function CallbacksPage() {
           </button>
         ))}
       </div>
+
+      {fetchError && (
+        <div
+          role="alert"
+          className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"
+        >
+          <div className="font-medium">
+            {t('callCenter.callbacks.errorTitle', 'Could not load callbacks')}
+          </div>
+          <div className="mt-0.5 text-xs text-rose-700">{fetchError}</div>
+        </div>
+      )}
 
       {/* Table */}
       <div className="rounded-3xl bg-white shadow-sm ring-1 ring-zinc-200 overflow-clip">

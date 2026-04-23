@@ -66,6 +66,9 @@ export default function CallReportsPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingReport, setEditingReport] = useState<CallReportItem | null>(null);
 
+  // H7 — surface fetch errors instead of silently blanking the list.
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
   const fetchReports = useCallback(async () => {
     setLoading(true);
     try {
@@ -73,8 +76,9 @@ export default function CallReportsPage() {
       const res = await apiGet<{ items: CallReportItem[]; total: number }>(`/v1/call-reports?${q}`);
       setItems(res.items);
       setTotal(res.total);
-    } catch {
-      setItems([]);
+      setFetchError(null);
+    } catch (err: any) {
+      setFetchError(err?.message ?? 'Failed to load call reports');
     } finally {
       setLoading(false);
     }
