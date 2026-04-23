@@ -1,3 +1,4 @@
+import { createHmac } from "crypto";
 import { CrmEvent } from "./event-mapper";
 import { createLogger } from "./logger";
 
@@ -39,11 +40,24 @@ export class CrmPoster {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), this.opts.timeoutMs);
 
+        // B11 — HMAC-SHA256 over `${timestamp}.${body}` with a per-request
+        // timestamp header. The backend verifies the signature in constant
+        // time and rejects timestamps older than 5 minutes (replay window).
+        // The legacy `x-telephony-secret` header is still sent so a newer
+        // bridge works against an older backend during rollout; once both
+        // ends are on this code the backend will prefer the HMAC path.
+        const timestamp = Date.now().toString();
+        const signature = createHmac("sha256", this.opts.ingestSecret)
+          .update(`${timestamp}.${body}`)
+          .digest("hex");
+
         const resp = await fetch(this.url, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "x-telephony-secret": this.opts.ingestSecret,
+            "x-telephony-timestamp": timestamp,
+            "x-telephony-signature": signature,
           },
           body,
           signal: controller.signal,

@@ -128,7 +128,17 @@ export class TelephonyGateway
       }
       this.connectedUsers.get(user.id)!.add(client.id);
 
-      client.join('dashboard');
+      // RBAC on WS rooms — without this every authenticated user joins the
+      // `dashboard` room and receives every other operator's call events,
+      // screen-pops (with client lookups!), and queue updates. That is a
+      // cross-operator PII broadcast (audit finding B4/B5). Gate on the
+      // same `call_center.live` permission managers already need to open
+      // the live page. Operators who have `call_center.live` (supervisors)
+      // also get the dashboard feed — intentional.
+      const hasDashboardAccess = await this.hasManagerDashboardAccess(user.id);
+      if (hasDashboardAccess) {
+        client.join('dashboard');
+      }
       client.join(`agent:${user.id}`);
 
       client.emit('state:snapshot', {
@@ -137,9 +147,54 @@ export class TelephonyGateway
         queues: this.stateManager.getQueueSnapshots(),
       });
 
-      this.logger.debug(`Client connected: ${client.id} (user ${user.id})`);
+      this.logger.debug(
+        `Client connected: ${client.id} (user ${user.id}, dashboard=${hasDashboardAccess})`,
+      );
     } catch {
       client.disconnect();
+    }
+  }
+
+  /**
+   * Returns true if the user may subscribe to the org-wide `dashboard`
+   * room. SuperAdmin bypasses. Otherwise requires `call_center.live`
+   * (same permission the manager live page uses). Result is cached for
+   * the socket lifetime via the call site; a permission change mid-
+   * session requires the user to reconnect.
+   */
+  private async hasManagerDashboardAccess(userId: string): Promise<boolean> {
+    try {
+      const u = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { isSuperAdmin: true },
+      });
+      if (u?.isSuperAdmin) return true;
+
+      const employee = await this.prisma.employee.findUnique({
+        where: { userId },
+        select: {
+          position: {
+            select: {
+              roleGroup: {
+                select: {
+                  permissions: {
+                    select: {
+                      permission: { select: { resource: true, action: true } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const perms = (employee?.position?.roleGroup?.permissions ?? []).map(
+        (rp) => `${rp.permission.resource}.${rp.permission.action}`,
+      );
+      return perms.includes('call_center.live');
+    } catch {
+      return false;
     }
   }
 
@@ -323,13 +378,30 @@ export class TelephonyGateway
 
   private async emitScreenPop(call: ActiveCall): Promise<void> {
     if (!call.callerNumber || call.callerNumber === 'unknown') return;
+    const timestamp = new Date().toISOString();
+
+    // Dashboard (managers with call_center.live) gets a REDACTED screen:pop
+    // — linkedId + callerNumber only, no client lookup. Full lookup is a
+    // per-agent concern, not a supervisor concern. See audit finding B5.
+    this.server.to('dashboard').emit('screen:pop', {
+      linkedId: call.linkedId,
+      callerNumber: call.callerNumber,
+      timestamp,
+    });
+
+    // Full screen:pop with CRM client lookup goes only to the agent the
+    // call is (or will be) assigned to. For pre-answer queue-routed calls,
+    // assignedUserId is still null — we skip the lookup emit; the agent
+    // who picks up will receive the richer `call:report-trigger` event on
+    // answer, which already carries the caller client record.
+    if (!call.assignedUserId) return;
     try {
       const lookup = await this.callsService.lookupPhone(call.callerNumber);
-      this.server.to('dashboard').emit('screen:pop', {
+      this.server.to(`agent:${call.assignedUserId}`).emit('screen:pop', {
         linkedId: call.linkedId,
         callerNumber: call.callerNumber,
         lookup,
-        timestamp: new Date().toISOString(),
+        timestamp,
       });
     } catch {
       // lookup failure is non-critical

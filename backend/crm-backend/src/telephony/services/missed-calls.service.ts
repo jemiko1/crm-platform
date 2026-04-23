@@ -39,6 +39,15 @@ export class MissedCallsService {
    * - Deduplicates by callerNumber (most recent per number shown, with count)
    * - Excludes auto-resolved and expired
    * - Enriches with client name, queue name, claim info
+   *
+   * Scope (audit finding B8):
+   *   Callers with `missed_calls.manage` OR `call_center.live` see all rows.
+   *   Callers with only `missed_calls.access` see: rows they claimed + rows
+   *   that are still unclaimed (status = NEW). This prevents cross-operator
+   *   visibility of another operator's in-flight / resolved callbacks while
+   *   still letting line operators grab unclaimed missed calls. Queue-based
+   *   department scoping is a larger design question (open question #6 in
+   *   the go-live audit); this is the minimum-viable first-aid fix.
    */
   async findAll(params: {
     status?: string;
@@ -47,12 +56,33 @@ export class MissedCallsService {
     claimedByMe?: string; // userId to filter "my claims"
     page?: number;
     pageSize?: number;
+    // Scope inputs (B8). Optional for legacy callers / background jobs;
+    // when omitted, no scope restriction is applied.
+    callerUserId?: string;
+    callerPermissions?: string[];
+    callerIsSuperAdmin?: boolean;
   }) {
     const page = params.page ?? 1;
     const pageSize = Math.min(params.pageSize ?? 25, 100);
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.MissedCallWhereInput = {};
+
+    // Scope enforcement — see docstring above.
+    const hasManagerScope =
+      params.callerIsSuperAdmin === true ||
+      (params.callerPermissions?.includes('missed_calls.manage') ?? false) ||
+      (params.callerPermissions?.includes('call_center.live') ?? false);
+
+    const operatorScopeFilter: Prisma.MissedCallWhereInput | null =
+      !hasManagerScope && params.callerUserId
+        ? {
+            OR: [
+              { claimedByUserId: params.callerUserId },
+              { status: MissedCallStatus.NEW },
+            ],
+          }
+        : null;
 
     if (params.status) {
       where.status = params.status as MissedCallStatus;
@@ -119,6 +149,12 @@ export class MissedCallsService {
         ? Prisma.sql`AND mc."reason" = ${params.reason}::"MissedCallReason"`
         : Prisma.empty;
 
+    // B8 operator scope: non-managers see only unclaimed rows + their own
+    // claims. Parameterized values via Prisma.sql — safe against injection.
+    const scopeCondition = operatorScopeFilter && params.callerUserId
+      ? Prisma.sql`AND (mc."claimedByUserId" = ${params.callerUserId} OR mc."status" = 'NEW')`
+      : Prisma.empty;
+
     // Get distinct caller numbers' latest MissedCall IDs, ordered newest first,
     // paginated. The inner query picks one row per number (the most recent).
     const idRows = await this.prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
@@ -132,6 +168,7 @@ export class MissedCallsService {
           ${queueCondition}
           ${claimedByCondition}
           ${reasonCondition}
+          ${scopeCondition}
         ORDER BY mc."callerNumber", mc."detectedAt" DESC
       ) dedup
       ORDER BY dedup."detectedAt" DESC
@@ -148,6 +185,7 @@ export class MissedCallsService {
         ${queueCondition}
         ${claimedByCondition}
         ${reasonCondition}
+        ${scopeCondition}
     `);
     const total = Number(totalRows[0]?.count ?? 0);
 

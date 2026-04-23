@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   Param,
@@ -60,6 +61,7 @@ export class TelephonyExtensionsController {
   }
 
   @Get('sip-statuses')
+  @Header('Cache-Control', 'no-store')
   @UseGuards(PositionPermissionGuard)
   @RequirePermission('telephony.manage')
   @Doc({
@@ -105,6 +107,7 @@ export class TelephonyExtensionsController {
   }
 
   @Get()
+  @Header('Cache-Control', 'no-store')
   @UseGuards(PositionPermissionGuard)
   @RequirePermission('telephony.manage')
   @Doc({ summary: 'List telephony extensions', ok: 'Extensions with user info', permission: true })

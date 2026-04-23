@@ -64,12 +64,97 @@ export class TelephonyStateManager implements OnModuleInit {
     this.amiClient.on('ami:connected', () => {
       this.amiConnected = true;
       this.logger.log('State manager: AMI connected');
+      // B15 — on every reconnect, ask Asterisk for a full channel dump
+      // so any events missed during the disconnect window are reconciled.
+      // Without this, FreePBX "Apply Config" reloads (or any transient
+      // AMI blip) during business hours silently drop live call state:
+      // `newchannel` / `answer` / `hangup` during the gap are gone, and
+      // the dashboard lies until CDR import catches up 5 min later.
+      this.resyncLiveCallsFromAmi().catch((err) =>
+        this.logger.warn(`Live resync after AMI reconnect failed: ${err.message}`),
+      );
     });
     this.amiClient.on('ami:disconnected', () => {
       this.amiConnected = false;
     });
     this.amiClient.on('ami:event', (evt: RawAmiEvent) => {
       this.handleAmiEvent(evt);
+    });
+  }
+
+  /**
+   * B15 — After an AMI reconnect, issue `CoreShowChannels` and reconcile
+   * `activeCalls` with Asterisk's ground truth. Entries we have but
+   * Asterisk doesn't → purge (the hangup happened during the gap).
+   * Entries Asterisk has but we don't → skip for now (the next `newchannel`
+   * / AMI event for them will populate us; `CoreShowChannels` returns a
+   * line per channel but without the linkedid→session mapping we'd need
+   * to synthesize a full ActiveCall row). The purge is the critical part
+   * — without it, manager dashboards show ghost "in progress" calls
+   * forever.
+   */
+  private async resyncLiveCallsFromAmi(): Promise<void> {
+    const channels = await this.fetchLiveLinkedIds();
+    if (channels === null) return; // AMI unavailable; nothing to do.
+
+    const asteriskLinkedIds = new Set(channels);
+    let purged = 0;
+    for (const linkedId of Array.from(this.activeCalls.keys())) {
+      if (!asteriskLinkedIds.has(linkedId)) {
+        this.activeCalls.delete(linkedId);
+        purged++;
+      }
+    }
+    if (purged > 0) {
+      this.logger.log(
+        `AMI resync: purged ${purged} ghost active-call(s) not present in Asterisk`,
+      );
+    }
+  }
+
+  /**
+   * Issues AMI `CoreShowChannels` and collects the reported `linkedid`
+   * values. asterisk-manager resolves with the summary event; per-channel
+   * rows arrive as discrete events. We collect for a bounded window
+   * (1.5 s) to cover the stream, then resolve.
+   */
+  private async fetchLiveLinkedIds(): Promise<string[] | null> {
+    const manager: any = (this.amiClient as any).manager;
+    if (!manager) return null;
+
+    return new Promise((resolve) => {
+      const collected = new Set<string>();
+      const onEvent = (evt: RawAmiEvent) => {
+        const name = (evt.event ?? '').toLowerCase();
+        if (name === 'coreshowchannel' && evt.linkedid) {
+          collected.add(evt.linkedid);
+        } else if (name === 'coreshowchannelscomplete') {
+          cleanup();
+          resolve(Array.from(collected));
+        }
+      };
+      const timer = setTimeout(() => {
+        cleanup();
+        resolve(Array.from(collected));
+      }, 1500);
+      const cleanup = () => {
+        clearTimeout(timer);
+        try {
+          manager.removeListener('managerevent', onEvent);
+        } catch {
+          /* ignore */
+        }
+      };
+      try {
+        manager.on('managerevent', onEvent);
+        this.amiClient.sendAction({ Action: 'CoreShowChannels' }).catch(() => {
+          cleanup();
+          resolve(null);
+        });
+      } catch {
+        cleanup();
+        resolve(null);
+      }
     });
   }
 

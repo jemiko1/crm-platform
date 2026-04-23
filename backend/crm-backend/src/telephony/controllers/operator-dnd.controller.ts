@@ -1,12 +1,15 @@
 import {
   Controller,
   Get,
+  Header,
   Post,
   Req,
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { PositionPermissionGuard } from '../../common/guards/position-permission.guard';
+import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { Doc } from '../../common/openapi/doc-endpoint.decorator';
 import { OperatorDndService } from '../services/operator-dnd.service';
 
@@ -25,7 +28,8 @@ import { OperatorDndService } from '../services/operator-dnd.service';
  */
 @ApiTags('Telephony')
 @Controller('v1/telephony/dnd')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PositionPermissionGuard)
+@RequirePermission('telephony.call')
 export class OperatorDndController {
   constructor(private readonly service: OperatorDndService) {}
 
@@ -33,7 +37,7 @@ export class OperatorDndController {
   @Doc({
     summary: 'Enable DND for the current user (AMI QueuePause all queues)',
     ok: '{ enabled: true, extension }',
-    permission: false,
+    permission: true,
   })
   async enable(@Req() req: any) {
     return this.service.enable(req.user.id);
@@ -43,17 +47,18 @@ export class OperatorDndController {
   @Doc({
     summary: 'Disable DND for the current user',
     ok: '{ enabled: false, extension }',
-    permission: false,
+    permission: true,
   })
   async disable(@Req() req: any) {
     return this.service.disable(req.user.id);
   }
 
   @Get('my-state')
+  @Header('Cache-Control', 'no-store')
   @Doc({
     summary: "Get the current user's DND state (read from live AMI cache)",
     ok: '{ enabled: boolean, extension: string | null }',
-    permission: false,
+    permission: true,
   })
   myState(@Req() req: any) {
     return this.service.getMyState(req.user.id);

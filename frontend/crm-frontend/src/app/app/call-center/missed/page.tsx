@@ -175,6 +175,10 @@ export default function MissedCallsPage() {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<MissedCallItem[]>([]);
   const [meta, setMeta] = useState({ page: 1, pageSize: 25, total: 0, totalPages: 1 });
+  // H7 — surface fetch failures instead of silently blanking the list.
+  // CLAUDE.md Risk #23's fix shipped a visible red banner pattern on
+  // logs/page.tsx; we mirror it here.
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [noteModal, setNoteModal] = useState<{ id: string; action: "resolve" | "ignore" } | null>(null);
   const [toast, setToast] = useState<{ message: string; kind: "error" | "info" } | null>(null);
@@ -202,8 +206,11 @@ export default function MissedCallsPage() {
       );
       setItems(res?.data ?? []);
       setMeta(res?.meta ?? { page: 1, pageSize: 25, total: 0, totalPages: 1 });
-    } catch {
-      setItems([]);
+      setFetchError(null);
+    } catch (err: any) {
+      // H7 — do NOT silently blank the table; surface the error so
+      // operators know it's a fetch failure, not an empty queue.
+      setFetchError(err?.message ?? 'Failed to load missed calls');
     } finally {
       setLoading(false);
     }
@@ -222,8 +229,14 @@ export default function MissedCallsPage() {
     try {
       await apiPatch(`/v1/telephony/missed-calls/${id}/${action}`, body ?? {});
       await load();
-    } catch {
-      // silently handle — reload will show current state
+    } catch (err: any) {
+      // H7 / M21 — surface to operator; "silently reload" wasn't
+      // actually silent when the server was down: the reload also
+      // failed, leaving the user with no feedback at all.
+      setToast({
+        message: err?.message ?? `Failed to ${action} missed call`,
+        kind: 'error',
+      });
     } finally {
       setActionLoading(null);
     }
@@ -388,6 +401,24 @@ export default function MissedCallsPage() {
           </button>
         ))}
       </div>
+
+      {fetchError && (
+        <div
+          role="alert"
+          className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"
+        >
+          <div className="font-medium">
+            {t('missedCalls.errorTitle', 'Could not load missed calls')}
+          </div>
+          <div className="mt-0.5 text-xs text-rose-700">{fetchError}</div>
+          <div className="mt-1.5 text-xs text-rose-700">
+            {t(
+              'missedCalls.errorHint',
+              'Try a hard refresh (Ctrl+Shift+R). If the problem persists, check your permission to view missed calls.',
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Table */}
       <div className="rounded-3xl bg-white shadow-sm ring-1 ring-zinc-200 overflow-clip">

@@ -470,11 +470,22 @@ function setupIpc(): void {
   ipcMain.on(IPC.APP_HIDE, minimizeToTaskbar);
   ipcMain.on(IPC.APP_MINIMIZE, minimizeToTaskbar);
 
+  // H12 — restrict openExternal to an HTTPS allowlist. Accepting any
+  // http(s) URL lets a renderer XSS become a one-click phishing vector.
+  const EXTERNAL_URL_ALLOWLIST = [
+    "crm28.asg.ge",
+    "crm28demo.asg.ge",
+  ];
   ipcMain.handle(IPC.APP_OPEN_EXTERNAL, async (_e, url: string) => {
-    if (typeof url === "string" && (url.startsWith("https://") || url.startsWith("http://"))) {
-      const { shell } = await import("electron");
-      await shell.openExternal(url);
+    if (typeof url !== "string" || !url.startsWith("https://")) return;
+    try {
+      const parsed = new URL(url);
+      if (!EXTERNAL_URL_ALLOWLIST.includes(parsed.hostname)) return;
+    } catch {
+      return;
     }
+    const { shell } = await import("electron");
+    await shell.openExternal(url);
   });
 }
 
@@ -554,14 +565,27 @@ app.whenReady().then(async () => {
     mainWindow?.focus();
   });
 
-  electronSession.defaultSession.setCertificateVerifyProc((_request, callback) => {
-    callback(0);
-  });
+  // B2 — DO NOT install a blanket setCertificateVerifyProc override.
+  // Any override that passes `0` (trust) unconditionally accepts MITM
+  // certs on every untrusted network the operator uses. crm28.asg.ge
+  // is Let's Encrypt-signed; Electron's default verifier handles it.
+  // Leaving the default in place is the fix for audit blocker B2.
 
-  electronSession.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
-    callback(true);
-  });
-  electronSession.defaultSession.setPermissionCheckHandler(() => true);
+  // H11 — auto-grant only the permissions we actually need (microphone
+  // for SIP media). Everything else (geolocation, clipboard-read, midi,
+  // hid, serial, usb, …) is denied. The previous implementation returned
+  // `true` for every request, turning a renderer XSS into broad OS-level
+  // privilege escalation.
+  electronSession.defaultSession.setPermissionRequestHandler(
+    (_wc, permission, callback) => {
+      const allowed = permission === "media" || permission === "notifications";
+      callback(allowed);
+    },
+  );
+  electronSession.defaultSession.setPermissionCheckHandler(
+    (_wc, permission) =>
+      permission === "media" || permission === "notifications",
+  );
 
   createTray();
   createWindow();

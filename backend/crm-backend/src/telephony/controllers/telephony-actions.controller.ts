@@ -4,6 +4,7 @@ import {
   Body,
   UseGuards,
   BadRequestException,
+  ForbiddenException,
   Req,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
@@ -70,6 +71,51 @@ export class TelephonyActionsController {
     return { ok: true };
   }
 
+  /**
+   * Ownership guard for live-channel actions (hangup / transfer / hold).
+   *
+   * Without this, any caller holding `telephony.call` could POST an arbitrary
+   * channelId and tear down or redirect another operator's live call. We
+   * parse the extension out of the Asterisk channel name (e.g. the "200"
+   * out of "PJSIP/200-00000123" or "Local/200@from-queue/n;1") and require
+   * it to match the requesting user's extension. Managers with
+   * `call_center.live` (supervisor permission) bypass. Superadmins bypass.
+   *
+   * Channel formats observed on our FreePBX 16 install:
+   *   - `PJSIP/<ext>-<tail>`             (direct device leg)
+   *   - `Local/<ext>@from-queue/n;<n>`   (queue member leg — see Risk #26)
+   *   - `Local/<ext>@from-internal/n;<n>`
+   */
+  private extensionFromChannel(channelId: string): string | null {
+    const m = channelId.match(/^(?:PJSIP|Local|SIP|IAX2)\/(\d+)/);
+    return m ? m[1] : null;
+  }
+
+  private async assertChannelOwnership(
+    req: any,
+    channelId: string,
+  ): Promise<void> {
+    if (req.user?.isSuperAdmin) return;
+
+    const permissions: string[] = req.user?.permissions ?? [];
+    if (permissions.includes('call_center.live')) return;
+
+    const channelExt = this.extensionFromChannel(channelId);
+    if (!channelExt) {
+      // Unparseable channel — we can't prove ownership; deny rather than
+      // letting an opaque string through to AMI.
+      throw new ForbiddenException('Unrecognized channel format');
+    }
+
+    const myExt = await this.prisma.telephonyExtension.findUnique({
+      where: { crmUserId: req.user.id },
+      select: { extension: true },
+    });
+    if (!myExt || myExt.extension !== channelExt) {
+      throw new ForbiddenException('You do not own this channel');
+    }
+  }
+
   @Post('transfer')
   @UseGuards(PositionPermissionGuard)
   @RequirePermission('telephony.call')
@@ -79,10 +125,11 @@ export class TelephonyActionsController {
     badRequest: true,
     permission: true,
   })
-  async transfer(@Body() body: { channelId: string; target: string }) {
+  async transfer(@Req() req: any, @Body() body: { channelId: string; target: string }) {
     if (!body.channelId || !body.target) {
       throw new BadRequestException('channelId and target are required');
     }
+    await this.assertChannelOwnership(req, body.channelId);
 
     if (this.ari.enabled) {
       await this.ari.redirect(body.channelId, `PJSIP/${body.target}`);
@@ -108,10 +155,11 @@ export class TelephonyActionsController {
     badRequest: true,
     permission: true,
   })
-  async hangup(@Body() body: { channelId: string }) {
+  async hangup(@Req() req: any, @Body() body: { channelId: string }) {
     if (!body.channelId) {
       throw new BadRequestException('channelId is required');
     }
+    await this.assertChannelOwnership(req, body.channelId);
 
     if (this.ari.enabled) {
       await this.ari.hangup(body.channelId);
@@ -134,10 +182,11 @@ export class TelephonyActionsController {
     badRequest: true,
     permission: true,
   })
-  async hold(@Body() body: { channelId: string; hold: boolean }) {
+  async hold(@Req() req: any, @Body() body: { channelId: string; hold: boolean }) {
     if (!body.channelId) {
       throw new BadRequestException('channelId is required');
     }
+    await this.assertChannelOwnership(req, body.channelId);
 
     if (this.ari.enabled) {
       if (body.hold) {

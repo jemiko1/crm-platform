@@ -112,9 +112,14 @@ export class TelephonyLiveService {
 
     const results: LiveQueueState[] = [];
 
+    // B7 — exclude internal ext-to-ext calls from all live queue counts.
+    // Mirror of the stats-service filter (code-review High #1); without
+    // this, the manager live dashboard would still see internal transfers
+    // inflating activeCalls / waitingCallers on queues they happened to
+    // traverse.
     for (const queue of queues) {
       const activeCalls = await this.prisma.callSession.count({
-        where: { queueId: queue.id, startAt: { gte: cutoff }, endAt: null },
+        where: { queueId: queue.id, startAt: { gte: cutoff }, endAt: null, isInternal: false },
       });
 
       const waitingCallers = await this.prisma.callSession.count({
@@ -123,6 +128,7 @@ export class TelephonyLiveService {
           startAt: { gte: cutoff },
           endAt: null,
           assignedUserId: null,
+          isInternal: false,
         },
       });
 
@@ -132,6 +138,7 @@ export class TelephonyLiveService {
           startAt: { gte: cutoff },
           endAt: null,
           assignedUserId: null,
+          isInternal: false,
         },
         orderBy: { startAt: 'asc' },
         select: { startAt: true },
@@ -147,6 +154,7 @@ export class TelephonyLiveService {
           startAt: { gte: cutoff },
           assignedUserId: { not: null },
           endAt: { not: null },
+          isInternal: false,
         },
         select: { assignedUserId: true },
         distinct: ['assignedUserId'],
@@ -180,12 +188,14 @@ export class TelephonyLiveService {
 
     const results: LiveAgentState[] = [];
 
+    // B7 — exclude internal ext-to-ext from agent-level live counts too.
     for (const ext of extensions) {
       const activeCall = await this.prisma.callSession.findFirst({
         where: {
           assignedUserId: ext.crmUserId,
           endAt: null,
           startAt: { gte: cutoff },
+          isInternal: false,
         },
         orderBy: { startAt: 'desc' },
         select: { startAt: true, answerAt: true },
@@ -198,6 +208,7 @@ export class TelephonyLiveService {
               assignedUserId: ext.crmUserId,
               startAt: { gte: cutoff },
               endAt: { not: null },
+              isInternal: false,
             },
             orderBy: { endAt: 'desc' },
             select: { endAt: true },
@@ -223,6 +234,7 @@ export class TelephonyLiveService {
           assignedUserId: ext.crmUserId,
           startAt: { gte: todayStart },
           disposition: 'ANSWERED',
+          isInternal: false,
         },
       });
 

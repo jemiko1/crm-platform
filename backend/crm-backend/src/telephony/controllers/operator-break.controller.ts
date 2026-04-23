@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Header,
   Post,
   Query,
   Req,
@@ -33,37 +34,46 @@ import { OperatorBreakService } from '../services/operator-break.service';
  */
 @ApiTags('Telephony')
 @Controller('v1/telephony/breaks')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PositionPermissionGuard)
 export class OperatorBreakController {
   constructor(private readonly service: OperatorBreakService) {}
 
   // ── Operator endpoints (caller's own break) ──────────────
+  //
+  // Gated on `telephony.call` — the same permission an operator needs to
+  // make/receive calls. Without this, any authenticated user can POST
+  // /breaks/start and trip the service layer. Service layer still
+  // validates the caller has a TelephonyExtension and 400s if not.
 
   @Post('start')
+  @RequirePermission('telephony.call')
   @Doc({
     summary: 'Start a break for the current user',
     ok: '{ id, startedAt, extension }',
-    permission: false,
+    permission: true,
   })
   async start(@Req() req: any) {
     return this.service.start(req.user.id);
   }
 
   @Post('end')
+  @RequirePermission('telephony.call')
   @Doc({
     summary: "End the current user's active break (idempotent)",
     ok: '{ id, startedAt, endedAt, durationSec } or null if no active break',
-    permission: false,
+    permission: true,
   })
   async end(@Req() req: any) {
     return this.service.endForUser(req.user.id);
   }
 
   @Get('my-current')
+  @Header('Cache-Control', 'no-store')
+  @RequirePermission('telephony.call')
   @Doc({
     summary: "Get the current user's active break (or null)",
     ok: 'Active OperatorBreakSession row or null',
-    permission: false,
+    permission: true,
   })
   async myCurrent(@Req() req: any) {
     return this.service.getMyActive(req.user.id);
@@ -72,7 +82,7 @@ export class OperatorBreakController {
   // ── Manager endpoints (all operators) ────────────────────
 
   @Get('current')
-  @UseGuards(PositionPermissionGuard)
+  @Header('Cache-Control', 'no-store')
   @RequirePermission('call_center.live')
   @Doc({
     summary: 'List all currently-active breaks across operators',
@@ -84,7 +94,7 @@ export class OperatorBreakController {
   }
 
   @Get('history')
-  @UseGuards(PositionPermissionGuard)
+  @Header('Cache-Control', 'no-store')
   @RequirePermission('call_center.statistics')
   @Doc({
     summary: 'Paginated break history (finished sessions)',

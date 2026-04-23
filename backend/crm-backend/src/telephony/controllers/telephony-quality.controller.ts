@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Param,
   Patch,
   Post,
@@ -34,12 +35,14 @@ export class TelephonyQualityController {
   constructor(private readonly qualityService: TelephonyQualityService) {}
 
   @Get('reviews')
+  @Header('Cache-Control', 'no-store')
   @Doc({ summary: 'List AI call quality reviews', ok: 'Paged reviews' })
   async getReviews(@Query() query: QueryReviewsDto) {
     return this.qualityService.findAllReviews(query);
   }
 
   @Get('reviews/:id')
+  @Header('Cache-Control', 'no-store')
   @Doc({
     summary: 'Quality review by ID',
     ok: 'Review detail',
@@ -70,6 +73,7 @@ export class TelephonyQualityController {
   }
 
   @Get('rubrics')
+  @Header('Cache-Control', 'no-store')
   @Doc({ summary: 'Quality scoring rubrics', ok: 'Rubric definitions' })
   async getRubrics() {
     return this.qualityService.findAllRubrics();

@@ -28,6 +28,11 @@ export class TelephonyCallsService {
         gte: new Date(query.from),
         lte: new Date(query.to),
       },
+      // B7 — exclude internal ext-to-ext calls from Call Logs by default.
+      // Internal transfers / supervisor dials don't belong in the public
+      // call log and only inflate counts. A dedicated "Internal calls"
+      // view (future open question) would read them separately.
+      isInternal: false,
     };
 
     if (query.queueId) where.queueId = query.queueId;
