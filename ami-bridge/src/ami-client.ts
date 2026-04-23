@@ -19,12 +19,22 @@ export interface AmiClientOptions {
   pingIntervalMs: number;
 }
 
+/**
+ * H9 — Detect half-open SSH tunnels. The bridge reaches Asterisk via an
+ * autossh tunnel on the VM. If autossh dies but the local listener stays
+ * up (half-open), `socket.connect()` succeeds but no AMI greeting ever
+ * arrives. Without this timeout the bridge would sit idle forever.
+ * 15 s is comfortably longer than any legitimate Asterisk startup delay.
+ */
+const GREETING_TIMEOUT_MS = 15_000;
+
 export class AmiClient extends EventEmitter {
   private socket: net.Socket | null = null;
   private buffer = "";
   private connected = false;
   private loggedIn = false;
   private greetingReceived = false;
+  private greetingTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempt = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
@@ -56,6 +66,10 @@ export class AmiClient extends EventEmitter {
       log.info("TCP connected, waiting for greeting...");
       this.connected = true;
       this.reconnectAttempt = 0;
+      // H9 — arm the greeting watchdog. If Asterisk's "Asterisk Call
+      // Manager/x" banner doesn't arrive within 15 s we destroy the
+      // socket and let the close handler trigger scheduleReconnect.
+      this.armGreetingTimeout();
     });
 
     socket.on("data", (chunk: string) => {
@@ -72,6 +86,7 @@ export class AmiClient extends EventEmitter {
       this.connected = false;
       this.loggedIn = false;
       this.stopPing();
+      this.clearGreetingTimeout();
 
       for (const [id, pending] of this.pendingActions) {
         clearTimeout(pending.timer);
@@ -151,6 +166,25 @@ export class AmiClient extends EventEmitter {
     this.socket.write(msg);
   }
 
+  private armGreetingTimeout(): void {
+    this.clearGreetingTimeout();
+    this.greetingTimer = setTimeout(() => {
+      if (!this.greetingReceived) {
+        log.error(
+          `No AMI greeting within ${GREETING_TIMEOUT_MS}ms — likely a half-open SSH tunnel. Destroying socket to trigger reconnect.`,
+        );
+        this.socket?.destroy();
+      }
+    }, GREETING_TIMEOUT_MS);
+  }
+
+  private clearGreetingTimeout(): void {
+    if (this.greetingTimer) {
+      clearTimeout(this.greetingTimer);
+      this.greetingTimer = null;
+    }
+  }
+
   private parseBuffer(): void {
     if (!this.greetingReceived) {
       const nlIdx = this.buffer.indexOf("\r\n");
@@ -158,6 +192,7 @@ export class AmiClient extends EventEmitter {
       const firstLine = this.buffer.slice(0, nlIdx);
       if (firstLine.startsWith("Asterisk Call Manager")) {
         this.greetingReceived = true;
+        this.clearGreetingTimeout();
         this.buffer = this.buffer.slice(nlIdx + 2);
         log.info("Greeting received, sending Login...");
         this.login();
