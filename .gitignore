@@ -105,3 +105,6 @@ ENV_DIFF_REPORT.md
 # path to the JWT secret reader.
 tmp-*
 /tmp/
+# Claude Code agent worktrees (never commit)
+.claude/worktrees/
+.worktrees/

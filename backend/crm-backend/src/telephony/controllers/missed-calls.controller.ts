@@ -51,6 +51,11 @@ export class MissedCallsController {
       claimedByMe: myClaimsOnly === 'true' ? req?.user?.id : undefined,
       page: page ? parseInt(page, 10) : undefined,
       pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
+      // Scope enforcement (audit B8). PositionPermissionGuard attaches
+      // `permissions` + `isSuperAdmin` to req.user.
+      callerUserId: req?.user?.id,
+      callerPermissions: req?.user?.permissions ?? [],
+      callerIsSuperAdmin: req?.user?.isSuperAdmin === true,
     });
   }
 

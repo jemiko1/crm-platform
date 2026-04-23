@@ -45,6 +45,12 @@ describe('TelephonyIngestionService', () => {
         findUnique: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockResolvedValue({ id: 'qr-1' }),
       },
+      // B13 — ingestion handlers now wrap multi-step writes in $transaction.
+      $transaction: jest.fn().mockImplementation(async (fnOrArr: any) => {
+        if (typeof fnOrArr === 'function') return fnOrArr(prisma);
+        if (Array.isArray(fnOrArr)) return Promise.all(fnOrArr);
+        return undefined;
+      }),
     };
 
     callbackService = {

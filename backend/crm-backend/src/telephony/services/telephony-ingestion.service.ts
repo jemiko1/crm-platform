@@ -145,43 +145,60 @@ export class TelephonyIngestionService {
         ? calleeFromExten ?? calleeFromConnected ?? null
         : calleeFromConnected ?? calleeFromExten ?? null;
 
-    await this.prisma.callSession.upsert({
-      where: { linkedId },
-      create: {
-        linkedId,
-        uniqueId: event.uniqueId ?? payload.uniqueId ?? null,
-        direction,
-        did: payload.context ?? null,
-        callerNumber,
-        calleeNumber,
-        startAt: new Date(event.timestamp),
-      },
-      update: {
-        uniqueId: event.uniqueId ?? payload.uniqueId ?? undefined,
-        // Backfill calleeNumber if the create-time value was unknown but
-        // a later event has a real number (e.g. ConnectedLine update on
-        // outbound answer).
-        ...(calleeNumber ? { calleeNumber } : {}),
-      },
-    });
-
-    // Also create a customer leg
-    const session = await this.prisma.callSession.findUnique({ where: { linkedId } });
-    if (session) {
-      await this.prisma.callLeg.create({
-        data: {
-          callSessionId: session.id,
-          type: CallLegType.CUSTOMER,
+    // B13 — wrap the multi-step session/leg/event mutation in a single
+    // transaction. Pre-fix: a SIGKILL between upsert and callLeg.create
+    // left orphan CallSessions with no CUSTOMER leg, silently dropping
+    // every future attribution for that call (M5). Now all-or-nothing.
+    // We also use the upsert's returned row instead of a second
+    // findUnique — saves a round-trip and removes a race where a
+    // concurrent duplicate event could interleave.
+    await this.prisma.$transaction(async (tx) => {
+      const session = await tx.callSession.upsert({
+        where: { linkedId },
+        create: {
+          linkedId,
+          uniqueId: event.uniqueId ?? payload.uniqueId ?? null,
+          direction,
+          did: payload.context ?? null,
+          callerNumber,
+          calleeNumber,
           startAt: new Date(event.timestamp),
+        },
+        update: {
+          uniqueId: event.uniqueId ?? payload.uniqueId ?? undefined,
+          // Backfill calleeNumber if the create-time value was unknown
+          // but a later event has a real number (ConnectedLine update
+          // on outbound answer).
+          ...(calleeNumber ? { calleeNumber } : {}),
         },
       });
 
-      // Backfill callSessionId on the event we just created
-      await this.prisma.callEvent.updateMany({
+      // Create CUSTOMER leg only if one doesn't already exist. On AMI+CDR
+      // duplicate `call_start`, two parallel transactions both upsert the
+      // session safely (unique constraint), but without this guard they
+      // would BOTH create a CUSTOMER leg, inflating touchedCount /
+      // handledCount aggregates downstream (DB audit finding M3/M4).
+      const existingCustomerLeg = await tx.callLeg.findFirst({
+        where: { callSessionId: session.id, type: CallLegType.CUSTOMER },
+        select: { id: true },
+      });
+      if (!existingCustomerLeg) {
+        await tx.callLeg.create({
+          data: {
+            callSessionId: session.id,
+            type: CallLegType.CUSTOMER,
+            startAt: new Date(event.timestamp),
+          },
+        });
+      }
+
+      // Backfill callSessionId on the CallEvent row (inserted just
+      // before this handler ran in dispatch()).
+      await tx.callEvent.updateMany({
         where: { idempotencyKey: event.idempotencyKey, callSessionId: null },
         data: { callSessionId: session.id },
       });
-    }
+    });
   }
 
   private async handleCallAnswer(
@@ -278,26 +295,35 @@ export class TelephonyIngestionService {
       // CallMetrics upsert inside computeMetrics (which already null-guards).
     }
 
-    if (Object.keys(updateData).length > 0) {
-      await this.prisma.callSession.update({
-        where: { id: existingSession.id },
-        data: updateData,
-      });
-    }
-
-    // Close any open legs on first end. On replay, legs that were closed
-    // previously stay closed; legs still open (shouldn't happen post-freeze,
-    // but harmless if so) are closed with the replayed endAt.
+    // B13 — atomically commit the terminal-field update + leg closure +
+    // metrics upsert. Previously these were three sequential writes with
+    // no transaction boundary: a SIGKILL between steps left sessions
+    // finalized with open legs, or finalized with null metrics, polluting
+    // stats (M3) and the hydration-on-restart path (active-call rehydrate
+    // sweeps `endAt: null` rows).
     const dispositionForLegs =
       fullSession?.disposition ?? computedDisposition ?? null;
-    await this.prisma.callLeg.updateMany({
-      where: { callSessionId: existingSession.id, endAt: null },
-      data: { endAt, disposition: dispositionForLegs ?? undefined },
-    });
+    await this.prisma.$transaction(async (tx) => {
+      if (Object.keys(updateData).length > 0) {
+        await tx.callSession.update({
+          where: { id: existingSession.id },
+          data: updateData,
+        });
+      }
 
-    // computeMetrics is null-safe on each CallMetrics field (only writes a
-    // value where current is null / zero — see computeMetrics implementation).
-    await this.computeMetrics(existingSession.id);
+      // Close any open legs on first end. On replay, legs that were closed
+      // previously stay closed; legs still open (shouldn't happen post-
+      // freeze, but harmless) are closed with the replayed endAt.
+      await tx.callLeg.updateMany({
+        where: { callSessionId: existingSession.id, endAt: null },
+        data: { endAt, disposition: dispositionForLegs ?? undefined },
+      });
+
+      // computeMetrics is null-safe per-field (H5) — passes tx so the
+      // metrics commit lands in the same transaction as the terminal
+      // session update.
+      await this.computeMetrics(existingSession.id, tx);
+    });
 
     if (!isFirstEnd) {
       this.logger.debug(
@@ -670,10 +696,39 @@ export class TelephonyIngestionService {
     }
   }
 
-  private async computeMetrics(sessionId: string): Promise<void> {
-    const session = await this.prisma.callSession.findUnique({
+  /**
+   * H4 — SLA threshold is configurable via env (default 20s "80/20 rule").
+   * Parsed once at module load; a restart picks up a new value.
+   */
+  private readonly slaThresholdSeconds = (() => {
+    const raw = process.env.TELEPHONY_SLA_THRESHOLD_SEC;
+    const parsed = raw ? parseInt(raw, 10) : NaN;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 20;
+  })();
+
+  /**
+   * computeMetrics — write CallMetrics for a finalized session.
+   *
+   * Accepts an optional Prisma transaction client (tx) so handleCallEnd
+   * can commit session-terminal-fields + legs + metrics atomically.
+   * Falls back to `this.prisma` for standalone callers (CDR backfill).
+   *
+   * H5 — the `update` branch is NULL-PRESERVING: on CDR replay after
+   * AMI (or vice-versa), timestamps may differ by a few seconds. The
+   * legacy implementation rewrote every field unconditionally, so the
+   * second pass could silently shift wait/talk/ring by the skew.
+   * M9 — durations are clamped at zero; clock skew between AMI and CDR
+   * occasionally produces negative deltas (answerMs > endMs).
+   */
+  private async computeMetrics(
+    sessionId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<void> {
+    const db = tx ?? this.prisma;
+
+    const session = await db.callSession.findUnique({
       where: { id: sessionId },
-      include: { callLegs: true, queue: true },
+      include: { callLegs: true, queue: true, callMetrics: true },
     });
     if (!session || !session.endAt) return;
 
@@ -681,25 +736,57 @@ export class TelephonyIngestionService {
     const answerMs = session.answerAt?.getTime();
     const endMs = session.endAt.getTime();
 
-    // For answered calls: wait = time until answer. For unanswered: wait = total call duration (how long caller waited before hanging up)
-    const waitSeconds = answerMs ? (answerMs - startMs) / 1000 : (endMs - startMs) / 1000;
-    const talkSeconds = answerMs ? (endMs - answerMs) / 1000 : 0;
+    // For answered calls: wait = time until answer. For unanswered: wait = total
+    // call duration (how long caller waited before hanging up).
+    const nonNeg = (n: number) => (n > 0 ? n : 0);
+    const waitSeconds = nonNeg(
+      answerMs ? (answerMs - startMs) / 1000 : (endMs - startMs) / 1000,
+    );
+    const talkSeconds = nonNeg(answerMs ? (endMs - answerMs) / 1000 : 0);
     const ringSeconds = waitSeconds;
 
     const agentLeg = session.callLegs.find((l) => l.type === CallLegType.AGENT);
     const firstResponseSeconds = agentLeg
-      ? (agentLeg.startAt.getTime() - startMs) / 1000
+      ? nonNeg((agentLeg.startAt.getTime() - startMs) / 1000)
       : null;
 
     const abandonsAfterSeconds =
       session.disposition === CallDisposition.ABANDONED
-        ? (endMs - startMs) / 1000
+        ? nonNeg((endMs - startMs) / 1000)
         : null;
 
-    const slaThreshold = 20; // industry standard: 80/20 rule
-    const isSlaMet = answerMs ? waitSeconds <= slaThreshold : false;
+    const isSlaMet = answerMs ? waitSeconds <= this.slaThresholdSeconds : false;
 
-    await this.prisma.callMetrics.upsert({
+    const existing = session.callMetrics;
+
+    // Null-preserve on update: only write a field if the stored value is
+    // null (for nullable fields) or zero-default (for numerics with a
+    // natural non-computed zero). Never overwrite an existing concrete
+    // value — matches the M7 merge rule.
+    const updateData: Prisma.CallMetricsUpdateInput = {};
+    if (existing) {
+      if (existing.waitSeconds === 0 && waitSeconds > 0) updateData.waitSeconds = waitSeconds;
+      if (existing.ringSeconds === 0 && ringSeconds > 0) updateData.ringSeconds = ringSeconds;
+      if (existing.talkSeconds === 0 && talkSeconds > 0) updateData.talkSeconds = talkSeconds;
+      if (existing.firstResponseSeconds === null && firstResponseSeconds !== null) {
+        updateData.firstResponseSeconds = firstResponseSeconds;
+      }
+      if (existing.abandonsAfterSeconds === null && abandonsAfterSeconds !== null) {
+        updateData.abandonsAfterSeconds = abandonsAfterSeconds;
+      }
+      if (existing.isSlaMet === null && answerMs) {
+        updateData.isSlaMet = isSlaMet;
+      }
+      if (existing.slaThresholdSeconds === null) {
+        updateData.slaThresholdSeconds = this.slaThresholdSeconds;
+      }
+    }
+
+    if (existing && Object.keys(updateData).length === 0) {
+      return; // nothing to merge
+    }
+
+    await db.callMetrics.upsert({
       where: { callSessionId: sessionId },
       create: {
         callSessionId: sessionId,
@@ -709,17 +796,9 @@ export class TelephonyIngestionService {
         firstResponseSeconds,
         abandonsAfterSeconds,
         isSlaMet,
-        slaThresholdSeconds: slaThreshold,
+        slaThresholdSeconds: this.slaThresholdSeconds,
       },
-      update: {
-        waitSeconds,
-        ringSeconds,
-        talkSeconds,
-        firstResponseSeconds,
-        abandonsAfterSeconds,
-        isSlaMet,
-        slaThresholdSeconds: slaThreshold,
-      },
+      update: updateData,
     });
   }
 

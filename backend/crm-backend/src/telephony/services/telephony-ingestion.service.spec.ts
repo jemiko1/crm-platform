@@ -38,10 +38,11 @@ type PrismaMock = {
   telephonyQueue: { findUnique: jest.Mock };
   recording: { create: jest.Mock };
   qualityReview: { findUnique: jest.Mock; create: jest.Mock };
+  $transaction: jest.Mock;
 };
 
 function mkPrismaMock(): PrismaMock {
-  return {
+  const mock: PrismaMock = {
     callEvent: {
       findUnique: jest.fn().mockResolvedValue(null),
       create: jest.fn().mockResolvedValue({}),
@@ -67,7 +68,18 @@ function mkPrismaMock(): PrismaMock {
       findUnique: jest.fn().mockResolvedValue(null),
       create: jest.fn().mockResolvedValue({}),
     },
+    // B13 — ingestion handlers now wrap multi-step writes in $transaction.
+    // The test mock executes the callback with the same mock object as
+    // the tx client — per-method assertions (callSession.update, etc.)
+    // continue to work because both share the same jest.fn refs.
+    $transaction: jest.fn(),
   };
+  mock.$transaction.mockImplementation(async (fnOrArr: any) => {
+    if (typeof fnOrArr === 'function') return fnOrArr(mock);
+    if (Array.isArray(fnOrArr)) return Promise.all(fnOrArr);
+    return undefined;
+  });
+  return mock;
 }
 
 describe("TelephonyIngestionService", () => {
