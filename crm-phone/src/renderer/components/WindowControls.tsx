@@ -17,7 +17,7 @@ export const WindowControls: React.FC = () => {
   };
 
   return (
-    <div style={{ WebkitAppRegion: "no-drag" as any, flexShrink: 0 }}>
+    <div style={{ WebkitAppRegion: "no-drag" as any, flexShrink: 0, height: "100%", display: "flex" }}>
       <button
         onClick={handleClick}
         title="Minimize"
@@ -25,21 +25,22 @@ export const WindowControls: React.FC = () => {
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
-          width: 32,
-          height: 20,
-          borderRadius: 5,
-          background: hovered ? "#e53935" : "#e0e0e0",
-          border: `1px solid ${hovered ? "#c62828" : "#bdbdbd"}`,
+          width: 46,
+          height: "100%",
+          borderRadius: 0,
+          background: hovered ? "#e53935" : "transparent",
+          border: "none",
+          outline: "none",
           cursor: "pointer",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           padding: 0,
-          fontSize: "15px",
+          fontSize: "13px",
           lineHeight: 1,
-          color: hovered ? "#fff" : "#555",
+          color: "#fff",
           fontFamily: "Arial, sans-serif",
-          transition: "background 0.1s, color 0.1s, border-color 0.1s",
+          transition: "background 0.12s",
         }}
       >
         ✕

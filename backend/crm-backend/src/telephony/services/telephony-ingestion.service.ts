@@ -151,13 +151,38 @@ export class TelephonyIngestionService {
         ? calleeFromExten ?? calleeFromConnected ?? null
         : calleeFromConnected ?? calleeFromExten ?? null;
 
-    // B13 — wrap the multi-step session/leg/event mutation in a single
+    // Outbound attribution (from master): on OUT calls, `callerIdNum` at
+    // call_start is the originating operator extension (Asterisk sets
+    // CallerIDNum from the sip peer's user field). For these calls no
+    // AgentConnect ever fires (outbound never goes through a queue), so
+    // if we don't attribute here the session will have no
+    // `assignedUserId` forever — operators with `call_logs.own` scope
+    // would never see their own outbound calls.
+    //
+    // Inbound answered calls still go through `handleAgentConnect` via
+    // the queue's AgentConnect AMI event — unaffected by this code path.
+    //
+    // Lookup happens outside the transaction: it's a pure read, and
+    // shrinking the tx to write-only keeps the lock window minimal.
+    let outboundAttribution: { userId: string; extension: string } | null = null;
+    if (direction === CallDirection.OUT && callerNumber && callerNumber !== 'unknown') {
+      const telExt = await this.prisma.telephonyExtension.findUnique({
+        where: { extension: callerNumber },
+        select: { crmUserId: true, extension: true },
+      });
+      if (telExt) {
+        outboundAttribution = { userId: telExt.crmUserId, extension: telExt.extension };
+      }
+    }
+
+    // B13 — wrap the multi-step session/legs/event mutation in a single
     // transaction. Pre-fix: a SIGKILL between upsert and callLeg.create
-    // left orphan CallSessions with no CUSTOMER leg, silently dropping
-    // every future attribution for that call (M5). Now all-or-nothing.
-    // We also use the upsert's returned row instead of a second
-    // findUnique — saves a round-trip and removes a race where a
-    // concurrent duplicate event could interleave.
+    // left orphan CallSessions with no CUSTOMER leg (and, with the
+    // outbound-attribution change below, potentially no AGENT leg
+    // either), silently dropping every future attribution for that call
+    // (M5). Now all-or-nothing. We also use the upsert's returned row
+    // instead of a second findUnique — saves a round-trip and removes a
+    // race where a concurrent duplicate event could interleave.
     await this.prisma.$transaction(async (tx) => {
       const session = await tx.callSession.upsert({
         where: { linkedId },
@@ -170,6 +195,12 @@ export class TelephonyIngestionService {
           callerNumber,
           calleeNumber,
           startAt: new Date(event.timestamp),
+          ...(outboundAttribution
+            ? {
+                assignedUserId: outboundAttribution.userId,
+                assignedExtension: outboundAttribution.extension,
+              }
+            : {}),
         },
         update: {
           uniqueId: event.uniqueId ?? payload.uniqueId ?? undefined,
@@ -200,6 +231,32 @@ export class TelephonyIngestionService {
             startAt: new Date(event.timestamp),
           },
         });
+      }
+
+      // Outbound AGENT leg — mirror the CallSession attribution so that
+      // stats queries reading CallLeg.userId (per M5 STATS_STANDARDS)
+      // also credit the operator. Guarded against duplicate call_start
+      // the same way the CUSTOMER leg is.
+      if (outboundAttribution) {
+        const existingAgentLeg = await tx.callLeg.findFirst({
+          where: {
+            callSessionId: session.id,
+            type: CallLegType.AGENT,
+            userId: outboundAttribution.userId,
+          },
+          select: { id: true },
+        });
+        if (!existingAgentLeg) {
+          await tx.callLeg.create({
+            data: {
+              callSessionId: session.id,
+              type: CallLegType.AGENT,
+              userId: outboundAttribution.userId,
+              extension: outboundAttribution.extension,
+              startAt: new Date(event.timestamp),
+            },
+          });
+        }
       }
 
       // Backfill callSessionId on the CallEvent row (inserted just
@@ -244,6 +301,34 @@ export class TelephonyIngestionService {
         where: { id: customerLeg.id },
         data: { answerAt },
       });
+    }
+
+    // Outbound AGENT leg answerAt. Created at call_start with startAt but no
+    // answerAt because outbound calls never fire AgentConnect. On call_answer
+    // (synthesized by CDR import for OUT), patch the outbound-owned AGENT leg.
+    //
+    // Scoped to (direction=OUT, userId=assignedUserId) so we don't accidentally
+    // patch an unrelated inbound AgentConnect leg that's still unanswered on a
+    // multi-leg session (reviewer critical #2).
+    const session = await this.prisma.callSession.findUnique({
+      where: { id: existingSession.id },
+      select: { direction: true, assignedUserId: true },
+    });
+    if (session?.direction === CallDirection.OUT && session.assignedUserId) {
+      const agentLeg = await this.prisma.callLeg.findFirst({
+        where: {
+          callSessionId: existingSession.id,
+          type: CallLegType.AGENT,
+          userId: session.assignedUserId,
+          answerAt: null,
+        },
+      });
+      if (agentLeg) {
+        await this.prisma.callLeg.update({
+          where: { id: agentLeg.id },
+          data: { answerAt },
+        });
+      }
     }
   }
 
@@ -494,6 +579,21 @@ export class TelephonyIngestionService {
         });
       }
     } else {
+      // Before inserting a new AGENT leg for a different (user,ext), close
+      // any stale AGENT leg created at call_start for outbound calls — that
+      // leg was speculative attribution from the caller extension and must
+      // not remain open, else `touched` stats double-count across operators
+      // when the call bridges to a different agent (reviewer critical #1).
+      await this.prisma.callLeg.updateMany({
+        where: {
+          callSessionId: existingSession.id,
+          type: CallLegType.AGENT,
+          endAt: null,
+          NOT: { AND: [{ userId }, { extension: ext ?? null }] },
+        },
+        data: { endAt: answerTime },
+      });
+
       await this.prisma.callLeg.create({
         data: {
           callSessionId: existingSession.id,

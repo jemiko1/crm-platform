@@ -170,7 +170,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    height: "100vh",
+    height: "100%",
     // Match PhonePage / BreakModal so there's no jarring dark→light flash
     // while the session is restoring.
     background:

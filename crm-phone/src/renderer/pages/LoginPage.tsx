@@ -65,7 +65,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    height: "100vh",
+    height: "100%",
     padding: "2rem",
     background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
   },

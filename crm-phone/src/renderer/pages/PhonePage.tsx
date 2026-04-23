@@ -234,9 +234,12 @@ export function PhonePage(props: Props) {
 
   return (
     <div style={styles.container}>
-      {/* Title bar — drag handle for the frameless window. */}
+      {/* Title bar — drag handle for the frameless window. Shows extension
+          + email once registered so the operator can verify they're logged
+          in on the right account (there are ~15 extensions; a wrong login
+          silently routes calls to the wrong agent). */}
       <div style={styles.titleBar}>
-        <span style={styles.titleText}>CRM28 Softphone</span>
+        <span style={styles.titleText}>CRM28</span>
         <WindowControls />
       </div>
 
@@ -272,6 +275,14 @@ export function PhonePage(props: Props) {
           </button>
         </div>
       </div>
+
+      {sipRegistered && session.telephonyExtension?.extension && (
+        <div style={styles.identityRow}>
+          <span style={styles.identityExt}>Ext {session.telephonyExtension.extension}</span>
+          <span style={styles.identityDot}>·</span>
+          <span style={styles.identityEmail}>{session.user.email}</span>
+        </div>
+      )}
 
       {/* Global error banners */}
       {(breakError || dndError) && (
@@ -420,13 +431,13 @@ function DialpadView(props: {
           onKeyDown={(e) => e.key === "Enter" && handleDial()}
         />
         <button
-          onClick={() => dialNumber && setDialNumber("")}
+          onClick={() => dialNumber && setDialNumber(dialNumber.slice(0, -1))}
           style={{
             ...styles.clearBtn,
             visibility: dialNumber ? "visible" : "hidden",
           }}
-          aria-label="Clear number"
-          title="Clear"
+          aria-label="Delete last character"
+          title="Delete"
           tabIndex={dialNumber ? 0 : -1}
         >
           ⌫
@@ -829,7 +840,7 @@ const styles: Record<string, React.CSSProperties> = {
   container: {
     display: "flex",
     flexDirection: "column",
-    height: "100vh",
+    height: "100%",
     background: SURFACE_GRADIENT,
     color: TEXT_STRONG,
     fontFamily:
@@ -845,14 +856,28 @@ const styles: Record<string, React.CSSProperties> = {
     paddingLeft: "0.85rem",
     WebkitAppRegion: "drag" as any,
     flexShrink: 0,
-    boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
+    backgroundColor: "#115e59",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
     zIndex: 1,
   },
   titleText: {
     fontSize: "0.78rem",
     fontWeight: 600,
-    color: TEXT_MUTED,
+    color: "#ffffff",
     letterSpacing: "0.02em",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    paddingRight: "0.5rem",
+  },
+  titleExt: {
+    color: "#ffffff",
+    fontWeight: 700,
+    fontVariantNumeric: "tabular-nums",
+  },
+  titleEmail: {
+    color: "rgba(255,255,255,0.75)",
+    fontWeight: 500,
   },
   // Status bar (presence + timer + settings)
   statusBar: {
@@ -946,7 +971,10 @@ const styles: Record<string, React.CSSProperties> = {
   },
   numberInputWrap: {
     position: "relative" as const,
-    ...CARD,
+    background: "#ffffff",
+    borderRadius: 16,
+    border: "1px solid rgba(20, 184, 166, 0.30)",
+    boxShadow: "0 0 0 2px rgba(20, 184, 166, 0.18), 0 1px 2px rgba(15, 60, 40, 0.05)",
     padding: "0.7rem 1rem",
     display: "flex",
     alignItems: "center",
@@ -1008,9 +1036,9 @@ const styles: Record<string, React.CSSProperties> = {
   },
   callBtn: {
     alignSelf: "center",
-    width: 62,
-    height: 62,
-    borderRadius: 999,
+    width: 210,
+    height: 52,
+    borderRadius: 14,
     border: "none",
     background: BRAND,
     color: "white",
@@ -1019,9 +1047,41 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     justifyContent: "center",
     boxShadow: SHADOW_CTA,
-    marginTop: "0.25rem",
+    marginTop: "1.5rem",
     marginBottom: "0.5rem",
     transition: "background 120ms ease, transform 80ms ease",
+  },
+
+  identityRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "0.35rem",
+    padding: "0.15rem 0.95rem 0.55rem",
+    flexShrink: 0,
+    fontSize: "0.78rem",
+    letterSpacing: "0.01em",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
+  identityExt: {
+    color: BRAND,
+    fontWeight: 700,
+    fontVariantNumeric: "tabular-nums",
+    background: BRAND_SOFT,
+    padding: "0.12rem 0.5rem",
+    borderRadius: 8,
+  },
+  identityDot: {
+    color: TEXT_SUBTLE,
+  },
+  identityEmail: {
+    color: TEXT_MUTED,
+    fontWeight: 500,
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
   },
 
   // History tab wrap — CallHistory's own container handles flex/
