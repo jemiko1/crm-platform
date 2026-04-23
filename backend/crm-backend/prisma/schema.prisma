@@ -1549,6 +1549,14 @@ model CallSession {
   linkedId          String           @unique
   uniqueId          String?
   direction         CallDirection
+  // B7 — `from-internal` dialplan context is used by FreePBX for BOTH
+  // real outbound (operator dials an external number) AND internal
+  // ext-to-ext (transfers, supervisor check-ins). Classifying both as
+  // OUT silently inflates outbound volume, SLA denominators, peak-hour
+  // histograms. We keep `direction` as IN/OUT for UI/logs continuity
+  // and flip this flag when both caller AND callee numbers match a
+  // known TelephonyExtension. Stats aggregations exclude isInternal=true.
+  isInternal        Boolean          @default(false)
   did               String?
   callerNumber      String
   calleeNumber      String?
@@ -1582,6 +1590,7 @@ model CallSession {
   @@index([queueId, startAt])
   @@index([assignedUserId, startAt])
   @@index([createdAt])
+  @@index([isInternal])
 }
 
 model CallLeg {

@@ -127,6 +127,12 @@ export class TelephonyIngestionService {
 
     const direction = this.inferDirection(payload);
 
+    // B7 — detect internal ext-to-ext calls. FreePBX uses `from-internal`
+    // for BOTH external outbound AND internal transfers; we flip the
+    // `isInternal` flag when both endpoints match a known
+    // TelephonyExtension so stats aggregations can exclude them.
+    const isInternal = await this.detectInternalCall(payload);
+
     // Extract caller and callee numbers with fallbacks.
     //
     // Asterisk's AMI emits `connectedLineNum` as the literal string "<unknown>"
@@ -159,6 +165,7 @@ export class TelephonyIngestionService {
           linkedId,
           uniqueId: event.uniqueId ?? payload.uniqueId ?? null,
           direction,
+          isInternal,
           did: payload.context ?? null,
           callerNumber,
           calleeNumber,
@@ -170,6 +177,9 @@ export class TelephonyIngestionService {
           // but a later event has a real number (ConnectedLine update
           // on outbound answer).
           ...(calleeNumber ? { calleeNumber } : {}),
+          // isInternal is first-write-wins via the create branch; the
+          // update branch never flips it so a late ConnectedLine update
+          // doesn't re-classify the session.
         },
       });
 
@@ -807,6 +817,37 @@ export class TelephonyIngestionService {
       return CallDirection.OUT;
     }
     return CallDirection.IN;
+  }
+
+  /**
+   * B7 — True when BOTH legs of the call are internal extensions (transfers,
+   * supervisor dials, ext-to-ext). We look up callerIdNum + connectedLineNum
+   * (or extension for outbound) against TelephonyExtension; if both resolve
+   * to known extensions, this is internal and stats should exclude it.
+   *
+   * Only relevant when direction === OUT (inbound external calls never have
+   * a caller that matches an internal extension). Safe fast-path for IN.
+   */
+  private async detectInternalCall(payload: AsteriskEventPayload): Promise<boolean> {
+    const direction = this.inferDirection(payload);
+    if (direction !== CallDirection.OUT) return false;
+
+    const caller = this.cleanNumber(payload.callerIdNum);
+    const callee =
+      this.cleanNumber(payload.extension) ??
+      this.cleanNumber(payload.connectedLineNum);
+    if (!caller || !callee) return false;
+
+    // Extensions on our PBX are 3–4 digits. Anything longer is definitely
+    // external — skip the DB round-trip.
+    if (caller.length > 4 || callee.length > 4) return false;
+
+    const matches = await this.prisma.telephonyExtension.findMany({
+      where: { extension: { in: [caller, callee] }, isActive: true },
+      select: { extension: true },
+    });
+    const found = new Set(matches.map((m) => m.extension));
+    return found.has(caller) && found.has(callee);
   }
 
   /**

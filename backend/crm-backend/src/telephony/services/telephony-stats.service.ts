@@ -257,6 +257,7 @@ export class TelephonyStatsService {
       WHERE s."startAt" >= ${from}
         AND s."startAt" <= ${to}
         AND s."queueId" IS NOT NULL
+        AND s."isInternal" = false
       GROUP BY s."queueId"
     `);
 
@@ -305,13 +306,17 @@ export class TelephonyStatsService {
     let bucketExpr: Prisma.Sql;
     switch (query.groupBy) {
       case 'hour':
-        bucketExpr = Prisma.sql`EXTRACT(HOUR FROM s."startAt")::int`;
+        // B6 — bucket hours in Asia/Tbilisi so "peak at 14:00" matches
+        // manager wall-clock expectation. Without the TZ cast, Postgres
+        // uses the session TZ (UTC on the production VM) and shifts the
+        // peak by 4 hours.
+        bucketExpr = Prisma.sql`EXTRACT(HOUR FROM s."startAt" AT TIME ZONE 'Asia/Tbilisi')::int`;
         break;
       case 'day':
-        bucketExpr = Prisma.sql`EXTRACT(DAY FROM s."startAt")::int`;
+        bucketExpr = Prisma.sql`EXTRACT(DAY FROM s."startAt" AT TIME ZONE 'Asia/Tbilisi')::int`;
         break;
       case 'weekday':
-        bucketExpr = Prisma.sql`EXTRACT(DOW FROM s."startAt")::int`;
+        bucketExpr = Prisma.sql`EXTRACT(DOW FROM s."startAt" AT TIME ZONE 'Asia/Tbilisi')::int`;
         break;
     }
 
@@ -355,6 +360,7 @@ export class TelephonyStatsService {
         LEFT JOIN "CallMetrics" m ON m."callSessionId" = s.id
         WHERE s."startAt" >= ${from}
           AND s."startAt" <= ${to}
+          AND s."isInternal" = false
           ${queueFilter}
           ${agentFilter}
           ${directionFilter}
@@ -449,6 +455,7 @@ export class TelephonyStatsService {
         LEFT JOIN "CallMetrics" m ON m."callSessionId" = s.id
         WHERE s."startAt" >= ${from}
           AND s."startAt" <= ${to}
+          AND s."isInternal" = false
           ${queueFilter}
       )
       SELECT
@@ -622,6 +629,7 @@ export class TelephonyStatsService {
         SELECT id FROM "CallSession" cs
         WHERE cs."startAt" >= ${from}
           AND cs."startAt" <= ${to}
+          AND cs."isInternal" = false
           ${queueFilter}
       ),
       all_legs AS (
@@ -793,6 +801,7 @@ export class TelephonyStatsService {
       LEFT JOIN "CallMetrics" m ON m."callSessionId" = s.id
       WHERE s."startAt" >= ${from}
         AND s."startAt" <= ${to}
+        AND s."isInternal" = false
         ${queueFilter}
     `);
 
@@ -804,11 +813,12 @@ export class TelephonyStatsService {
       Array<{ hour: number; count: bigint }>
     >(Prisma.sql`
       SELECT
-        EXTRACT(HOUR FROM s."startAt")::int AS hour,
+        EXTRACT(HOUR FROM s."startAt" AT TIME ZONE 'Asia/Tbilisi')::int AS hour,
         COUNT(*)::bigint AS count
       FROM "CallSession" s
       WHERE s."startAt" >= ${from}
         AND s."startAt" <= ${to}
+        AND s."isInternal" = false
         ${queueFilter}
       GROUP BY 1
       ORDER BY 1
