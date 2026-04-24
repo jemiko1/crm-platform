@@ -412,7 +412,7 @@ export class TelephonyCallsService {
         startAt: { gte: threeDaysAgo },
         OR: [
           { assignedExtension: extension },
-          ...(telExt ? [{ assignedUserId: telExt.crmUserId }] : []),
+          ...(telExt?.crmUserId ? [{ assignedUserId: telExt.crmUserId }] : []),
           { callerNumber: { endsWith: extension } },
           { calleeNumber: { endsWith: extension } },
         ],

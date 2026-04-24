@@ -147,6 +147,13 @@ export class TelephonyExtensionsController {
     permission: true,
   })
   async upsert(@Body() dto: UpsertExtensionDto) {
+    // TODO(extension-pool PR-2): this upsert predates the pool model. It
+    // lookups by crmUserId only — if `dto.extension` is already a pool row
+    // with crmUserId=NULL, we'll try to create a second row for the same
+    // extension number and hit P2002 on the `extension` unique index.
+    // Replace with a "link pool row to user" action before the admin UI
+    // ships, or this endpoint breaks the first time an admin targets a
+    // pool extension.
     const existing = await this.prisma.telephonyExtension.findUnique({
       where: { crmUserId: dto.crmUserId },
     });

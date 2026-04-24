@@ -38,29 +38,29 @@ model Building {
 }
 
 model Client {
-  id               String           @id @default(uuid())
-  coreId           Int?             @unique
-  firstName        String?
-  lastName         String?
-  idNumber         String?
-  paymentId        String?
-  primaryPhone     String?
-  secondaryPhone   String?
-  email            String?
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  lastSyncedAt     DateTime?
-  coreUpdatedAt    DateTime?
-  coreCreatedAt    DateTime?
-  isActive         Boolean          @default(true)
-  deletedAt        DateTime?
-  clientBuildings      ClientBuilding[]
-  buildingContacts     BuildingContact[]
-  incidents            Incident[]
-  chatConversations    ClientChatConversation[] @relation("ClientChatConversations")
-  chatParticipants     ClientChatParticipant[]  @relation("ClientChatParticipants")
-  callerCallReports    CallReport[]             @relation("CallReportCaller")
-  subjectCallReports   CallReport[]             @relation("CallReportSubject")
+  id                 String                   @id @default(uuid())
+  coreId             Int?                     @unique
+  firstName          String?
+  lastName           String?
+  idNumber           String?
+  paymentId          String?
+  primaryPhone       String?
+  secondaryPhone     String?
+  email              String?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  lastSyncedAt       DateTime?
+  coreUpdatedAt      DateTime?
+  coreCreatedAt      DateTime?
+  isActive           Boolean                  @default(true)
+  deletedAt          DateTime?
+  clientBuildings    ClientBuilding[]
+  buildingContacts   BuildingContact[]
+  incidents          Incident[]
+  chatConversations  ClientChatConversation[] @relation("ClientChatConversations")
+  chatParticipants   ClientChatParticipant[]  @relation("ClientChatParticipants")
+  callerCallReports  CallReport[]             @relation("CallReportCaller")
+  subjectCallReports CallReport[]             @relation("CallReportSubject")
 
   @@index([primaryPhone])
   @@index([idNumber])
@@ -69,7 +69,7 @@ model Client {
 }
 
 model ClientBuilding {
-  id              String   @id @default(uuid())
+  id              String       @id @default(uuid())
   clientId        String
   buildingId      String
   apartmentCoreId Int?
@@ -78,10 +78,10 @@ model ClientBuilding {
   floorNumber     String?
   paymentId       String?
   balance         Float?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  building        Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
-  client          Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  building        Building     @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  client          Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
   callReports     CallReport[]
 
   @@unique([clientId, buildingId, apartmentCoreId])
@@ -91,30 +91,30 @@ model ClientBuilding {
 }
 
 model Asset {
-  id                    String           @id @default(uuid())
-  buildingId            String
-  type                  String
-  name                  String
-  createdAt             DateTime         @default(now())
-  updatedAt             DateTime         @updatedAt
-  coreId                Int?             @unique
-  ip                    String?
-  port                  String?
-  productId             String?
+  id                     String           @id @default(uuid())
+  buildingId             String
+  type                   String
+  name                   String
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+  coreId                 Int?             @unique
+  ip                     String?
+  port                   String?
+  productId              String?
   assignedBuildingCoreId Int?
-  door1                 String?
-  door2                 String?
-  door3                 String?
-  status                DeviceStatus     @default(UNKNOWN)
-  lastSyncedAt          DateTime?
-  coreUpdatedAt         DateTime?
-  coreCreatedAt         DateTime?
-  isActive              Boolean          @default(true)
-  deletedAt             DateTime?
-  building              Building         @relation(fields: [buildingId], references: [id], onDelete: Cascade)
-  incidentAssets        IncidentAsset[]
-  workOrders            WorkOrder[]
-  workOrderAssets       WorkOrderAsset[]
+  door1                  String?
+  door2                  String?
+  door3                  String?
+  status                 DeviceStatus     @default(UNKNOWN)
+  lastSyncedAt           DateTime?
+  coreUpdatedAt          DateTime?
+  coreCreatedAt          DateTime?
+  isActive               Boolean          @default(true)
+  deletedAt              DateTime?
+  building               Building         @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  incidentAssets         IncidentAsset[]
+  workOrders             WorkOrder[]
+  workOrderAssets        WorkOrderAsset[]
 
   @@index([buildingId])
   @@index([type])
@@ -275,30 +275,30 @@ model WorkOrderActivityLog {
 }
 
 model User {
-  id                String     @id @default(uuid())
-  email             String     @unique
-  passwordHash      String
-  role              UserRole   @default(USER)
-  isActive          Boolean    @default(true)
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
-  isSuperAdmin      Boolean    @default(false)
+  id                    String                     @id @default(uuid())
+  email                 String                     @unique
+  passwordHash          String
+  role                  UserRole                   @default(USER)
+  isActive              Boolean                    @default(true)
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
+  isSuperAdmin          Boolean                    @default(false)
   employee              Employee?
   incidentsReported     Incident[]
   telephonyExtension    TelephonyExtension?
-  assignedCallSessions  CallSession[]       @relation("UserAssignedCalls")
-  callLegs              CallLeg[]           @relation("UserCallLegs")
-  missedCalls           MissedCall[]        @relation("UserMissedCalls")
-  claimedMissedCalls    MissedCall[]        @relation("UserClaimedMissedCalls")
-  assignedCallbacks     CallbackRequest[]   @relation("UserAssignedCallbacks")
-  qualityReviews        QualityReview[]     @relation("UserQualityReviews")
-  assignedClientChats   ClientChatConversation[] @relation("UserAssignedClientChats")
-  clientChatMessages    ClientChatMessage[]      @relation("UserClientChatMessages")
+  assignedCallSessions  CallSession[]              @relation("UserAssignedCalls")
+  callLegs              CallLeg[]                  @relation("UserCallLegs")
+  missedCalls           MissedCall[]               @relation("UserMissedCalls")
+  claimedMissedCalls    MissedCall[]               @relation("UserClaimedMissedCalls")
+  assignedCallbacks     CallbackRequest[]          @relation("UserAssignedCallbacks")
+  qualityReviews        QualityReview[]            @relation("UserQualityReviews")
+  assignedClientChats   ClientChatConversation[]   @relation("UserAssignedClientChats")
+  clientChatMessages    ClientChatMessage[]        @relation("UserClientChatMessages")
   cannedResponses       ClientChatCannedResponse[] @relation("UserCannedResponses")
-  chatQueueSchedules    ClientChatQueueSchedule[] @relation("UserChatQueueSchedules")
-  chatQueueOverrides    ClientChatQueueOverride[] @relation("UserChatQueueOverrides")
+  chatQueueSchedules    ClientChatQueueSchedule[]  @relation("UserChatQueueSchedules")
+  chatQueueOverrides    ClientChatQueueOverride[]  @relation("UserChatQueueOverrides")
   deviceHandshakeTokens DeviceHandshakeToken[]
-  bugReports            BugReport[]               @relation("UserBugReports")
+  bugReports            BugReport[]                @relation("UserBugReports")
   callReports           CallReport[]
   operatorBreakSessions OperatorBreakSession[]
 
@@ -456,6 +456,7 @@ model Position {
   salesPipelineConfigPositions SalesPipelineConfigPosition[]
   salesPipelinePermissions     SalesPipelinePermissionPosition[]
   workflowSteps                WorkflowStepPosition[]
+  queueRules                   PositionQueueRule[]
 
   @@index([code])
   @@index([roleGroupId])
@@ -1343,22 +1344,22 @@ model NotificationTemplate {
 }
 
 model NotificationLog {
-  id               String           @id @default(uuid())
-  type             NotificationType
-  recipientId      String?
-  templateId       String?
-  subject          String?
-  body             String
-  status           String           @default("PENDING")
-  errorMessage     String?
-  sentAt           DateTime?
-  createdAt        DateTime         @default(now())
-  senderMessageId  String?
-  deliveryStatus   String?
-  deliveredAt      DateTime?
-  smsCount         Int?
-  destination      String?
-  recipient        Employee?        @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  id              String           @id @default(uuid())
+  type            NotificationType
+  recipientId     String?
+  templateId      String?
+  subject         String?
+  body            String
+  status          String           @default("PENDING")
+  errorMessage    String?
+  sentAt          DateTime?
+  createdAt       DateTime         @default(now())
+  senderMessageId String?
+  deliveryStatus  String?
+  deliveredAt     DateTime?
+  smsCount        Int?
+  destination     String?
+  recipient       Employee?        @relation(fields: [recipientId], references: [id], onDelete: Cascade)
 
   @@index([recipientId])
   @@index([type])
@@ -1456,9 +1457,19 @@ model MessageAttachment {
 // Telephony / Call Center
 // ──────────────────────────────────────────────
 
+/// Pool model (April 2026):
+///   - `crmUserId` is nullable. An unlinked extension lives in the pool with
+///     crmUserId=NULL; admins link an employee from the Telephony admin UI.
+///   - On employee hard-delete or termination, the row stays in the pool and
+///     crmUserId goes to NULL (onDelete: SetNull). The service layer emits
+///     AMI `QueueRemove` to stop queue calls from routing to the softphone.
+///   - FreePBX stays the source of truth for extension config (password,
+///     accountcode, display name in the PBX GUI). CRM never writes to it.
+///     The SIP password is READ via SSH by asterisk-sync and stored here
+///     so the softphone handshake can return it to the Electron client.
 model TelephonyExtension {
   id            String    @id @default(uuid())
-  crmUserId     String    @unique
+  crmUserId     String?   @unique
   extension     String    @unique
   displayName   String
   sipServer     String?
@@ -1469,7 +1480,7 @@ model TelephonyExtension {
   sipLastSeenAt DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
-  user          User      @relation(fields: [crmUserId], references: [id], onDelete: Cascade)
+  user          User?     @relation(fields: [crmUserId], references: [id], onDelete: SetNull)
 
   @@index([isActive])
   @@index([sipRegistered, sipLastSeenAt])
@@ -1501,12 +1512,12 @@ model TelephonyExtension {
 model OperatorBreakSession {
   id            String    @id @default(uuid())
   userId        String
-  extension     String    // snapshot of extension at break start (audit)
+  extension     String // snapshot of extension at break start (audit)
   startedAt     DateTime  @default(now())
   endedAt       DateTime?
-  durationSec   Int?      // computed on end; null while active
+  durationSec   Int? // computed on end; null while active
   isAutoEnded   Boolean   @default(false)
-  autoEndReason String?   // 'company_hours_end' | 'max_duration_exceeded'
+  autoEndReason String? // 'company_hours_end' | 'max_duration_exceeded'
   createdAt     DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1530,25 +1541,47 @@ model DeviceHandshakeToken {
 }
 
 model TelephonyQueue {
-  id                String        @id @default(uuid())
-  name              String        @unique
-  strategy          QueueStrategy @default(RRMEMORY)
-  isAfterHoursQueue Boolean       @default(false)
+  id                String              @id @default(uuid())
+  name              String              @unique
+  strategy          QueueStrategy       @default(RRMEMORY)
+  isAfterHoursQueue Boolean             @default(false)
   worktimeConfig    Json?
-  isActive          Boolean       @default(true)
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  isActive          Boolean             @default(true)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
   callSessions      CallSession[]
   missedCalls       MissedCall[]
+  positionRules     PositionQueueRule[]
 
   @@index([isActive])
 }
 
+/// Declarative rule: "operators in Position X should be members of Queue Y".
+/// The extension-link flow and termination-unlink flow both consult this table
+/// to derive which AMI `QueueAdd` / `QueueRemove` actions to emit. This
+/// replaces the hardcoded "Call Center Operator" position check — any position
+/// can be mapped to any set of queues from the Telephony admin UI.
+model PositionQueueRule {
+  id         String         @id @default(uuid())
+  positionId String
+  queueId    String
+  createdAt  DateTime       @default(now())
+  position   Position       @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  // Restrict on queue delete: queues are upsert-only by asterisk-sync today,
+  // but if an admin ever deletes one manually we want the operation to fail
+  // loudly (rather than silently wiping every Position → Queue rule that
+  // pointed at it). Admin must remove the rules first, then delete the queue.
+  queue      TelephonyQueue @relation(fields: [queueId], references: [id], onDelete: Restrict)
+
+  @@unique([positionId, queueId])
+  @@index([queueId])
+}
+
 model CallSession {
-  id                String           @id @default(uuid())
-  linkedId          String           @unique
-  uniqueId          String?
-  direction         CallDirection
+  id                  String           @id @default(uuid())
+  linkedId            String           @unique
+  uniqueId            String?
+  direction           CallDirection
   // B7 — `from-internal` dialplan context is used by FreePBX for BOTH
   // real outbound (operator dials an external number) AND internal
   // ext-to-ext (transfers, supervisor check-ins). Classifying both as
@@ -1556,31 +1589,31 @@ model CallSession {
   // histograms. We keep `direction` as IN/OUT for UI/logs continuity
   // and flip this flag when both caller AND callee numbers match a
   // known TelephonyExtension. Stats aggregations exclude isInternal=true.
-  isInternal        Boolean          @default(false)
-  did               String?
-  callerNumber      String
-  calleeNumber      String?
-  queueId           String?
-  assignedUserId    String?
-  assignedExtension String?
-  startAt           DateTime
-  answerAt          DateTime?
-  endAt             DateTime?
-  disposition       CallDisposition?
-  hangupCause       String?
-  finalizedAt       DateTime?
-  recordingStatus   RecordingStatus  @default(PENDING)
-  createdAt         DateTime         @default(now())
-  queue             TelephonyQueue?  @relation(fields: [queueId], references: [id])
-  assignedUser      User?            @relation("UserAssignedCalls", fields: [assignedUserId], references: [id])
-  callLegs          CallLeg[]
-  callEvents        CallEvent[]
-  callMetrics       CallMetrics?
-  missedCall        MissedCall?
-  resolvedMissedCalls MissedCall[]  @relation("ResolvingCallSession")
-  recordings        Recording[]
-  qualityReview     QualityReview?
-  callReport        CallReport?
+  isInternal          Boolean          @default(false)
+  did                 String?
+  callerNumber        String
+  calleeNumber        String?
+  queueId             String?
+  assignedUserId      String?
+  assignedExtension   String?
+  startAt             DateTime
+  answerAt            DateTime?
+  endAt               DateTime?
+  disposition         CallDisposition?
+  hangupCause         String?
+  finalizedAt         DateTime?
+  recordingStatus     RecordingStatus  @default(PENDING)
+  createdAt           DateTime         @default(now())
+  queue               TelephonyQueue?  @relation(fields: [queueId], references: [id])
+  assignedUser        User?            @relation("UserAssignedCalls", fields: [assignedUserId], references: [id])
+  callLegs            CallLeg[]
+  callEvents          CallEvent[]
+  callMetrics         CallMetrics?
+  missedCall          MissedCall?
+  resolvedMissedCalls MissedCall[]     @relation("ResolvingCallSession")
+  recordings          Recording[]
+  qualityReview       QualityReview?
+  callReport          CallReport?
 
   @@index([startAt])
   @@index([queueId])
@@ -1646,25 +1679,25 @@ model CallMetrics {
 }
 
 model MissedCall {
-  id                      String            @id @default(uuid())
-  callSessionId           String            @unique
+  id                      String           @id @default(uuid())
+  callSessionId           String           @unique
   reason                  MissedCallReason
-  detectedAt              DateTime          @default(now())
+  detectedAt              DateTime         @default(now())
   queueId                 String?
   userId                  String?
   callerNumber            String
-  status                  MissedCallStatus  @default(NEW)
+  status                  MissedCallStatus @default(NEW)
   notes                   String?
   claimedByUserId         String?
   claimedAt               DateTime?
   resolvedByCallSessionId String?
   resolvedAt              DateTime?
-  createdAt               DateTime          @default(now())
-  callSession             CallSession       @relation(fields: [callSessionId], references: [id], onDelete: Cascade)
-  queue                   TelephonyQueue?   @relation(fields: [queueId], references: [id])
-  user                    User?             @relation("UserMissedCalls", fields: [userId], references: [id])
-  claimedBy               User?             @relation("UserClaimedMissedCalls", fields: [claimedByUserId], references: [id])
-  resolvedByCallSession   CallSession?      @relation("ResolvingCallSession", fields: [resolvedByCallSessionId], references: [id])
+  createdAt               DateTime         @default(now())
+  callSession             CallSession      @relation(fields: [callSessionId], references: [id], onDelete: Cascade)
+  queue                   TelephonyQueue?  @relation(fields: [queueId], references: [id])
+  user                    User?            @relation("UserMissedCalls", fields: [userId], references: [id])
+  claimedBy               User?            @relation("UserClaimedMissedCalls", fields: [claimedByUserId], references: [id])
+  resolvedByCallSession   CallSession?     @relation("ResolvingCallSession", fields: [resolvedByCallSessionId], references: [id])
   callbackRequest         CallbackRequest?
 
   @@index([status])
@@ -1767,33 +1800,33 @@ model ClientChatChannelAccount {
 }
 
 model ClientChatConversation {
-  id                      String                  @id @default(uuid())
-  channelType             ClientChatChannelType
-  channelAccountId        String
-  externalConversationId  String                  @unique
-  assignedUserId          String?
-  clientId                String?
-  participantId           String?
-  status                  ClientChatStatus        @default(LIVE)
-  lastMessageAt           DateTime?
-  firstResponseAt         DateTime?
-  resolvedAt              DateTime?
-  joinedAt                DateTime?
-  lastOperatorActivityAt  DateTime?
-  pausedOperatorId        String?
-  pausedAt                DateTime?
-  previousConversationId  String?
-  reopenRequestedBy       String?
-  reopenRequestedAt       DateTime?
-  createdAt               DateTime                @default(now())
-  channelAccount          ClientChatChannelAccount @relation(fields: [channelAccountId], references: [id], onDelete: Cascade)
-  assignedUser            User?                   @relation("UserAssignedClientChats", fields: [assignedUserId], references: [id], onDelete: SetNull)
-  client                  Client?                 @relation("ClientChatConversations", fields: [clientId], references: [id], onDelete: SetNull)
-  participant             ClientChatParticipant?   @relation("ConversationParticipant", fields: [participantId], references: [id], onDelete: SetNull)
-  previousConversation    ClientChatConversation?  @relation("ConversationHistory", fields: [previousConversationId], references: [id], onDelete: SetNull)
-  nextConversations       ClientChatConversation[] @relation("ConversationHistory")
-  messages                ClientChatMessage[]
-  escalationEvents        ClientChatEscalationEvent[]
+  id                     String                      @id @default(uuid())
+  channelType            ClientChatChannelType
+  channelAccountId       String
+  externalConversationId String                      @unique
+  assignedUserId         String?
+  clientId               String?
+  participantId          String?
+  status                 ClientChatStatus            @default(LIVE)
+  lastMessageAt          DateTime?
+  firstResponseAt        DateTime?
+  resolvedAt             DateTime?
+  joinedAt               DateTime?
+  lastOperatorActivityAt DateTime?
+  pausedOperatorId       String?
+  pausedAt               DateTime?
+  previousConversationId String?
+  reopenRequestedBy      String?
+  reopenRequestedAt      DateTime?
+  createdAt              DateTime                    @default(now())
+  channelAccount         ClientChatChannelAccount    @relation(fields: [channelAccountId], references: [id], onDelete: Cascade)
+  assignedUser           User?                       @relation("UserAssignedClientChats", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  client                 Client?                     @relation("ClientChatConversations", fields: [clientId], references: [id], onDelete: SetNull)
+  participant            ClientChatParticipant?      @relation("ConversationParticipant", fields: [participantId], references: [id], onDelete: SetNull)
+  previousConversation   ClientChatConversation?     @relation("ConversationHistory", fields: [previousConversationId], references: [id], onDelete: SetNull)
+  nextConversations      ClientChatConversation[]    @relation("ConversationHistory")
+  messages               ClientChatMessage[]
+  escalationEvents       ClientChatEscalationEvent[]
 
   @@index([lastMessageAt(sort: Desc)])
   @@index([assignedUserId])
@@ -1807,20 +1840,20 @@ model ClientChatConversation {
 }
 
 model ClientChatParticipant {
-  id              String                   @id @default(uuid())
-  channelType     ClientChatChannelType
+  id               String                   @id @default(uuid())
+  channelType      ClientChatChannelType
   channelAccountId String
-  externalUserId  String                   @unique
-  displayName     String
-  phone           String?
-  email           String?
-  mappedClientId  String?
-  metadata        Json                     @default("{}")
-  createdAt       DateTime                 @default(now())
-  channelAccount  ClientChatChannelAccount @relation(fields: [channelAccountId], references: [id], onDelete: Cascade)
-  mappedClient    Client?                  @relation("ClientChatParticipants", fields: [mappedClientId], references: [id], onDelete: SetNull)
-  conversations   ClientChatConversation[] @relation("ConversationParticipant")
-  messages        ClientChatMessage[]
+  externalUserId   String                   @unique
+  displayName      String
+  phone            String?
+  email            String?
+  mappedClientId   String?
+  metadata         Json                     @default("{}")
+  createdAt        DateTime                 @default(now())
+  channelAccount   ClientChatChannelAccount @relation(fields: [channelAccountId], references: [id], onDelete: Cascade)
+  mappedClient     Client?                  @relation("ClientChatParticipants", fields: [mappedClientId], references: [id], onDelete: SetNull)
+  conversations    ClientChatConversation[] @relation("ConversationParticipant")
+  messages         ClientChatMessage[]
 
   @@index([channelType])
   @@index([mappedClientId])
@@ -1828,22 +1861,22 @@ model ClientChatParticipant {
 }
 
 model ClientChatMessage {
-  id                String                @id @default(uuid())
+  id                String                 @id @default(uuid())
   conversationId    String
   participantId     String?
   senderUserId      String?
   direction         ClientChatDirection
-  externalMessageId String                @unique
+  externalMessageId String                 @unique
   text              String
   attachments       Json?
   sentAt            DateTime
   deliveryStatus    String?
   deliveryError     String?
   rawPayload        Json?
-  createdAt         DateTime              @default(now())
+  createdAt         DateTime               @default(now())
   conversation      ClientChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   participant       ClientChatParticipant? @relation(fields: [participantId], references: [id], onDelete: SetNull)
-  senderUser        User?                 @relation("UserClientChatMessages", fields: [senderUserId], references: [id], onDelete: SetNull)
+  senderUser        User?                  @relation("UserClientChatMessages", fields: [senderUserId], references: [id], onDelete: SetNull)
 
   @@index([conversationId, sentAt(sort: Desc)])
   @@index([externalMessageId])
@@ -1881,13 +1914,13 @@ model ClientChatCannedResponse {
 }
 
 model ClientChatAssignmentConfig {
-  id              String                  @id @default(uuid())
+  id              String                 @id @default(uuid())
   channelType     ClientChatChannelType?
-  strategy        String                  @default("manual")
+  strategy        String                 @default("manual")
   assignableUsers String[]
   lastAssignedTo  String?
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
 
   @@unique([channelType])
 }
@@ -2211,14 +2244,14 @@ model ClientChatEscalationConfig {
 }
 
 model ClientChatEscalationEvent {
-  id              String                 @id @default(uuid())
-  conversationId  String
-  conversation    ClientChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  type            String
-  fromUserId      String?
-  toUserId        String?
-  metadata        Json?                  @default("{}")
-  createdAt       DateTime               @default(now())
+  id             String                 @id @default(uuid())
+  conversationId String
+  conversation   ClientChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  type           String
+  fromUserId     String?
+  toUserId       String?
+  metadata       Json?                  @default("{}")
+  createdAt      DateTime               @default(now())
 
   @@index([conversationId])
   @@index([createdAt(sort: Desc)])
@@ -2279,35 +2312,35 @@ enum ClientChatAccountStatus {
 // ──────────────────────────────────────────────
 
 model BugReport {
-  id            String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  reporterId    String
-  reporter      User     @relation("UserBugReports", fields: [reporterId], references: [id])
+  reporterId String
+  reporter   User   @relation("UserBugReports", fields: [reporterId], references: [id])
 
-  description   String
-  severity      BugSeverity
-  category      BugCategory      @default(BUG)
+  description String
+  severity    BugSeverity
+  category    BugCategory @default(BUG)
 
-  pageUrl       String
-  browserInfo   Json
-  actionLog     Json
-  consoleLog    Json
-  networkLog    Json
-  videoPath     String?
-  screenshots   Json?
+  pageUrl     String
+  browserInfo Json
+  actionLog   Json
+  consoleLog  Json
+  networkLog  Json
+  videoPath   String?
+  screenshots Json?
 
-  aiTitle       String?
-  aiAnalysis    Json?
-  aiSeverity    BugSeverity?
+  aiTitle    String?
+  aiAnalysis Json?
+  aiSeverity BugSeverity?
 
-  githubIssueId     Int?
-  githubIssueUrl    String?
-  githubSyncStatus  GithubSyncStatus @default(PENDING)
+  githubIssueId    Int?
+  githubIssueUrl   String?
+  githubSyncStatus GithubSyncStatus @default(PENDING)
 
-  status        BugReportStatus  @default(NEW)
+  status BugReportStatus @default(NEW)
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([reporterId])
   @@index([status])
@@ -2366,12 +2399,12 @@ model CallReport {
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
-  callSession    CallSession      @relation(fields: [callSessionId], references: [id])
-  callerClient   Client?          @relation("CallReportCaller", fields: [callerClientId], references: [id])
-  subjectClient  Client?          @relation("CallReportSubject", fields: [subjectClientId], references: [id])
-  clientBuilding ClientBuilding?  @relation(fields: [clientBuildingId], references: [id])
-  building       Building?        @relation(fields: [buildingId], references: [id])
-  operatorUser   User             @relation(fields: [operatorUserId], references: [id])
+  callSession    CallSession       @relation(fields: [callSessionId], references: [id])
+  callerClient   Client?           @relation("CallReportCaller", fields: [callerClientId], references: [id])
+  subjectClient  Client?           @relation("CallReportSubject", fields: [subjectClientId], references: [id])
+  clientBuilding ClientBuilding?   @relation(fields: [clientBuildingId], references: [id])
+  building       Building?         @relation(fields: [buildingId], references: [id])
+  operatorUser   User              @relation(fields: [operatorUserId], references: [id])
   labels         CallReportLabel[]
 
   @@index([buildingId])

@@ -373,11 +373,14 @@ export class TelephonyStateManager implements OnModuleInit {
   private async hydrateFromDb(): Promise<void> {
     try {
       const extensions = await this.prisma.telephonyExtension.findMany({
-        where: { isActive: true },
+        // Pool rows (crmUserId=null) are excluded — only linked extensions
+        // belong in the live agent roster.
+        where: { isActive: true, crmUserId: { not: null } },
         select: { crmUserId: true, extension: true, displayName: true },
       });
 
       for (const ext of extensions) {
+        if (!ext.crmUserId) continue;
         this.extensionToUser.set(ext.extension, ext.crmUserId);
         this.agents.set(ext.crmUserId, {
           userId: ext.crmUserId,
@@ -423,10 +426,11 @@ export class TelephonyStateManager implements OnModuleInit {
   }
 
   refreshExtensionMap(
-    extensions: Array<{ extension: string; crmUserId: string; displayName: string }>,
+    extensions: Array<{ extension: string; crmUserId: string | null; displayName: string }>,
   ): void {
     this.extensionToUser.clear();
     for (const ext of extensions) {
+      if (!ext.crmUserId) continue;
       this.extensionToUser.set(ext.extension, ext.crmUserId);
       if (!this.agents.has(ext.crmUserId)) {
         this.agents.set(ext.crmUserId, {

@@ -170,7 +170,7 @@ export class TelephonyIngestionService {
         where: { extension: callerNumber },
         select: { crmUserId: true, extension: true },
       });
-      if (telExt) {
+      if (telExt?.crmUserId) {
         outboundAttribution = { userId: telExt.crmUserId, extension: telExt.extension };
       }
     }
