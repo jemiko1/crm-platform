@@ -6,33 +6,45 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { AmiClientService } from '../ami/ami-client.service';
+import { PbxQueueMemberClient } from '../pbx/pbx-queue-member.client';
 
 /**
  * Orchestrates the "link an employee to a pre-provisioned extension" and
  * "unlink" flows for the pool model (PR #294).
  *
- * At link time: look up the employee's Position, consult `PositionQueueRule`
- * for the set of queues they should join, emit `QueueAdd` per queue, and
- * set `TelephonyExtension.crmUserId`. At unlink time: emit `QueueRemove` for
- * each queue derived from the CURRENTLY-linked user's Position BEFORE
- * nulling `crmUserId` (order is load-bearing — once the FK is nulled we
- * lose the ability to derive the Position).
+ * At link time: update `crmUserId`, look up the employee's Position, consult
+ * `PositionQueueRule` for the set of queues they should join, and INSERT
+ * queue membership rows directly into FreePBX's `queues_details` MariaDB
+ * table (via `PbxQueueMemberClient` → SSH → `/usr/local/sbin/crm-queue-member`).
+ * At unlink time: DELETE those rows, then null `crmUserId`. Order is
+ * load-bearing for unlink — see comment on `unlink`.
+ *
+ * **Why MariaDB and not AMI** (corrected approach — PRs #296-#297 used AMI):
+ * FreePBX GUI reads queue members from `queues_details`. Any "Apply Config"
+ * click regenerates `queues.conf` from that table, wiping runtime-only
+ * (AMI-added) members. By writing to MariaDB we become the same-path source
+ * as the GUI, so CRM-added members:
+ *   1. Show up in the FreePBX GUI Queues page (admin can see CRM's state).
+ *   2. Survive Apply Config (they ARE the config).
+ *   3. Coexist with hand-added rows — CRM only DELETEs the specific row
+ *      it would have inserted (`Local/EXT@from-queue/n,0`). If an admin
+ *      customizes penalty to a different value, that row is invisible to
+ *      CRM and survives unlink.
  *
  * **Feature flag `TELEPHONY_AUTO_QUEUE_SYNC`** — when `false`, the DB write
- * still happens but all AMI calls are skipped and a warning is logged.
+ * to CRM Postgres still happens but NO SSH calls to the PBX are made.
  * Kill-switch for incidents: flip the env var, restart backend, CRM still
- * manages links while AMI stays untouched. Admin can then use FreePBX GUI
- * to manage queue membership manually until the issue is resolved.
+ * manages links while the PBX stays untouched. Admin can then use FreePBX
+ * GUI to manage queue membership manually until the issue is resolved.
  *
  * **Interface format** (Silent Override Risk #26) — FreePBX queue members
- * are `Local/<ext>@from-queue/n`, not `PJSIP/<ext>`. Mirrors operator-dnd.
+ * are `Local/<ext>@from-queue/n`, not `PJSIP/<ext>`. The SSH helper builds
+ * the full `data` string; CRM only passes extension number + queue name.
  *
- * **Idempotency** — `QueueAdd` for an already-member extension returns
- * "Unable to add interface: Already there" and is treated as success.
- * `QueueRemove` for a non-member returns "Unable to remove interface from
- * queue: Not there" and is also treated as success. This lets `resyncQueues`
- * be safely re-run without bookkeeping.
+ * **Idempotency** — the SSH helper uses `INSERT IGNORE` (add) and a
+ * full-match `DELETE` (remove), so both operations are naturally idempotent
+ * against `queues_details`. Replaying a link or unlink multiple times is
+ * safe; `resyncQueues` exploits this to reconcile drift without bookkeeping.
  */
 @Injectable()
 export class ExtensionLinkService {
@@ -41,7 +53,7 @@ export class ExtensionLinkService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly ami: AmiClientService,
+    private readonly pbx: PbxQueueMemberClient,
   ) {
     // Default: on. Admin must explicitly set to 'false' to disable. Matches
     // the "default-on, explicit kill-switch" pattern the user asked for —
@@ -49,7 +61,7 @@ export class ExtensionLinkService {
     this.autoQueueSync = process.env.TELEPHONY_AUTO_QUEUE_SYNC !== 'false';
     if (!this.autoQueueSync) {
       this.logger.warn(
-        'TELEPHONY_AUTO_QUEUE_SYNC=false — link/unlink will NOT emit AMI QueueAdd/QueueRemove. Queue membership must be managed manually via FreePBX GUI until this flag is re-enabled.',
+        'TELEPHONY_AUTO_QUEUE_SYNC=false — link/unlink will NOT write to FreePBX queues_details. Queue membership must be managed manually via FreePBX GUI until this flag is re-enabled.',
       );
     }
   }
@@ -132,12 +144,7 @@ export class ExtensionLinkService {
       return;
     }
 
-    await this.applyQueueRulesToExtension(
-      ext.extension,
-      displayName,
-      positionId,
-      'QueueAdd',
-    );
+    await this.applyQueueRulesToExtension(ext.extension, positionId, 'add');
   }
 
   async unlink(extensionId: string): Promise<void> {
@@ -162,11 +169,11 @@ export class ExtensionLinkService {
     });
     const positionId = linkedUser?.employee?.positionId ?? null;
 
-    // DB write first for the same reason as link(). If AMI is down the row
-    // is still unlinked in CRM; a later resyncQueues on a NEW link will
-    // re-apply rules cleanly. The only "cost" of an AMI failure here is
-    // the ex-operator continues receiving queue calls until admin fixes
-    // it — which is exactly why we want the kill-switch flag.
+    // DB write first for the same reason as link(). If the PBX SSH path
+    // is unreachable, the row is still unlinked in CRM; admin can use the
+    // Resync button on a future link to reconcile. Worst case: the
+    // ex-operator continues receiving queue calls until admin intervenes
+    // — which is exactly why TELEPHONY_AUTO_QUEUE_SYNC exists.
     //
     // Race guard (same pattern as link): updateMany scoped to the currently
     // linked crmUserId, confirm count === 1. Protects against another admin
@@ -182,12 +189,7 @@ export class ExtensionLinkService {
     }
 
     if (positionId) {
-      await this.applyQueueRulesToExtension(
-        ext.extension,
-        ext.displayName,
-        positionId,
-        'QueueRemove',
-      );
+      await this.applyQueueRulesToExtension(ext.extension, positionId, 'remove');
     }
   }
 
@@ -230,12 +232,11 @@ export class ExtensionLinkService {
 
     const result = await this.applyQueueRulesToExtension(
       ext.extension,
-      ext.displayName,
       positionId,
-      'QueueAdd',
+      'add',
     );
     // Surface the kill-switch case to the caller so the UI can say
-    // "AMI sync is disabled" instead of "skipped: 30, 800".
+    // "queue sync is disabled" instead of "skipped: 30, 800".
     if (!this.autoQueueSync) {
       return { ...result, reason: 'auto-queue-sync-disabled' };
     }
@@ -244,9 +245,8 @@ export class ExtensionLinkService {
 
   private async applyQueueRulesToExtension(
     extension: string,
-    displayName: string,
     positionId: string,
-    action: 'QueueAdd' | 'QueueRemove',
+    action: 'add' | 'remove',
   ): Promise<{ applied: number; skipped: string[] }> {
     const rules = await this.prisma.positionQueueRule.findMany({
       where: { positionId },
@@ -272,56 +272,28 @@ export class ExtensionLinkService {
     const skipped: string[] = [];
 
     for (const rule of activeRules) {
-      const baseAction: Record<string, string> = {
-        Action: action,
-        Queue: rule.queue.name,
-        Interface: `Local/${extension}@from-queue/n`,
-      };
-      if (action === 'QueueAdd') {
-        baseAction.Paused = 'false';
-        baseAction.MemberName = displayName;
-        baseAction.StateInterface = `hint:${extension}@ext-local`;
-      }
-
       try {
-        await this.ami.sendAction(baseAction);
-        applied++;
-      } catch (err) {
-        const rawMessage = ((): string => {
-          if (err && typeof err === 'object') {
-            const m = (err as { message?: unknown }).message;
-            if (typeof m === 'string' && m.length > 0) return m;
-          }
-          if (err instanceof Error) return err.message;
-          return String(err);
-        })();
-
-        // Idempotent success paths — treat as applied. Regex is tight to
-        // Asterisk's exact phrasing; anything else (queue deleted, AMI
-        // down, ACL refusal) must surface as `skipped` for admin action.
-        //   QueueAdd to an already-member:
-        //     "Unable to add interface: Already there"
-        //   QueueRemove from non-member:
-        //     "Unable to remove interface from queue: Not there"
-        //   QueueRemove: "Interface not found"  (member absent entirely)
-        if (
-          /^Unable to add interface: Already there$/i.test(rawMessage) ||
-          /^Unable to remove interface from queue: Not there$/i.test(rawMessage) ||
-          /^Interface not found$/i.test(rawMessage)
-        ) {
-          applied++;
-          continue;
+        if (action === 'add') {
+          await this.pbx.addMember(rule.queue.name, extension);
+        } else {
+          await this.pbx.removeMember(rule.queue.name, extension);
         }
-
+        applied++;
+      } catch (err: any) {
+        // The SSH helper is naturally idempotent (INSERT IGNORE + exact-
+        // match DELETE), so any error here is a real failure — SSH down,
+        // fwconsole reload timeout, MariaDB unreachable, schema drift. No
+        // regex-matching needed; surface the queue name to the admin.
+        const msg = err instanceof Error ? err.message : String(err);
         this.logger.warn(
-          `${action} failed for ext=${extension} queue=${rule.queue.name}: ${rawMessage}`,
+          `PBX ${action} failed for ext=${extension} queue=${rule.queue.name}: ${msg}`,
         );
         skipped.push(rule.queue.name);
       }
     }
 
     this.logger.log(
-      `${action} ext=${extension} applied=${applied}/${activeRules.length}${
+      `PBX ${action} ext=${extension} applied=${applied}/${activeRules.length}${
         skipped.length ? ` skipped=[${skipped.join(',')}]` : ''
       }`,
     );

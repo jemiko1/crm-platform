@@ -39,6 +39,7 @@ import { OperatorDndController } from './controllers/operator-dnd.controller';
 import { PositionQueueRulesController } from './controllers/position-queue-rules.controller';
 import { TelephonyQueuesController } from './controllers/telephony-queues.controller';
 import { ExtensionLinkService } from './services/extension-link.service';
+import { PbxQueueMemberClient } from './pbx/pbx-queue-member.client';
 import { DataScopeService } from '../common/utils/data-scope';
 
 @Module({
@@ -88,6 +89,7 @@ import { DataScopeService } from '../common/utils/data-scope';
     MissedCallsService,
     OperatorBreakService,
     OperatorDndService,
+    PbxQueueMemberClient,
     ExtensionLinkService,
     DataScopeService,
   ],

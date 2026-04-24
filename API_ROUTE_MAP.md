@@ -437,6 +437,57 @@ Implemented via AMI `QueuePause` with no `Queue` field (pauses across all queues
 
 ---
 
+## Telephony Extensions (pool model) — link / unlink / resync
+
+**File**: `src/telephony/controllers/telephony-extensions.controller.ts` (extension-pool series PRs #294-#297 + queue-member-mariadb-sync PR)
+**Base Route**: `/v1/telephony/extensions`
+**Guards**: `JwtAuthGuard + PositionPermissionGuard` (`telephony.manage`)
+
+Pool model: extensions are pre-provisioned in FreePBX Bulk Handler and discovered into `TelephonyExtension` by `asterisk-sync` (crmUserId=NULL until linked). Admin links an employee from the Telephony Extensions admin page; CRM writes queue-member rows into FreePBX's `queues_details` MariaDB via the PBX-side helper `/usr/local/sbin/crm-queue-member` (see Silent Override Risk #28 — CRM does NOT use AMI for queue membership).
+
+**Endpoints:**
+- `POST /v1/telephony/extensions/sync-now` - Trigger asterisk-sync immediately. Returns `SyncResult` (total, linked, autoLinked, statuses).
+- `GET /v1/telephony/extensions/sip-statuses` - `Cache-Control: no-store`. Returns runtime SIP device-state map from AMI (Unavailable / Not in use / In use / Busy / Ringing). Used by admin UI status column.
+- `GET /v1/telephony/extensions/users-with-config` - List of users with optional nested `telephonyExtension` — feeds the employee-picker dropdown (filters to `telephonyExtension === null` for the Link dialog).
+- `GET /v1/telephony/extensions` - `Cache-Control: no-store`. List of all TelephonyExtension rows (linked + pool) with nested user/employee if linked. Primary data source for the admin page.
+- `POST /v1/telephony/extensions/:id/link` - Body: `{ userId }` (UUID). Sets `crmUserId`, updates `displayName` from employee name (fallback: email → existing displayName), and writes queue-member rows to FreePBX for every active `PositionQueueRule` mapped to the employee's Position. Race-guarded via `updateMany` with `crmUserId=null` predicate (409 Conflict if count≠1). Errors: 404 (no extension), 400 (disabled / user inactive), 409 (already linked elsewhere or raced).
+- `POST /v1/telephony/extensions/:id/unlink` - No body. Idempotent (no-op if already unlinked). Derives linked user's positionId BEFORE nulling crmUserId (order load-bearing), removes queue-member rows from FreePBX for every rule, then nulls crmUserId. Race-guarded same as link.
+- `POST /v1/telephony/extensions/:id/resync-queues` - Re-apply queue-member INSERTs from current CRM state. Returns `{ applied: number, skipped: string[], reason?: 'no-position' | 'auto-queue-sync-disabled' }`. Idempotent at the PBX layer (`INSERT IGNORE`); use this if the PBX was unreachable during a link or admin deleted rows manually in FreePBX GUI.
+- `PATCH /v1/telephony/extensions/:id` - Patch extension fields (extension number, displayName, sipServer, sipPassword, isOperator, isActive). Does NOT touch crmUserId or the PBX. Used for SIP config edits.
+- `DELETE /v1/telephony/extensions/:id` - Delete the row from CRM. Does NOT touch the PBX — the FreePBX extension continues to exist, just drops out of the pool on the CRM side.
+
+**Feature flag `TELEPHONY_AUTO_QUEUE_SYNC`** (default `true`): set to `false` in backend .env to disable all PBX writes. CRM link/unlink still works in Postgres; only the SSH→MariaDB step is skipped. Kill-switch for incidents.
+
+---
+
+## Telephony Queues (read-only listing for admin UIs)
+
+**File**: `src/telephony/controllers/telephony-queues.controller.ts` (PR #295)
+**Base Route**: `/v1/telephony/queues`
+**Guards**: `JwtAuthGuard + PositionPermissionGuard` (`telephony.manage`)
+
+Queues are synced from Asterisk by `asterisk-sync` — this controller is read-only on purpose. Queue settings (strategy, announcements, etc.) are managed in FreePBX GUI; see Silent Override Risk #18 for the `isAfterHoursQueue` stickiness caveat.
+
+**Endpoints:**
+- `GET /v1/telephony/queues` - `Cache-Control: no-store`. Returns `{ id, name, strategy, isAfterHoursQueue, isActive }[]`. Used by the Position → Queue Rules matrix UI and the extensions page.
+
+---
+
+## Position → Queue Rules (admin CRUD)
+
+**File**: `src/telephony/controllers/position-queue-rules.controller.ts` (PR #295)
+**Base Route**: `/v1/telephony/position-queue-rules`
+**Guards**: `JwtAuthGuard + PositionPermissionGuard` (`telephony.manage`)
+
+Configures which Positions should automatically join which queues at extension-link time. Consumed by `ExtensionLinkService` during link/unlink/resync.
+
+**Endpoints:**
+- `GET /v1/telephony/position-queue-rules` - `Cache-Control: no-store`. Returns `PositionQueueRule[]` with flattened `positionName`, `positionNameKa`, `positionCode`, `queueName`, `isAfterHoursQueue` for the matrix UI.
+- `POST /v1/telephony/position-queue-rules` - Body: `{ positionId, queueId }`. Upsert on compound unique `[positionId, queueId]` — double-clicks are idempotent, no P2002.
+- `DELETE /v1/telephony/position-queue-rules/:id` - `deleteMany` — removing an already-gone rule is a no-op (204, not 404). Idempotent for matrix UI toggles.
+
+---
+
 ## Client Chats Queue Management (Manager)
 
 **File**: `src/clientchats/controllers/clientchats-manager.controller.ts`  
