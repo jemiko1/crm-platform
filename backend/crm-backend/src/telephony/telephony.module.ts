@@ -106,6 +106,7 @@ import { DataScopeService } from '../common/utils/data-scope';
     MissedCallsService,
     OperatorBreakService,
     OperatorDndService,
+    ExtensionLinkService,
   ],
 })
 export class TelephonyModule {}
