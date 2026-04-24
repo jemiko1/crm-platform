@@ -182,7 +182,8 @@ export class TelephonyLiveService {
     todayStart.setHours(0, 0, 0, 0);
 
     const extensions = await this.prisma.telephonyExtension.findMany({
-      where: { isActive: true, isOperator: true },
+      // Pool rows (crmUserId=null) have no agent — skip from live roster.
+      where: { isActive: true, isOperator: true, crmUserId: { not: null } },
       select: { crmUserId: true, displayName: true },
     });
 
@@ -190,6 +191,7 @@ export class TelephonyLiveService {
 
     // B7 — exclude internal ext-to-ext from agent-level live counts too.
     for (const ext of extensions) {
+      if (!ext.crmUserId) continue;
       const activeCall = await this.prisma.callSession.findFirst({
         where: {
           assignedUserId: ext.crmUserId,

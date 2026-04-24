@@ -111,6 +111,8 @@ export class AgentPresenceService {
     const stale = await this.prisma.telephonyExtension.findMany({
       where: {
         sipRegistered: true,
+        // Pool rows can't be "stale" — they have no operator to notify.
+        crmUserId: { not: null },
         // Treat null lastSeenAt as stale if the row claims registered — this
         // can only happen if the column was populated out-of-band.
         OR: [
@@ -140,10 +142,12 @@ export class AgentPresenceService {
       `SIP presence sweep: flipped ${stale.length} extension(s) to offline (no heartbeat in ${AgentPresenceService.STALE_AFTER_MS / 1000}s)`,
     );
 
-    return stale.map((s) => ({
-      crmUserId: s.crmUserId,
-      extension: s.extension,
-    }));
+    return stale
+      .filter((s): s is typeof s & { crmUserId: string } => s.crmUserId !== null)
+      .map((s) => ({
+        crmUserId: s.crmUserId,
+        extension: s.extension,
+      }));
   }
 
   /**

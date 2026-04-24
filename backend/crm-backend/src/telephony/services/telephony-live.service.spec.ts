@@ -40,4 +40,34 @@ describe("TelephonyLiveService", () => {
       expect(stateManager.isAmiConnected).toHaveBeenCalled();
     });
   });
+
+  describe("getAgentLiveState (pool model)", () => {
+    it("excludes pool rows (crmUserId=null) from the live roster", async () => {
+      // Regression guard for the pool-model migration: a pool extension row
+      // (crmUserId=null) must never appear as an agent in live state,
+      // otherwise managers see phantom "offline" agents for every spare
+      // extension sitting in FreePBX.
+      prisma.telephonyExtension.findMany.mockResolvedValue([
+        { crmUserId: "user-1", displayName: "Alice" },
+      ]);
+      // The service calls prisma a second time inside attachSipPresence; stub
+      // it to return an empty presence array so that call resolves cleanly.
+      prisma.telephonyExtension.findMany
+        .mockResolvedValueOnce([{ crmUserId: "user-1", displayName: "Alice" }])
+        .mockResolvedValueOnce([]);
+      prisma.callSession.findFirst.mockResolvedValue(null);
+      prisma.callSession.count.mockResolvedValue(0);
+
+      const res = await service.getAgentLiveState();
+
+      expect(res).toHaveLength(1);
+      expect(res[0].userId).toBe("user-1");
+      // Critically: the WHERE clause must filter out null crmUserId rows,
+      // otherwise the map below crashes (userId: null) or leaks pool data.
+      const findManyCall = prisma.telephonyExtension.findMany.mock.calls[0][0];
+      expect(findManyCall.where).toMatchObject({
+        crmUserId: { not: null },
+      });
+    });
+  });
 });

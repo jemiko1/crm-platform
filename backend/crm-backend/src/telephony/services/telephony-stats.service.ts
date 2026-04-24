@@ -172,8 +172,10 @@ export class TelephonyStatsService {
       where: { crmUserId: { in: userIds } },
       select: { crmUserId: true, displayName: true },
     });
+    // Non-null assertion is safe: the `where: { crmUserId: { in: userIds } }`
+    // filter above ensures only rows with a populated crmUserId come back.
     const nameMap = new Map(
-      extensions.map((e) => [e.crmUserId as string, e.displayName]),
+      extensions.map((e) => [e.crmUserId!, e.displayName]),
     );
 
     const legMap = new Map(legAgg.map((r) => [r.userId, r]));
@@ -545,7 +547,7 @@ export class TelephonyStatsService {
       select: { crmUserId: true, displayName: true, extension: true },
     });
     const extMap = new Map(
-      extensions.map((e) => [e.crmUserId as string, e]),
+      extensions.map((e) => [e.crmUserId!, e]),
     );
     const legMap = new Map(legAgg.map((r) => [r.userId, r]));
 

@@ -113,13 +113,19 @@ export class AsteriskSyncService implements OnModuleInit {
       const statuses: Record<string, string> = {};
       const extensionData: Array<{
         extension: string;
-        crmUserId: string;
+        crmUserId: string | null;
         displayName: string;
       }> = [];
 
       for (const ep of endpoints) {
         statuses[ep.extension] = ep.status;
 
+        // ORDER IS LOAD-BEARING: the `if (existing)` early-return below is
+        // what prevents the auto-link create path from ever hitting P2002
+        // on the `extension` unique index. Do NOT reorder: if you move the
+        // create path above this lookup, or remove the `continue`, you'll
+        // hit a silent duplicate-extension failure the next time the cron
+        // runs against an already-synced extension.
         const existing = await this.prisma.telephonyExtension.findUnique({
           where: { extension: ep.extension },
         });
