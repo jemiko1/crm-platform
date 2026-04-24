@@ -12,21 +12,17 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { IsBoolean, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, IsUUID } from 'class-validator';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { PositionPermissionGuard } from '../../common/guards/position-permission.guard';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AsteriskSyncService } from '../sync/asterisk-sync.service';
+import { ExtensionLinkService } from '../services/extension-link.service';
 import { Doc } from '../../common/openapi/doc-endpoint.decorator';
 
-class UpsertExtensionDto {
-  @IsString() crmUserId!: string;
-  @IsString() extension!: string;
-  @IsString() displayName!: string;
-  @IsString() @IsOptional() sipServer?: string;
-  @IsString() @IsOptional() sipPassword?: string;
-  @IsBoolean() @IsOptional() isOperator?: boolean;
+class LinkExtensionDto {
+  @IsUUID() userId!: string;
 }
 
 class UpdateExtensionDto {
@@ -45,6 +41,7 @@ export class TelephonyExtensionsController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly asteriskSync: AsteriskSyncService,
+    private readonly linkService: ExtensionLinkService,
   ) {}
 
   @Post('sync-now')
@@ -136,51 +133,52 @@ export class TelephonyExtensionsController {
     });
   }
 
-  @Post()
+  @Post(':id/link')
+  @HttpCode(HttpStatus.OK)
   @UseGuards(PositionPermissionGuard)
   @RequirePermission('telephony.manage')
   @Doc({
-    summary: 'Create or update extension for CRM user',
-    ok: 'Upserted extension row',
-    status: 201,
-    bodyType: UpsertExtensionDto,
+    summary: 'Link an employee to a pool extension',
+    ok: 'Link applied; AMI QueueAdd emitted per PositionQueueRule',
+    notFound: true,
+    bodyType: LinkExtensionDto,
+    params: [{ name: 'id', description: 'Extension UUID' }],
     permission: true,
   })
-  async upsert(@Body() dto: UpsertExtensionDto) {
-    // TODO(extension-pool PR-2): this upsert predates the pool model. It
-    // lookups by crmUserId only — if `dto.extension` is already a pool row
-    // with crmUserId=NULL, we'll try to create a second row for the same
-    // extension number and hit P2002 on the `extension` unique index.
-    // Replace with a "link pool row to user" action before the admin UI
-    // ships, or this endpoint breaks the first time an admin targets a
-    // pool extension.
-    const existing = await this.prisma.telephonyExtension.findUnique({
-      where: { crmUserId: dto.crmUserId },
-    });
+  async link(@Param('id') id: string, @Body() dto: LinkExtensionDto) {
+    await this.linkService.link(id, dto.userId);
+    return { ok: true };
+  }
 
-    if (existing) {
-      return this.prisma.telephonyExtension.update({
-        where: { id: existing.id },
-        data: {
-          extension: dto.extension,
-          displayName: dto.displayName,
-          sipServer: dto.sipServer ?? null,
-          sipPassword: dto.sipPassword ?? null,
-          isOperator: dto.isOperator ?? true,
-        },
-      });
-    }
+  @Post(':id/unlink')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('telephony.manage')
+  @Doc({
+    summary: 'Unlink the employee currently on an extension (returns extension to pool)',
+    ok: 'Unlink applied; AMI QueueRemove emitted per PositionQueueRule',
+    notFound: true,
+    params: [{ name: 'id', description: 'Extension UUID' }],
+    permission: true,
+  })
+  async unlink(@Param('id') id: string) {
+    await this.linkService.unlink(id);
+    return { ok: true };
+  }
 
-    return this.prisma.telephonyExtension.create({
-      data: {
-        crmUserId: dto.crmUserId,
-        extension: dto.extension,
-        displayName: dto.displayName,
-        sipServer: dto.sipServer ?? null,
-        sipPassword: dto.sipPassword ?? null,
-        isOperator: dto.isOperator ?? true,
-      },
-    });
+  @Post(':id/resync-queues')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('telephony.manage')
+  @Doc({
+    summary: 'Re-apply queue membership for a linked extension (idempotent)',
+    ok: 'Applied count + skipped queue names',
+    notFound: true,
+    params: [{ name: 'id', description: 'Extension UUID' }],
+    permission: true,
+  })
+  async resyncQueues(@Param('id') id: string) {
+    return this.linkService.resyncQueues(id);
   }
 
   @Patch(':id')

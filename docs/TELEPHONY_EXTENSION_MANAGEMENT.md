@@ -148,6 +148,42 @@ If you already have extensions in FreePBX before this PR deploys:
 - Do not run any `asterisk-sync` reset, truncate, or data migration. The
   migration is schema-only.
 
+## Feature flag: `TELEPHONY_AUTO_QUEUE_SYNC`
+
+Kill-switch for the AMI queue-sync behaviour of the link/unlink flow
+(PR #296 onwards). Set in backend `.env`:
+
+```
+TELEPHONY_AUTO_QUEUE_SYNC=true   # default — link/unlink emit AMI QueueAdd/Remove
+TELEPHONY_AUTO_QUEUE_SYNC=false  # kill-switch — CRM link/unlink still works, AMI untouched
+```
+
+**When to flip to `false`:**
+- AMI Bridge is misbehaving (wrong queues, mass-remove, etc.).
+- You want to do a round of bulk link/unlink in CRM without side-effects,
+  then re-enable and run `resync-queues` per extension.
+- The PBX is being worked on manually and you don't want CRM to interfere.
+
+After flipping, `pm2 restart crm-backend` on the VM. No rebuild needed.
+
+## Rollback procedure for the link/unlink feature
+
+If the ExtensionLinkService causes problems in production:
+
+1. **Immediately**: set `TELEPHONY_AUTO_QUEUE_SYNC=false` in backend .env,
+   `pm2 restart crm-backend`. Stops all further AMI QueueAdd/Remove emission.
+   Admin UI's Link/Unlink buttons still work (just no queue side-effect).
+2. **Before the feature merged, you should have run**
+   `scripts/telephony/snapshot-queue-members.sh` to capture the pre-deploy
+   state. Use the captured `queue-show.txt` to diff against the current live
+   state and see exactly which queue memberships need to be repaired.
+3. **Repair**: use FreePBX GUI → Queues → [queue] → Static Agents to
+   restore the membership list from the snapshot, OR run
+   `POST /v1/telephony/extensions/:id/resync-queues` per linked extension
+   once the underlying bug is fixed.
+4. **If you need to revert the code too**: `git revert <merge commit>` on
+   master and redeploy. Tag `pre-link-feature-*` points at the safe commit.
+
 ## What CRM does NOT do
 
 Explicitly called out so nobody adds it back by mistake:
