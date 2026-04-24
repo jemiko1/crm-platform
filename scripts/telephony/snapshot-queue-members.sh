@@ -61,18 +61,23 @@ ssh asterisk "sudo mysql -u root asterisk -e \"SELECT id,keyword,data FROM queue
 # Captures which operators are currently linked to which extensions, plus
 # the PositionQueueRule configuration that the service will consume.
 echo "==[ 4/4 ] CRM Postgres: TelephonyExtension + PositionQueueRule"
+# PowerShell on the VM chokes on `--pset=footer=off` (sees the = as
+# argument-parse error). Use default table format via -c only — still
+# human-readable for a restore reference, and avoids the quoting war.
+# The --% stop-parsing token tells PowerShell to pass everything after
+# it to the exe verbatim.
 ssh -i ~/.ssh/id_ed25519_vm Administrator@192.168.65.110 \
-  "& 'C:/postgresql17/pgsql/bin/psql.exe' -U postgres -d crm -A -F , --pset=footer=off -c \"SELECT e.extension, e.\\\"crmUserId\\\", e.\\\"displayName\\\", e.\\\"isActive\\\", u.email FROM \\\"TelephonyExtension\\\" e LEFT JOIN \\\"User\\\" u ON u.id = e.\\\"crmUserId\\\" ORDER BY e.extension\"" \
-  > "$OUT_DIR/crm-extensions.csv" || {
+  'C:/postgresql17/pgsql/bin/psql.exe --% -U postgres -d crm -c "SELECT e.extension, e.\"crmUserId\", e.\"displayName\", e.\"isActive\", u.email FROM \"TelephonyExtension\" e LEFT JOIN \"User\" u ON u.id = e.\"crmUserId\" ORDER BY e.extension"' \
+  > "$OUT_DIR/crm-extensions.txt" || {
     echo "WARN: could not reach VM Postgres — CRM snapshot skipped. PBX snapshots are still valid."
 }
 
 ssh -i ~/.ssh/id_ed25519_vm Administrator@192.168.65.110 \
-  "& 'C:/postgresql17/pgsql/bin/psql.exe' -U postgres -d crm -A -F , --pset=footer=off -c \"SELECT p.code AS position, q.name AS queue FROM \\\"PositionQueueRule\\\" r JOIN \\\"Position\\\" p ON p.id = r.\\\"positionId\\\" JOIN \\\"TelephonyQueue\\\" q ON q.id = r.\\\"queueId\\\" ORDER BY p.code, q.name\"" \
-  > "$OUT_DIR/crm-position-queue-rules.csv" || true
+  'C:/postgresql17/pgsql/bin/psql.exe --% -U postgres -d crm -c "SELECT p.code AS position, q.name AS queue FROM \"PositionQueueRule\" r JOIN \"Position\" p ON p.id = r.\"positionId\" JOIN \"TelephonyQueue\" q ON q.id = r.\"queueId\" ORDER BY p.code, q.name"' \
+  > "$OUT_DIR/crm-position-queue-rules.txt" || true
 
 # --- SHA256 manifest for tamper detection -----------------------------------
-( cd "$OUT_DIR" && sha256sum ./*.txt ./*.csv 2>/dev/null > SHA256SUMS ) || true
+( cd "$OUT_DIR" && sha256sum ./*.txt 2>/dev/null > SHA256SUMS ) || true
 
 echo
 echo "===================================================================="
@@ -81,8 +86,8 @@ echo "===================================================================="
 echo "  - queue-show.txt                  (PBX live queue members)"
 echo "  - pjsip-endpoints.txt             (PBX PJSIP endpoints + state)"
 echo "  - mariadb-queues.txt              (PBX static queue config)"
-echo "  - crm-extensions.csv              (CRM link state)"
-echo "  - crm-position-queue-rules.csv    (CRM rules for the service to consume)"
+echo "  - crm-extensions.txt              (CRM link state)"
+echo "  - crm-position-queue-rules.txt    (CRM rules for the service to consume)"
 echo "  - SHA256SUMS                      (integrity manifest)"
 echo
 echo "To roll back if this PR misbehaves:"
