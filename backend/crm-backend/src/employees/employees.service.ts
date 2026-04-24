@@ -1,14 +1,77 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+  forwardRef,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { paginate, buildPaginatedResponse } from '../common/dto/pagination.dto';
 import * as bcrypt from 'bcrypt';
 import { UserRole } from '@prisma/client';
+import { ExtensionLinkService } from '../telephony/services/extension-link.service';
 
 @Injectable()
 export class EmployeesService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(EmployeesService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    @Inject(forwardRef(() => ExtensionLinkService))
+    private readonly extensionLinkService: ExtensionLinkService,
+  ) {}
+
+  /**
+   * Auto-unlink the user's TelephonyExtension before dismissal / hard-delete.
+   *
+   * Rationale: a dismissed operator must stop receiving queue calls
+   * immediately, even though their JWT stays valid up to 24h (documented
+   * known gap — Option X from the dismissal-flow review). The unlink
+   * service emits AMI QueueRemove per PositionQueueRule for the
+   * operator's Position AND nulls crmUserId on the extension row, which
+   * returns the extension to the pool so admin can link someone else.
+   *
+   * For hard-delete this runs BEFORE the User row is deleted — otherwise
+   * the FK `onDelete: SetNull` would null crmUserId first and the unlink
+   * service would short-circuit with no AMI emitted (since the Position
+   * lookup goes through the User row).
+   *
+   * Failures are logged-and-swallowed: a PBX outage or AMI disconnect
+   * must NOT block an HR dismissal. If AMI is down, the extension still
+   * ends up in the pool (the DB part of unlink always succeeds); the
+   * queue-membership drift is something admin can reconcile later with
+   * the Resync button.
+   *
+   * Partial-failure window: because this runs BEFORE the dismissal /
+   * hard-delete transaction, if that transaction throws and the admin
+   * abandons the dismissal instead of retrying, the operator ends up
+   * in a limbo state — still ACTIVE in Employee/User, but unlinked in
+   * Telephony. Admin must re-link via the extensions page to restore
+   * call routing. Retrying dismiss is always safe (unlink is idempotent
+   * via the service's early-return on already-null crmUserId).
+   */
+  private async autoUnlinkForUser(userId: string, context: 'dismiss' | 'hardDelete'): Promise<void> {
+    try {
+      const ext = await this.prisma.telephonyExtension.findFirst({
+        where: { crmUserId: userId },
+        select: { id: true, extension: true },
+      });
+      if (!ext) return;
+      await this.extensionLinkService.unlink(ext.id);
+      this.logger.log(
+        `${context}: auto-unlinked extension ${ext.extension} from user ${userId}`,
+      );
+    } catch (err: any) {
+      this.logger.warn(
+        `${context}: auto-unlink failed for user ${userId} — ${err?.message ?? err}. ` +
+          `Proceeding with ${context}; admin may need to manually resync queues in FreePBX.`,
+      );
+    }
+  }
 
   private async assertNotSuperAdmin(employeeId: string): Promise<void> {
     const user = await this.prisma.user.findFirst({
@@ -506,6 +569,14 @@ export class EmployeesService {
       }
     }
 
+    // Auto-unlink telephony extension (AMI QueueRemove + return to pool)
+    // BEFORE opening the DB transaction — keeps AMI network I/O outside
+    // the transaction scope. If AMI is down, unlink degrades gracefully
+    // and dismissal still proceeds.
+    if (employee.userId) {
+      await this.autoUnlinkForUser(employee.userId, 'dismiss');
+    }
+
     return this.prisma.$transaction(async (tx) => {
       if (!constraints.canDelete && delegateToEmployeeId) {
         await tx.lead.updateMany({
@@ -732,6 +803,15 @@ export class EmployeesService {
     }
 
     const employeeName = `${employee.firstName} ${employee.lastName} (${employee.employeeId})`;
+
+    // Auto-unlink telephony extension before the User is deleted. MUST run
+    // before the transaction: once tx.user.delete fires, the onDelete:SetNull
+    // FK nulls crmUserId, after which unlink becomes a no-op (no Position to
+    // derive queues from). See comment on autoUnlinkForUser for the full
+    // rationale.
+    if (employee.userId) {
+      await this.autoUnlinkForUser(employee.userId, 'hardDelete');
+    }
 
     await this.prisma.$transaction(async (tx) => {
       if (!constraints.canDelete && delegateToEmployeeId) {

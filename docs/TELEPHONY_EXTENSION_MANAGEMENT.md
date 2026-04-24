@@ -103,38 +103,51 @@ generic avoids drift when employees rotate through extensions.
 Two triggers:
 
 1. **Admin clicks "Unlink"** in Telephony → Extensions.
-2. **Employee is dismissed / hard-deleted** in HR. The FK cascade
-   (`onDelete: SetNull`) nullifies `crmUserId` automatically; a post-delete
-   hook emits the AMI actions.
+2. **Employee is dismissed or hard-deleted** in HR (`employees.service.ts`
+   `dismiss()` / `hardDelete()`). An auto-unlink hook runs BEFORE the
+   dismissal transaction — it looks up the user's extension, calls
+   `ExtensionLinkService.unlink(ext.id)` which emits AMI `QueueRemove` +
+   nulls `crmUserId`, and only then proceeds with the existing dismissal
+   flow. If AMI is down (or any other failure), the hook logs and swallows
+   the error so HR dismissal is never blocked by a PBX outage; admin can
+   reconcile queue membership later via the Resync button or FreePBX GUI.
 
 Both paths execute:
 
 - `TelephonyExtension.crmUserId = NULL` (back to pool).
 - AMI `QueueRemove` for every queue mapped to the (ex-)employee's Position.
-- CRM force-logout of the user's active session (separate cross-cutting
-  work, see Known gap below).
 
 **No FreePBX change**. The extension's SIP password is unchanged; if the
 dismissed operator's softphone keeps running, their SIP registration
 survives until its natural expiry (~1 hour default) — but they are already
 kicked from all queues so inbound queue calls don't reach them.
 
-## Known gap: residual SIP registration after dismissal
+## Known gaps after dismissal
 
-Today, a dismissed employee's running softphone can still:
+A dismissed employee's running softphone can still, until their JWT
+expires (up to 24h) or their SIP registration naturally times out:
 
-- Make outbound calls until SIP expires (~1 hour).
-- Receive direct extension dials until SIP expires.
+- **Make outbound calls** until SIP expires (~1 hour default).
+- **Receive direct extension dials** until SIP expires.
+- **Log into CRM on a new device** — the JWT strategy today does not
+  consult `User.isActive`, so existing tokens keep working until their
+  24h TTL runs out. A fresh login is blocked because
+  `auth.validateCredentials` does check `isActive`.
 
 It **cannot**:
 
-- Receive queue calls (we AMI `QueueRemove` them immediately).
-- Log into CRM on a new device (once force-logout ships).
+- **Receive queue calls** — the dismissal/hard-delete hook emits AMI
+  `QueueRemove` immediately. This is the main operational concern for
+  dismissed call-center operators, and it IS fixed.
 
-For the office-based, equipment-returned-on-exit threat model this is
-acceptable. If higher assurance is ever needed, the mitigation is to
-rotate the SIP password in FreePBX GUI at dismissal time — no CRM code
-change needed, that path still works.
+For the office-based, equipment-returned-on-exit threat model the above
+gaps are acceptable. If higher assurance is needed, the mitigations are:
+
+1. Rotate the SIP password in FreePBX GUI at dismissal time — stops SIP
+   outright, no CRM code change needed.
+2. Add a `User.tokenVersion` column + bump on dismissal (Option Y from the
+   termination-flow review — explicitly descoped; see
+   `audit/CURRENT_WORKSTREAM.md`).
 
 ## What existing extensions need
 
