@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { ExtensionLinkService } from './extension-link.service';
 import { PrismaService } from '../../prisma/prisma.service';
-import { AmiClientService } from '../ami/ami-client.service';
+import { PbxQueueMemberClient } from '../pbx/pbx-queue-member.client';
 
 describe('ExtensionLinkService', () => {
   let service: ExtensionLinkService;
@@ -20,7 +20,7 @@ describe('ExtensionLinkService', () => {
     user: { findUnique: jest.Mock };
     positionQueueRule: { findMany: jest.Mock };
   };
-  let ami: { sendAction: jest.Mock };
+  let pbx: { addMember: jest.Mock; removeMember: jest.Mock; listMembers: jest.Mock };
   const ORIG_ENV = process.env.TELEPHONY_AUTO_QUEUE_SYNC;
 
   async function build(envOverride?: string) {
@@ -37,13 +37,17 @@ describe('ExtensionLinkService', () => {
       user: { findUnique: jest.fn() },
       positionQueueRule: { findMany: jest.fn().mockResolvedValue([]) },
     };
-    ami = { sendAction: jest.fn().mockResolvedValue({}) };
+    pbx = {
+      addMember: jest.fn().mockResolvedValue(undefined),
+      removeMember: jest.fn().mockResolvedValue(undefined),
+      listMembers: jest.fn().mockResolvedValue([]),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ExtensionLinkService,
         { provide: PrismaService, useValue: prisma },
-        { provide: AmiClientService, useValue: ami },
+        { provide: PbxQueueMemberClient, useValue: pbx },
       ],
     }).compile();
     service = module.get(ExtensionLinkService);
@@ -86,12 +90,12 @@ describe('ExtensionLinkService', () => {
       await expect(service.link('ext-1', 'user-1')).rejects.toThrow(/already linked to extension 216/);
     });
 
-    it('emits QueueAdd for every active rule on the user Position', async () => {
+    it('calls pbx.addMember for every active rule on the user Position', async () => {
       prisma.telephonyExtension.findUnique.mockResolvedValue({
         id: 'ext-1', extension: '215', crmUserId: null, isActive: true, displayName: 'pool',
       });
       prisma.user.findUnique.mockResolvedValue({
-        id: 'user-1', isActive: true,
+        id: 'user-1', email: 'mariam@asg.ge', isActive: true,
         employee: { firstName: 'Mariam', lastName: 'Malichava', positionId: 'pos-1' },
       });
       prisma.positionQueueRule.findMany.mockResolvedValue([
@@ -102,26 +106,28 @@ describe('ExtensionLinkService', () => {
 
       await service.link('ext-1', 'user-1');
 
-      // DB write happened via race-guarded updateMany
+      // DB write via race-guarded updateMany
       expect(prisma.telephonyExtension.updateMany).toHaveBeenCalledWith({
         where: { id: 'ext-1', crmUserId: null },
         data: { crmUserId: 'user-1', displayName: 'Mariam Malichava' },
       });
-      // AMI emitted 2 QueueAdd actions (inactive queue skipped)
-      expect(ami.sendAction).toHaveBeenCalledTimes(2);
-      const interfaces = ami.sendAction.mock.calls.map((c) => c[0].Interface);
-      expect(interfaces.every((i) => i === 'Local/215@from-queue/n')).toBe(true);
-      // Uses the correct FreePBX format, NOT PJSIP (Silent Override Risk #26)
-      expect(interfaces.some((i) => /PJSIP/.test(i))).toBe(false);
+      // PBX: 2 calls (inactive queue skipped). Interface format is handled
+      // inside the SSH helper — ExtensionLinkService only passes queue
+      // name + extension number.
+      expect(pbx.addMember).toHaveBeenCalledTimes(2);
+      expect(pbx.addMember).toHaveBeenCalledWith('30', '215');
+      expect(pbx.addMember).toHaveBeenCalledWith('800', '215');
+      // Must NOT have called removeMember during a link
+      expect(pbx.removeMember).not.toHaveBeenCalled();
     });
 
-    it('skips AMI entirely when TELEPHONY_AUTO_QUEUE_SYNC=false (kill switch)', async () => {
+    it('skips PBX calls entirely when TELEPHONY_AUTO_QUEUE_SYNC=false (kill switch)', async () => {
       await build('false');
       prisma.telephonyExtension.findUnique.mockResolvedValue({
         id: 'ext-1', extension: '215', crmUserId: null, isActive: true, displayName: 'pool',
       });
       prisma.user.findUnique.mockResolvedValue({
-        id: 'user-1', isActive: true,
+        id: 'user-1', email: 'x@y.z', isActive: true,
         employee: { firstName: 'X', lastName: 'Y', positionId: 'pos-1' },
       });
       prisma.positionQueueRule.findMany.mockResolvedValue([
@@ -130,50 +136,26 @@ describe('ExtensionLinkService', () => {
 
       await service.link('ext-1', 'user-1');
 
-      // DB write STILL happened — kill-switch only disables AMI, not CRM state
+      // DB write STILL happened — kill-switch only disables PBX path,
+      // not CRM state
       expect(prisma.telephonyExtension.updateMany).toHaveBeenCalled();
-      // AMI must NOT have been called at all
-      expect(ami.sendAction).not.toHaveBeenCalled();
-    });
-
-    it('treats "Already there" as success (idempotent QueueAdd)', async () => {
-      prisma.telephonyExtension.findUnique.mockResolvedValue({
-        id: 'ext-1', extension: '215', crmUserId: null, isActive: true, displayName: 'pool',
-      });
-      prisma.user.findUnique.mockResolvedValue({
-        id: 'user-1', isActive: true,
-        employee: { firstName: 'X', lastName: 'Y', positionId: 'pos-1' },
-      });
-      prisma.positionQueueRule.findMany.mockResolvedValue([
-        { queue: { name: '30', isActive: true } },
-      ]);
-      // asterisk-manager plain-object reject shape (Silent Override Risk #26)
-      ami.sendAction.mockRejectedValueOnce({
-        response: 'error',
-        message: 'Unable to add interface: Already there',
-      });
-
-      await expect(service.link('ext-1', 'user-1')).resolves.toBeUndefined();
+      // PBX must NOT have been called at all
+      expect(pbx.addMember).not.toHaveBeenCalled();
+      expect(pbx.removeMember).not.toHaveBeenCalled();
     });
 
     it('throws Conflict if the row state changed mid-request (updateMany count=0)', async () => {
-      // Regression guard for the race where another admin linked/unlinked
-      // the same row between our findUnique and update. Without the
-      // count-check we would have silently applied AMI with stale
-      // assumptions about the current link state.
       prisma.telephonyExtension.findUnique.mockResolvedValue({
         id: 'ext-1', extension: '215', crmUserId: null, isActive: true, displayName: 'pool',
       });
       prisma.user.findUnique.mockResolvedValue({
-        id: 'user-1', isActive: true,
+        id: 'user-1', email: 'x@y.z', isActive: true,
         employee: { firstName: 'X', lastName: 'Y', positionId: 'pos-1' },
       });
       prisma.telephonyExtension.updateMany.mockResolvedValue({ count: 0 });
 
       await expect(service.link('ext-1', 'user-1')).rejects.toThrow(ConflictException);
-      // Critically: AMI must NOT have been called when the DB write was
-      // a no-op, otherwise we'd spuriously add someone to queues.
-      expect(ami.sendAction).not.toHaveBeenCalled();
+      expect(pbx.addMember).not.toHaveBeenCalled();
     });
 
     it('succeeds with no queues when employee has no Position', async () => {
@@ -181,7 +163,7 @@ describe('ExtensionLinkService', () => {
         id: 'ext-1', extension: '215', crmUserId: null, isActive: true, displayName: 'pool',
       });
       prisma.user.findUnique.mockResolvedValue({
-        id: 'user-1', isActive: true,
+        id: 'user-1', email: 'x@y.z', isActive: true,
         employee: { firstName: 'X', lastName: 'Y', positionId: null },
       });
 
@@ -189,7 +171,31 @@ describe('ExtensionLinkService', () => {
 
       expect(prisma.telephonyExtension.updateMany).toHaveBeenCalled();
       expect(prisma.positionQueueRule.findMany).not.toHaveBeenCalled();
-      expect(ami.sendAction).not.toHaveBeenCalled();
+      expect(pbx.addMember).not.toHaveBeenCalled();
+    });
+
+    it('reports skipped queues when pbx.addMember fails for a subset', async () => {
+      // Partial-failure path: one queue's fwconsole reload fails, the
+      // other succeeds. The service must not throw — the admin can retry
+      // via Resync — but the failure must be logged.
+      prisma.telephonyExtension.findUnique.mockResolvedValue({
+        id: 'ext-1', extension: '215', crmUserId: null, isActive: true, displayName: 'pool',
+      });
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-1', email: 'x@y.z', isActive: true,
+        employee: { firstName: 'X', lastName: 'Y', positionId: 'pos-1' },
+      });
+      prisma.positionQueueRule.findMany.mockResolvedValue([
+        { queue: { name: '30', isActive: true } },
+        { queue: { name: '800', isActive: true } },
+      ]);
+      pbx.addMember
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(new Error('fwconsole reload timed out'));
+
+      // link() itself returns void; partial PBX failures are absorbed
+      await expect(service.link('ext-1', 'user-1')).resolves.toBeUndefined();
+      expect(pbx.addMember).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -204,13 +210,10 @@ describe('ExtensionLinkService', () => {
       });
       await service.unlink('ext-1');
       expect(prisma.telephonyExtension.updateMany).not.toHaveBeenCalled();
-      expect(ami.sendAction).not.toHaveBeenCalled();
+      expect(pbx.removeMember).not.toHaveBeenCalled();
     });
 
     it('derives Position BEFORE nulling crmUserId (ORDER is load-bearing)', async () => {
-      // Regression guard: the service must look up the linked user's
-      // Position before it writes crmUserId=null. This test verifies the
-      // lookup is issued, the update fires, and QueueRemove is emitted.
       prisma.telephonyExtension.findUnique.mockResolvedValue({
         id: 'ext-1', extension: '215', crmUserId: 'user-1', displayName: 'Mariam',
       });
@@ -231,11 +234,15 @@ describe('ExtensionLinkService', () => {
         where: { id: 'ext-1', crmUserId: 'user-1' },
         data: { crmUserId: null },
       });
-      expect(ami.sendAction).toHaveBeenCalledTimes(1);
-      expect(ami.sendAction.mock.calls[0][0].Action).toBe('QueueRemove');
+      expect(pbx.removeMember).toHaveBeenCalledWith('30', '215');
+      expect(pbx.addMember).not.toHaveBeenCalled();
     });
 
-    it('treats "Not there" as success on QueueRemove', async () => {
+    it('absorbs PBX removeMember errors — CRM state is already consistent', async () => {
+      // The SSH helper is naturally idempotent, so any error is a real
+      // failure (SSH down, fwconsole timeout). unlink must not throw —
+      // the CRM row is already nulled and admin can reconcile via Resync
+      // on a future link.
       prisma.telephonyExtension.findUnique.mockResolvedValue({
         id: 'ext-1', extension: '215', crmUserId: 'user-1', displayName: 'X',
       });
@@ -243,10 +250,7 @@ describe('ExtensionLinkService', () => {
       prisma.positionQueueRule.findMany.mockResolvedValue([
         { queue: { name: '30', isActive: true } },
       ]);
-      ami.sendAction.mockRejectedValueOnce({
-        response: 'error',
-        message: 'Unable to remove interface from queue: Not there',
-      });
+      pbx.removeMember.mockRejectedValueOnce(new Error('SSH connect failed'));
 
       await expect(service.unlink('ext-1')).resolves.toBeUndefined();
     });
@@ -264,7 +268,7 @@ describe('ExtensionLinkService', () => {
       await expect(service.resyncQueues('ext-1')).rejects.toThrow(BadRequestException);
     });
 
-    it('re-applies QueueAdd per current CRM state', async () => {
+    it('re-applies addMember per current CRM state', async () => {
       prisma.telephonyExtension.findUnique.mockResolvedValue({
         id: 'ext-1', extension: '215', crmUserId: 'user-1', displayName: 'Mariam',
       });
@@ -277,7 +281,7 @@ describe('ExtensionLinkService', () => {
       const result = await service.resyncQueues('ext-1');
 
       expect(result.applied).toBe(2);
-      expect(ami.sendAction.mock.calls.every((c) => c[0].Action === 'QueueAdd')).toBe(true);
+      expect(pbx.addMember).toHaveBeenCalledTimes(2);
     });
   });
 });
