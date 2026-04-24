@@ -38,6 +38,7 @@ import { OperatorDndService } from './services/operator-dnd.service';
 import { OperatorDndController } from './controllers/operator-dnd.controller';
 import { PositionQueueRulesController } from './controllers/position-queue-rules.controller';
 import { TelephonyQueuesController } from './controllers/telephony-queues.controller';
+import { ExtensionLinkService } from './services/extension-link.service';
 import { DataScopeService } from '../common/utils/data-scope';
 
 @Module({
@@ -87,6 +88,7 @@ import { DataScopeService } from '../common/utils/data-scope';
     MissedCallsService,
     OperatorBreakService,
     OperatorDndService,
+    ExtensionLinkService,
     DataScopeService,
   ],
   exports: [

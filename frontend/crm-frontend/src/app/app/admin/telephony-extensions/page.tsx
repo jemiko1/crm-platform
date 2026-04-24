@@ -1,29 +1,34 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, Fragment } from "react";
-import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { apiGet, apiPatch, apiPost } from "@/lib/api";
 import { PermissionGuard } from "@/lib/permission-guard";
 import { useI18nContext } from "@/contexts/i18n-context";
 
 const BRAND = "rgb(0, 86, 83)";
 
-type ExtConfig = {
+type Extension = {
   id: string;
   extension: string;
   displayName: string;
   sipServer: string | null;
-  sipPassword: string | null;
   isOperator: boolean;
   isActive: boolean;
+  crmUserId: string | null;
+  user: {
+    id: string;
+    email: string;
+    role: string;
+    employee: { firstName: string; lastName: string } | null;
+  } | null;
 };
 
-type UserRow = {
+type UserWithConfig = {
   id: string;
   email: string;
-  role: string;
   employee: { firstName: string; lastName: string; status: string } | null;
-  telephonyExtension: ExtConfig | null;
+  telephonyExtension: { id: string; extension: string } | null;
 };
 
 type SyncResult = {
@@ -35,44 +40,44 @@ type SyncResult = {
 
 export default function TelephonyExtensionsPage() {
   const { t } = useI18nContext();
-  const [users, setUsers] = useState<UserRow[]>([]);
+  const [extensions, setExtensions] = useState<Extension[]>([]);
+  const [users, setUsers] = useState<UserWithConfig[]>([]);
+  const [sipStatuses, setSipStatuses] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
-  const [sipStatuses, setSipStatuses] = useState<Record<string, string>>({});
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [busyExt, setBusyExt] = useState<string | null>(null); // extension id currently being acted on
+  const [linkDialogExt, setLinkDialogExt] = useState<Extension | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  // inFlight ref mirrors softphone's useBreak pattern (Silent Override Risk
+  // #21) — React state updates are async; a synchronous double-click would
+  // fire two requests before busyExt lands. ref.current is set synchronously.
+  const inFlight = useRef(false);
 
-  const [form, setForm] = useState({
-    extension: "",
-    displayName: "",
-    sipServer: "",
-    sipPassword: "",
-    isOperator: true,
-  });
-
-  const fetchData = useCallback(async () => {
+  const fetchAll = useCallback(async () => {
     try {
       setLoading(true);
-      const [data, statuses] = await Promise.all([
-        apiGet<UserRow[]>("/v1/telephony/extensions/users-with-config"),
+      const [exts, userRows, statuses] = await Promise.all([
+        apiGet<Extension[]>("/v1/telephony/extensions"),
+        apiGet<UserWithConfig[]>("/v1/telephony/extensions/users-with-config"),
         apiGet<Record<string, string>>("/v1/telephony/extensions/sip-statuses"),
       ]);
-      setUsers(data);
+      setExtensions(exts);
+      setUsers(userRows);
       setSipStatuses(statuses);
       setError(null);
     } catch (err: any) {
-      setError(err.message || t("telephony.failedToLoad"));
+      setError(err?.message || t("telephony.failedToLoad", "Failed to load"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    fetchAll();
+  }, [fetchAll]);
 
   async function handleSyncNow() {
     try {
@@ -84,133 +89,125 @@ export default function TelephonyExtensionsPage() {
       );
       setSyncResult(result);
       setSipStatuses(result.statuses);
-      fetchData();
+      fetchAll();
       if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
       syncTimeoutRef.current = setTimeout(() => setSyncResult(null), 8000);
     } catch (err: any) {
-      setError(err.message || t("telephony.syncFailed"));
+      setError(err?.message || t("telephony.syncFailed", "Sync failed"));
     } finally {
       setSyncing(false);
     }
   }
 
-  function empName(u: UserRow) {
-    if (u.employee) return `${u.employee.firstName} ${u.employee.lastName}`;
-    return u.email;
-  }
-
-  function toggleExpand(u: UserRow) {
-    if (expandedUserId === u.id) {
-      setExpandedUserId(null);
-      return;
-    }
-    setExpandedUserId(u.id);
-    setError(null);
-    if (u.telephonyExtension) {
-      setForm({
-        extension: u.telephonyExtension.extension,
-        displayName: u.telephonyExtension.displayName,
-        sipServer: u.telephonyExtension.sipServer || "",
-        sipPassword: u.telephonyExtension.sipPassword || "",
-        isOperator: u.telephonyExtension.isOperator,
-      });
-    } else {
-      setForm({
-        extension: "",
-        displayName: empName(u),
-        sipServer: "",
-        sipPassword: "",
-        isOperator: true,
-      });
-    }
-  }
-
-  async function handleSave(u: UserRow) {
-    if (!form.extension.trim()) {
-      setError(t("telephony.extensionRequired"));
-      return;
-    }
-    if (!form.displayName.trim()) {
-      setError(t("telephony.displayNameRequired"));
-      return;
-    }
-
+  async function handleLink(extId: string, userId: string) {
+    if (inFlight.current) return;
+    inFlight.current = true;
     try {
-      setSaving(true);
+      setBusyExt(extId);
       setError(null);
-
-      if (u.telephonyExtension) {
-        await apiPatch(`/v1/telephony/extensions/${u.telephonyExtension.id}`, {
-          extension: form.extension,
-          displayName: form.displayName,
-          sipServer: form.sipServer || null,
-          sipPassword: form.sipPassword || null,
-          isOperator: form.isOperator,
-        });
-      } else {
-        await apiPost("/v1/telephony/extensions", {
-          crmUserId: u.id,
-          extension: form.extension,
-          displayName: form.displayName,
-          sipServer: form.sipServer || null,
-          sipPassword: form.sipPassword || null,
-          isOperator: form.isOperator,
-        });
-      }
-
-      setExpandedUserId(null);
-      fetchData();
+      await apiPost(`/v1/telephony/extensions/${extId}/link`, { userId });
+      setLinkDialogExt(null);
+      await fetchAll();
     } catch (err: any) {
-      setError(err.message);
+      setError(err?.message || t("telephony.linkFailed", "Link failed"));
     } finally {
-      setSaving(false);
+      setBusyExt(null);
+      inFlight.current = false;
     }
   }
 
-  async function handleRemove(u: UserRow) {
-    if (!u.telephonyExtension) return;
-    if (!confirm(`${t("telephony.confirmRemove")} ${u.telephonyExtension.extension} — ${empName(u)}?`)) return;
+  async function handleUnlink(ext: Extension) {
+    if (inFlight.current) return;
+    const name = linkedName(ext);
+    if (!confirm(
+      t("telephony.confirmUnlink", "Unlink {name} from extension {ext}? Their queue membership will be removed.").replace("{name}", name).replace("{ext}", ext.extension),
+    )) return;
+    inFlight.current = true;
     try {
+      setBusyExt(ext.id);
       setError(null);
-      await apiDelete(`/v1/telephony/extensions/${u.telephonyExtension.id}`);
-      setExpandedUserId(null);
-      fetchData();
+      await apiPost(`/v1/telephony/extensions/${ext.id}/unlink`, {});
+      await fetchAll();
     } catch (err: any) {
-      setError(err.message);
+      setError(err?.message || t("telephony.unlinkFailed", "Unlink failed"));
+    } finally {
+      setBusyExt(null);
+      inFlight.current = false;
     }
   }
 
-  async function handleToggleActive(u: UserRow) {
-    if (!u.telephonyExtension) return;
+  async function handleResync(ext: Extension) {
+    if (inFlight.current) return;
+    inFlight.current = true;
     try {
-      await apiPatch(`/v1/telephony/extensions/${u.telephonyExtension.id}`, {
-        isActive: !u.telephonyExtension.isActive,
-      });
-      fetchData();
+      setBusyExt(ext.id);
+      setError(null);
+      const result = await apiPost<{
+        applied: number;
+        skipped: string[];
+        reason?: 'no-position' | 'auto-queue-sync-disabled';
+      }>(`/v1/telephony/extensions/${ext.id}/resync-queues`, {});
+
+      let msg: string;
+      if (result.reason === 'auto-queue-sync-disabled') {
+        msg = t(
+          "telephony.resyncDisabled",
+          "AMI queue sync is disabled by TELEPHONY_AUTO_QUEUE_SYNC=false — no action taken.",
+        );
+      } else if (result.reason === 'no-position') {
+        msg = t(
+          "telephony.resyncNoPosition",
+          "Employee has no Position — no queues to sync.",
+        );
+      } else if (result.skipped.length) {
+        msg = t("telephony.resyncPartial", "Resynced {applied} queue(s); skipped: {skipped}")
+          .replace("{applied}", String(result.applied))
+          .replace("{skipped}", result.skipped.join(", "));
+      } else {
+        msg = t("telephony.resyncOk", "Resynced {applied} queue(s)")
+          .replace("{applied}", String(result.applied));
+      }
+      setSuccessMsg(msg);
+      setTimeout(() => setSuccessMsg(null), 6000);
     } catch (err: any) {
-      setError(err.message);
+      setError(err?.message || t("telephony.resyncFailed", "Resync failed"));
+    } finally {
+      setBusyExt(null);
+      inFlight.current = false;
     }
   }
 
-  function sipBadge(u: UserRow) {
-    const ext = u.telephonyExtension;
-    if (!ext) return { label: t("telephony.notConfigured"), cls: "bg-zinc-50 text-zinc-500 ring-zinc-200", dot: "bg-zinc-400" };
-    if (!ext.sipServer)
-      return { label: `Ext ${ext.extension} — ${t("telephony.missingSip")}`, cls: "bg-amber-50 text-amber-700 ring-amber-200", dot: "bg-amber-500" };
-    if (!ext.isActive)
-      return { label: `Ext ${ext.extension} — ${t("telephony.disabled")}`, cls: "bg-zinc-50 text-zinc-600 ring-zinc-200", dot: "bg-zinc-400" };
-    return { label: `Ext ${ext.extension} — ${t("telephony.ready")}`, cls: "bg-teal-50 text-teal-900 ring-teal-200", dot: "bg-teal-500" };
+  async function handleToggleActive(ext: Extension) {
+    try {
+      setBusyExt(ext.id);
+      await apiPatch(`/v1/telephony/extensions/${ext.id}`, { isActive: !ext.isActive });
+      await fetchAll();
+    } catch (err: any) {
+      setError(err?.message || "Failed to toggle active");
+    } finally {
+      setBusyExt(null);
+    }
   }
 
-  function sipStatusBadge(ext: string | undefined) {
-    if (!ext) return null;
-    const state = sipStatuses[ext];
-    if (!state || state === 'Unavailable')
+  function linkedName(ext: Extension): string {
+    if (!ext.user) return "";
+    if (ext.user.employee) return `${ext.user.employee.firstName} ${ext.user.employee.lastName}`;
+    return ext.user.email;
+  }
+
+  function sipStatusBadge(extNum: string) {
+    const state = sipStatuses[extNum];
+    if (!state || state === "Unavailable")
       return { label: t("telephony.sipOffline"), cls: "bg-rose-50 text-rose-700 ring-rose-200", dot: "bg-rose-500" };
-    if (state === 'In use' || state === 'Busy' || state === 'Ringing')
+    if (state === "In use" || state === "Busy" || state === "Ringing")
       return { label: t("telephony.sipOnCall"), cls: "bg-blue-50 text-blue-700 ring-blue-200", dot: "bg-blue-500" };
     return { label: t("telephony.sipOnline"), cls: "bg-emerald-50 text-emerald-700 ring-emerald-200", dot: "bg-emerald-500" };
   }
+
+  // Users eligible to be linked: active, no existing telephonyExtension.
+  const availableUsers = users.filter(
+    (u) => u.telephonyExtension === null && u.employee && u.employee.status === "ACTIVE",
+  );
 
   if (loading) {
     return (
@@ -228,15 +225,16 @@ export default function TelephonyExtensionsPage() {
             href="/app/admin"
             className="mb-2 inline-flex items-center text-sm text-zinc-600 hover:text-zinc-900"
           >
-            &larr; {t("telephony.backToAdmin")}
+            ← {t("telephony.backToAdmin")}
           </Link>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-zinc-900">
-                {t("telephony.extensionsTitle")}
-              </h1>
+              <h1 className="text-2xl font-bold text-zinc-900">{t("telephony.extensionsTitle")}</h1>
               <p className="mt-1 text-sm text-zinc-600">
-                {t("telephony.extensionsDescription")}
+                {t(
+                  "telephony.poolDescription",
+                  "Extensions are pre-provisioned in FreePBX. Link an employee to place them on an extension; unlink to return it to the pool.",
+                )}
               </p>
             </div>
             <button
@@ -256,15 +254,19 @@ export default function TelephonyExtensionsPage() {
           </div>
         </div>
 
-        {syncResult && (
-          <div className="mb-4 rounded-2xl bg-teal-50 px-4 py-3 text-sm text-teal-800 ring-1 ring-teal-200 flex items-center justify-between">
+        {successMsg && (
+          <div className="mb-4 flex items-center justify-between rounded-2xl bg-teal-50 px-4 py-3 text-sm text-teal-800 ring-1 ring-teal-200">
+            <span>{successMsg}</span>
+            <button onClick={() => setSuccessMsg(null)} className="ml-2 text-teal-600 hover:text-teal-800">×</button>
+          </div>
+        )}
+
+        {syncResult && syncResult.total > 0 && (
+          <div className="mb-4 flex items-center justify-between rounded-2xl bg-teal-50 px-4 py-3 text-sm text-teal-800 ring-1 ring-teal-200">
             <span>
               {t("telephony.syncComplete")}: {syncResult.total} {t("telephony.endpoints")}, {syncResult.linked} {t("telephony.linked")}
-              {syncResult.autoLinked > 0 && (
-                <span className="font-semibold"> ({syncResult.autoLinked} {t("telephony.autoLinked")})</span>
-              )}
             </span>
-            <button onClick={() => setSyncResult(null)} className="text-teal-600 hover:text-teal-800 ml-2">&times;</button>
+            <button onClick={() => setSyncResult(null)} className="text-teal-600 hover:text-teal-800 ml-2">×</button>
           </div>
         )}
 
@@ -278,193 +280,225 @@ export default function TelephonyExtensionsPage() {
           <table className="w-full table-fixed">
             <thead className="bg-zinc-50/50">
               <tr>
-                <th className="w-[25%] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
-                  {t("telephony.employee")}
+                <th className="w-[12%] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
+                  {t("telephony.extensionNumber", "Extension")}
                 </th>
-                <th className="w-[25%] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
+                <th className="w-[30%] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
+                  {t("telephony.linkedEmployee", "Linked employee")}
+                </th>
+                <th className="w-[20%] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
                   {t("telephony.emailLogin")}
                 </th>
-                <th className="w-[22%] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
-                  {t("telephony.sipExtension")}
-                </th>
-                <th className="w-[14%] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
+                <th className="w-[13%] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
                   {t("telephony.sipStatus")}
                 </th>
-                <th className="w-[14%] px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-zinc-600">
+                <th className="w-[25%] px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-zinc-600">
                   {t("telephony.actions")}
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
-              {users.map((u) => {
-                const badge = sipBadge(u);
-                const sipStatus = sipStatusBadge(u.telephonyExtension?.extension);
-                const isExpanded = expandedUserId === u.id;
-
+              {extensions.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-5 py-12 text-center text-sm text-zinc-500">
+                    {t(
+                      "telephony.noExtensionsYet",
+                      "No extensions found. Create extensions in FreePBX (Bulk Handler) and click Sync.",
+                    )}
+                  </td>
+                </tr>
+              )}
+              {extensions.map((ext) => {
+                const sip = sipStatusBadge(ext.extension);
+                const isLinked = !!ext.user;
+                const busy = busyExt === ext.id;
                 return (
-                  <Fragment key={u.id}>
-                    <tr
-                      className={`cursor-pointer transition hover:bg-zinc-50/80 ${isExpanded ? "bg-zinc-50" : ""}`}
-                      onClick={() => toggleExpand(u)}
-                    >
+                  <Fragment key={ext.id}>
+                    <tr className={!ext.isActive ? "bg-zinc-50/60" : ""}>
                       <td className="px-5 py-4">
-                        <div className="text-sm font-medium text-zinc-900 truncate">
-                          {empName(u)}
-                        </div>
-                        {u.employee?.status && u.employee.status !== "ACTIVE" && (
-                          <span className="text-xs text-zinc-400">{u.employee.status}</span>
+                        <div className="font-mono text-sm font-semibold text-zinc-900">{ext.extension}</div>
+                        {!ext.isActive && (
+                          <span className="mt-0.5 inline-flex text-xs text-zinc-400">{t("telephony.disabled")}</span>
                         )}
                       </td>
                       <td className="px-5 py-4">
-                        <div className="text-sm text-zinc-600 truncate">{u.email}</div>
+                        {isLinked ? (
+                          <div className="text-sm font-medium text-zinc-900 truncate">{linkedName(ext)}</div>
+                        ) : (
+                          <span className="text-sm italic text-zinc-400">
+                            {t("telephony.availableForLink", "— available —")}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="text-sm text-zinc-600 truncate">{ext.user?.email ?? "—"}</div>
                       </td>
                       <td className="px-5 py-4">
                         <span
-                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${badge.cls}`}
+                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${sip.cls}`}
                         >
-                          <span className={`h-1.5 w-1.5 rounded-full ${badge.dot}`} />
-                          {badge.label}
+                          <span className={`h-1.5 w-1.5 rounded-full ${sip.dot}`} />
+                          {sip.label}
                         </span>
                       </td>
-                      <td className="px-5 py-4">
-                        {sipStatus ? (
-                          <span
-                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${sipStatus.cls}`}
-                          >
-                            <span className={`h-1.5 w-1.5 rounded-full ${sipStatus.dot}`} />
-                            {sipStatus.label}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-zinc-400">—</span>
-                        )}
-                      </td>
                       <td className="px-5 py-4 text-right">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); toggleExpand(u); }}
-                          className="rounded-lg px-3 py-1.5 text-xs font-medium text-zinc-700 bg-white border border-zinc-300 hover:bg-zinc-50"
-                        >
-                          {isExpanded ? t("telephony.close") : u.telephonyExtension ? t("telephony.edit") : t("telephony.configure")}
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          {isLinked ? (
+                            <>
+                              <button
+                                disabled={busy}
+                                onClick={() => handleResync(ext)}
+                                className="rounded-lg px-3 py-1.5 text-xs font-medium text-zinc-700 bg-white border border-zinc-300 transition hover:bg-zinc-50 disabled:opacity-50"
+                                title={t(
+                                  "telephony.resyncHint",
+                                  "Re-apply queue rules for this extension via AMI. Useful if AMI was down during link.",
+                                )}
+                              >
+                                {t("telephony.resync", "Resync queues")}
+                              </button>
+                              <button
+                                disabled={busy}
+                                onClick={() => handleUnlink(ext)}
+                                className="rounded-lg px-3 py-1.5 text-xs font-medium text-rose-700 bg-rose-50 border border-rose-200 transition hover:bg-rose-100 disabled:opacity-50"
+                              >
+                                {t("telephony.unlink", "Unlink")}
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              disabled={busy || !ext.isActive}
+                              onClick={() => setLinkDialogExt(ext)}
+                              className="rounded-lg px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+                              style={{ backgroundColor: BRAND }}
+                            >
+                              {t("telephony.link", "Link employee")}
+                            </button>
+                          )}
+                          <button
+                            disabled={busy}
+                            onClick={() => handleToggleActive(ext)}
+                            className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition disabled:opacity-50 ${
+                              ext.isActive
+                                ? "border-amber-200 text-amber-700 hover:bg-amber-50"
+                                : "border-teal-200 text-teal-900 hover:bg-teal-50"
+                            }`}
+                          >
+                            {ext.isActive ? t("telephony.disable") : t("telephony.enable")}
+                          </button>
+                        </div>
                       </td>
                     </tr>
-
-                    {isExpanded && (
-                      <tr>
-                        <td colSpan={5} className="border-t border-zinc-100 bg-zinc-50/50 px-5 py-5">
-                          <div className="max-w-2xl space-y-4">
-                            <h4 className="text-sm font-semibold text-zinc-800">
-                              {t("telephony.sipConfigFor")} {empName(u)}
-                            </h4>
-
-                            {error && (
-                              <div className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700 ring-1 ring-rose-200">
-                                {error}
-                              </div>
-                            )}
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                              <div className="space-y-1">
-                                <label className="text-xs font-medium text-zinc-600">{t("telephony.extensionNumber")}</label>
-                                <input
-                                  value={form.extension}
-                                  onChange={(e) => setForm({ ...form, extension: e.target.value })}
-                                  placeholder={t("telephony.extensionPlaceholder")}
-                                  className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm bg-white"
-                                />
-                              </div>
-                              <div className="space-y-1">
-                                <label className="text-xs font-medium text-zinc-600">{t("telephony.displayName")}</label>
-                                <input
-                                  value={form.displayName}
-                                  onChange={(e) => setForm({ ...form, displayName: e.target.value })}
-                                  placeholder={t("telephony.displayNamePlaceholder")}
-                                  className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm bg-white"
-                                />
-                              </div>
-                              <div className="space-y-1">
-                                <label className="text-xs font-medium text-zinc-600">{t("telephony.sipServerLabel")}</label>
-                                <input
-                                  value={form.sipServer}
-                                  onChange={(e) => setForm({ ...form, sipServer: e.target.value })}
-                                  placeholder={t("telephony.sipServerPlaceholder")}
-                                  className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm font-mono bg-white"
-                                />
-                                <p className="text-xs text-zinc-400">{t("telephony.sipServerHint")}</p>
-                              </div>
-                              <div className="space-y-1">
-                                <label className="text-xs font-medium text-zinc-600">{t("telephony.sipPasswordLabel")}</label>
-                                <input
-                                  type="password"
-                                  value={form.sipPassword}
-                                  onChange={(e) => setForm({ ...form, sipPassword: e.target.value })}
-                                  placeholder={t("telephony.sipPasswordPlaceholder")}
-                                  className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm bg-white"
-                                />
-                                <p className="text-xs text-zinc-400">{t("telephony.sipPasswordHint")}</p>
-                              </div>
-                            </div>
-
-                            <label className="flex items-center gap-2 text-sm text-zinc-700 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={form.isOperator}
-                                onChange={(e) => setForm({ ...form, isOperator: e.target.checked })}
-                                className="h-4 w-4 rounded border-zinc-300 text-teal-800"
-                              />
-                              {t("telephony.queueOperator")}
-                            </label>
-
-                            <div className="flex items-center gap-3 pt-1">
-                              <button
-                                onClick={() => handleSave(u)}
-                                disabled={saving}
-                                className="rounded-xl px-5 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-                                style={{ backgroundColor: BRAND }}
-                              >
-                                {saving ? t("telephony.saving") : u.telephonyExtension ? t("telephony.saveChanges") : t("telephony.saveExtension")}
-                              </button>
-                              <button
-                                onClick={() => { setExpandedUserId(null); setError(null); }}
-                                className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-100"
-                              >
-                                {t("common.cancel")}
-                              </button>
-                              {u.telephonyExtension && (
-                                <>
-                                  <button
-                                    onClick={() => handleToggleActive(u)}
-                                    className={`ml-auto rounded-xl border px-4 py-2 text-sm font-medium ${
-                                      u.telephonyExtension.isActive
-                                        ? "border-amber-200 text-amber-700 hover:bg-amber-50"
-                                        : "border-teal-200 text-teal-900 hover:bg-teal-50"
-                                    }`}
-                                  >
-                                    {u.telephonyExtension.isActive ? t("telephony.disable") : t("telephony.enable")}
-                                  </button>
-                                  <button
-                                    onClick={() => handleRemove(u)}
-                                    className="rounded-xl border border-rose-200 px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
-                                  >
-                                    {t("telephony.remove")}
-                                  </button>
-                                </>
-                              )}
-                            </div>
-
-                            <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-700">
-                              {t("telephony.sipInfoNote")}
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
                   </Fragment>
                 );
               })}
             </tbody>
           </table>
         </div>
+
+        {/* Link-employee dialog */}
+        {linkDialogExt && (
+          <LinkDialog
+            ext={linkDialogExt}
+            users={availableUsers}
+            onClose={() => setLinkDialogExt(null)}
+            onSubmit={(userId) => handleLink(linkDialogExt.id, userId)}
+            busy={busyExt === linkDialogExt.id}
+            t={t}
+          />
+        )}
       </div>
     </PermissionGuard>
+  );
+}
+
+function LinkDialog({
+  ext,
+  users,
+  onClose,
+  onSubmit,
+  busy,
+  t,
+}: {
+  ext: Extension;
+  users: UserWithConfig[];
+  onClose: () => void;
+  onSubmit: (userId: string) => void;
+  busy: boolean;
+  t: (key: string, fallback?: string) => string;
+}) {
+  const [selected, setSelected] = useState<string>("");
+  // Defense-in-depth: the parent's inFlight ref already guards handleLink,
+  // but if parent state lags we want the button itself to be inert on the
+  // second synchronous click. useRef is sync — button onClick checks it
+  // before calling onSubmit.
+  const submitting = useRef(false);
+
+  return (
+    <div className="fixed inset-0 z-[50000] flex items-center justify-center bg-zinc-900/40 px-4">
+      <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl ring-1 ring-zinc-200">
+        <h2 className="text-lg font-bold text-zinc-900">
+          {t("telephony.linkDialogTitle", "Link employee to extension")} {ext.extension}
+        </h2>
+        <p className="mt-2 text-sm text-zinc-600">
+          {t(
+            "telephony.linkDialogBody",
+            "The employee will join queues according to Position → Queue Rules for their Position.",
+          )}
+        </p>
+
+        <label className="mt-4 block text-xs font-medium text-zinc-600">
+          {t("telephony.employee", "Employee")}
+        </label>
+        <select
+          value={selected}
+          onChange={(e) => setSelected(e.target.value)}
+          className="mt-1 w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm bg-white"
+        >
+          <option value="">
+            {t("telephony.pickEmployee", "— pick an employee —")}
+          </option>
+          {users.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.employee ? `${u.employee.firstName} ${u.employee.lastName}` : u.email} ({u.email})
+            </option>
+          ))}
+        </select>
+        {users.length === 0 && (
+          <p className="mt-2 text-xs text-amber-700">
+            {t(
+              "telephony.noAvailableEmployees",
+              "All active employees already have an extension. Unlink someone first.",
+            )}
+          </p>
+        )}
+
+        <div className="mt-6 flex items-center justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-100"
+          >
+            {t("common.cancel", "Cancel")}
+          </button>
+          <button
+            disabled={!selected || busy}
+            onClick={() => {
+              if (submitting.current) return;
+              submitting.current = true;
+              try {
+                onSubmit(selected);
+              } finally {
+                // Cleared on next tick so rapid synchronous clicks are
+                // blocked but a legitimate retry after failure isn't.
+                setTimeout(() => { submitting.current = false; }, 0);
+              }
+            }}
+            className="rounded-xl px-5 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+            style={{ backgroundColor: BRAND }}
+          >
+            {busy ? t("telephony.saving") : t("telephony.link", "Link")}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
