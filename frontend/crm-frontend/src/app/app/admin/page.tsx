@@ -121,6 +121,13 @@ const adminSections: AdminSection[] = [
     icon: <IconTelephony />,
     href: "/app/admin/telephony-extensions",
   },
+  {
+    id: "position-queue-rules",
+    title: "Position → Queue Rules",
+    description: "Map positions to call queues — decides which queues an operator joins on link",
+    icon: <IconQueueRules />,
+    href: "/app/admin/position-queue-rules",
+  },
 ];
 
 export default function AdminPanelPage() {
@@ -453,6 +460,18 @@ function IconClientChats() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  );
+}
+
+function IconQueueRules() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <rect x="3" y="4" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="2" />
+      <rect x="14" y="4" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="2" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="2" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="2" />
+      <path d="M10 7.5h4M10 17.5h4M7 11v3M17 11v3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }

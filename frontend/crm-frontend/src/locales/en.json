@@ -829,5 +829,21 @@
     "tab": "Call Reports",
     "noSession": "No call session found to link this report to",
     "noSessionWarning": "No recent call session found. Complete a call first before creating a report."
+  },
+  "positionQueueRules": {
+    "title": "Position → Queue Rules",
+    "description": "Each checked cell means: when an operator in that Position is linked to an extension, they automatically join that queue. Unchecking removes them from the queue.",
+    "backToAdmin": "Back to Admin Panel",
+    "loading": "Loading rules...",
+    "noPositions": "No positions configured — create positions first.",
+    "noQueues": "No queues visible — verify Asterisk is connected and queues have been synced.",
+    "position": "Position",
+    "queue": "Queue",
+    "afterHoursLabel": "after hours",
+    "saving": "Saving…",
+    "saveError": "Failed to save. Your change was reverted.",
+    "howItWorks": "How this works",
+    "howItWorksBody": "Rules take effect the next time an employee is linked or unlinked from an extension. Changing a rule here does NOT immediately add or remove currently-linked operators from queues — that happens on the next link/unlink action.",
+    "reload": "Reload"
   }
 }

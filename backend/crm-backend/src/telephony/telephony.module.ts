@@ -36,6 +36,8 @@ import { OperatorBreakService } from './services/operator-break.service';
 import { OperatorBreakController } from './controllers/operator-break.controller';
 import { OperatorDndService } from './services/operator-dnd.service';
 import { OperatorDndController } from './controllers/operator-dnd.controller';
+import { PositionQueueRulesController } from './controllers/position-queue-rules.controller';
+import { TelephonyQueuesController } from './controllers/telephony-queues.controller';
 import { DataScopeService } from '../common/utils/data-scope';
 
 @Module({
@@ -61,6 +63,8 @@ import { DataScopeService } from '../common/utils/data-scope';
     MissedCallsController,
     OperatorBreakController,
     OperatorDndController,
+    PositionQueueRulesController,
+    TelephonyQueuesController,
   ],
   providers: [
     AgentPresenceService,
