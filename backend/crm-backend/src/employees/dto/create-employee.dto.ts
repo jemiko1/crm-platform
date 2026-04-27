@@ -32,10 +32,6 @@ export class CreateEmployeeDto {
   @IsOptional()
   employeeId?: string; // Auto-generated if not provided
 
-  @IsString()
-  @IsOptional()
-  extensionNumber?: string; // Phone extension number
-
   @IsDateString()
   @IsOptional()
   birthday?: string; // For birthday reminders

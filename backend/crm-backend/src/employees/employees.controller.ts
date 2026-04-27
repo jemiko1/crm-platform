@@ -95,11 +95,14 @@ export class EmployeesController {
   constructor(private readonly employeesService: EmployeesService) {}
 
   @Post()
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('employees.create')
   @Doc({
     summary: 'Create employee',
     ok: 'Created employee record',
     status: 201,
     bodyType: CreateEmployeeDto,
+    permission: true,
   })
   create(@Body() createEmployeeDto: CreateEmployeeDto) {
     return this.employeesService.create(createEmployeeDto);
@@ -185,23 +188,29 @@ export class EmployeesController {
   }
 
   @Patch(':id')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('employees.update')
   @Doc({
     summary: 'Update employee',
     ok: 'Updated employee',
     notFound: true,
     bodyType: UpdateEmployeeDto,
     params: [{ name: 'id', description: 'Employee UUID' }],
+    permission: true,
   })
   update(@Param('id') id: string, @Body() updateEmployeeDto: UpdateEmployeeDto) {
     return this.employeesService.update(id, updateEmployeeDto);
   }
 
   @Delete(':id')
+  @UseGuards(PositionPermissionGuard)
+  @RequirePermission('employees.delete')
   @Doc({
     summary: 'Soft-delete or deactivate employee (service-defined)',
     ok: 'Removal result',
     notFound: true,
     params: [{ name: 'id', description: 'Employee UUID' }],
+    permission: true,
   })
   remove(@Param('id') id: string) {
     return this.employeesService.remove(id);

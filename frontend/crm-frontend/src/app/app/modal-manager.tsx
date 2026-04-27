@@ -74,7 +74,6 @@ type Employee = {
   phone: string | null;
   employeeId: string;
   jobTitle?: string | null;
-  extensionNumber?: string | null;
   birthday?: string | null;
   status: "ACTIVE" | "INACTIVE" | "ON_LEAVE" | "TERMINATED";
   avatar: string | null;

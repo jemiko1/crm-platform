@@ -8,7 +8,6 @@ import { usePermissions } from "@/lib/use-permissions";
 import AddEmployeeModal from "./add-employee-modal";
 import { useModalContext } from "../modal-manager";
 import { useI18n } from "@/hooks/useI18n";
-import { ClickToCall } from "@/components/click-to-call";
 
 const BRAND = "rgb(0, 86, 83)";
 
@@ -20,7 +19,6 @@ type Employee = {
   phone: string | null;
   employeeId: string;
   jobTitle?: string | null;
-  extensionNumber?: string | null;
   status: "ACTIVE" | "INACTIVE" | "ON_LEAVE" | "TERMINATED";
   birthday?: string | null;
   avatar: string | null;
@@ -342,9 +340,6 @@ function EmployeesPageContent() {
                 <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-zinc-900 bg-zinc-50">
                   {t("employees.columns.status", "Status")}
                 </th>
-                <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-zinc-900 bg-zinc-50">
-                  {t("employees.columns.extension", "Extension")}
-                </th>
                 <th className="px-4 sm:px-6 py-3 text-right text-xs font-semibold text-zinc-900 bg-zinc-50">
                   {t("employees.columns.actions", "Actions")}
                 </th>
@@ -408,18 +403,6 @@ function EmployeesPageContent() {
                     >
                       {emp.status.replace("_", " ")}
                     </span>
-                  </td>
-                  <td className="whitespace-nowrap px-4 sm:px-6 py-4 text-sm text-zinc-600">
-                    {emp.extensionNumber ? (
-                      <ClickToCall
-                        number={emp.extensionNumber}
-                        className="inline-flex items-center gap-1 rounded-lg bg-teal-50 px-2 py-1 text-xs font-semibold text-teal-900 ring-1 ring-teal-200 hover:bg-teal-100 disabled:opacity-50"
-                      >
-                        {t("employees.extPrefix", "Ext:")} {emp.extensionNumber}
-                      </ClickToCall>
-                    ) : (
-                      <span className="text-zinc-400">—</span>
-                    )}
                   </td>
                   <td className="whitespace-nowrap px-4 sm:px-6 py-4 text-right text-sm">
                     <button

@@ -17,7 +17,6 @@ type Employee = {
   phone: string | null;
   employeeId: string;
   jobTitle?: string | null;
-  extensionNumber?: string | null;
   status: "ACTIVE" | "INACTIVE" | "ON_LEAVE" | "TERMINATED";
   avatar: string | null;
   position?: {
@@ -183,9 +182,6 @@ export default function EmployeesPage() {
                 <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-zinc-900">
                   Status
                 </th>
-                <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-zinc-900">
-                  Extension
-                </th>
                 <th className="px-4 sm:px-6 py-3 text-right text-xs font-semibold text-zinc-900">
                   Actions
                 </th>
@@ -207,18 +203,6 @@ export default function EmployeesPage() {
                   </td>
                   <td className="whitespace-nowrap px-4 sm:px-6 py-4 text-sm text-zinc-900">
                     {emp.position?.name || emp.jobTitle || "No position"}
-                  </td>
-                  <td className="whitespace-nowrap px-4 sm:px-6 py-4 text-sm text-zinc-600">
-                    {emp.extensionNumber ? (
-                      <a
-                        href={`tel:${emp.extensionNumber}`}
-                        className="inline-flex items-center gap-1 rounded-lg bg-teal-50 px-2 py-1 text-xs font-semibold text-teal-900 ring-1 ring-teal-200 hover:bg-teal-100"
-                      >
-                        Ext: {emp.extensionNumber}
-                      </a>
-                    ) : (
-                      <span className="text-zinc-400">—</span>
-                    )}
                   </td>
                   <td className="whitespace-nowrap px-4 sm:px-6 py-4">
                     <span
