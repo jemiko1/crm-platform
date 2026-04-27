@@ -337,21 +337,22 @@ export class AsteriskSyncService implements OnModuleInit {
   }
 
   private async readAuthPassword(ext: string): Promise<string | null> {
-    // AMI `Command` returns the raw `pjsip show auth <ext>-auth` text, e.g.:
+    // AMI `Command` returns the raw `pjsip show auth <ext>-auth` text. The
+    // payload looks like:
     //
     //   ParameterName  : ParameterValue
     //   ===========================================
     //   auth_type      : userpass
     //   md5_cred       :
     //   nonce_lifetime : 32
-    //   password       : e09b5cb7c1f94bdc826704b6ce13bd72
+    //   password       : <secret>
     //   realm          :
-    //   username       : 502
+    //   username       : <ext>
     //
     // The previous regex matched on `(\S+?)\s*(?:,|$)` without the `m` flag,
     // so `$` meant end-of-string. With many lines after the password line,
     // it never matched → password silently came back as null. Field-found
-    // when ext 502 was created and bela's softphone couldn't register.
+    // when a newly-discovered extension's softphone could not register.
     //
     // The line we want is anchored to its own start: `^\s*password\s*:\s*(\S+)`
     // with the `m` flag so `^` matches each line. We also exclude the
