@@ -12,7 +12,6 @@ type Employee = {
   email: string;
   phone: string | null;
   employeeId: string;
-  extensionNumber?: string | null;
   birthday?: string | null;
   status: "ACTIVE" | "INACTIVE" | "ON_LEAVE" | "TERMINATED";
   address: string | null;
@@ -51,7 +50,6 @@ export default function EditEmployeeModal({
     lastName: "",
     email: "",
     phone: "",
-    extensionNumber: "",
     birthday: "",
     status: "ACTIVE" as Employee["status"],
     address: "",
@@ -104,7 +102,6 @@ export default function EditEmployeeModal({
         lastName: employee.lastName,
         email: employee.email,
         phone: employee.phone || "",
-        extensionNumber: (employee as any).extensionNumber || "",
         birthday: (employee as any).birthday ? new Date((employee as any).birthday).toISOString().split("T")[0] : "",
         status: employee.status,
         address: employee.address || "",
@@ -139,7 +136,6 @@ export default function EditEmployeeModal({
         lastName: formData.lastName,
         email: formData.email,
         phone: formData.phone || undefined,
-        extensionNumber: formData.extensionNumber || undefined,
         birthday: formData.birthday || undefined,
         status: formData.status,
         address: formData.address || undefined,
@@ -262,18 +258,6 @@ export default function EditEmployeeModal({
                     name="phone"
                     value={formData.phone}
                     onChange={handleChange}
-                    className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-zinc-900">Extension Number</label>
-                  <input
-                    type="text"
-                    name="extensionNumber"
-                    value={formData.extensionNumber}
-                    onChange={handleChange}
-                    placeholder="1234"
                     className="mt-2 w-full rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm text-zinc-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   />
                 </div>

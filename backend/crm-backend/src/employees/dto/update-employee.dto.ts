@@ -23,10 +23,6 @@ export class UpdateEmployeeDto {
   @IsOptional()
   phone?: string;
 
-  @IsString()
-  @IsOptional()
-  extensionNumber?: string; // Phone extension number
-
   @IsDateString()
   @IsOptional()
   birthday?: string; // For birthday reminders

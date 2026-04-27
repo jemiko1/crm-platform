@@ -209,7 +209,6 @@ export class EmployeesService {
           email: createEmployeeDto.email,
           phone: createEmployeeDto.phone,
           employeeId: createEmployeeDto.employeeId!, // Already validated/generated above
-          extensionNumber: createEmployeeDto.extensionNumber,
           birthday: createEmployeeDto.birthday ? new Date(createEmployeeDto.birthday) : null,
           jobTitle: jobTitle, // Auto-generated from position name
           status: createEmployeeDto.status || 'ACTIVE',
@@ -464,7 +463,6 @@ export class EmployeesService {
       lastName: updateEmployeeDto.lastName,
       email: updateEmployeeDto.email,
       phone: updateEmployeeDto.phone,
-      extensionNumber: updateEmployeeDto.extensionNumber,
       birthday: updateEmployeeDto.birthday ? new Date(updateEmployeeDto.birthday) : undefined,
       status: updateEmployeeDto.status,
       address: updateEmployeeDto.address,

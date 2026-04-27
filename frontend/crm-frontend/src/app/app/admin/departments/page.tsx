@@ -42,7 +42,6 @@ type Employee = {
   lastName: string;
   email: string;
   jobTitle?: string | null;
-  extensionNumber?: string | null;
   status: string;
   departmentId?: string | null;
   positionId?: string | null;
@@ -686,16 +685,6 @@ export default function DepartmentsPage() {
                                 <div className="text-xs text-zinc-500">
                                   {emp.position?.name || emp.jobTitle || "No position"}
                                 </div>
-                                {emp.extensionNumber && (
-                                  <div className="mt-1">
-                                    <a
-                                      href={`tel:${emp.extensionNumber}`}
-                                      className="inline-flex items-center gap-1 rounded-lg bg-teal-50 px-2 py-1 text-xs font-semibold text-teal-900 ring-1 ring-teal-200 hover:bg-teal-100"
-                                    >
-                                      Ext: {emp.extensionNumber}
-                                    </a>
-                                  </div>
-                                )}
                                 <div className="text-xs text-zinc-500">
                                   {emp.email}
                                 </div>

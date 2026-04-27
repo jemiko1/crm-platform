@@ -19,7 +19,6 @@ type Employee = {
   phone: string | null;
   employeeId: string;
   jobTitle?: string | null;
-  extensionNumber?: string | null;
   birthday?: string | null;
   status: "ACTIVE" | "INACTIVE" | "ON_LEAVE" | "TERMINATED";
   avatar: string | null;
@@ -124,6 +123,8 @@ export default function EmployeeDetailContent({ employee, employeeId, onUpdate }
   const [canCreateAccount, setCanCreateAccount] = useState(false);
   const [canActivate, setCanActivate] = useState(false);
   const [canHardDelete, setCanHardDelete] = useState(false);
+  const [canEdit, setCanEdit] = useState(false);
+  const [canDelete, setCanDelete] = useState(false);
 
   // Check user permissions
   useEffect(() => {
@@ -140,21 +141,28 @@ export default function EmployeeDetailContent({ employee, employeeId, onUpdate }
           setCanCreateAccount(true);
           setCanActivate(true);
           setCanHardDelete(true);
+          setCanEdit(true);
+          setCanDelete(true);
           return;
         }
 
-        // Check specific permissions (format: resource.action)
+        // Check specific permissions (format: resource.action). Names match
+        // the seed in `prisma/seed-permissions.ts`.
         setCanResetPassword(permissions.includes("employee.reset_password"));
         setCanDismiss(permissions.includes("employee.dismiss"));
         setCanCreateAccount(permissions.includes("employee.create_account"));
         setCanActivate(permissions.includes("employee.activate"));
         setCanHardDelete(permissions.includes("employee.hard_delete"));
+        setCanEdit(permissions.includes("employees.update"));
+        setCanDelete(permissions.includes("employees.delete"));
       } catch {
         // If we can't check, assume no permissions
         setCanResetPassword(false);
         setCanDismiss(false);
         setCanActivate(false);
         setCanHardDelete(false);
+        setCanEdit(false);
+        setCanDelete(false);
       }
     }
     checkPermissions();
@@ -200,12 +208,14 @@ export default function EmployeeDetailContent({ employee, employeeId, onUpdate }
           >
             {employee.status.replace("_", " ")}
           </span>
-          <button
-            onClick={() => setShowEditModal(true)}
-            className="rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50"
-          >
-            Edit
-          </button>
+          {canEdit && (
+            <button
+              onClick={() => setShowEditModal(true)}
+              className="rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-50"
+            >
+              Edit
+            </button>
+          )}
           {/* User account actions - only when employee has user account */}
           {employee.user ? (
             canResetPassword && employee.status !== "TERMINATED" && (
@@ -355,19 +365,6 @@ export default function EmployeeDetailContent({ employee, employeeId, onUpdate }
                   {employee.department ? employee.department.name : "—"}
                 </div>
               </div>
-              {employee.extensionNumber && (
-                <div>
-                  <label className="text-xs font-medium text-zinc-500">Extension</label>
-                  <div className="mt-1">
-                    <a
-                      href={`tel:${employee.extensionNumber}`}
-                      className="inline-flex items-center gap-1 rounded-lg bg-teal-50 px-3 py-1.5 text-sm font-semibold text-teal-900 ring-1 ring-teal-200 hover:bg-teal-100"
-                    >
-                      {employee.extensionNumber}
-                    </a>
-                  </div>
-                </div>
-              )}
               <div>
                 <label className="text-xs font-medium text-zinc-500">Role</label>
                 <div className="mt-1 text-sm font-semibold text-zinc-900">

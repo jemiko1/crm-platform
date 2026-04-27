@@ -315,7 +315,6 @@ model Employee {
   avatar                   String?
   birthday                 DateTime?
   employeeId               String                    @unique
-  extensionNumber          String?
   jobTitle                 String?
   status                   EmployeeStatus            @default(ACTIVE)
   userId                   String?                   @unique
