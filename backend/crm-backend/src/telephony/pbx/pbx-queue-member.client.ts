@@ -49,11 +49,14 @@ export class PbxQueueMemberClient {
   constructor() {
     this.sshHost = process.env.PBX_SSH_HOST ?? '5.10.34.153';
     this.sshUser = process.env.PBX_SSH_USER ?? 'root';
-    // Default matches the VM's existing key location. On dev machines,
-    // set PBX_SSH_KEY_PATH in .env to your own key.
+    // Default matches the production VM's authorized key for root@PBX —
+    // verified live during the PR #298 deploy: VM's `id_ed25519` is NOT
+    // authorized on the PBX, but `id_rsa_asterisk` is (it's the same key
+    // the AMI bridge / asterisk-sync use). On dev machines, override
+    // `PBX_SSH_KEY_PATH` in .env to your own key.
     this.sshKeyPath =
       process.env.PBX_SSH_KEY_PATH ??
-      'C:\\Users\\Administrator\\.ssh\\id_ed25519';
+      'C:\\Users\\Administrator\\.ssh\\id_rsa_asterisk';
     this.timeoutMs = Number(process.env.PBX_SSH_TIMEOUT_MS ?? 70_000);
   }
 
