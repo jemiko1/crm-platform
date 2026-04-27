@@ -257,7 +257,24 @@ export class EmployeesService {
 
     const { skip, take } = paginate(page, pageSize);
     const include = {
-      user: { select: { id: true, isActive: true } },
+      // Include the linked telephony extension via the User relation so the
+      // Employees list can show "Ext: 214" for fast internal click-to-call.
+      // Pool extensions (crmUserId=null) are not linked to any User, so they
+      // never appear here. If User has no extension, this is null.
+      user: {
+        select: {
+          id: true,
+          isActive: true,
+          telephonyExtension: {
+            // Only fields the employees UI actually displays. Keep
+            // `sipServer` out of the payload — it's infrastructure
+            // detail with no UI consumer here, and the employees list
+            // is gated by `employees.menu` which is broader than
+            // `telephony.manage`.
+            select: { extension: true, isActive: true },
+          },
+        },
+      },
       department: { select: { id: true, name: true, code: true } },
       position: {
         select: {
@@ -284,8 +301,22 @@ export class EmployeesService {
     const employee = await this.prisma.employee.findUnique({
       where: { id },
       include: {
-        user: { select: { id: true, email: true, role: true, isActive: true } },
-        department: { 
+        user: {
+          select: {
+            id: true,
+            email: true,
+            role: true,
+            isActive: true,
+            // Linked telephony extension — drives the "Ext: 214" pill on the
+            // employee detail card. Null when the user has no extension or
+            // is unlinked. `sipServer` is intentionally omitted — see
+            // findAll's comment for rationale.
+            telephonyExtension: {
+              select: { extension: true, isActive: true },
+            },
+          },
+        },
+        department: {
           select: { 
             id: true, 
             name: true, 

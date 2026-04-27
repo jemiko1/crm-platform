@@ -159,35 +159,65 @@ export class AsteriskSyncService implements OnModuleInit {
           continue;
         }
 
-        // Auto-link: read accountcode from Asterisk, match to CRM user email
+        // New extension discovered in FreePBX. The pool model (PR #294) says:
+        // every FreePBX extension should have a corresponding CRM
+        // TelephonyExtension row, regardless of whether it's linked yet.
+        // Admin then links employees from the Telephony Extensions admin
+        // page. Two paths into this branch:
+        //
+        //   (a) Legacy auto-link: extension's `accountcode` matches an
+        //       active CRM user's email. Create with that user linked.
+        //       (Operators 200-214 were originally onboarded this way.)
+        //
+        //   (b) Pool row: no accountcode, or accountcode doesn't match any
+        //       CRM user. Create with `crmUserId = null` so the extension
+        //       appears in the Telephony Extensions admin UI as
+        //       "— available —" and admin can link an employee.
+        //
+        // BEFORE this fix (April 2026): branch (b) didn't exist — the
+        // service `continue`d on missing accountcode and unmatched email,
+        // so newly-created FreePBX extensions never showed up in CRM. The
+        // pool model promised "create extension in FreePBX → admin sees it
+        // in CRM" — that promise was broken until this commit.
         try {
-          const accountcode = await this.readAccountCode(ep.extension);
-          if (!accountcode) continue;
-
-          const user = await this.prisma.user.findFirst({
-            where: { email: accountcode, isActive: true },
-            select: {
-              id: true,
-              email: true,
-              employee: { select: { firstName: true, lastName: true } },
-            },
-          });
-          if (!user) continue;
-
-          // Check user doesn't already have an extension
-          const alreadyHasExt = await this.prisma.telephonyExtension.findUnique({
-            where: { crmUserId: user.id },
-          });
-          if (alreadyHasExt) continue;
-
           const sipPassword = await this.readAuthPassword(ep.extension);
-          const displayName = user.employee
-            ? `${user.employee.firstName} ${user.employee.lastName}`
-            : user.email;
+
+          let linkedUser: {
+            id: string;
+            email: string;
+            employee: { firstName: string; lastName: string } | null;
+          } | null = null;
+          const accountcode = await this.readAccountCode(ep.extension);
+          if (accountcode) {
+            const user = await this.prisma.user.findFirst({
+              where: { email: accountcode, isActive: true },
+              select: {
+                id: true,
+                email: true,
+                employee: { select: { firstName: true, lastName: true } },
+              },
+            });
+            if (user) {
+              // The user must not already be linked to a different extension —
+              // skip auto-link if they are. Pool row will still be created.
+              const alreadyHasExt =
+                await this.prisma.telephonyExtension.findUnique({
+                  where: { crmUserId: user.id },
+                });
+              if (!alreadyHasExt) {
+                linkedUser = user;
+              }
+            }
+          }
+
+          const displayName = linkedUser?.employee
+            ? `${linkedUser.employee.firstName} ${linkedUser.employee.lastName}`.trim() ||
+              linkedUser.email
+            : linkedUser?.email ?? `Ext ${ep.extension}`;
 
           await this.prisma.telephonyExtension.create({
             data: {
-              crmUserId: user.id,
+              crmUserId: linkedUser?.id ?? null,
               extension: ep.extension,
               displayName,
               sipServer: this.sipServer,
@@ -199,19 +229,59 @@ export class AsteriskSyncService implements OnModuleInit {
 
           extensionData.push({
             extension: ep.extension,
-            crmUserId: user.id,
+            crmUserId: linkedUser?.id ?? null,
             displayName,
           });
 
-          this.logger.log(
-            `Auto-linked ext ${ep.extension} → ${user.email} (${displayName})`,
-          );
-          autoLinked++;
-          linked++;
+          if (linkedUser) {
+            this.logger.log(
+              `Auto-linked ext ${ep.extension} → ${linkedUser.email} (${displayName})`,
+            );
+            autoLinked++;
+            linked++;
+          } else {
+            this.logger.log(
+              `Pool row created for ext ${ep.extension} (unlinked — admin can link via Telephony Extensions)`,
+            );
+          }
         } catch (err: any) {
-          this.logger.warn(
-            `Auto-link failed for ext ${ep.extension}: ${err.message}`,
-          );
+          // P2002 on `crmUserId @unique` happens when an admin linked
+          // this user to a different extension via the UI between our
+          // findFirst (line ~200) and create (line ~218). Recoverable:
+          // fall back to creating a pool row (crmUserId=null) so the
+          // extension still appears in CRM. The admin's UI link wins;
+          // sync's auto-link loses the race silently.
+          if (err?.code === 'P2002') {
+            try {
+              await this.prisma.telephonyExtension.create({
+                data: {
+                  crmUserId: null,
+                  extension: ep.extension,
+                  displayName: `Ext ${ep.extension}`,
+                  sipServer: this.sipServer,
+                  sipPassword: null,
+                  isOperator: true,
+                  isActive: true,
+                },
+              });
+              extensionData.push({
+                extension: ep.extension,
+                crmUserId: null,
+                displayName: `Ext ${ep.extension}`,
+              });
+              this.logger.log(
+                `Pool row for ext ${ep.extension} (admin won link race during sync)`,
+              );
+            } catch (fallbackErr: any) {
+              this.logger.warn(
+                `Pool fallback failed for ext ${ep.extension}: ${fallbackErr.message}`,
+              );
+            }
+          } else {
+            this.logger.warn(
+              `Failed to create CRM row for ext ${ep.extension}: ${err.message}`,
+            );
+          }
         }
       }
 
