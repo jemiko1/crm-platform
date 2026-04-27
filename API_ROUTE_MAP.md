@@ -321,6 +321,18 @@ Complete API route documentation for CRM Platform backend.
 
 ---
 
+## Softphone Staff Directory
+
+**File**: `src/telephony/controllers/telephony-calls.controller.ts`
+**Base Route**: `/v1/telephony/directory`
+**Guards**: `JwtAuthGuard + PositionPermissionGuard` (method-level `softphone.handshake` overrides the controller-level `call_center.menu` so non-softphone users can't read every employee's email + personal phone)
+**Cache**: `Cache-Control: no-store` (Silent Override Risk #23)
+
+**Endpoint:**
+- `GET /v1/telephony/directory` — Returns the lean staff directory consumed by the softphone's "Staff" tab (added v1.12.0). Shape: `Array<{ id, firstName, lastName, email, phone, avatar, extension, department: { id, name } | null }>`. Filters out terminated employees. `extension` is the authoritative `TelephonyExtension.extension` (populated by Asterisk sync); null when the employee has no linked extension. Sorted alphabetically by first then last name.
+
+---
+
 ## Telephony Actions (Call Control)
 
 **File**: `src/telephony/controllers/telephony-actions.controller.ts`  

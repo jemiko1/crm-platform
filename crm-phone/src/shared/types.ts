@@ -130,6 +130,23 @@ export interface DndState {
   extension: string | null;
 }
 
+/**
+ * Staff directory entry returned by GET /v1/telephony/directory.
+ * Consumed by the softphone's "Staff" tab — each row is clickable to
+ * dial the extension (or personal phone as fallback). Kept lean: no
+ * hire dates, salary, role scopes, etc.
+ */
+export interface DirectoryEntry {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string | null;
+  extension: string | null;
+  avatar: string | null;
+  department: { id: string; name: string } | null;
+}
+
 export interface CallerLookupResult {
   client?: CallerLookupClient;
   lead?: {

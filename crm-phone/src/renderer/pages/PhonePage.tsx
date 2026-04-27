@@ -4,6 +4,7 @@ import { IncomingCallPopup } from "./IncomingCallPopup";
 import { CallerCard } from "./CallerCard";
 import { CallHistory } from "./CallHistory";
 import { SettingsPage } from "./SettingsPage";
+import { StaffPage } from "./StaffPage";
 import { startRingtone, stopRingtone } from "../ringtone";
 import { WindowControls } from "../components/WindowControls";
 import {
@@ -74,7 +75,7 @@ const DTMF_KEYS: Array<{ digit: string; letters?: string }> = [
   { digit: "#" },
 ];
 
-type Tab = "keypad" | "history" | "dnd" | "break";
+type Tab = "keypad" | "history" | "staff";
 
 export function PhonePage(props: Props) {
   const {
@@ -155,6 +156,13 @@ export function PhonePage(props: Props) {
       <SettingsPage
         onBack={() => setShowSettings(false)}
         onLogout={onLogout}
+        dnd={{
+          enabled: dndEnabled,
+          loading: dndLoading,
+          error: dndError,
+          available: sipRegistered && !!session.telephonyExtension,
+          onToggle: onDndToggle,
+        }}
       />
     );
   }
@@ -172,11 +180,6 @@ export function PhonePage(props: Props) {
   }
 
   // ── Action handlers that the bottom tab bar needs ──
-
-  const handleDndTabClick = async () => {
-    if (dndLoading) return;
-    await onDndToggle(!dndEnabled);
-  };
 
   const handleBreakTabClick = async () => {
     if (breakStarting) return;
@@ -226,35 +229,62 @@ export function PhonePage(props: Props) {
   // (DND) or a state-entry (Break) — rendered in the bar but not
   // selected as the currently visible screen. Keypad and History
   // are real content tabs.
-  const currentContent: "keypad" | "history" | "call" = hasActiveCall
+  const currentContent: "keypad" | "history" | "staff" | "call" = hasActiveCall
     ? "call"
     : tab === "history"
     ? "history"
+    : tab === "staff"
+    ? "staff"
     : "keypad";
 
   return (
     <div style={styles.container}>
-      {/* Title bar — drag handle for the frameless window. Shows extension
-          + email once registered so the operator can verify they're logged
-          in on the right account (there are ~15 extensions; a wrong login
-          silently routes calls to the wrong agent). */}
+      {/* Title bar — drag handle for the frameless window. Shows
+          "CRM28 — <ext> — <email>" once registered so the operator
+          can verify they're signed in on the right account at a
+          glance; wrong-account logins silently mis-route queue calls. */}
       <div style={styles.titleBar}>
-        <span style={styles.titleText}>CRM28</span>
+        <span style={styles.titleText}>
+          CRM28
+          {session.telephonyExtension?.extension && (
+            <>
+              <span style={styles.titleSep}>—</span>
+              <span style={styles.titleExt}>{session.telephonyExtension.extension}</span>
+            </>
+          )}
+          {session.user.email && (
+            <>
+              <span style={styles.titleSep}>—</span>
+              <span style={styles.titleEmail}>{session.user.email}</span>
+            </>
+          )}
+        </span>
         <WindowControls />
       </div>
 
-      {/* Status bar — presence pill on the left (with live dot), call
-          timer on the right when in call, settings gear always visible. */}
+      {/* Status bar — presence pill on the left shows extension +
+          status ("Ext 214 · Available" / "Offline" / "On Call"). The
+          extension number is painted in the brand emerald to stand
+          out; the rest of the pill matches the status colour. Timer
+          + gear icon sit on the right. */}
       <div style={styles.statusBar}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", minWidth: 0 }}>
           <div
             style={{ ...styles.presencePill, ...presencePill.style }}
-            title={`${userName} · Ext ${ext}`}
+            title={userName}
           >
             <span
               style={{ ...styles.presenceDot, background: presencePill.dotColor }}
             />
-            <span>{presencePill.text}</span>
+            {session.telephonyExtension?.extension && (
+              <>
+                <span style={styles.presenceExt}>
+                  Ext {session.telephonyExtension.extension}
+                </span>
+                <span style={styles.presenceSep}>·</span>
+              </>
+            )}
+            <span style={styles.presenceStatus}>{presencePill.text}</span>
           </div>
           {dndEnabled && (
             <span style={styles.dndBadge}>DND Active</span>
@@ -275,14 +305,6 @@ export function PhonePage(props: Props) {
           </button>
         </div>
       </div>
-
-      {sipRegistered && session.telephonyExtension?.extension && (
-        <div style={styles.identityRow}>
-          <span style={styles.identityExt}>Ext {session.telephonyExtension.extension}</span>
-          <span style={styles.identityDot}>·</span>
-          <span style={styles.identityEmail}>{session.user.email}</span>
-        </div>
-      )}
 
       {/* Global error banners */}
       {(breakError || dndError) && (
@@ -317,6 +339,14 @@ export function PhonePage(props: Props) {
               }}
             />
           </div>
+        ) : currentContent === "staff" ? (
+          <StaffPage
+            onDial={(number) => {
+              setDialNumber(number);
+              setTab("keypad");
+              onDial(number);
+            }}
+          />
         ) : (
           <DialpadView
             dialNumber={dialNumber}
@@ -328,9 +358,11 @@ export function PhonePage(props: Props) {
         )}
       </div>
 
-      {/* Bottom tab bar — Keypad / History / DND / Break.
-          DND and Break are action-toggles rather than content-tabs;
-          they're disabled while inapplicable (e.g. during a call). */}
+      {/* Bottom tab bar — Keypad / History / Staff / Break.
+          DND moved into Settings (v1.12.0); the Staff tab replaces the
+          DND toggle and exposes the company directory. Break is still
+          an action-toggle rather than a content-tab — disabled while
+          inapplicable (e.g. during a call). */}
       <nav style={styles.bottomNav} aria-label="Softphone primary navigation">
         <TabButton
           label="Keypad"
@@ -351,18 +383,15 @@ export function PhonePage(props: Props) {
           }}
         />
         <TabButton
-          label="DND"
-          icon={<DndIcon />}
-          active={dndEnabled}
-          activeDanger
-          loading={dndLoading}
-          disabled={!sipRegistered || !session.telephonyExtension}
-          onClick={handleDndTabClick}
-          title={
-            dndEnabled
-              ? "Do Not Disturb is ON — queue calls skip you. Click to turn off."
-              : "Turn on Do Not Disturb — queue calls will skip your extension."
-          }
+          label="Staff"
+          icon={<StaffIcon />}
+          active={tab === "staff" && !hasActiveCall}
+          disabled={hasActiveCall}
+          onClick={() => {
+            if (hasActiveCall) return;
+            setTab("staff");
+          }}
+          title="Browse colleagues — dial by extension or personal phone"
         />
         <TabButton
           label="Break"
@@ -745,11 +774,13 @@ function HistoryIcon() {
   );
 }
 
-function DndIcon() {
+function StaffIcon() {
   return (
     <svg {...iconProps}>
-      <circle cx="12" cy="12" r="9" />
-      <line x1="8" y1="12" x2="16" y2="12" />
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
     </svg>
   );
 }
@@ -870,6 +901,10 @@ const styles: Record<string, React.CSSProperties> = {
     textOverflow: "ellipsis",
     paddingRight: "0.5rem",
   },
+  titleSep: {
+    margin: "0 0.35rem",
+    color: "rgba(255,255,255,0.5)",
+  },
   titleExt: {
     color: "#ffffff",
     fontWeight: 700,
@@ -902,6 +937,18 @@ const styles: Record<string, React.CSSProperties> = {
     height: 7,
     borderRadius: "50%",
     flexShrink: 0,
+  },
+  presenceExt: {
+    fontWeight: 800,
+    fontVariantNumeric: "tabular-nums",
+    letterSpacing: "0.02em",
+  },
+  presenceSep: {
+    opacity: 0.5,
+    margin: "0 1px",
+  },
+  presenceStatus: {
+    fontWeight: 600,
   },
   dndBadge: {
     display: "inline-flex",
@@ -1050,38 +1097,6 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: "1.5rem",
     marginBottom: "0.5rem",
     transition: "background 120ms ease, transform 80ms ease",
-  },
-
-  identityRow: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "0.35rem",
-    padding: "0.15rem 0.95rem 0.55rem",
-    flexShrink: 0,
-    fontSize: "0.78rem",
-    letterSpacing: "0.01em",
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-  },
-  identityExt: {
-    color: BRAND,
-    fontWeight: 700,
-    fontVariantNumeric: "tabular-nums",
-    background: BRAND_SOFT,
-    padding: "0.12rem 0.5rem",
-    borderRadius: 8,
-  },
-  identityDot: {
-    color: TEXT_SUBTLE,
-  },
-  identityEmail: {
-    color: TEXT_MUTED,
-    fontWeight: 500,
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
   },
 
   // History tab wrap — CallHistory's own container handles flex/

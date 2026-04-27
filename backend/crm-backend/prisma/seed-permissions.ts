@@ -161,7 +161,8 @@ const DEFAULT_PERMISSIONS = [
   //   POST /auth/device-token
   //   GET  /v1/telephony/sip-credentials
   //   POST /v1/telephony/agents/presence
-  { resource: "softphone", action: "handshake", category: PermissionCategory.TELEPHONY, description: "Pair the Electron softphone, fetch SIP credentials, and report SIP presence heartbeat" },
+  //   GET  /v1/telephony/directory  (Staff tab — added v1.12.0)
+  { resource: "softphone", action: "handshake", category: PermissionCategory.TELEPHONY, description: "Pair the Electron softphone, fetch SIP credentials, report SIP presence heartbeat, and read the staff directory" },
 
   // Missed Calls
   { resource: "missed_calls", action: "access", category: PermissionCategory.TELEPHONY, description: "View missed calls queue" },

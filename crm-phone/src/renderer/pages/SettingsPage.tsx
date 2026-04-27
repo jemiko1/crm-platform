@@ -41,9 +41,22 @@ interface Props {
    * something clicked by accident during a busy shift.
    */
   onLogout?: () => Promise<void>;
+  /**
+   * Do-Not-Disturb (moved from the footer tab into Settings). When
+   * enabled the operator stays registered but queues skip them.
+   * `available` is false when there's no extension or no SIP reg —
+   * flipping DND in either case would 400 at the backend.
+   */
+  dnd?: {
+    enabled: boolean;
+    loading: boolean;
+    error: string | null;
+    available: boolean;
+    onToggle: (target: boolean) => Promise<void>;
+  };
 }
 
-export function SettingsPage({ onBack, onLogout }: Props) {
+export function SettingsPage({ onBack, onLogout, dnd }: Props) {
   const [settings, setSettings] = useState<Settings>({
     muteRingtone: false,
     overrideApps: true,
@@ -155,7 +168,51 @@ export function SettingsPage({ onBack, onLogout }: Props) {
         <WindowControls />
       </div>
 
-      <div style={styles.content}>
+      <div style={styles.content} tabIndex={-1}>
+        {dnd && (
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>Availability</h3>
+            <div style={styles.dndRow}>
+              <div style={styles.dndText}>
+                <div style={styles.dndLabel}>Do Not Disturb</div>
+                <div style={styles.dndHint}>
+                  {dnd.enabled
+                    ? "Queue calls skip your extension. Direct calls still ring."
+                    : "Pause incoming queue calls without going offline."}
+                </div>
+              </div>
+              <button
+                onClick={() => !dnd.loading && dnd.available && dnd.onToggle(!dnd.enabled)}
+                disabled={dnd.loading || !dnd.available}
+                aria-pressed={dnd.enabled}
+                title={
+                  !dnd.available
+                    ? "Must be registered with an extension to use DND"
+                    : dnd.enabled
+                    ? "Turn Do Not Disturb off"
+                    : "Turn Do Not Disturb on"
+                }
+                style={{
+                  ...styles.dndToggle,
+                  background: dnd.enabled ? "#dc2626" : "rgba(15, 60, 40, 0.15)",
+                  cursor: dnd.loading || !dnd.available ? "not-allowed" : "pointer",
+                  opacity: !dnd.available ? 0.5 : 1,
+                }}
+              >
+                <span
+                  style={{
+                    ...styles.dndKnob,
+                    transform: dnd.enabled ? "translateX(20px)" : "translateX(0)",
+                  }}
+                />
+              </button>
+            </div>
+            {dnd.error && (
+              <div style={styles.dndError}>{dnd.error}</div>
+            )}
+          </div>
+        )}
+
         <div style={styles.section}>
           <h3 style={styles.sectionTitle}>Call Behavior</h3>
 
@@ -326,8 +383,16 @@ const styles: Record<string, React.CSSProperties> = {
   },
   titleText: { fontSize: "0.85rem", fontWeight: 600, color: "#ffffff" },
   content: {
-    flex: 1,
-    overflow: "auto",
+    // `flex: 1 1 0` + `minHeight: 0` is the canonical fix for "wheel
+    // scroll doesn't work over blank space" inside an Electron window.
+    // Without minHeight:0 a flex child's intrinsic size keeps it taller
+    // than its parent, so the inner overflow:auto never engages — the
+    // wheel event lands on the BrowserWindow's title-bar drag region
+    // and gets eaten. Adding tabIndex on the container also gives the
+    // wheel a focus target on first hover before any button is clicked.
+    flex: "1 1 0",
+    minHeight: 0,
+    overflowY: "auto",
     padding: "1rem",
     display: "flex",
     flexDirection: "column",
@@ -468,6 +533,54 @@ const styles: Record<string, React.CSSProperties> = {
   },
   upToDate: { fontSize: "0.82rem", color: BRAND, fontWeight: 600 },
   updateError: { fontSize: "0.82rem", color: "#b91c1c" },
+  dndRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "0.75rem",
+    padding: "0.65rem 0.8rem",
+    ...CARD,
+  },
+  dndText: {
+    flex: 1,
+    minWidth: 0,
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: 2,
+  },
+  dndLabel: {
+    fontSize: "0.88rem",
+    fontWeight: 600,
+    color: TEXT_STRONG,
+  },
+  dndHint: {
+    fontSize: "0.72rem",
+    color: TEXT_MUTED,
+    lineHeight: 1.3,
+  },
+  dndToggle: {
+    width: 44,
+    height: 24,
+    borderRadius: 999,
+    border: "none",
+    position: "relative" as const,
+    padding: 2,
+    transition: "background 150ms ease",
+    flexShrink: 0,
+  },
+  dndKnob: {
+    display: "block",
+    width: 20,
+    height: 20,
+    borderRadius: "50%",
+    background: "#ffffff",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
+    transition: "transform 150ms ease",
+  },
+  dndError: {
+    fontSize: "0.72rem",
+    color: "#b91c1c",
+    padding: "0.35rem 0.2rem 0",
+  },
   logoutBtn: {
     marginTop: "0.25rem",
     padding: "0.75rem 1rem",
