@@ -337,13 +337,34 @@ export class AsteriskSyncService implements OnModuleInit {
   }
 
   private async readAuthPassword(ext: string): Promise<string | null> {
+    // AMI `Command` returns the raw `pjsip show auth <ext>-auth` text, e.g.:
+    //
+    //   ParameterName  : ParameterValue
+    //   ===========================================
+    //   auth_type      : userpass
+    //   md5_cred       :
+    //   nonce_lifetime : 32
+    //   password       : e09b5cb7c1f94bdc826704b6ce13bd72
+    //   realm          :
+    //   username       : 502
+    //
+    // The previous regex matched on `(\S+?)\s*(?:,|$)` without the `m` flag,
+    // so `$` meant end-of-string. With many lines after the password line,
+    // it never matched → password silently came back as null. Field-found
+    // when ext 502 was created and bela's softphone couldn't register.
+    //
+    // The line we want is anchored to its own start: `^\s*password\s*:\s*(\S+)`
+    // with the `m` flag so `^` matches each line. We also exclude the
+    // empty-password case (password line with no value, e.g. `md5_cred :`
+    // would never match because of the literal "password" prefix anyway,
+    // but guard against an empty-value password line just in case).
     try {
       const res = await this.amiClient.sendAction({
         Action: 'Command',
         Command: `pjsip show auth ${ext}-auth`,
       });
       const output = this.extractCommandOutput(res);
-      const match = output.match(/password\s*:\s*(\S+?)\s*(?:,|$)/i);
+      const match = output.match(/^\s*password\s*:\s*(\S+)\s*$/im);
       return match?.[1]?.trim() || null;
     } catch {
       return null;
