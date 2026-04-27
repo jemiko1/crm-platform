@@ -4,9 +4,13 @@ import { useEffect, useState } from "react";
 import { apiGet } from "@/lib/api";
 import { useDesktopPhone } from "@/hooks/useDesktopPhone";
 
-// Download URL for the Electron softphone installer. Served by nginx on the VM
-// at https://crm28.asg.ge/downloads/phone/. See auto-updater feed in crm-phone.
-const SOFTPHONE_DOWNLOAD_URL = "https://crm28.asg.ge/downloads/phone/";
+// Always points at the latest release on GitHub — no codebase update
+// needed per release. The previous `https://crm28.asg.ge/downloads/phone/`
+// path returned 403 (nginx directory listing disabled) and the
+// VM `downloads/phone/` folder gets out of sync with releases anyway.
+// GitHub Releases is public + always up to date.
+const SOFTPHONE_DOWNLOAD_URL =
+  "https://github.com/jemiko1/crm-platform/releases/latest";
 
 export default function PhoneMismatchBanner() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -58,7 +62,7 @@ export default function PhoneMismatchBanner() {
         rel="noreferrer"
         className="ml-4 px-3 py-1 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs font-medium"
       >
-        Launch softphone
+        Download softphone
       </a>
     </div>
   );
