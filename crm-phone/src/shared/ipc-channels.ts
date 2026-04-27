@@ -20,6 +20,7 @@ export const IPC = {
 
   CONTACT_LOOKUP: "contact:lookup",
   CALL_HISTORY: "call:history",
+  DIRECTORY_LIST: "directory:list",
 
   SIP_STATUS_REPORT: "sip:status-report",
   SIP_FETCH_CREDENTIALS: "sip:fetch-credentials",

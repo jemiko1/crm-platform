@@ -7,6 +7,7 @@ import { TelephonyCallsService } from '../services/telephony-calls.service';
 import { TelephonyCallbackService } from '../services/telephony-callback.service';
 import { QueryCallsDto, LookupPhoneDto } from '../dto/query-calls.dto';
 import { Doc } from '../../common/openapi/doc-endpoint.decorator';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @ApiTags('Telephony')
 @Controller('v1/telephony')
@@ -16,7 +17,68 @@ export class TelephonyCallsController {
   constructor(
     private readonly callsService: TelephonyCallsService,
     private readonly callbackService: TelephonyCallbackService,
+    private readonly prisma: PrismaService,
   ) {}
+
+  /**
+   * Lean staff directory consumed by the softphone's "Staff" tab.
+   * Returns every active employee with their extension (if any), personal
+   * phone, and department — enough to dial a colleague or see whether
+   * they're reachable.
+   *
+   * Permission: tightened from the class-level `call_center.menu` to
+   * `softphone.handshake` (the dedicated softphone-access scope used by
+   * `/v1/telephony/sip-credentials` and `/v1/telephony/presence`). Without
+   * the override, any user a manager grants `call_center.menu` to (e.g.
+   * for a read-only stats dashboard) would receive every employee's email
+   * + personal phone via this URL. The same data is technically reachable
+   * via `GET /v1/employees`, but that endpoint may be tightened later —
+   * gating this one independently to `softphone.handshake` removes the
+   * coupling.
+   */
+  @Get('directory')
+  @RequirePermission('softphone.handshake')
+  @Header('Cache-Control', 'no-store')
+  @Doc({
+    summary: 'Staff directory for softphone',
+    ok: 'Active employees with extension + phone + department',
+    permission: true,
+  })
+  async getDirectory() {
+    const rows = await this.prisma.employee.findMany({
+      where: { status: { not: 'TERMINATED' } },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+        avatar: true,
+        department: { select: { id: true, name: true } },
+        user: {
+          select: {
+            telephonyExtension: {
+              select: { extension: true, isActive: true },
+            },
+          },
+        },
+      },
+      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      firstName: r.firstName,
+      lastName: r.lastName,
+      email: r.email,
+      phone: r.phone,
+      avatar: r.avatar,
+      // Authoritative source — `TelephonyExtension.extension` is populated
+      // from the Asterisk sync. The legacy `Employee.extensionNumber`
+      // field was removed in PR #300; never re-introduce it.
+      extension: r.user?.telephonyExtension?.extension ?? null,
+      department: r.department ?? null,
+    }));
+  }
 
   /**
    * Disable HTTP caching on all live telephony list endpoints.

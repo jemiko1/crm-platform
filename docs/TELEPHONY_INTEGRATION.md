@@ -358,7 +358,7 @@ tab will render a broken player (file-not-found 404 from the backend).
 **Location**: User's Windows PC
 **Technology**: Electron 28, React 18, SIP.js 0.21, TypeScript
 **Source**: `crm-phone/`
-**Current Version**: 1.9.0 (as of April 2026)
+**Current Version**: 1.12.0 (April 2026 — Staff directory tab + DND in Settings)
 
 #### Architecture
 
@@ -379,7 +379,9 @@ The app uses Electron's multi-process model:
 - Call control: answer, hangup, hold, unhold, mute, DTMF
 - Remote audio playback via dynamically created `<audio>` elements
 - Ringtone via Web Audio API (440Hz/480Hz oscillator)
-- React UI: Login, Phone, Settings, IncomingCallPopup pages
+- React UI: Login, Phone, Settings, IncomingCallPopup, **Staff** (v1.12.0) pages
+- Footer tabs: Keypad / History / Staff / Break (DND moved into Settings → Availability in v1.12.0; the red "DND Active" badge stays next to the status pill so the active state is visible without opening Settings)
+- Staff tab pulls `GET /v1/telephony/directory` once on mount, then filters/groups client-side. Favorites persist to `electron-store` under `staffFavorites` (no backend sync — per-machine preference)
 
 **Preload Script** (`src/main/preload.ts`):
 - `contextBridge` securely exposes APIs to the sandboxed renderer

@@ -520,9 +520,9 @@ Complete frontend route documentation for CRM Platform.
 - `src/app/login/page.tsx` - On login, checks if softphone is paired to a DIFFERENT user and shows a mismatch modal before redirect. Exchanges `/auth/device-token` → bridge `/switch-user` to re-pair if user accepts.
 
 **Permissions required**:
-- `softphone.handshake` — gates both `/auth/device-token` and `/v1/telephony/sip-credentials`. Without this, click-to-call and the switch-user flow return 403. Granted to `CALL_CENTER`, `CALL_CENTER_MANAGER`, `ADMINISTRATOR`, `IT_TESTING` in production.
+- `softphone.handshake` — gates `/auth/device-token`, `/v1/telephony/sip-credentials`, `/v1/telephony/agents/presence`, and (v1.12.0) `/v1/telephony/directory`. Without this, click-to-call, the switch-user flow, and the softphone Staff tab return 403. Granted to `CALL_CENTER`, `CALL_CENTER_MANAGER`, `ADMINISTRATOR`, `IT_TESTING` in production.
 
-**Status**: ✅ **Working** (softphone v1.9.0, April 2026)
+**Status**: ✅ **Working** (softphone v1.12.0, April 2026 — Staff directory tab + DND in Settings)
 
 ---
 

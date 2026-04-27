@@ -92,6 +92,13 @@ export function setSession(
 }
 
 export function getCrmBaseUrl(): string {
+  // Dev override: when CRM_BASE_URL is exported into the shell that
+  // launches Electron (e.g. `CRM_BASE_URL=http://localhost:3001 pnpm
+  // start`), honour it on every call rather than only on first-time
+  // install. In production builds this env var is never set, so the
+  // stored value is always returned.
+  const fromEnv = (process.env.CRM_BASE_URL || "").replace(/\/+$/, "");
+  if (fromEnv) return fromEnv;
   return store.get("crmBaseUrl");
 }
 

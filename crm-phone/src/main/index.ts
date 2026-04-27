@@ -30,6 +30,9 @@ const settingsStore = new Store({
     overrideApps: true,
     audioInputDeviceId: "",
     audioOutputDeviceId: "",
+    // Staff tab — list of employee IDs the operator pinned to the
+    // Favorites tab. Stored locally per-machine; no backend sync.
+    staffFavorites: [] as string[],
   },
 });
 
@@ -371,6 +374,29 @@ function setupIpc(): void {
       if (!res.ok) return null;
       return (await res.json()) as CallerLookupResult;
     } catch { return null; }
+  });
+
+  ipcMain.handle(IPC.DIRECTORY_LIST, async () => {
+    const session = getSession();
+    if (!session) return [];
+    try {
+      const baseUrl = getCrmBaseUrl();
+      const res = await fetch(`${baseUrl}/v1/telephony/directory`, {
+        headers: { Authorization: `Bearer ${session.accessToken}` },
+      });
+      if (!res.ok) {
+        // Surface auth/permission failures in the debug log so a stuck
+        // empty Staff tab can be diagnosed without DevTools open
+        // (Silent Override Risk #23 corollary — silent empties hide
+        // permission revocations).
+        console.warn(`[directory] HTTP ${res.status} from ${baseUrl}/v1/telephony/directory`);
+        return [];
+      }
+      return await res.json();
+    } catch (err: any) {
+      console.warn("[directory] fetch failed:", err?.message ?? err);
+      return [];
+    }
   });
 
   ipcMain.handle(IPC.CALL_HISTORY, async (_event, extension: string) => {
