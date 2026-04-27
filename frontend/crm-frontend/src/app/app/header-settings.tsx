@@ -176,7 +176,7 @@ export default function HeaderSettings() {
                   </div>
                 ) : (
                   <a
-                    href="https://crm28.asg.ge/downloads/phone/CRM28-Phone-Setup.exe"
+                    href="https://github.com/jemiko1/crm-platform/releases/latest"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-zinc-700 hover:bg-zinc-50 transition-colors"
@@ -188,7 +188,7 @@ export default function HeaderSettings() {
                     </svg>
                     <div>
                       <div className="font-medium">{t("settings.downloadPhoneApp", "Download Phone App")}</div>
-                      <div className="text-xs text-zinc-400">{t("settings.downloadPhoneAppDesc", "Windows softphone for calls")} (v1.7.1)</div>
+                      <div className="text-xs text-zinc-400">{t("settings.downloadPhoneAppDesc", "Windows softphone for calls")}</div>
                     </div>
                   </a>
                 )}
