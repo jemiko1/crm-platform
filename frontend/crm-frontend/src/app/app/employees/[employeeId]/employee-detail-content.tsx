@@ -32,6 +32,10 @@ type Employee = {
     email: string;
     role: string;
     isActive: boolean;
+    telephonyExtension?: {
+      extension: string;
+      isActive: boolean;
+    } | null;
   } | null;
   department: {
     id: string;
@@ -371,6 +375,21 @@ export default function EmployeeDetailContent({ employee, employeeId, onUpdate }
                   {employee.role ? employee.role.name : "—"}
                 </div>
               </div>
+              {employee.user?.telephonyExtension?.extension &&
+                employee.user.telephonyExtension.isActive && (
+                  <div>
+                    <label className="text-xs font-medium text-zinc-500">Extension</label>
+                    <div className="mt-1">
+                      <a
+                        href={`tel:${employee.user.telephonyExtension.extension}`}
+                        className="inline-flex items-center gap-1 rounded-lg bg-teal-50 px-3 py-1.5 text-sm font-semibold text-teal-900 ring-1 ring-teal-200 hover:bg-teal-100"
+                        title="Click to dial via softphone"
+                      >
+                        Ext: {employee.user.telephonyExtension.extension}
+                      </a>
+                    </div>
+                  </div>
+                )}
               <div>
                 <label className="text-xs font-medium text-zinc-500">Manager</label>
                 <div className="mt-1 text-sm font-semibold text-zinc-900">

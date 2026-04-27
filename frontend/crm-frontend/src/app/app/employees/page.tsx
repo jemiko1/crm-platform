@@ -25,6 +25,10 @@ type Employee = {
   user?: {
     id: string;
     isActive: boolean;
+    telephonyExtension?: {
+      extension: string;
+      isActive: boolean;
+    } | null;
   } | null;
   position?: {
     id: string;
@@ -338,6 +342,9 @@ function EmployeesPageContent() {
                   Login
                 </th>
                 <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-zinc-900 bg-zinc-50">
+                  {t("employees.columns.extension", "Extension")}
+                </th>
+                <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-zinc-900 bg-zinc-50">
                   {t("employees.columns.status", "Status")}
                 </th>
                 <th className="px-4 sm:px-6 py-3 text-right text-xs font-semibold text-zinc-900 bg-zinc-50">
@@ -393,6 +400,25 @@ function EmployeesPageContent() {
                         <IconUserOff />
                         None
                       </span>
+                    )}
+                  </td>
+                  <td className="whitespace-nowrap px-4 sm:px-6 py-4">
+                    {emp.user?.telephonyExtension?.extension &&
+                    emp.user.telephonyExtension.isActive ? (
+                      // `tel:` anchor (not <ClickToCall>) so users on
+                      // desk phones / non-softphone setups can still copy
+                      // the number, and the OS routes the link to whatever
+                      // dialer is registered (softphone bridge URI handler
+                      // included). Matches the detail page for consistency.
+                      <a
+                        href={`tel:${emp.user.telephonyExtension.extension}`}
+                        className="inline-flex items-center gap-1 rounded-lg bg-teal-50 px-2 py-1 text-xs font-semibold text-teal-900 ring-1 ring-teal-200 hover:bg-teal-100"
+                      >
+                        {t("employees.extPrefix", "Ext:")}{" "}
+                        {emp.user.telephonyExtension.extension}
+                      </a>
+                    ) : (
+                      <span className="text-zinc-400 text-xs">—</span>
                     )}
                   </td>
                   <td className="whitespace-nowrap px-4 sm:px-6 py-4">
