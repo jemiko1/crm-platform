@@ -27,10 +27,24 @@ export function setupAutoUpdater(): void {
     return;
   }
 
-  autoUpdater.setFeedURL({
-    provider: "generic",
-    url: "https://crm28.asg.ge/downloads/phone",
-  });
+  // Feed URL is read from `app-update.yml` baked into the asar at build
+  // time (sourced from electron-builder.yml's `publish` block). Provider
+  // is `github` against `jemiko1/crm-platform` — public repo, no token
+  // needed at runtime. We deliberately do NOT call `setFeedURL()` here:
+  // the embedded config is the single source of truth, and any drift
+  // between code and YAML is silent breakage. If you ever need to
+  // override the feed for a one-off (e.g. internal mirror), do it in
+  // electron-builder.yml + a fresh build, not in code.
+  //
+  // Why GitHub instead of `https://crm28.asg.ge/downloads/phone`:
+  //   The previous "generic" feed pointed at a static path on the
+  //   production VM. Every release required also SCPing the installer +
+  //   latest.yml to that path. That step kept getting skipped, so
+  //   operators on older builds could never see new releases — the
+  //   "Check for Updates" button just said "up to date" forever. With
+  //   the GitHub provider, `gh release create` (or
+  //   `electron-builder --publish always`) is the single action that
+  //   makes a new version visible to every running softphone.
 
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
