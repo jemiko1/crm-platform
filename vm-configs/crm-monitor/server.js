@@ -6,6 +6,7 @@ const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
+const tls = require('tls');
 
 const app = express();
 const PORT = 9090;
@@ -417,6 +418,80 @@ app.get('/api/github-deploys', async (req, res) => {
       : null,
   }));
   res.json({ runs, totalCount: result.data.total_count || 0 });
+});
+
+// ── PBX TLS cert check (1-hour cache) ────────────────────
+// Why this exists: on 2026-04-28 the entire call center went offline because
+// the WSS cert went from self-signed-but-bypassed (softphone v1.10.x trusted
+// any cert) to self-signed-rejected (softphone v1.11.x enforces real CAs).
+// The fix was a real ZeroSSL public cert, but it's renewed manually via
+// DNS-01 every ~60 days. If renewal slips, all softphones fail to connect.
+// This check warns operators 21 days early so the cert never expires unnoticed.
+//
+// See `docs/PBX_TLS_CERT_SOP.md` for the renewal procedure.
+let _pbxCertCache = { fetchedAt: 0, data: null };
+
+function fetchPbxCert() {
+  return new Promise((resolve) => {
+    const host = process.env.PBX_TLS_HOST || 'pbx.asg.ge';
+    const port = Number(process.env.PBX_TLS_PORT || 8089);
+    let settled = false;
+    const finish = (v) => { if (!settled) { settled = true; resolve(v); } };
+    // Note: the `timeout` field passed to tls.connect's options object is a
+    // no-op for the connect phase — it only takes effect after the socket
+    // is connected, and only when paired with socket.setTimeout(). Use the
+    // imperative setTimeout() form for a real connect-phase timeout.
+    const socket = tls.connect(
+      { host, port, servername: host, rejectUnauthorized: false },
+      () => {
+        const cert = socket.getPeerCertificate();
+        socket.end();
+        if (!cert || !cert.valid_to) {
+          finish({ ok: false, error: 'no peer cert' });
+          return;
+        }
+        const validUntil = new Date(cert.valid_to);
+        const validFrom = new Date(cert.valid_from);
+        const now = new Date();
+        const daysRemaining = Math.floor((validUntil - now) / 86400000);
+        let status = 'ok';
+        if (daysRemaining < 0) status = 'expired';
+        else if (daysRemaining < 7) status = 'critical';
+        else if (daysRemaining < 21) status = 'warning';
+        finish({
+          ok: true,
+          host,
+          port,
+          subject: cert.subject?.CN || '',
+          issuer: cert.issuer?.O || cert.issuer?.CN || '',
+          validFrom: validFrom.toISOString(),
+          validUntil: validUntil.toISOString(),
+          daysRemaining,
+          status,
+        });
+      },
+    );
+    socket.setTimeout(5000);
+    socket.on('error', (e) => finish({ ok: false, error: e.message }));
+    socket.on('timeout', () => {
+      socket.destroy();
+      finish({ ok: false, error: 'timeout' });
+    });
+  });
+}
+
+app.get('/api/pbx-cert', async (req, res) => {
+  const now = Date.now();
+  // Successful fetches cache for 1h (cheap to re-check; cert changes
+  // hourly at most after a renewal). Failed fetches cache 5 min so a
+  // transient PBX hiccup doesn't mask recovery for an hour.
+  const ttl = _pbxCertCache.data?.ok ? 3_600_000 : 300_000;
+  if (_pbxCertCache.data && now - _pbxCertCache.fetchedAt < ttl) {
+    return res.json({ ...(_pbxCertCache.data), cached: true });
+  }
+  const data = await fetchPbxCert();
+  _pbxCertCache = { fetchedAt: now, data };
+  res.json({ ...data, cached: false });
 });
 
 // ── API: Git Status ──────────────────────────────────────

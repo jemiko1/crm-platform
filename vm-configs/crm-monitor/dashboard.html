@@ -414,6 +414,7 @@
   <h1><span>CRM28</span> Operations Dashboard</h1>
   <div class="header-right">
     <span class="git-badge" id="git-badge" style="display:none;"></span>
+    <span class="git-badge" id="pbx-cert-badge" style="display:none;"></span>
     <div class="refresh-dot"></div>
     <span>VM 192.168.65.110</span>
     <span id="clock"></span>
@@ -1317,6 +1318,44 @@ async function loadGitStatus() {
   } catch {}
 }
 
+// ── PBX TLS cert badge ───────────────────────────────
+// Shows the WSS cert expiry inline. Goes red <7 days, amber <21 days.
+// If renewal slips, every operator's softphone goes offline simultaneously
+// (the 2026-04-28 incident). See docs/PBX_TLS_CERT_SOP.md for the renewal
+// procedure (~10 min, ~every 60 days).
+async function loadPbxCertStatus() {
+  try {
+    const r = await fetch(BASE + '/api/pbx-cert');
+    if (!r.ok) return;
+    const data = await r.json();
+    const badge = document.getElementById('pbx-cert-badge');
+    if (!badge) return;
+    if (!data.ok) {
+      badge.style.display = 'inline';
+      badge.style.color = '#fca5a5';
+      badge.textContent = 'PBX cert: error (' + (data.error || 'unknown') + ')';
+      return;
+    }
+    badge.style.display = 'inline';
+    let color = '#86efac'; // green
+    if (data.status === 'expired') color = '#fca5a5'; // red
+    else if (data.status === 'critical') color = '#fca5a5';
+    else if (data.status === 'warning') color = '#fbbf24'; // amber
+    badge.style.color = color;
+    badge.textContent =
+      data.status === 'expired'
+        ? 'PBX cert: EXPIRED — renew now'
+        : 'PBX cert: ' + data.daysRemaining + 'd left';
+    badge.title =
+      'CN=' + data.subject +
+      '\nIssuer=' + data.issuer +
+      '\nValid until ' + new Date(data.validUntil).toLocaleDateString() +
+      (data.status === 'warning' || data.status === 'critical'
+        ? '\n\n⚠ Renewal needed — see docs/PBX_TLS_CERT_SOP.md'
+        : '');
+  } catch {}
+}
+
 // ── Clock & Auto-refresh ─────────────────────────────
 
 function updateClock() {
@@ -1332,7 +1371,11 @@ window.addEventListener('resize', () => {
 loadStatus();
 loadBridges();
 loadGitStatus();
+loadPbxCertStatus();
 updateClock();
+
+// PBX cert: refresh once an hour (server caches anyway)
+setInterval(loadPbxCertStatus, 3600000);
 
 // Auto-refresh: status every 30s, bridges every 5s, deploys every 15s
 setInterval(() => {
