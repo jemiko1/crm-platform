@@ -1,6 +1,6 @@
 {
   "name": "crm28-phone",
-  "version": "1.12.0",
+  "version": "1.12.1",
   "description": "CRM28 Desktop Softphone",
   "main": "dist/main/index.js",
   "packageManager": "pnpm@10.27.0",

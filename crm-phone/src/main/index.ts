@@ -17,6 +17,7 @@ import {
 } from "./session-store";
 import { IPC } from "../shared/ipc-channels";
 import { setupAutoUpdater, checkForUpdatesManually } from "./auto-updater";
+import { installPbxCertPin } from "./pbx-cert-pin";
 import type {
   AppLoginResponse,
   CallerLookupResult,
@@ -595,7 +596,13 @@ app.whenReady().then(async () => {
   // Any override that passes `0` (trust) unconditionally accepts MITM
   // certs on every untrusted network the operator uses. crm28.asg.ge
   // is Let's Encrypt-signed; Electron's default verifier handles it.
-  // Leaving the default in place is the fix for audit blocker B2.
+  //
+  // What WE install here is narrower: trust ONLY one specific cert
+  // (by SPKI hash) at ONLY the configured PBX host. Every other HTTPS
+  // request goes through Chromium's default verifier unchanged. This
+  // is the standard certificate-pinning pattern; see pbx-cert-pin.ts
+  // for the full audit-posture writeup and rotation procedure.
+  installPbxCertPin();
 
   // H11 — auto-grant only the permissions we actually need (microphone
   // for SIP media). Everything else (geolocation, clipboard-read, midi,
