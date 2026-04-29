@@ -27,10 +27,20 @@ export function setupAutoUpdater(): void {
     return;
   }
 
-  autoUpdater.setFeedURL({
-    provider: "generic",
-    url: "https://crm28.asg.ge/downloads/phone",
-  });
+  // Feed URL is read from `app-update.yml` baked into the asar at
+  // build time, sourced from electron-builder.yml's `publish` block.
+  // Today: provider=generic, url=https://crm28.asg.ge/downloads/phone.
+  // We deliberately do NOT call `setFeedURL()` here — code-set feed
+  // silently overrides the embedded YAML, which means a build-config
+  // change (e.g. moving the feed) can be defeated by a stale code
+  // path. Single source of truth: electron-builder.yml only.
+  //
+  // The feed lives on the VM, not on GitHub releases, because the
+  // GitHub repo is going to be made private and any github-provider
+  // setup would lose unauthenticated read access. The release script
+  // (crm-phone/scripts/release.sh) makes the VM upload step
+  // structurally unforgettable — it's the SAME command that produces
+  // the build, not a separate manual SCP afterward.
 
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;

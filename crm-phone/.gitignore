@@ -2,3 +2,10 @@ node_modules/
 dist/
 release/
 *.log
+
+# stray esbuild/electron-builder output occasionally lands at the package
+# root; never commit these
+/index.js
+/index.js.map
+/preload.js
+/preload.js.map

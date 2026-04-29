@@ -12,6 +12,12 @@ extraResources:
 win:
   target: nsis
   icon: resources/icon.ico
+  # The default `${productName} Setup ${version}.${ext}` produces files
+  # with spaces in the name. `latest.yml` references the file with
+  # hyphens, so URL-encoded fetches against the spaced filename 404.
+  # Pinning hyphens here keeps the file-on-disk name, the URL in
+  # `latest.yml`, and the upload target identical.
+  artifactName: CRM28-Phone-Setup-${version}.${ext}
 nsis:
   oneClick: true
   perMachine: true

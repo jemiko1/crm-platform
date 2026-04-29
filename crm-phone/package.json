@@ -1,6 +1,6 @@
 {
   "name": "crm28-phone",
-  "version": "1.12.1",
+  "version": "1.12.3",
   "description": "CRM28 Desktop Softphone",
   "main": "dist/main/index.js",
   "packageManager": "pnpm@10.27.0",
@@ -22,7 +22,8 @@
     "postinstall": "node -e \"if(process.platform==='win32'){try{require('child_process').execSync('pnpm run brand-electron-exe',{stdio:'inherit'})}catch(e){console.error('brand-electron-exe failed:',e.message)}}\"",
     "start": "electron dist/main/index.js",
     "pack": "pnpm run build && electron-builder --win",
-    "release": "pnpm run build && electron-builder --win --publish always",
+    "release": "bash ./scripts/release.sh",
+    "release:win": "powershell -ExecutionPolicy Bypass -File ./scripts/release.ps1",
     "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json --noEmit"
   },
   "dependencies": {

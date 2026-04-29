@@ -116,11 +116,11 @@ until we're happy.
 
 I'll do this as the final step — you don't need to:
 - Bump version in `package.json`
-- Run `pnpm run pack` to build the installer
-- Upload installer + blockmap + `latest.yml` to VM
-- Overwrite stable `CRM28-Phone-Setup.exe` pointer
-- Create GitHub release
+- Run `pnpm run release` (single command — builds, uploads to VM,
+  verifies the public URL serves the new version, creates a GitHub
+  release for changelog audit). See
+  [`../docs/SOFTPHONE_RELEASE_PROCEDURE.md`](../docs/SOFTPHONE_RELEASE_PROCEDURE.md).
 - Merge the branch to master
 
-You keep your production install on v1.10.2 during iteration. The final
-install swap happens once, at the end.
+You keep your production install on the current stable during iteration.
+The final install swap happens once, at the end.
