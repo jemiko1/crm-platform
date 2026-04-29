@@ -1,21 +1,8 @@
 import { Injectable, Logger } from "@nestjs/common";
 
-export interface BugAnalysisResult {
-  title: string;
-  summary: string;
-  rootCause: string;
-  suggestedFix: string;
-  affectedArea: string;
-  affectedFiles: string[];
-  labels: string[];
-  aiSeverity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
-  testerDescriptionTranslation: string;
-}
-
-export interface GitHubIssueResult {
-  issueNumber: number;
-  issueUrl: string;
-}
+export type GitHubIssueOutcome =
+  | { ok: true; issueNumber: number; issueUrl: string }
+  | { ok: false; error: string; status?: number };
 
 @Injectable()
 export class GitHubIssueService {
@@ -34,20 +21,17 @@ export class GitHubIssueService {
     consoleLog: unknown[];
     networkLog: unknown[];
     createdAt: Date;
-    analysis: BugAnalysisResult | null;
     videoUrl?: string | null;
     screenshotUrls?: string[];
-  }): Promise<GitHubIssueResult | null> {
+  }): Promise<GitHubIssueOutcome> {
     const token = process.env.GITHUB_TOKEN;
     const owner = process.env.GITHUB_OWNER || "jemiko1";
-    const repo = process.env.GITHUB_REPO || "CRM-Platform";
+    const repo = process.env.GITHUB_REPO || "crm-platform";
 
     if (!token) {
       this.logger.warn("GITHUB_TOKEN not set — skipping issue creation");
-      return null;
+      return { ok: false, error: "GITHUB_TOKEN is not configured on the server" };
     }
-
-    const { analysis } = params;
 
     const consoleErrors = (params.consoleLog as Array<Record<string, unknown>>).filter(
       (e) => e.level === "error",
@@ -56,36 +40,13 @@ export class GitHubIssueService {
       (e) => typeof e.status === "number" && (e.status as number) >= 400,
     );
 
-    const title = analysis?.title ?? `[${params.severity}] Bug report from ${params.pageUrl}`;
-    const labels = analysis
-      ? [...new Set([...analysis.labels, "tester-reported"])]
-      : ["tester-reported", "bug", "needs-triage"];
-
-    const aiSection = analysis
-      ? `### Tester Description (English Translation)
-${analysis.testerDescriptionTranslation}
-
----
-
-### AI Analysis
-
-**Summary:** ${analysis.summary}
-
-**Root Cause Hypothesis:**
-${analysis.rootCause}
-
-**Suggested Fix Plan:**
-${analysis.suggestedFix}
-
-**Affected Area:** ${analysis.affectedArea}
-**Likely Affected Files:**
-${analysis.affectedFiles.map((f) => "- `" + f + "`").join("\n")}`
-      : `> _AI analysis was unavailable — raw tester data included below._`;
+    const title = `[${params.severity}] Bug report from ${params.pageUrl}`;
+    const labels = ["tester-reported", "bug", "needs-triage"];
 
     const body = `## Bug Report \`${params.bugReportId.slice(0, 8)}\`
 
 **Reported by:** ${params.reporterName} (${params.reporterEmail})
-**Severity (tester):** ${params.severity}${analysis ? `\n**Severity (AI):** ${analysis.aiSeverity}` : ""}
+**Severity:** ${params.severity}
 **Page:** ${params.pageUrl}
 **Category:** ${params.category}
 **Browser:** ${params.browserInfo.userAgent ?? "unknown"}
@@ -94,10 +55,8 @@ ${analysis.affectedFiles.map((f) => "- `" + f + "`").join("\n")}`
 
 ---
 
-### Tester Description (Original — Georgian)
+### Tester Description
 ${params.description}
-
-${aiSection}
 
 ${params.screenshotUrls && params.screenshotUrls.length > 0 ? `---
 
@@ -160,17 +119,34 @@ ${JSON.stringify(params.actionLog.slice(0, 60), null, 2)}
       if (!res.ok) {
         const errBody = await res.text();
         this.logger.error(`GitHub API error ${res.status}: ${errBody}`);
-        return null;
+        let parsedMessage: string | null = null;
+        try {
+          const parsed = JSON.parse(errBody) as { message?: string };
+          parsedMessage = parsed.message ?? null;
+        } catch {
+          /* not JSON */
+        }
+        const errorText =
+          res.status === 401
+            ? "GitHub token is invalid or expired (401). Update GITHUB_TOKEN on the server."
+            : res.status === 403
+              ? `GitHub denied the request (403)${parsedMessage ? ": " + parsedMessage : ""}. Token may lack \`repo\` scope or rate-limit hit.`
+              : res.status === 404
+                ? `GitHub repo ${owner}/${repo} not found (404). Check GITHUB_OWNER / GITHUB_REPO env vars.`
+                : `GitHub API error ${res.status}${parsedMessage ? ": " + parsedMessage : ""}`;
+        return { ok: false, error: errorText, status: res.status };
       }
 
-      const issue = await res.json();
+      const issue = (await res.json()) as { number: number; html_url: string };
       return {
+        ok: true,
         issueNumber: issue.number,
         issueUrl: issue.html_url,
       };
     } catch (err) {
+      const message = (err as Error).message || "Unknown network error";
       this.logger.error("GitHub issue creation failed", (err as Error).stack);
-      return null;
+      return { ok: false, error: `Network error reaching GitHub: ${message}` };
     }
   }
 }

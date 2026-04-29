@@ -1235,7 +1235,13 @@ async function loadDeploys() {
     const r = await fetch(BASE + '/api/github-deploys');
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
-      container.innerHTML = '<div class="deploy-empty">Failed to load deployments: ' + escapeHtml(err.error || 'Unknown error') + '</div>';
+      const parts = [];
+      parts.push(escapeHtml(err.error || 'Unknown error'));
+      if (err.status) parts.push('(HTTP ' + err.status + ')');
+      if (err.message) parts.push('— ' + escapeHtml(err.message));
+      const main = parts.join(' ');
+      const hint = err.hint ? '<div style="margin-top:6px;font-size:12px;opacity:0.8;">' + escapeHtml(err.hint) + '</div>' : '';
+      container.innerHTML = '<div class="deploy-empty">Failed to load deployments: ' + main + hint + '</div>';
       return;
     }
     const data = await r.json();

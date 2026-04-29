@@ -134,11 +134,21 @@ export class BugReportsService {
       include: { reporter: { select: { id: true, email: true } } },
     });
 
-    this.processAsync(report.id).catch((err) =>
-      this.logger.error(`Async processing failed for ${report.id}`, err.stack),
-    );
+    const ghOutcome = await this.createGithubIssueForReport(report.id);
 
-    return report;
+    if (!ghOutcome.ok) {
+      this.logger.warn(
+        `Bug report ${report.id} saved but GitHub issue creation failed: ${ghOutcome.error}`,
+      );
+      throw new BadRequestException(
+        `Bug report saved but GitHub issue creation failed: ${ghOutcome.error}. An admin can retry from the bug reports admin panel.`,
+      );
+    }
+
+    return this.prisma.bugReport.findUnique({
+      where: { id: report.id },
+      include: { reporter: { select: { id: true, email: true } } },
+    });
   }
 
   async findAll(page = 1, pageSize = 20) {
@@ -259,67 +269,32 @@ export class BugReportsService {
   }
 
   async retryGithub(id: string) {
-    const report = await this.findOne(id);
-
-    const reporter = report.reporter;
-    const analysis = report.aiAnalysis as Record<string, unknown> | null;
-    const videoUrl = report.videoPath ? this.buildVideoUrl(report.id) : null;
-    const screenshotPaths = (report.screenshots ?? []) as string[];
-    const screenshotUrls = this.buildScreenshotUrls(report.id, screenshotPaths);
-
-    const ghResult = await this.github.createIssue({
-      bugReportId: report.id,
-      reporterName: reporter.email,
-      reporterEmail: reporter.email,
-      severity: report.severity,
-      category: report.category,
-      pageUrl: report.pageUrl,
-      browserInfo: report.browserInfo as Record<string, unknown>,
-      description: report.description,
-      actionLog: report.actionLog as unknown[],
-      consoleLog: report.consoleLog as unknown[],
-      networkLog: report.networkLog as unknown[],
-      createdAt: report.createdAt,
-      analysis: analysis as any,
-      videoUrl,
-      screenshotUrls,
-    });
-
-    if (!ghResult) {
-      await this.prisma.bugReport.update({
-        where: { id },
-        data: { githubSyncStatus: "FAILED" },
-      });
-      throw new BadRequestException("GitHub issue creation failed — check server logs");
+    const outcome = await this.createGithubIssueForReport(id);
+    if (!outcome.ok) {
+      throw new BadRequestException(
+        `GitHub issue creation failed: ${outcome.error}`,
+      );
     }
-
-    return this.prisma.bugReport.update({
+    return this.prisma.bugReport.findUnique({
       where: { id },
-      data: {
-        githubIssueId: ghResult.issueNumber,
-        githubIssueUrl: ghResult.issueUrl,
-        githubSyncStatus: "SYNCED",
-        status: "GITHUB_CREATED",
-      },
       include: { reporter: { select: { id: true, email: true } } },
     });
   }
 
-  private async processAsync(bugReportId: string) {
+  private async createGithubIssueForReport(bugReportId: string) {
     const report = await this.prisma.bugReport.findUnique({
       where: { id: bugReportId },
       include: { reporter: { select: { id: true, email: true } } },
     });
-    if (!report) return;
+    if (!report) {
+      return { ok: false as const, error: "Bug report not found" };
+    }
 
-    const videoUrl = report.videoPath
-      ? this.buildVideoUrl(report.id)
-      : null;
-
+    const videoUrl = report.videoPath ? this.buildVideoUrl(report.id) : null;
     const screenshotPaths = (report.screenshots ?? []) as string[];
     const screenshotUrls = this.buildScreenshotUrls(report.id, screenshotPaths);
 
-    const ghResult = await this.github.createIssue({
+    const outcome = await this.github.createIssue({
       bugReportId: report.id,
       reporterName: report.reporter.email,
       reporterEmail: report.reporter.email,
@@ -332,17 +307,16 @@ export class BugReportsService {
       consoleLog: report.consoleLog as unknown[],
       networkLog: report.networkLog as unknown[],
       createdAt: report.createdAt,
-      analysis: null,
       videoUrl,
       screenshotUrls,
     });
 
-    if (ghResult) {
+    if (outcome.ok) {
       await this.prisma.bugReport.update({
         where: { id: bugReportId },
         data: {
-          githubIssueId: ghResult.issueNumber,
-          githubIssueUrl: ghResult.issueUrl,
+          githubIssueId: outcome.issueNumber,
+          githubIssueUrl: outcome.issueUrl,
           githubSyncStatus: "SYNCED",
           status: "GITHUB_CREATED",
         },
@@ -353,5 +327,7 @@ export class BugReportsService {
         data: { githubSyncStatus: "FAILED" },
       });
     }
+
+    return outcome;
   }
 }

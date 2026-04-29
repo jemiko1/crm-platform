@@ -215,7 +215,7 @@ Each NestJS module owns its domain: controller + service + DTOs + module file. K
 | `translations/` | i18n | |
 | `audit/` | Audit log | |
 | `health/` | Health endpoint | DB + memory checks |
-| `bug-reports/` | Bug reporter (beta) | Claude AI analysis + GitHub issue creation. Env: ANTHROPIC_API_KEY, GITHUB_TOKEN |
+| `bug-reports/` | Bug reporter (beta) | Synchronous GitHub issue creation. Env: GITHUB_TOKEN (must have `repo` scope), GITHUB_OWNER, GITHUB_REPO |
 | `core-integration/` | Core system sync | Webhook receiver + upsert logic. See `docs/CORE_INTEGRATION.md` |
 | `common/` | Guards, filters, decorators | |
 | `v1/` | Versioned controllers | |
