@@ -1,0 +1,6 @@
+# Force LF line endings on shell scripts so they work on both Windows
+# (Git Bash) and Linux/macOS without "bad interpreter: ^M" errors.
+*.sh text eol=lf
+
+# PowerShell scripts can stay CRLF, but explicit is better than implicit.
+*.ps1 text eol=crlf
