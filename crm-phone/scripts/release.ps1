@@ -82,10 +82,21 @@ if ($NoVm) {
     & scp -i $sshKey -o ConnectTimeout=15 $installer $blockmap $latestYml "$($vmUser)@$($vmHost):$vmPath"
     if ($LASTEXITCODE -ne 0) { throw "scp failed" }
 
+    # Refresh the version-less stable filename. The website's "Download
+    # Phone App" buttons (settings dropdown + the bridge-unreachable
+    # banner) point at this URL so they don't need a code change every
+    # release. nginx rewrites Content-Disposition so the browser saves
+    # it with the version-less name.
+    Write-Host "==> Refreshing stable filename CRM28-Phone-Setup.exe -> v$version"
+    & ssh -i $sshKey -o ConnectTimeout=15 "$($vmUser)@$($vmHost)" `
+        "Copy-Item -Force 'C:\crm\downloads\phone\CRM28-Phone-Setup-$version.exe' 'C:\crm\downloads\phone\CRM28-Phone-Setup.exe'"
+    if ($LASTEXITCODE -ne 0) { throw "stable filename refresh failed" }
+
+    # Verify the public URLs serve the new version. Cache-buster query
+    # string + no-cache header prevent any reverse proxy from serving a
+    # stale copy of `latest.yml` for a few seconds after upload (would
+    # falsely fail or falsely pass).
     Write-Host "==> Verifying https://crm28.asg.ge/downloads/phone/latest.yml"
-    # Cache-buster query string + no-cache header prevent any reverse
-    # proxy from serving a stale copy of `latest.yml` for a few seconds
-    # after upload (would falsely fail or falsely pass).
     $cb = "$PID-$(Get-Date -UFormat %s)"
     $headers = @{ 'Cache-Control' = 'no-cache'; 'Pragma' = 'no-cache' }
     $remoteYaml = Invoke-WebRequest -UseBasicParsing -Headers $headers `
@@ -95,7 +106,22 @@ if ($NoVm) {
     if ($remoteVersion -ne $version) {
         throw "VM serves version='$remoteVersion' after upload — expected $version. Auto-update will not work for this release."
     }
-    Write-Host "    OK — VM serves v$version"
+    Write-Host "    OK — auto-update feed serves v$version"
+
+    # Cross-check stable filename — its Content-Length must match the
+    # versioned installer. If the Copy-Item silently failed, the site
+    # download button serves a stale build while auto-update serves the
+    # new one — two URLs out of sync, hardest class of bug to diagnose.
+    Write-Host "==> Verifying https://crm28.asg.ge/downloads/phone/CRM28-Phone-Setup.exe"
+    $cb2 = "$PID-$(Get-Date -UFormat %s)"
+    $stableHead = Invoke-WebRequest -UseBasicParsing -Method Head -Headers $headers `
+        -Uri "https://crm28.asg.ge/downloads/phone/CRM28-Phone-Setup.exe?cb=$cb2"
+    $stableSize = [int64]$stableHead.Headers['Content-Length']
+    $expectedSize = (Get-Item $installer).Length
+    if ($stableSize -ne $expectedSize) {
+        throw "Stable URL serves $stableSize bytes — expected $expectedSize (matching v$version). Website download button will give users a stale installer."
+    }
+    Write-Host "    OK — stable download URL serves v$version ($stableSize bytes)"
 }
 
 if ($NoGithub) {

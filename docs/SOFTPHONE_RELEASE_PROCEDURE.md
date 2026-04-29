@@ -18,13 +18,58 @@ That single command:
 2. Verifies `latest.yml` and the installer agree on the filename.
 3. SCPs `*.exe` + `*.exe.blockmap` + `latest.yml` to the production VM
    (`Administrator@192.168.65.110:C:/crm/downloads/phone/`).
-4. Re-fetches `https://crm28.asg.ge/downloads/phone/latest.yml` and
+4. Refreshes the version-less stable copy `CRM28-Phone-Setup.exe`
+   on the VM via SSH `Copy-Item -Force` (this is the file the
+   website's "Download Phone App" button serves).
+5. Re-fetches `https://crm28.asg.ge/downloads/phone/latest.yml` and
    verifies it now reports the new version. (If nginx is serving from
    a different path or the upload failed silently, the script aborts.)
-5. Creates a GitHub release for changelog / audit trail (skippable
-   with `--no-github` / `-NoGithub`).
+6. Issues a HEAD against `https://crm28.asg.ge/downloads/phone/CRM28-Phone-Setup.exe`
+   and verifies its byte-size matches the just-built installer. (If
+   the SSH `Copy-Item` silently failed, the website serves a stale
+   build while auto-update serves the new one — a two-URL skew that
+   is the hardest class of bug to diagnose later.)
+7. Creates a GitHub release for changelog / audit trail (skippable
+   with `--no-github` / `-NoGithub`; will silently skip if `gh` is
+   not authenticated, which is what happens once the repo is private).
 
-Operators auto-update on next launch.
+Operators auto-update on next launch. New users hitting the website
+"Download Phone App" button get the same version.
+
+## The release contract
+
+A successful release means **all four** of these are true. The release
+script enforces them; do not consider a release shipped if any are
+missing.
+
+| URL | Source | Used by |
+|---|---|---|
+| `https://crm28.asg.ge/downloads/phone/latest.yml` | uploaded by SCP step (3) | `electron-updater` in every running softphone — version check |
+| `https://crm28.asg.ge/downloads/phone/CRM28-Phone-Setup-X.Y.Z.exe` | uploaded by SCP step (3) | `electron-updater` — actual binary download (URL is taken from `latest.yml`'s `path:` field) |
+| `https://crm28.asg.ge/downloads/phone/CRM28-Phone-Setup-X.Y.Z.exe.blockmap` | uploaded by SCP step (3) | `electron-updater` — differential update; not strictly required (auto-update falls back to full download if missing) but always uploaded |
+| `https://crm28.asg.ge/downloads/phone/CRM28-Phone-Setup.exe` | refreshed by SSH `Copy-Item` step (4) | website "Download Phone App" buttons in `header-settings.tsx` and `phone-mismatch-banner.tsx` — new-user install |
+
+Existing users → auto-update via the first three URLs.
+New users → download via the fourth URL.
+
+**If you ever see one URL agree but another disagree on what version
+is current, you have a stale release and existing-vs-new users will
+get different builds.** The script's verification steps (5) and (6)
+catch this before the release reports success.
+
+## When NOT to use the script
+
+- **Don't manually `scp` files to the VM.** The script does this for
+  a reason — bypassing it skips the post-upload verification, which is
+  exactly the failure mode that produced the v1.10.x → v1.12.0
+  drift. If the script is broken, fix the script.
+- **Don't change a download URL in the frontend without first
+  confirming the URL works.** The website buttons point at the stable
+  filename, which only exists if the release script's step (4) ran.
+- **Don't add a separate "publish to GitHub" step.** The script does
+  this. Once the repo is private and `gh release create` starts
+  failing for non-collaborators, the script silently skips it (the
+  VM upload — what actually matters for ops — is unaffected).
 
 ## How auto-update works
 

@@ -95,7 +95,16 @@ else
     "$INSTALLER" "$BLOCKMAP" "$LATEST_YML" \
     "${VM_USER}@${VM_HOST}:${VM_PATH}"
 
-  # Verify the public URL serves the new version. Catches: (a) the VM
+  # Refresh the version-less stable filename. The website's "Download
+  # Phone App" buttons (settings dropdown + the bridge-unreachable
+  # banner) point at this URL so they don't need a code change every
+  # release. nginx rewrites Content-Disposition so the browser saves
+  # it with the version-less name.
+  echo "==> Refreshing stable filename CRM28-Phone-Setup.exe -> v${VERSION}"
+  ssh -i "$SSH_KEY" -o ConnectTimeout=15 "${VM_USER}@${VM_HOST}" \
+    "Copy-Item -Force 'C:\\crm\\downloads\\phone\\CRM28-Phone-Setup-${VERSION}.exe' 'C:\\crm\\downloads\\phone\\CRM28-Phone-Setup.exe'"
+
+  # Verify the public URLs serve the new version. Catches: (a) the VM
   # path was wrong, (b) nginx isn't serving from where we uploaded,
   # (c) we uploaded to a stale clone. Cache-buster query string + no-cache
   # headers prevent any reverse proxy from serving a stale copy of
@@ -110,7 +119,26 @@ else
     echo "       Auto-update will not work for this release." >&2
     exit 1
   fi
-  echo "    OK — VM serves v${VERSION}"
+  echo "    OK — auto-update feed serves v${VERSION}"
+
+  # Cross-check stable filename — its Content-Length must match the
+  # versioned installer we uploaded. If the SSH Copy-Item silently
+  # failed (or someone manually pinned an old file), the site
+  # download button serves a stale build while auto-update serves
+  # the new one — two URLs out of sync, hardest class of bug to
+  # diagnose later.
+  echo "==> Verifying https://crm28.asg.ge/downloads/phone/CRM28-Phone-Setup.exe"
+  STABLE_SIZE=$(curl -fsSI \
+    -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' \
+    "https://crm28.asg.ge/downloads/phone/CRM28-Phone-Setup.exe?cb=$$$(date +%s)" \
+    | awk 'tolower($1) == "content-length:" { print $2; exit }' | tr -d '\r')
+  EXPECTED_SIZE=$(stat -c %s "$INSTALLER" 2>/dev/null || stat -f %z "$INSTALLER")
+  if [ "$STABLE_SIZE" != "$EXPECTED_SIZE" ]; then
+    echo "ERROR: stable URL serves ${STABLE_SIZE} bytes — expected ${EXPECTED_SIZE} (matching v${VERSION})" >&2
+    echo "       Website download button will give users a stale installer." >&2
+    exit 1
+  fi
+  echo "    OK — stable download URL serves v${VERSION} (${STABLE_SIZE} bytes)"
 fi
 
 if [ "$SKIP_GH" = "1" ]; then

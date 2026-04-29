@@ -4,13 +4,21 @@ import { useEffect, useState } from "react";
 import { apiGet } from "@/lib/api";
 import { useDesktopPhone } from "@/hooks/useDesktopPhone";
 
-// Always points at the latest release on GitHub — no codebase update
-// needed per release. The previous `https://crm28.asg.ge/downloads/phone/`
-// path returned 403 (nginx directory listing disabled) and the
-// VM `downloads/phone/` folder gets out of sync with releases anyway.
-// GitHub Releases is public + always up to date.
+// Stable URL on the VM that always serves the latest installer. Nginx
+// rewrites Content-Disposition so the browser saves it with a
+// version-less filename. Public, no auth, no VPN — anyone on the
+// public internet who can reach the CRM web app can also download
+// the softphone.
+//
+// Why VM and not `https://github.com/jemiko1/crm-platform/releases/latest`:
+// the GitHub repo is going private, so unauthenticated GitHub release
+// fetches will 404. The "VM gets out of sync" worry that originally
+// pushed us toward GitHub (PR #305) is solved by the release script —
+// `pnpm run release` always refreshes this stable copy as part of the
+// same atomic command that builds + uploads the versioned installer.
+// See docs/SOFTPHONE_RELEASE_PROCEDURE.md.
 const SOFTPHONE_DOWNLOAD_URL =
-  "https://github.com/jemiko1/crm-platform/releases/latest";
+  "https://crm28.asg.ge/downloads/phone/CRM28-Phone-Setup.exe";
 
 export default function PhoneMismatchBanner() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
