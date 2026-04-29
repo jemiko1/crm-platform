@@ -26,6 +26,13 @@ if [[ -z "$STAMP" ]]; then
   echo "example: $0 2026-04-24"
   exit 2
 fi
+# Reject anything that isn't a date — the value is interpolated into ssh
+# command strings below, so a malicious stamp like `..; rm -rf /` would
+# otherwise inject. Tight format also catches typos that would fail later.
+if [[ ! "$STAMP" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+  echo "ERROR: stamp '$STAMP' is not in YYYY-MM-DD format" >&2
+  exit 2
+fi
 
 LOCAL_DIR=".baselines/$STAMP"
 PBX_DIR="/root/crm28-baselines/$STAMP"
@@ -65,14 +72,16 @@ ssh -o BatchMode=yes -i ~/.ssh/id_ed25519_vm Administrator@192.168.65.110 \
 # ── Phase 3: restore Postgres ────────────────────────────────────────────
 
 step "6/13  Restoring Postgres crm database on VM"
-# Upload the .dump if not already present on VM
+# Upload the .dump if not already present on VM. OpenSSH-on-Windows defaults
+# to cmd.exe, so PowerShell cmdlets (Test-Path, &-call) need an explicit
+# `powershell -NoProfile -Command` wrapper to run.
 ssh -o BatchMode=yes -i ~/.ssh/id_ed25519_vm Administrator@192.168.65.110 \
-  "Test-Path $VM_DIR/crm-db.dump" | grep -q True \
+  "powershell -NoProfile -Command \"Test-Path '$VM_DIR/crm-db.dump'\"" | grep -q True \
   || scp -i ~/.ssh/id_ed25519_vm "$LOCAL_DIR/vm/crm-db.dump" \
         "Administrator@192.168.65.110:$VM_DIR/crm-db.dump"
 
 ssh -o BatchMode=yes -i ~/.ssh/id_ed25519_vm Administrator@192.168.65.110 \
-  "& 'C:/postgresql17/pgsql/bin/pg_restore.exe' --clean --if-exists --no-owner -U postgres -d crm '$VM_DIR/crm-db.dump'" \
+  "powershell -NoProfile -Command \"& 'C:/postgresql17/pgsql/bin/pg_restore.exe' --clean --if-exists --no-owner -U postgres -d crm '$VM_DIR/crm-db.dump'\"" \
   || fail "pg_restore failed"
 
 # ── Phase 4: restore FreePBX ─────────────────────────────────────────────
