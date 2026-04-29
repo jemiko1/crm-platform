@@ -393,12 +393,29 @@ app.get('/api/health-log', (req, res) => {
 app.get('/api/github-deploys', async (req, res) => {
   const token = loadGitHubToken();
   if (!token) {
-    return res.status(500).json({ error: 'GITHUB_TOKEN not configured' });
+    return res.status(500).json({
+      error: 'GITHUB_TOKEN not configured',
+      hint: 'Set GITHUB_TOKEN in C:\\crm\\backend\\crm-backend\\.env (or in the monitor PM2 env). Token needs `repo` scope so it works once the repo flips to private.',
+    });
   }
-  const url = 'https://api.github.com/repos/jemiko1/crm-platform/actions/workflows/deploy-vm.yml/runs?per_page=10';
+  const owner = process.env.GITHUB_OWNER || 'jemiko1';
+  const repo = process.env.GITHUB_REPO || 'crm-platform';
+  const workflow = process.env.GITHUB_DEPLOY_WORKFLOW || 'deploy-vm.yml';
+  const url = `https://api.github.com/repos/${owner}/${repo}/actions/workflows/${workflow}/runs?per_page=10`;
   const result = await fetchGitHub(url, token);
   if (!result.ok) {
-    return res.status(502).json({ error: 'GitHub API error', status: result.status, details: result.data || result.error });
+    const ghMessage = (result.data && typeof result.data === 'object' && result.data.message) || result.error || null;
+    let hint = null;
+    if (result.status === 401) hint = 'GITHUB_TOKEN is invalid or expired — generate a new fine-grained token with `Actions: Read` + `Contents: Read` scopes and update the .env file, then restart the monitor (`pm2 restart crm-monitor`).';
+    else if (result.status === 404) hint = `Repo or workflow not found at ${owner}/${repo}/${workflow}. If the repo was renamed/moved, update GITHUB_OWNER / GITHUB_REPO env vars.`;
+    else if (result.status === 403) hint = 'Forbidden — token may lack `repo` scope (required for private repos) or rate-limit hit.';
+    return res.status(502).json({
+      error: 'GitHub API error',
+      status: result.status,
+      message: ghMessage,
+      hint,
+      url,
+    });
   }
   const runs = (result.data.workflow_runs || []).map(r => ({
     id: r.id,
