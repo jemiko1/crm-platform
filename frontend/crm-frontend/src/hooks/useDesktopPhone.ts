@@ -35,6 +35,8 @@ interface PhoneStatus {
  * - 'match'               — bridge reachable; its logged-in user matches web UI.
  * - 'mismatch'            — bridge reachable but logged in as a different user.
  *                           (Calls will attribute to the wrong agent.)
+ * - 'not-logged-in'       — bridge reachable but no operator is signed in to
+ *                           the softphone. Triggers the SSO handoff prompt.
  * - 'bridge-unreachable'  — bridge could not be contacted after N polls.
  *                           Softphone likely not running. Calls won't attribute
  *                           to this operator at all.
@@ -47,6 +49,7 @@ export type DesktopPhoneState =
       bridgeUser: NonNullable<PhoneStatus["user"]>;
       webUserId: string;
     }
+  | { state: "not-logged-in"; webUserId: string }
   | { state: "bridge-unreachable"; lastError: string | null };
 
 interface SwitchUserResponse {
@@ -195,11 +198,11 @@ export function useDesktopPhone(
       };
     }
   } else if (status && !appUser) {
-    // Bridge reachable but not logged in — treat as 'match' for banner
-    // purposes (no conflicting user to warn about). If the bridge is up
-    // but nobody is logged in, no calls will be attributed anyway and
-    // the 'Launch softphone' CTA on bridge-unreachable isn't relevant.
-    phoneState = { state: "match", appUser: null };
+    // Bridge reachable but no operator signed in — surfaced separately
+    // so the SSO handoff banner ("Sign in to softphone as ...") can
+    // appear. Permission-gating happens in the consuming banner; the
+    // hook stays neutral.
+    phoneState = { state: "not-logged-in", webUserId: currentUserId };
   } else if (failedPolls >= UNREACHABLE_THRESHOLD) {
     phoneState = { state: "bridge-unreachable", lastError };
   } else {
