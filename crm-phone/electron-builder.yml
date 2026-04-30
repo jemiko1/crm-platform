@@ -12,6 +12,12 @@ extraResources:
 win:
   target: nsis
   icon: resources/icon.ico
+  # Hyphenated filename — without this, electron-builder defaults to
+  # `${productName} Setup ${version}.exe` (with spaces). Spaces in
+  # the URL written into latest.yml require URL-encoding by every
+  # consumer (browsers, electron-updater, curl), and previous releases
+  # all used hyphens — keep it consistent across versions.
+  artifactName: CRM28-Phone-Setup-${version}.${ext}
 nsis:
   oneClick: true
   perMachine: true
