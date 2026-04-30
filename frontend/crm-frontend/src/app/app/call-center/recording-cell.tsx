@@ -34,7 +34,23 @@ export function RecordingCell({ recordingId, initiallyAvailable }: Props) {
   }
 
   if (available) {
-    return <InlineAudioPlayer recordingId={recordingId} compact />;
+    return (
+      <div className="flex items-center gap-1.5">
+        <InlineAudioPlayer recordingId={recordingId} compact />
+        <a
+          href={`/v1/telephony/recordings/${recordingId}/download`}
+          download
+          className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 transition"
+          title={t("callCenter.logs.downloadRecordingHint", "Download recording to your computer")}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+        </a>
+      </div>
+    );
   }
 
   async function handleFetch() {

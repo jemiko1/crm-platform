@@ -378,6 +378,30 @@ Complete API route documentation for CRM Platform backend.
 
 ---
 
+## Call Recordings
+
+**File**: `src/telephony/controllers/telephony-recording.controller.ts`  
+**Base Route**: `/v1/telephony/recordings`  
+**Guards**: `JwtAuthGuard + PositionPermissionGuard`  
+**Permission floor**: `call_recordings.own` on every endpoint. Data-scope enforcement (department / department_tree) happens inside `RecordingAccessService` via `DataScopeService`.
+
+**Endpoints:**
+- `GET /v1/telephony/recordings/:id` — Recording metadata. Returns the Recording row plus an `available: boolean` field indicating whether the file is cached locally (drive to show Play vs Request button in the UI).
+- `POST /v1/telephony/recordings/:id/fetch` — On-demand SCP pull from Asterisk. Fetches the WAV from `RECORDING_SSH_HOST` to `RECORDING_BASE_PATH`. Idempotent: returns immediately if already cached. Returns `{ ok, fileSize, filePath }`.
+- `GET /v1/telephony/recordings/:id/audio` — Stream audio with HTTP Range support (200 full / 206 partial). Supports seeking in `<audio>` elements. `Content-Disposition: inline`. `Cache-Control: private, max-age=3600`.
+- `GET /v1/telephony/recordings/:id/download` — Download audio as a file attachment. Same scope check as `/audio`. `Content-Disposition: attachment; filename="recording-{id}.wav"`. Full-file only (no range). `Cache-Control: private, max-age=3600`.
+
+**Env vars:**
+- `RECORDING_BASE_PATH` — Local recordings directory (default `C:\recordings` on Windows VM).
+- `RECORDING_SSH_HOST` / `RECORDING_SSH_USER` / `RECORDING_SSH_KEY` — SCP target for on-demand fetch from Asterisk.
+
+**Notes:**
+- `filePath` in the DB is the full Asterisk Linux path (`/var/spool/asterisk/monitor/YYYY/MM/DD/file.wav`). `resolveFilePath()` strips the known prefix and remaps to `RECORDING_BASE_PATH`.
+- Zero-duration `recording_ready` events (unanswered channel legs, 44-byte WAV files) are silently skipped by the ingestion service. Only recordings with `durationSeconds > 0` or `undefined` duration are stored.
+- If a longer recording arrives for the same session later, `handleRecordingReady` upgrades the existing row rather than creating a duplicate.
+
+---
+
 ## Agent Presence (Socket.IO)
 
 **File**: `src/telephony/realtime/telephony.gateway.ts` + `src/telephony/services/agent-presence.service.ts` (PR #260)  

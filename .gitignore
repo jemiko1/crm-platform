@@ -47,6 +47,10 @@ Thumbs.db
 tmpclaude-*/
 **/tmpclaude-*
 *.tmp
+# Ad-hoc investigation scripts dropped at repo root during debug sessions
+tmp_*.sql
+tmp_*.ps1
+tmp_*.sh
 
 # Cursor IDE
 .cursor/

@@ -748,7 +748,12 @@
     },
     "logs": {
       "errorTitle": "ზარების ჩატვირთვა ვერ მოხერხდა",
-      "errorHint": "სცადეთ ფურცლის განახლება (Ctrl+Shift+R). თუ შენარჩუნდება, შეამოწმეთ რომ გაქვთ ზარების ჟურნალის ნახვის უფლება."
+      "errorHint": "სცადეთ ფურცლის განახლება (Ctrl+Shift+R). თუ შენარჩუნდება, შეამოწმეთ რომ გაქვთ ზარების ჟურნალის ნახვის უფლება.",
+      "requestRecording": "მოთხოვნა",
+      "requestingRecording": "გადმოვირთავს…",
+      "requestRecordingHint": "ჩამოტვირთე ჩანაწერი Asterisk-დან",
+      "downloadRecording": "ჩამოტვირთვა",
+      "downloadRecordingHint": "ჩამოტვირთე ჩანაწერი კომპიუტერზე"
     }
   },
   "breaks": {
