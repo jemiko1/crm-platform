@@ -3,6 +3,7 @@ import { useAuth } from "./hooks/useAuth";
 import { usePhone } from "./hooks/usePhone";
 import { useBreak } from "./hooks/useBreak";
 import { useDnd } from "./hooks/useDnd";
+import { useExtensionRebind } from "./hooks/useExtensionRebind";
 import { LoginPage } from "./pages/LoginPage";
 import { PhonePage } from "./pages/PhonePage";
 import { BreakModal } from "./pages/BreakModal";
@@ -14,6 +15,13 @@ export function App() {
   const hasSession = !!auth.session;
   const breakState = useBreak(hasSession);
   const dndState = useDnd(hasSession);
+  // Subscribes to backend `extension:changed` events. When admin re-links
+  // the operator, the softphone unregisters old SIP, refreshes the
+  // session via /auth/me, and registers with new credentials. Soft-defers
+  // if on an active call — never drops one. The userId dep ensures the
+  // listener resets on user switch — no stale pending state leaks across
+  // logout/login.
+  useExtensionRebind(auth.session?.user?.id ?? null);
 
   // Number requested by an external dial (e.g., user clicked a phone number
   // in the CRM web UI which POSTed to the softphone's local HTTP bridge).

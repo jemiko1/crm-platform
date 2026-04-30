@@ -1,6 +1,6 @@
 {
   "name": "crm28-phone",
-  "version": "1.12.1",
+  "version": "1.13.0",
   "description": "CRM28 Desktop Softphone",
   "main": "dist/main/index.js",
   "packageManager": "pnpm@10.27.0",
@@ -30,7 +30,8 @@
     "electron-store": "^8.1.0",
     "electron-updater": "^6.1.0",
     "express": "^4.18.0",
-    "sip.js": "^0.21.2"
+    "sip.js": "^0.21.2",
+    "socket.io-client": "^4.7.5"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

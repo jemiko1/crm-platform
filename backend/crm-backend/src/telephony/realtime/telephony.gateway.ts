@@ -114,6 +114,40 @@ export class TelephonyGateway
     };
   }
 
+  /**
+   * Notify a single operator's softphone that their extension binding has
+   * changed (admin linked them to a new ext, unlinked them, edited the
+   * extension's SIP credentials, or deleted the extension entirely). The
+   * softphone listens for this event, refreshes its session via /auth/me,
+   * and re-registers SIP with the new credentials.
+   *
+   * Soft-defer is the softphone's responsibility — if the operator is on
+   * an active call, the rebind waits until the call ends. NEVER drop a
+   * call to apply a config change.
+   *
+   * Emitted to the per-user `agent:${userId}` room, so only the affected
+   * operator's connected sockets receive it. Web UI sockets in the same
+   * room ignore the event (they have no SIP state); softphone main process
+   * forwards it to the renderer via IPC.
+   *
+   * Reasons (free-form strings, used only for logging — softphone behavior
+   * is identical for all of them):
+   *   - 'admin-link': admin assigned this user to a new extension
+   *   - 'admin-unlink': admin removed this user's extension binding
+   *   - 'admin-edit': admin changed extension/sipPassword/sipServer of
+   *     the user's currently-linked extension
+   *   - 'admin-delete': admin hard-deleted the extension this user was on
+   */
+  notifyExtensionChanged(userId: string, reason: string): void {
+    this.server.to(`agent:${userId}`).emit('extension:changed', {
+      reason,
+      timestamp: new Date().toISOString(),
+    });
+    this.logger.log(
+      `extension:changed → user=${userId} reason=${reason}`,
+    );
+  }
+
   async handleConnection(client: TelephonySocket) {
     try {
       const user = this.authenticateSocket(client);

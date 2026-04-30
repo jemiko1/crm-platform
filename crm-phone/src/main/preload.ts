@@ -130,4 +130,27 @@ contextBridge.exposeInMainWorld("crmPhone", {
     disable: () => ipcRenderer.invoke(IPC.DND_DISABLE),
     myState: () => ipcRenderer.invoke(IPC.DND_MY_STATE),
   },
+  /**
+   * Auto-rebind on extension change (v1.13.0). Backend emits
+   * `extension:changed` → main forwards via this IPC channel → renderer
+   * unregisters old SIP, fetches fresh /auth/me + credentials, registers
+   * new SIP. Soft-defers if on an active call — never drops it.
+   */
+  session: {
+    refresh: (): Promise<{
+      ok: boolean;
+      telephonyExtension: {
+        extension: string;
+        displayName: string;
+        sipServer: string | null;
+      } | null;
+    }> => ipcRenderer.invoke(IPC.SESSION_REFRESH),
+    onExtensionChanged: (
+      cb: (payload: { reason: string; timestamp: string }) => void,
+    ) => {
+      const handler = (_e: unknown, payload: any) => cb(payload);
+      ipcRenderer.on(IPC.EXTENSION_CHANGED, handler);
+      return () => ipcRenderer.removeListener(IPC.EXTENSION_CHANGED, handler);
+    },
+  },
 });

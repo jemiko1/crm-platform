@@ -1,12 +1,15 @@
 import {
   BadRequestException,
   ConflictException,
+  forwardRef,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PbxQueueMemberClient } from '../pbx/pbx-queue-member.client';
+import { TelephonyGateway } from '../realtime/telephony.gateway';
 
 /**
  * Orchestrates the "link an employee to a pre-provisioned extension" and
@@ -54,6 +57,12 @@ export class ExtensionLinkService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pbx: PbxQueueMemberClient,
+    // forwardRef because TelephonyGateway lives in the same module and
+    // its dependency graph (state-manager, calls-service, etc.) could
+    // transitively touch this service in future refactors. The forwardRef
+    // is defensive — there's no current cycle.
+    @Inject(forwardRef(() => TelephonyGateway))
+    private readonly gateway: TelephonyGateway,
   ) {
     // Default: on. Admin must explicitly set to 'false' to disable. Matches
     // the "default-on, explicit kill-switch" pattern the user asked for —
@@ -136,6 +145,17 @@ export class ExtensionLinkService {
       );
     }
 
+    // Notify the affected operator(s) so their softphones rebind.
+    // - The newly-linked user picks up new SIP credentials.
+    // - If we're moving the extension off a previously-linked user
+    //   (rare — caught by the conflict check above unless same user),
+    //   that user's softphone unregisters.
+    // The softphone soft-defers if on an active call — NEVER drops it.
+    if (ext.crmUserId && ext.crmUserId !== userId) {
+      this.gateway.notifyExtensionChanged(ext.crmUserId, 'admin-link');
+    }
+    this.gateway.notifyExtensionChanged(userId, 'admin-link');
+
     const positionId = user.employee?.positionId ?? null;
     if (!positionId) {
       this.logger.log(
@@ -178,6 +198,7 @@ export class ExtensionLinkService {
     // Race guard (same pattern as link): updateMany scoped to the currently
     // linked crmUserId, confirm count === 1. Protects against another admin
     // unlinking or re-linking mid-request.
+    const previouslyLinkedUserId = ext.crmUserId;
     const result = await this.prisma.telephonyExtension.updateMany({
       where: { id: extensionId, crmUserId: ext.crmUserId },
       data: { crmUserId: null },
@@ -187,6 +208,10 @@ export class ExtensionLinkService {
         `Extension ${ext.extension} state changed during the request. Reload and try again.`,
       );
     }
+
+    // Notify the previously-linked operator so their softphone unregisters.
+    // Soft-defer if on an active call — never dropped.
+    this.gateway.notifyExtensionChanged(previouslyLinkedUserId, 'admin-unlink');
 
     if (positionId) {
       await this.applyQueueRulesToExtension(ext.extension, positionId, 'remove');

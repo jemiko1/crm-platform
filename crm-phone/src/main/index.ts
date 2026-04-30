@@ -18,6 +18,10 @@ import {
 import { IPC } from "../shared/ipc-channels";
 import { setupAutoUpdater, checkForUpdatesManually } from "./auto-updater";
 import { installPbxCertPin } from "./pbx-cert-pin";
+import {
+  connectTelephonySocket,
+  disconnectTelephonySocket,
+} from "./telephony-socket";
 import type {
   AppLoginResponse,
   CallerLookupResult,
@@ -291,6 +295,10 @@ function setupIpc(): void {
     // Rotate the bridge token so any previously-paired web UI (from a
     // different user) is forced to re-handshake.
     onSoftphoneLogin();
+    // Connect to backend Socket.IO so we receive `extension:changed`
+    // events when admin re-links the operator. Soft-defer to renderer
+    // happens there if a call is active.
+    connectTelephonySocket(getCrmBaseUrl(), data.accessToken, mainWindow);
     return data;
   });
 
@@ -300,8 +308,76 @@ function setupIpc(): void {
     // Invalidate the bridge token so a stale web UI cannot dial after
     // the operator walks away.
     onSoftphoneLogout();
+    // Close backend Socket.IO — no more events for this user.
+    disconnectTelephonySocket();
     return { ok: true };
   });
+
+  /**
+   * Re-fetch /auth/me at runtime and update the persisted session if
+   * the extension assignment changed. Triggered by:
+   *   - The renderer's `extension:changed` rebind handler (this PR)
+   *   - The SSO handoff flow on first-time login (PR 3)
+   *
+   * Returns the fresh telephonyExtension metadata (no sipPassword — that
+   * stays on the server, fetched separately via /v1/telephony/sip-credentials
+   * just before SIP register, never persisted to disk).
+   */
+  ipcMain.handle(
+    IPC.SESSION_REFRESH,
+    async (): Promise<{
+      ok: boolean;
+      telephonyExtension: AppLoginResponse["telephonyExtension"] | null;
+    }> => {
+      const session = getSession();
+      if (!session) {
+        return { ok: false, telephonyExtension: null };
+      }
+      try {
+        const baseUrl = getCrmBaseUrl();
+        const res = await fetch(`${baseUrl}/auth/me`, {
+          headers: { Authorization: `Bearer ${session.accessToken}` },
+        });
+        if (res.status === 401) {
+          // JWT expired — clear session, signal to renderer.
+          setSession(null);
+          onSoftphoneLogout();
+          disconnectTelephonySocket();
+          return { ok: false, telephonyExtension: null };
+        }
+        if (!res.ok) {
+          console.log(`[SESSION-REFRESH] /auth/me ${res.status}`);
+          return { ok: false, telephonyExtension: null };
+        }
+        const meData = (await res.json()) as {
+          user: {
+            telephonyExtension?: AppLoginResponse["telephonyExtension"];
+          };
+        };
+        const freshExt = meData.user?.telephonyExtension ?? null;
+        const persistedExt = session.telephonyExtension;
+        const changed =
+          (freshExt?.extension ?? null) !== (persistedExt?.extension ?? null) ||
+          (freshExt?.sipServer ?? null) !== (persistedExt?.sipServer ?? null) ||
+          (freshExt?.displayName ?? null) !==
+            (persistedExt?.displayName ?? null);
+        if (changed) {
+          console.log(
+            `[SESSION-REFRESH] ext changed: ${persistedExt?.extension ?? "none"} → ${freshExt?.extension ?? "none"}`,
+          );
+          setSession({
+            accessToken: session.accessToken,
+            user: session.user,
+            telephonyExtension: freshExt,
+          });
+        }
+        return { ok: true, telephonyExtension: freshExt };
+      } catch (err: any) {
+        console.log(`[SESSION-REFRESH] error: ${err.message}`);
+        return { ok: false, telephonyExtension: null };
+      }
+    },
+  );
 
   ipcMain.handle(IPC.AUTH_GET_SESSION, () => {
     const session = getSession();
@@ -578,6 +654,10 @@ async function restoreSession(): Promise<void> {
       };
       setSession(updated);
     }
+
+    // Connect backend Socket.IO so we receive admin-driven extension
+    // change events. Mirrors the post-login wiring above.
+    connectTelephonySocket(baseUrl, session.accessToken, mainWindow);
   } catch (err: any) {
     console.log("[RESTORE] Error:", err.message);
   }

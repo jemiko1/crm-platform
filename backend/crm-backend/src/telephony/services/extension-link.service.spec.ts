@@ -7,6 +7,7 @@ import {
 import { ExtensionLinkService } from './extension-link.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PbxQueueMemberClient } from '../pbx/pbx-queue-member.client';
+import { TelephonyGateway } from '../realtime/telephony.gateway';
 
 describe('ExtensionLinkService', () => {
   let service: ExtensionLinkService;
@@ -21,6 +22,7 @@ describe('ExtensionLinkService', () => {
     positionQueueRule: { findMany: jest.Mock };
   };
   let pbx: { addMember: jest.Mock; removeMember: jest.Mock; listMembers: jest.Mock };
+  let gateway: { notifyExtensionChanged: jest.Mock };
   const ORIG_ENV = process.env.TELEPHONY_AUTO_QUEUE_SYNC;
 
   async function build(envOverride?: string) {
@@ -42,12 +44,14 @@ describe('ExtensionLinkService', () => {
       removeMember: jest.fn().mockResolvedValue(undefined),
       listMembers: jest.fn().mockResolvedValue([]),
     };
+    gateway = { notifyExtensionChanged: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ExtensionLinkService,
         { provide: PrismaService, useValue: prisma },
         { provide: PbxQueueMemberClient, useValue: pbx },
+        { provide: TelephonyGateway, useValue: gateway },
       ],
     }).compile();
     service = module.get(ExtensionLinkService);
@@ -253,6 +257,35 @@ describe('ExtensionLinkService', () => {
       pbx.removeMember.mockRejectedValueOnce(new Error('SSH connect failed'));
 
       await expect(service.unlink('ext-1')).resolves.toBeUndefined();
+    });
+
+    // Auto-rebind contract: link/unlink must notify the affected operator(s)
+    // via the telephony gateway after a successful DB write, so their
+    // softphone re-fetches /auth/me and re-registers SIP. The softphone
+    // itself handles soft-defer if on an active call — never dropped.
+    it('notifies the newly-linked user via gateway after successful link', async () => {
+      prisma.telephonyExtension.findUnique.mockResolvedValue({
+        id: 'ext-1', extension: '215', crmUserId: null, isActive: true, displayName: 'pool',
+      });
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-1', email: 'x@y.z', isActive: true,
+        employee: { firstName: 'X', lastName: 'Y', positionId: null },
+      });
+
+      await service.link('ext-1', 'user-1');
+
+      expect(gateway.notifyExtensionChanged).toHaveBeenCalledWith('user-1', 'admin-link');
+    });
+
+    it('notifies the previously-linked user via gateway after successful unlink', async () => {
+      prisma.telephonyExtension.findUnique.mockResolvedValue({
+        id: 'ext-1', extension: '215', crmUserId: 'user-1', displayName: 'X',
+      });
+      prisma.user.findUnique.mockResolvedValue({ employee: { positionId: null } });
+
+      await service.unlink('ext-1');
+
+      expect(gateway.notifyExtensionChanged).toHaveBeenCalledWith('user-1', 'admin-unlink');
     });
   });
 

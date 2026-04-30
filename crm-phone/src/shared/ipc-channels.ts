@@ -65,4 +65,21 @@ export const IPC = {
   DND_ENABLE: "dnd:enable",
   DND_DISABLE: "dnd:disable",
   DND_MY_STATE: "dnd:my-state",
+
+  /**
+   * Auto-rebind on extension change (v1.13.0). Backend emits
+   * `extension:changed` over the /telephony Socket.IO namespace when
+   * admin re-links / unlinks / edits / deletes the operator's extension.
+   * Main process forwards to renderer via this channel; renderer
+   * unregisters old SIP, re-fetches /auth/me, and re-registers with new
+   * credentials. Soft-defers if on an active call — never drops one.
+   */
+  EXTENSION_CHANGED: "extension:changed",
+  /**
+   * Renderer → main: refresh the persisted session by re-fetching
+   * /auth/me. Used by the rebind handler after `extension:changed`,
+   * and reused by the SSO handoff flow (PR 3) to apply credentials
+   * without restarting the app. Returns the fresh AppLoginResponse.
+   */
+  SESSION_REFRESH: "session:refresh",
 } as const;
