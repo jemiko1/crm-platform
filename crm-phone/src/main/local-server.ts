@@ -149,14 +149,21 @@ export function startLocalServer(_unused: unknown, callbacks: {
       const data = (await response.json()) as AppLoginResponse;
 
       // B9 — require explicit operator confirmation before a page on
-      // crm28.asg.ge (or any allowlisted origin) can swap the softphone
-      // to a different CRM user. Without this, any XSS in the CRM web
-      // app can mint a bridge token for itself and POST /dial through
-      // the operator's softphone (toll-fraud / vishing vector).
+      // crm28.asg.ge (or any allowlisted origin) can sign in or swap
+      // the softphone to a CRM user. Without this, any XSS in the CRM
+      // web app can mint a bridge token for itself and POST /dial through
+      // the operator's softphone (toll-fraud / vishing vector). The
+      // native Electron dialog cannot be triggered from the renderer or
+      // from a browser tab — it requires a real keystroke or click in
+      // the softphone main window, which is the security boundary.
       //
       // Skip the prompt when the incoming session matches the currently
       // logged-in user — that's a legitimate token-refresh flow, not
       // a hijack attempt.
+      //
+      // Two prompt variants:
+      //   - First-time SSO sign-in (no current session): "sign in" wording
+      //   - User switch (different operator already paired): "switch" wording
       const current = getSession();
       const isSameUser = current?.user?.id === data.user?.id;
       if (!isSameUser) {
@@ -164,20 +171,29 @@ export function startLocalServer(_unused: unknown, callbacks: {
           data.user?.firstName || data.user?.lastName
             ? `${data.user.firstName ?? ""} ${data.user.lastName ?? ""}`.trim()
             : data.user?.email ?? "new user";
-        const currentName = current
-          ? current.user?.email ?? "current user"
-          : "no-one";
+        const isFirstSignIn = !current;
+        const title = isFirstSignIn
+          ? "Sign in to softphone"
+          : "Softphone user switch";
+        const message = isFirstSignIn
+          ? `CRM Web is requesting to sign in to softphone as ${newName}. Allow?`
+          : `Allow the CRM web app to switch the softphone to ${newName}?`;
+        const detail = isFirstSignIn
+          ? `Only allow this if you initiated the sign-in yourself from the CRM web app.`
+          : `Currently signed in as: ${current.user?.email ?? "current user"}\n\nOnly allow this if you initiated it yourself from the CRM.`;
         const answer = await dialog.showMessageBox({
           type: "question",
           buttons: ["Allow", "Deny"],
           defaultId: 1,
           cancelId: 1,
-          title: "Softphone user switch",
-          message: `Allow the CRM web app to switch the softphone to ${newName}?`,
-          detail: `Currently signed in as: ${currentName}\n\nOnly allow this if you initiated it yourself from the CRM.`,
+          title,
+          message,
+          detail,
         });
         if (answer.response !== 0) {
-          return res.status(403).json({ error: "User switch denied" });
+          return res.status(403).json({
+            error: isFirstSignIn ? "Sign-in denied" : "User switch denied",
+          });
         }
       }
 

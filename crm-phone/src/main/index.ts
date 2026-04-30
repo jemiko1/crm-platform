@@ -707,6 +707,16 @@ app.whenReady().then(async () => {
   startLocalServer(null, {
     onSessionChanged: (data) => {
       mainWindow?.webContents.send(IPC.AUTH_SESSION_CHANGED, data);
+      // Refresh the backend Socket.IO connection for the new session.
+      // Triggered by /switch-user (existing user-switch flow) AND
+      // /switch-user when used as SSO handoff (first-time sign-in).
+      // Without this, the new operator's softphone would not receive
+      // `extension:changed` events from the backend.
+      if (data?.accessToken) {
+        connectTelephonySocket(getCrmBaseUrl(), data.accessToken, mainWindow);
+      } else {
+        disconnectTelephonySocket();
+      }
     },
     onDial: (number) => {
       if (!mainWindow) return false;
