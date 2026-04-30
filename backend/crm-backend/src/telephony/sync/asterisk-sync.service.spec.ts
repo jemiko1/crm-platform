@@ -166,8 +166,7 @@ describe("AsteriskSyncService", () => {
 
     it("hard-deletes CRM rows whose extension is no longer in FreePBX", async () => {
       const { service, prisma } = await makeService();
-      // FreePBX returns 200, 201, 202 (admin deleted 203 only — 1 of 4 = 25%,
-      // safely under the 50% sanity threshold).
+      // FreePBX returns 200, 201, 202 (admin deleted 203 only — typical case).
       (service as any).fetchEndpointsViaCli = jest
         .fn()
         .mockResolvedValue([
@@ -215,10 +214,12 @@ describe("AsteriskSyncService", () => {
       expect(prisma.telephonyExtension.deleteMany).not.toHaveBeenCalled();
     });
 
-    it("SKIPS cleanup if it would delete >50% of CRM rows in one tick (sanity guard)", async () => {
+    it("hard-deletes ALL stale rows even when most of the table goes (mass-delete is trusted)", async () => {
+      // Admin's normal workflow includes wiping all FreePBX extensions
+      // and recreating them in bulk. Cleanup must NOT block that — there
+      // is no mass-delete threshold. We trust what FreePBX reports.
       const { service, prisma } = await makeService();
-      // FreePBX returns just 1 endpoint — would mean we delete 4 of 5 (80%).
-      // The guard must refuse and warn instead of nuking the table.
+      // FreePBX returns just 1 endpoint — admin deleted 4 of 5 (80%).
       (service as any).fetchEndpointsViaCli = jest
         .fn()
         .mockResolvedValue([{ extension: "200", status: "Avail" }]);
@@ -245,8 +246,9 @@ describe("AsteriskSyncService", () => {
 
       await service.syncExtensions();
 
-      // Cleanup must NOT run when over the threshold.
-      expect(prisma.telephonyExtension.deleteMany).not.toHaveBeenCalled();
+      expect(prisma.telephonyExtension.deleteMany).toHaveBeenCalledWith({
+        where: { id: { in: ["id-201", "id-202", "id-203", "id-204"] } },
+      });
     });
 
     it("does not run cleanup when there's nothing stale", async () => {

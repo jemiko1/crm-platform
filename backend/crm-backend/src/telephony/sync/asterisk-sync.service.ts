@@ -298,11 +298,11 @@ export class AsteriskSyncService implements OnModuleInit {
       // later recreated in FreePBX, the add/update branch above creates a
       // fresh CRM row on the next sync.
       //
-      // Sanity threshold: if we'd delete more than 50% of currently-active
-      // CRM rows in a single tick, that smells like a sync bug or a wholly-
-      // misconfigured FreePBX. Bail and warn — never silently nuke half the
-      // table. Admin can manually trigger via "Sync Now" if the mass-delete
-      // is intentional.
+      // No mass-delete threshold: admin's deletions in FreePBX GUI are
+      // explicit operator action — we trust what FreePBX reports. The
+      // alternative (a >50% bail-out) was rejected because admin's normal
+      // workflow includes deleting all extensions and recreating them in
+      // bulk; a threshold would block that legitimate flow.
       const liveExtensions = new Set(endpoints.map((ep) => ep.extension));
       // `isActive: true` is defensive — today no code path sets isActive=false
       // on TelephonyExtension, but if a future feature adds soft-disable
@@ -316,28 +316,14 @@ export class AsteriskSyncService implements OnModuleInit {
         (row) => !liveExtensions.has(row.extension),
       );
       if (stale.length > 0) {
-        const SANITY_THRESHOLD_RATIO = 0.5;
-        const wouldDeleteRatio = stale.length / allCrmExtensions.length;
-        if (
-          wouldDeleteRatio > SANITY_THRESHOLD_RATIO &&
-          allCrmExtensions.length > 1
-        ) {
-          this.logger.warn(
-            `Extension cleanup SKIPPED: would delete ${stale.length} of ` +
-              `${allCrmExtensions.length} rows (>${SANITY_THRESHOLD_RATIO * 100}%). ` +
-              `Investigate FreePBX health. If this mass-delete is intentional, ` +
-              `trigger "Sync Now" from the Telephony Extensions admin UI.`,
-          );
-        } else {
-          await this.prisma.telephonyExtension.deleteMany({
-            where: { id: { in: stale.map((row) => row.id) } },
-          });
-          this.logger.log(
-            `Extension cleanup: hard-deleted ${stale.length} stale row(s) ` +
-              `(${stale.map((row) => row.extension).join(', ')}) — ` +
-              `no longer present in FreePBX.`,
-          );
-        }
+        await this.prisma.telephonyExtension.deleteMany({
+          where: { id: { in: stale.map((row) => row.id) } },
+        });
+        this.logger.log(
+          `Extension cleanup: hard-deleted ${stale.length} stale row(s) ` +
+            `(${stale.map((row) => row.extension).join(', ')}) — ` +
+            `no longer present in FreePBX.`,
+        );
       }
 
       this.stateManager.refreshExtensionMap(extensionData);
