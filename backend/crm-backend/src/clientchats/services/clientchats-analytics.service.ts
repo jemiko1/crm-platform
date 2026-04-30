@@ -20,7 +20,12 @@ export class ClientChatsAnalyticsService {
 
   private parseDateRange(from?: string, to?: string) {
     const now = new Date();
+    // If the caller passed a date string, extend the window to end-of-day UTC
+    // so records created anywhere on the selected end date are included.
+    // new Date("YYYY-MM-DD") parses as UTC midnight; using it directly as `lte`
+    // would exclude every record created after 00:00 on that day.
     const toDate = to ? new Date(to) : now;
+    if (to) toDate.setUTCHours(23, 59, 59, 999);
     const fromDate = from
       ? new Date(from)
       : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);

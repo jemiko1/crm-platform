@@ -112,7 +112,12 @@ export class OperatorBreakController {
     return this.service.getHistory({
       userId,
       from: from ? new Date(from) : undefined,
-      to: to ? new Date(to) : undefined,
+      to: (() => {
+        if (!to) return undefined;
+        const d = new Date(to);
+        d.setUTCHours(23, 59, 59, 999);
+        return d;
+      })(),
       // ?includeAutoEnded=false excludes system-ended rows. Default: include.
       includeAutoEnded: includeAutoEnded === 'false' ? false : undefined,
       page: page ? parseInt(page, 10) : undefined,
