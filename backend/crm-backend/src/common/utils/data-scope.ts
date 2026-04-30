@@ -76,7 +76,14 @@ export class DataScopeService {
       (rp) => `${rp.permission.resource}.${rp.permission.action}`,
     );
 
-    const userLevel = employee.position.level ?? 0;
+    // Default to 999 (not 0) when position.level is null.
+    // The level filter in callers is `lte: userLevel` — it prevents a manager
+    // from seeing calls of employees ranked ABOVE them. Defaulting to 0 would
+    // mean "see nobody with level > 0", making department_tree scope silently
+    // return an empty result set for any position that was created without an
+    // explicit level. 999 is above every real level value (max in seed: 100),
+    // so a null level correctly means "unrestricted within tree".
+    const userLevel = employee.position.level ?? 999;
     const departmentId = employee.departmentId;
 
     // Find highest scope this user has for the resource

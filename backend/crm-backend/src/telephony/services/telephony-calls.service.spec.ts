@@ -225,6 +225,63 @@ describe("TelephonyCallsService", () => {
     });
   });
 
+  describe("findAll — scope filtering", () => {
+    /**
+     * Regression guard: when a manager has department_tree scope but their
+     * position.level is null, DataScopeService returns userLevel=999.
+     * findAll() must pass that level through to Prisma unchanged — no
+     * re-defaulting to 0 inside the service.
+     */
+    it("applies department_tree filter with the userLevel from DataScopeService", async () => {
+      const dataScopeMock = (service as any).dataScope as {
+        resolve: jest.Mock;
+      };
+      dataScopeMock.resolve.mockResolvedValueOnce({
+        scope: "department_tree",
+        userId: "mgr-user",
+        userLevel: 999, // null-level default from the fix
+        departmentId: "dept-1",
+        departmentIds: ["dept-1", "dept-child"],
+      });
+
+      await service.findAll(
+        { from: "2026-01-01", to: "2026-01-02" } as any,
+        "mgr-user",
+        false,
+      );
+
+      const callArg = prisma.callSession.findMany.mock.calls[0][0];
+      const assignedUser = callArg?.where?.assignedUser?.employee;
+      expect(assignedUser).toBeDefined();
+      expect(assignedUser.departmentId).toEqual({ in: ["dept-1", "dept-child"] });
+      // userLevel 999 must be passed through as-is — not clamped to 0
+      expect(assignedUser.position.level.lte).toBe(999);
+    });
+
+    it("restricts to own userId when scope is own", async () => {
+      const dataScopeMock = (service as any).dataScope as {
+        resolve: jest.Mock;
+      };
+      dataScopeMock.resolve.mockResolvedValueOnce({
+        scope: "own",
+        userId: "op-user",
+        userLevel: 40,
+        departmentId: "dept-1",
+        departmentIds: [],
+      });
+
+      await service.findAll(
+        { from: "2026-01-01", to: "2026-01-02" } as any,
+        "op-user",
+        false,
+      );
+
+      const callArg = prisma.callSession.findMany.mock.calls[0][0];
+      expect(callArg?.where?.assignedUserId).toBe("op-user");
+      expect(callArg?.where?.assignedUser).toBeUndefined();
+    });
+  });
+
   describe("getExtensionHistory (normalized substring match)", () => {
     it("resolves client stored in local format (0555...) for CDR number with 995 prefix", async () => {
       prisma.telephonyExtension.findUnique.mockResolvedValue({
