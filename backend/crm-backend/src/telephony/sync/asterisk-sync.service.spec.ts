@@ -128,4 +128,154 @@ describe("AsteriskSyncService", () => {
       }
     });
   });
+
+  // April 2026: when an extension is deleted from FreePBX (admin removes it
+  // via GUI, Bulk Handler, or fwconsole), the next syncExtensions tick must
+  // hard-delete the corresponding CRM row. Hard-delete is safe because every
+  // history table stores the extension as a string snapshot, not as a FK.
+  // Two safety guards: (1) cleanup never runs if AMI fetch failed (handled
+  // by the existing early return), and (2) sanity threshold — refuse to
+  // delete more than 50% of current rows in one tick to catch sync bugs.
+  describe("syncExtensions — cleanup of stale CRM rows", () => {
+    async function makeService() {
+      process.env.AMI_ENABLED = "true";
+      const prisma = {
+        telephonyExtension: {
+          findUnique: jest.fn(),
+          findFirst: jest.fn(),
+          findMany: jest.fn(),
+          create: jest.fn(),
+          update: jest.fn(),
+          deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+        },
+        user: { findFirst: jest.fn() },
+      };
+      const ami = { connected: true, on: jest.fn() };
+      const stateManager = { refreshExtensionMap: jest.fn() };
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          AsteriskSyncService,
+          { provide: PrismaService, useValue: prisma },
+          { provide: AmiClientService, useValue: ami },
+          { provide: TelephonyStateManager, useValue: stateManager },
+        ],
+      }).compile();
+      const service = module.get<AsteriskSyncService>(AsteriskSyncService);
+      return { service, prisma };
+    }
+
+    it("hard-deletes CRM rows whose extension is no longer in FreePBX", async () => {
+      const { service, prisma } = await makeService();
+      // FreePBX returns 200, 201, 202 (admin deleted 203 only — 1 of 4 = 25%,
+      // safely under the 50% sanity threshold).
+      (service as any).fetchEndpointsViaCli = jest
+        .fn()
+        .mockResolvedValue([
+          { extension: "200", status: "Avail" },
+          { extension: "201", status: "Avail" },
+          { extension: "202", status: "Avail" },
+        ]);
+      prisma.telephonyExtension.findUnique.mockImplementation(
+        ({ where }: any) =>
+          ["200", "201", "202"].includes(where.extension)
+            ? Promise.resolve({
+                id: `id-${where.extension}`,
+                extension: where.extension,
+                sipPassword: "x",
+                crmUserId: null,
+                displayName: where.extension,
+                sipServer: null,
+              })
+            : Promise.resolve(null),
+      );
+      // CRM still has 203 from before it was deleted in FreePBX.
+      prisma.telephonyExtension.findMany.mockResolvedValue([
+        { id: "id-200", extension: "200" },
+        { id: "id-201", extension: "201" },
+        { id: "id-202", extension: "202" },
+        { id: "id-203", extension: "203" },
+      ]);
+
+      await service.syncExtensions();
+
+      expect(prisma.telephonyExtension.deleteMany).toHaveBeenCalledWith({
+        where: { id: { in: ["id-203"] } },
+      });
+    });
+
+    it("never deletes anything when FreePBX query fails (early return)", async () => {
+      const { service, prisma } = await makeService();
+      (service as any).fetchEndpointsViaCli = jest
+        .fn()
+        .mockRejectedValue(new Error("AMI not connected"));
+
+      await service.syncExtensions();
+
+      expect(prisma.telephonyExtension.findMany).not.toHaveBeenCalled();
+      expect(prisma.telephonyExtension.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it("SKIPS cleanup if it would delete >50% of CRM rows in one tick (sanity guard)", async () => {
+      const { service, prisma } = await makeService();
+      // FreePBX returns just 1 endpoint — would mean we delete 4 of 5 (80%).
+      // The guard must refuse and warn instead of nuking the table.
+      (service as any).fetchEndpointsViaCli = jest
+        .fn()
+        .mockResolvedValue([{ extension: "200", status: "Avail" }]);
+      prisma.telephonyExtension.findUnique.mockImplementation(
+        ({ where }: any) =>
+          where.extension === "200"
+            ? Promise.resolve({
+                id: "id-200",
+                extension: "200",
+                sipPassword: "x",
+                crmUserId: null,
+                displayName: "200",
+                sipServer: null,
+              })
+            : Promise.resolve(null),
+      );
+      prisma.telephonyExtension.findMany.mockResolvedValue([
+        { id: "id-200", extension: "200" },
+        { id: "id-201", extension: "201" },
+        { id: "id-202", extension: "202" },
+        { id: "id-203", extension: "203" },
+        { id: "id-204", extension: "204" },
+      ]);
+
+      await service.syncExtensions();
+
+      // Cleanup must NOT run when over the threshold.
+      expect(prisma.telephonyExtension.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it("does not run cleanup when there's nothing stale", async () => {
+      const { service, prisma } = await makeService();
+      (service as any).fetchEndpointsViaCli = jest
+        .fn()
+        .mockResolvedValue([
+          { extension: "200", status: "Avail" },
+          { extension: "201", status: "Avail" },
+        ]);
+      prisma.telephonyExtension.findUnique.mockImplementation(
+        ({ where }: any) =>
+          Promise.resolve({
+            id: `id-${where.extension}`,
+            extension: where.extension,
+            sipPassword: "x",
+            crmUserId: null,
+            displayName: where.extension,
+            sipServer: null,
+          }),
+      );
+      prisma.telephonyExtension.findMany.mockResolvedValue([
+        { id: "id-200", extension: "200" },
+        { id: "id-201", extension: "201" },
+      ]);
+
+      await service.syncExtensions();
+
+      expect(prisma.telephonyExtension.deleteMany).not.toHaveBeenCalled();
+    });
+  });
 });
