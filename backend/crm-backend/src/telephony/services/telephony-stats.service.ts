@@ -77,7 +77,7 @@ export class TelephonyStatsService {
     delta?: Record<string, number | null>;
   }> {
     const from = this.parseDate(query.from, 'from');
-    const to = this.parseDate(query.to, 'to');
+    const to = this.parseDate(query.to, 'to', true);
     this.assertRangeWithinLimit(from, to);
 
     const current = await this.computeOverviewKpis(from, to, query.queueId);
@@ -87,7 +87,7 @@ export class TelephonyStatsService {
 
     if (query.compareFrom && query.compareTo) {
       const compareFrom = this.parseDate(query.compareFrom, 'compareFrom');
-      const compareTo = this.parseDate(query.compareTo, 'compareTo');
+      const compareTo = this.parseDate(query.compareTo, 'compareTo', true);
       this.assertRangeWithinLimit(compareFrom, compareTo);
 
       comparison = await this.computeOverviewKpis(
@@ -119,7 +119,7 @@ export class TelephonyStatsService {
    */
   async getAgentStats(query: QueryStatsDto): Promise<AgentKpis[]> {
     const from = this.parseDate(query.from, 'from');
-    const to = this.parseDate(query.to, 'to');
+    const to = this.parseDate(query.to, 'to', true);
     this.assertRangeWithinLimit(from, to);
 
     // M5 core aggregate: per-agent handled/touched/connected-seconds.
@@ -221,7 +221,7 @@ export class TelephonyStatsService {
 
   async getQueueStats(query: QueryStatsDto): Promise<QueueKpis[]> {
     const from = this.parseDate(query.from, 'from');
-    const to = this.parseDate(query.to, 'to');
+    const to = this.parseDate(query.to, 'to', true);
     this.assertRangeWithinLimit(from, to);
 
     // Aggregated scan grouped by queue. COUNT(DISTINCT assignedUserId) gives
@@ -298,7 +298,7 @@ export class TelephonyStatsService {
 
   async getBreakdown(query: QueryBreakdownDto): Promise<BreakdownResponse> {
     const from = this.parseDate(query.from, 'from');
-    const to = this.parseDate(query.to, 'to');
+    const to = this.parseDate(query.to, 'to', true);
     this.assertRangeWithinLimit(from, to);
 
     // Emit the SQL expression that carves up startAt into the desired bucket
@@ -428,7 +428,7 @@ export class TelephonyStatsService {
     holdDistribution: { answered: HoldTimeDistribution; lost: HoldTimeDistribution };
   }> {
     const from = this.parseDate(query.from, 'from');
-    const to = this.parseDate(query.to, 'to');
+    const to = this.parseDate(query.to, 'to', true);
     this.assertRangeWithinLimit(from, to);
 
     const queueFilter = query.queueId
@@ -497,7 +497,7 @@ export class TelephonyStatsService {
    */
   async getAgentBreakdown(query: QueryStatsDto): Promise<AgentBreakdownRow[]> {
     const from = this.parseDate(query.from, 'from');
-    const to = this.parseDate(query.to, 'to');
+    const to = this.parseDate(query.to, 'to', true);
     this.assertRangeWithinLimit(from, to);
 
     const legAgg = await this.aggregateAgentLegs(from, to, query.queueId);
@@ -966,13 +966,18 @@ export class TelephonyStatsService {
     };
   }
 
-  private parseDate(input: string, field: string): Date {
+  private parseDate(input: string, field: string, endOfDay = false): Date {
     const d = new Date(input);
     if (Number.isNaN(d.getTime())) {
       throw new UnprocessableEntityException(
         `Invalid date for ${field}: ${input}`,
       );
     }
+    // Extend "to" boundaries to end-of-UTC-day so the selected end date is
+    // fully included. new Date("YYYY-MM-DD") resolves to UTC midnight; using
+    // it directly as `lte` would exclude every call that started after 00:00
+    // on that day (which is all of them).
+    if (endOfDay) d.setUTCHours(23, 59, 59, 999);
     return d;
   }
 
