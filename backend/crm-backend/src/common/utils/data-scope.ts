@@ -159,7 +159,12 @@ export class DataScopeService {
           operatorUser: {
             employee: {
               departmentId: { in: scope.departmentIds },
-              position: { level: { lte: scope.userLevel } },
+              // Include subordinates with null position level (NULL <= N is
+              // NULL in SQL, not TRUE — plain lte silently excludes them).
+              OR: [
+                { position: { level: { lte: scope.userLevel } } },
+                { position: { level: null } },
+              ],
             },
           },
         };
@@ -169,7 +174,10 @@ export class DataScopeService {
           operatorUser: {
             employee: {
               departmentId: scope.departmentId,
-              position: { level: { lte: scope.userLevel } },
+              OR: [
+                { position: { level: { lte: scope.userLevel } } },
+                { position: { level: null } },
+              ],
             },
           },
         };

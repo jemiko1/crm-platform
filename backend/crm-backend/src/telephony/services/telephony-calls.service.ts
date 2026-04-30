@@ -56,14 +56,25 @@ export class TelephonyCallsService {
       where.assignedUser = {
         employee: {
           departmentId: scope.departmentId,
-          position: { level: { lte: scope.userLevel } },
+          // Include employees whose position level is ≤ the manager's level
+          // (prevents upward visibility) OR whose position has no level set.
+          // PostgreSQL evaluates NULL <= N as NULL (not TRUE), so a plain
+          // `lte` filter silently excludes all null-level subordinates.
+          OR: [
+            { position: { level: { lte: scope.userLevel } } },
+            { position: { level: null } },
+          ],
         },
       };
     } else if (scope.scope === 'department_tree' && scope.departmentIds.length > 0) {
       where.assignedUser = {
         employee: {
           departmentId: { in: scope.departmentIds },
-          position: { level: { lte: scope.userLevel } },
+          // Same null-level guard as the department branch above.
+          OR: [
+            { position: { level: { lte: scope.userLevel } } },
+            { position: { level: null } },
+          ],
         },
       };
     }

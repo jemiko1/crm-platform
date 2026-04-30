@@ -215,4 +215,67 @@ describe("DataScopeService", () => {
       expect(result.departmentIds).toEqual(["lone-dept"]);
     });
   });
+
+  describe("buildUserFilter", () => {
+    /**
+     * Regression guard for the null-subordinate-level bug (April 2026):
+     * Operators in production had position.level = NULL. The filter
+     * `position: { level: { lte: managerLevel } }` evaluated NULL <= N
+     * as NULL in PostgreSQL (not TRUE), silently excluding all operators.
+     * Fix: always OR with `{ position: { level: null } }`.
+     */
+    it("department_tree filter includes null-level subordinates via OR", () => {
+      const scope: import("./data-scope").DataScope = {
+        scope: "department_tree",
+        userId: "mgr",
+        userLevel: 60,
+        departmentId: "dept-1",
+        departmentIds: ["dept-1", "dept-child"],
+      };
+      const filter = svc.buildUserFilter(scope);
+      const emp = filter.operatorUser?.employee;
+      expect(emp).toBeDefined();
+      expect(emp.departmentId).toEqual({ in: ["dept-1", "dept-child"] });
+      expect(emp.OR).toHaveLength(2);
+      expect(emp.OR[0]).toEqual({ position: { level: { lte: 60 } } });
+      expect(emp.OR[1]).toEqual({ position: { level: null } });
+    });
+
+    it("department filter includes null-level subordinates via OR", () => {
+      const scope: import("./data-scope").DataScope = {
+        scope: "department",
+        userId: "mgr",
+        userLevel: 60,
+        departmentId: "dept-1",
+        departmentIds: ["dept-1"],
+      };
+      const filter = svc.buildUserFilter(scope);
+      const emp = filter.operatorUser?.employee;
+      expect(emp.OR).toHaveLength(2);
+      expect(emp.OR[1]).toEqual({ position: { level: null } });
+    });
+
+    it("own scope filters by operatorUserId only", () => {
+      const scope: import("./data-scope").DataScope = {
+        scope: "own",
+        userId: "op-user",
+        userLevel: 40,
+        departmentId: "dept-1",
+        departmentIds: [],
+      };
+      const filter = svc.buildUserFilter(scope);
+      expect(filter).toEqual({ operatorUserId: "op-user" });
+    });
+
+    it("all scope returns empty filter", () => {
+      const scope: import("./data-scope").DataScope = {
+        scope: "all",
+        userId: "admin",
+        userLevel: 999,
+        departmentId: null,
+        departmentIds: [],
+      };
+      expect(svc.buildUserFilter(scope)).toEqual({});
+    });
+  });
 });

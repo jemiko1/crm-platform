@@ -232,14 +232,14 @@ describe("TelephonyCallsService", () => {
      * findAll() must pass that level through to Prisma unchanged — no
      * re-defaulting to 0 inside the service.
      */
-    it("applies department_tree filter with the userLevel from DataScopeService", async () => {
+    it("applies department_tree filter with OR null-level guard", async () => {
       const dataScopeMock = (service as any).dataScope as {
         resolve: jest.Mock;
       };
       dataScopeMock.resolve.mockResolvedValueOnce({
         scope: "department_tree",
         userId: "mgr-user",
-        userLevel: 999, // null-level default from the fix
+        userLevel: 60,
         departmentId: "dept-1",
         departmentIds: ["dept-1", "dept-child"],
       });
@@ -251,11 +251,16 @@ describe("TelephonyCallsService", () => {
       );
 
       const callArg = prisma.callSession.findMany.mock.calls[0][0];
-      const assignedUser = callArg?.where?.assignedUser?.employee;
-      expect(assignedUser).toBeDefined();
-      expect(assignedUser.departmentId).toEqual({ in: ["dept-1", "dept-child"] });
-      // userLevel 999 must be passed through as-is — not clamped to 0
-      expect(assignedUser.position.level.lte).toBe(999);
+      const employee = callArg?.where?.assignedUser?.employee;
+      expect(employee).toBeDefined();
+      expect(employee.departmentId).toEqual({ in: ["dept-1", "dept-child"] });
+      // Must use OR to include null-level subordinates:
+      // PostgreSQL evaluates NULL <= 60 as NULL (not TRUE), so a plain lte
+      // filter silently excludes all operators whose position.level is null.
+      expect(employee.OR).toBeDefined();
+      expect(employee.OR).toHaveLength(2);
+      expect(employee.OR[0]).toEqual({ position: { level: { lte: 60 } } });
+      expect(employee.OR[1]).toEqual({ position: { level: null } });
     });
 
     it("restricts to own userId when scope is own", async () => {
