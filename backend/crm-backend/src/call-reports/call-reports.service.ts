@@ -259,7 +259,7 @@ export class CallReportsService {
       if (filters.dateFrom) where.createdAt.gte = new Date(filters.dateFrom);
       if (filters.dateTo) {
         const endDate = new Date(filters.dateTo);
-        endDate.setHours(23, 59, 59, 999);
+        endDate.setUTCHours(23, 59, 59, 999);
         where.createdAt.lte = endDate;
       }
     }

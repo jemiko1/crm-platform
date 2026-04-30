@@ -18,7 +18,11 @@ export class TelephonyQualityService {
     if (query.from || query.to) {
       where.createdAt = {};
       if (query.from) where.createdAt.gte = new Date(query.from);
-      if (query.to) where.createdAt.lte = new Date(query.to);
+      if (query.to) {
+        const toEndOfDay = new Date(query.to);
+        toEndOfDay.setUTCHours(23, 59, 59, 999);
+        where.createdAt.lte = toEndOfDay;
+      }
     }
     if (query.agentId) {
       where.callSession = { assignedUserId: query.agentId };

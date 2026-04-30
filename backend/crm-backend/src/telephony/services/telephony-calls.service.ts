@@ -23,10 +23,18 @@ export class TelephonyCallsService {
     const pageSize = query.pageSize ?? 25;
     const skip = (page - 1) * pageSize;
 
+    // Build the end-of-day boundary so the selected end date is fully included.
+    // new Date("YYYY-MM-DD") always parses as UTC midnight; using it directly
+    // as `lte` would exclude every call on that day (all calls start after midnight).
+    // setUTCHours(23,59,59,999) is timezone-independent — PostgreSQL stores
+    // timestamps in UTC so we cap at the last millisecond of the UTC calendar day.
+    const toEndOfDay = new Date(query.to);
+    toEndOfDay.setUTCHours(23, 59, 59, 999);
+
     const where: Prisma.CallSessionWhereInput = {
       startAt: {
         gte: new Date(query.from),
-        lte: new Date(query.to),
+        lte: toEndOfDay,
       },
       // B7 — exclude internal ext-to-ext calls from Call Logs by default.
       // Internal transfers / supervisor dials don't belong in the public
