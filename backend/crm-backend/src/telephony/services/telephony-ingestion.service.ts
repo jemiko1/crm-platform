@@ -735,17 +735,73 @@ export class TelephonyIngestionService {
   ): Promise<void> {
     if (!existingSession) return;
 
-    await this.prisma.recording.create({
-      data: {
-        callSessionId: existingSession.id,
-        provider: 'asterisk',
-        filePath: payload.recordingFile ?? null,
-        durationSeconds: payload.recordingDuration
-          ? Math.round(payload.recordingDuration)
-          : null,
-        availableAt: new Date(),
-      },
+    // Skip zero-duration recordings. These arise from queue member channels
+    // that rang but were never answered — Asterisk fires MixMonitorStop for
+    // every channel even if no audio was captured, producing a 44-byte WAV
+    // containing only the RIFF header. The actual conversation recording
+    // (from the queue-level MixMonitor, e.g. "q-30-*.wav") fires separately
+    // with a real duration and will be processed by a subsequent event.
+    //
+    // `recordingDuration` is explicitly 0 (not undefined/null) when the CDR
+    // billsec is 0 or the AMI bridge reports 0 seconds of talk time.
+    if (payload.recordingDuration !== undefined && payload.recordingDuration === 0) {
+      this.logger.debug(
+        `Skipping zero-duration recording for session ${existingSession.id}: ${payload.recordingFile}`,
+      );
+      return;
+    }
+
+    // If a recording already exists for this session, only upgrade it if the
+    // new one has a known, longer duration — the queue-level recording (real
+    // conversation audio) fires after the short per-channel recording.
+    //
+    // Concurrency note: this is a non-atomic find-then-update. In practice
+    // the only producer is the AMI bridge (single sequential HTTP stream) and
+    // CDR import is disabled in production, so concurrent delivery for the
+    // same session is not observed. Should that change, a @@unique constraint
+    // on [callSessionId] + prisma.recording.upsert() would be the correct fix.
+    const existing = await this.prisma.recording.findFirst({
+      where: { callSessionId: existingSession.id },
+      orderBy: { createdAt: 'desc' },
     });
+
+    const newDuration = payload.recordingDuration
+      ? Math.round(payload.recordingDuration)
+      : null;
+
+    if (existing) {
+      const existingDuration = existing.durationSeconds ?? 0;
+      const incomingDuration = newDuration ?? 0;
+      // Only upgrade if the incoming recording is both longer AND has a known
+      // duration (null duration means we don't know if it's better, so keep
+      // the existing row rather than potentially downgrading).
+      if (newDuration !== null && incomingDuration > existingDuration) {
+        // New recording is longer — upgrade the existing row
+        await this.prisma.recording.update({
+          where: { id: existing.id },
+          data: {
+            filePath: payload.recordingFile ?? existing.filePath,
+            durationSeconds: newDuration,
+            availableAt: new Date(),
+          },
+        });
+      } else {
+        this.logger.debug(
+          `Skipping duplicate recording for session ${existingSession.id} (existing ${existingDuration}s >= incoming ${incomingDuration}s)`,
+        );
+        return;
+      }
+    } else {
+      await this.prisma.recording.create({
+        data: {
+          callSessionId: existingSession.id,
+          provider: 'asterisk',
+          filePath: payload.recordingFile ?? null,
+          durationSeconds: newDuration,
+          availableAt: new Date(),
+        },
+      });
+    }
 
     await this.prisma.callSession.update({
       where: { id: existingSession.id },

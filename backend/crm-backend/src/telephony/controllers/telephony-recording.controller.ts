@@ -66,6 +66,58 @@ export class TelephonyRecordingController {
     return { ok: true, fileSize, filePath };
   }
 
+  @Get(':id/download')
+  @RequirePermission('call_recordings.own')
+  @Doc({
+    summary: 'Download recording file as an attachment',
+    ok: 'Binary audio file with Content-Disposition: attachment',
+    notFound: true,
+    params: [{ name: 'id', description: 'Recording UUID' }],
+  })
+  async downloadRecording(
+    @Param('id') id: string,
+    @Req() req: Request & { user: any },
+    @Res() res: Response,
+  ) {
+    const recording = await this.recordingService.getRecordingById(
+      id,
+      req.user.id,
+      req.user.isSuperAdmin,
+    );
+
+    if (recording.url) {
+      // URL-based recordings: redirect; browser will prompt a save dialog
+      // because the redirect target should serve attachment headers
+      return res.redirect(recording.url);
+    }
+
+    let info: Awaited<ReturnType<RecordingAccessService['getRecordingFileInfo']>>;
+    try {
+      info = await this.recordingService.getRecordingFileInfo(
+        id,
+        req.user.id,
+        req.user.isSuperAdmin,
+      );
+    } catch (err: any) {
+      if (err instanceof NotFoundException || err?.status === 404) {
+        throw new NotFoundException(err.message ?? 'Recording file not found');
+      }
+      throw err;
+    }
+
+    const { filePath, fileSize, filename, contentType } = info;
+    // no-store: the file lands in the user's Downloads folder immediately —
+    // caching buys nothing and would prevent permission revocation from taking
+    // effect on a follow-up download attempt within the cache window.
+    res.status(200).set({
+      'Content-Type': contentType,
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': fileSize.toString(),
+      'Cache-Control': 'no-store',
+    });
+    createReadStream(filePath).pipe(res);
+  }
+
   @Get(':id/audio')
   @RequirePermission('call_recordings.own')
   @Doc({

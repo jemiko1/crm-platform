@@ -748,7 +748,12 @@
     },
     "logs": {
       "errorTitle": "Could not load calls",
-      "errorHint": "Try a hard refresh (Ctrl+Shift+R). If it persists, check that you have permission to view call logs."
+      "errorHint": "Try a hard refresh (Ctrl+Shift+R). If it persists, check that you have permission to view call logs.",
+      "requestRecording": "Request",
+      "requestingRecording": "Fetching…",
+      "requestRecordingHint": "Pull this recording from Asterisk",
+      "downloadRecording": "Download",
+      "downloadRecordingHint": "Download recording to your computer"
     }
   },
   "breaks": {

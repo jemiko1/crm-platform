@@ -40,6 +40,9 @@ describe('TelephonyIngestionService', () => {
       },
       recording: {
         create: jest.fn().mockResolvedValue({ id: 'rec-1' }),
+        update: jest.fn().mockResolvedValue({ id: 'rec-1' }),
+        // Default: no existing recording (session gets its first recording)
+        findFirst: jest.fn().mockResolvedValue(null),
       },
       qualityReview: {
         findUnique: jest.fn().mockResolvedValue(null),
@@ -256,6 +259,82 @@ describe('TelephonyIngestionService', () => {
 
       expect(prisma.recording.create).toHaveBeenCalled();
       expect(prisma.qualityReview.create).toHaveBeenCalled();
+    });
+
+    it('should skip zero-duration recording_ready (unanswered channel leg)', async () => {
+      /**
+       * Regression guard for the April 2026 empty-recording bug:
+       * Asterisk fires MixMonitorStop for each channel that rang but did not
+       * answer, producing 44-byte WAV files. The ingestion service must skip
+       * these so the valid queue-level recording (fired later) wins.
+       */
+      prisma.callEvent.findUnique.mockResolvedValue(null);
+      const mockSession = { id: 'sess-1', linkedId: 'link-1', disposition: 'ANSWERED' };
+      prisma.callSession.findUnique.mockResolvedValue(mockSession);
+
+      await service.ingestBatch([
+        {
+          eventType: 'recording_ready',
+          timestamp: '2026-02-21T10:06:00Z',
+          idempotencyKey: 'rec-zero',
+          payload: {
+            linkedId: 'link-1',
+            recordingFile: '/var/spool/asterisk/monitor/2026/04/29/external-502-file.wav',
+            recordingDuration: 0,  // ← the bug trigger
+          },
+          linkedId: 'link-1',
+        },
+      ]);
+
+      expect(prisma.recording.create).not.toHaveBeenCalled();
+      expect(prisma.recording.update).not.toHaveBeenCalled();
+      // Session must NOT be marked AVAILABLE when no recording was stored
+      expect(prisma.callSession.update).not.toHaveBeenCalled();
+    });
+
+    it('should upgrade existing recording when a longer one arrives', async () => {
+      /**
+       * When the per-channel recording fires first (short duration) followed by
+       * the queue recording (full duration), the second event should replace the
+       * first so operators see the real conversation, not a stub.
+       */
+      prisma.callEvent.findUnique.mockResolvedValue(null);
+      const mockSession = { id: 'sess-1', linkedId: 'link-1', disposition: 'ANSWERED' };
+      prisma.callSession.findUnique.mockResolvedValue(mockSession);
+      prisma.callSession.update.mockResolvedValue(mockSession);
+
+      // Simulate an existing short recording already in the DB
+      prisma.recording.findFirst.mockResolvedValue({
+        id: 'rec-short',
+        durationSeconds: 3,
+        filePath: '/var/spool/asterisk/monitor/2026/04/29/external-502-file.wav',
+      });
+
+      await service.ingestBatch([
+        {
+          eventType: 'recording_ready',
+          timestamp: '2026-02-21T10:06:30Z',
+          idempotencyKey: 'rec-full',
+          payload: {
+            linkedId: 'link-1',
+            recordingFile: '/var/spool/asterisk/monitor/2026/04/29/q-30-file.wav',
+            recordingDuration: 120,
+          },
+          linkedId: 'link-1',
+        },
+      ]);
+
+      // Should update the existing row, not create a new one
+      expect(prisma.recording.create).not.toHaveBeenCalled();
+      expect(prisma.recording.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'rec-short' },
+          data: expect.objectContaining({
+            filePath: '/var/spool/asterisk/monitor/2026/04/29/q-30-file.wav',
+            durationSeconds: 120,
+          }),
+        }),
+      );
     });
   });
 });
