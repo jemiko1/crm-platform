@@ -42,6 +42,37 @@ export function App() {
   }, []);
 
   /**
+   * Clean-quit handshake (v1.14.0). Main process emits PREPARE_QUIT when
+   * the user clicks tray Quit (or any path that calls `app.quit()` IPC).
+   * We send REGISTER `Expires:0` to Asterisk and wait for the ACK before
+   * acknowledging — this prevents stale AOR contacts that would otherwise
+   * take ~60s of qualify-timeout to clear after the app is gone.
+   *
+   * The unregister call self-caps at ~3s (sip-service.ts), and main has
+   * its own 5s ceiling for the entire handshake — so the worst-case quit
+   * latency stays bounded even if Asterisk is unreachable. Window-close
+   * [X] does NOT trigger this; it just hides the window and SIP keeps
+   * running in the background.
+   */
+  useEffect(() => {
+    if (!window.crmPhone?.app?.onPrepareQuit) return;
+    const unsubscribe = window.crmPhone.app.onPrepareQuit(() => {
+      window.crmPhone?.log?.("info", "[quit] PREPARE_QUIT received — unregistering SIP");
+      sipService
+        .unregister()
+        .catch((err) =>
+          window.crmPhone?.log?.("error", "[quit] unregister threw:", err?.message ?? err),
+        )
+        .finally(() => {
+          window.crmPhone?.app?.notifyQuitReady?.();
+        });
+    });
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
+
+  /**
    * Cold-start coordination: when `useAuth` restores an existing
    * session, it auto-fires a SIP register via `obtainSipCredentials`.
    * That's the wrong thing if the operator was on break when they
