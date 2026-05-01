@@ -32,11 +32,16 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         {/* Full-width fixed header */}
         <AppHeader />
 
-        {/* Below header: sidebar + content - pt for fixed header */}
-        <div className="relative w-full pt-[52px] min-h-[calc(100dvh-52px)] min-h-[calc(100vh-52px)]">
+        {/* Below header: sidebar + content. The pt accounts for the fixed
+            header (52px) PLUS the conditional softphone banner height
+            (`--banner-h`, set by PhoneMismatchBanner when visible). When the
+            banner is hidden the var resolves to 0px and the layout matches
+            the original 52px offset exactly. */}
+        <div className="relative w-full pt-[calc(52px+var(--banner-h,0px))] min-h-[calc(100dvh-52px-var(--banner-h,0px))] min-h-[calc(100vh-52px-var(--banner-h,0px))]">
           <div className="flex">
-            {/* Left Rail Sidebar - starts below the header */}
-            <aside className="hidden lg:block fixed left-4 top-[calc(52px+16px)] bottom-6 w-[108px] shrink-0 z-40">
+            {/* Left Rail Sidebar - starts below the header (and the banner
+                when visible). */}
+            <aside className="hidden lg:block fixed left-4 top-[calc(52px+16px+var(--banner-h,0px))] bottom-6 w-[108px] shrink-0 z-40">
               <div className="h-full">
                 <div className="h-full rounded-[32px] bg-white/85 backdrop-blur-xl border border-white/60 shadow-[0_10px_40px_rgba(0,0,0,0.3),0_0_80px_-5px_rgba(0,0,0,0.2)] overflow-hidden flex flex-col">
                   {/* Top padding where CRM28 logo used to be */}
