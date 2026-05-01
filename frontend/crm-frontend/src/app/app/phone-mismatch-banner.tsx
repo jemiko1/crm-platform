@@ -38,6 +38,26 @@ export default function PhoneMismatchBanner() {
     useDesktopPhone(currentUserId);
   const { hasPermission } = usePermissions();
 
+  // The banner is always rendered as `fixed`, so it doesn't take space in the
+  // document flow on its own. Without this, when the banner appears it
+  // overlaps the top of the sidebar and the top of the main content. Setting
+  // `--banner-h` on the document root lets the layout's content padding-top
+  // and sidebar `top` grow to make room for the banner — and shrink back to
+  // 0 when the banner is hidden. ~36px matches the rendered banner height
+  // (px-4 py-2 + text-sm + py-1 button). One CSS variable shared across
+  // layout.tsx + sidebar — no React context needed.
+  const isBannerVisible =
+    phoneState.state !== "idle" &&
+    phoneState.state !== "match" &&
+    !(phoneState.state === "not-logged-in" && !hasPermission("softphone.handshake"));
+
+  useEffect(() => {
+    document.documentElement.style.setProperty(
+      "--banner-h",
+      isBannerVisible ? "36px" : "0px",
+    );
+  }, [isBannerVisible]);
+
   if (phoneState.state === "idle" || phoneState.state === "match") {
     return null;
   }
