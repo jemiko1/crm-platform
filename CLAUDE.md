@@ -175,6 +175,9 @@ Flag any situation where a value lives in more than one place. **Full PR-history
 31. **Extension auto-rebind** via `extension:changed` event: rebind if idle, soft-defer if on a call. **Never drop active call.**
 32. **SSO handoff:** native Electron Allow/Deny dialog is the security boundary. Never weaken.
 33. **`DataScopeService` null `position.level`** → `?? 999` (not `?? 0`). CALL_CENTER_MANAGER needs `call_logs.department_tree` permission.
+34. **Live agents grid** is filtered by `RoleGroup.code='CALL_CENTER'` + `PositionQueueRule` for `TelephonyQueue.name='30'` (the main inbound queue). Both string constants live in `telephony-live.service.ts`; renaming queue 30 in FreePBX GUI or splitting the role group will silently empty the grid. Throttled warn log fires when filter rejects everyone — watch backend logs.
+35. **Live online/offline derived from SIP heartbeat**, not the in-memory AMI map (`telephony-live.service.ts::applySipPresenceToCurrentState`). The AMI map only flips on call events — without the heartbeat override (`sipRegistered + sipLastSeenAt` fresh < 90s) freshly-registered or post-switch operators stay frozen at their last call-event state.
+36. **Softphone `/switch-user`** must POST `state: unregistered` for the outgoing user (with the OLD JWT) before `setSession(data)` (`crm-phone/src/main/local-server.ts`). Otherwise the renderer-side unregister fires under the NEW JWT and the backend's extension-mismatch guard rejects it, leaving the previous operator's `sipRegistered=true` until the 90s sweep.
 
 ---
 
