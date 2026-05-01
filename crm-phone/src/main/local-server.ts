@@ -4,7 +4,41 @@ import { randomBytes } from "crypto";
 import { dialog } from "electron";
 import type { Server } from "http";
 import { getSession, setSession, getCrmBaseUrl } from "./session-store";
-import type { AppLoginResponse } from "../shared/types";
+import type { AppLoginResponse, AppSession } from "../shared/types";
+
+/**
+ * Best-effort POST to /v1/telephony/agents/presence with `state=unregistered`
+ * for the *outgoing* user, using their JWT, before the session is swapped or
+ * cleared. Without this, the next renderer-side unregister fires under the
+ * NEW user's auth and the backend's extension-mismatch guard rejects it,
+ * leaving the previous operator's `sipRegistered` flag stuck at `true` until
+ * the 90s stale sweep — which makes the live monitoring page show them as
+ * "Idle" instead of "Offline" the entire time.
+ */
+async function postUnregisterPresenceForOutgoing(
+  session: AppSession,
+): Promise<void> {
+  const extension = session.telephonyExtension?.extension;
+  if (!extension) return; // No SIP extension to report for.
+  try {
+    const baseUrl = getCrmBaseUrl();
+    await fetch(`${baseUrl}/v1/telephony/agents/presence`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.accessToken}`,
+      },
+      body: JSON.stringify({
+        state: "unregistered",
+        extension,
+        ts: new Date().toISOString(),
+      }),
+    });
+  } catch {
+    // Best-effort — a network failure here must not block the user switch.
+    // The 90s stale sweep is the safety net.
+  }
+}
 
 const PORT = 19876;
 
@@ -195,6 +229,17 @@ export function startLocalServer(_unused: unknown, callbacks: {
             error: isFirstSignIn ? "Sign-in denied" : "User switch denied",
           });
         }
+      }
+
+      // If we're swapping to a different user, tell the backend the
+      // outgoing user is going offline BEFORE swapping the JWT. This way
+      // the heartbeat fires under the *outgoing* user's auth and the
+      // extension-mismatch guard accepts it. After setSession swaps, the
+      // renderer's own unregister would run under the new JWT and be
+      // rejected — leaving the previous operator's row stuck at
+      // sipRegistered=true until the stale sweep.
+      if (current && !isSameUser) {
+        await postUnregisterPresenceForOutgoing(current);
       }
 
       setSession(data);
