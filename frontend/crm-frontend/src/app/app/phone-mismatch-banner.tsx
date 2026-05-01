@@ -5,13 +5,14 @@ import { apiGet } from "@/lib/api";
 import { useDesktopPhone } from "@/hooks/useDesktopPhone";
 import { usePermissions } from "@/lib/use-permissions";
 
-// Always points at the latest release on GitHub — no codebase update
-// needed per release. The previous `https://crm28.asg.ge/downloads/phone/`
-// path returned 403 (nginx directory listing disabled) and the
-// VM `downloads/phone/` folder gets out of sync with releases anyway.
-// GitHub Releases is public + always up to date.
+// VM-hosted installer behind the same nginx that serves the auto-updater
+// (vm-configs/nginx-ssl.conf, location /downloads/phone/). Switched off the
+// public GitHub Releases URL so employees keep working when the repo goes
+// private. Replace the file at C:/crm/downloads/phone/CRM28-Phone-Setup.exe
+// on the Windows VM on each release; the path stays stable so this URL
+// never has to change.
 const SOFTPHONE_DOWNLOAD_URL =
-  "https://github.com/jemiko1/crm-platform/releases/latest";
+  "https://crm28.asg.ge/downloads/phone/CRM28-Phone-Setup.exe";
 
 export default function PhoneMismatchBanner() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -52,7 +53,7 @@ export default function PhoneMismatchBanner() {
     }
     const display = currentUserName ?? "your account";
     return (
-      <div className="fixed top-0 left-0 right-0 z-[9999] bg-teal-700 text-white px-4 py-2 flex items-center justify-between text-sm shadow-lg">
+      <div className="fixed top-[52px] left-0 right-0 z-40 bg-teal-700 text-white px-4 py-2 flex items-center justify-between text-sm shadow-lg">
         <span>
           Softphone is open but not signed in.
         </span>
@@ -71,7 +72,7 @@ export default function PhoneMismatchBanner() {
     // Payload no longer includes the softphone user's name/extension (audit/P1-12
     // trims bridge /status output). We only know there IS a different user paired.
     return (
-      <div className="fixed top-0 left-0 right-0 z-[9999] bg-amber-600 text-white px-4 py-2 flex items-center justify-between text-sm shadow-lg">
+      <div className="fixed top-[52px] left-0 right-0 z-40 bg-amber-600 text-white px-4 py-2 flex items-center justify-between text-sm shadow-lg">
         <span>
           Softphone is paired to a different user. Calls will be attributed
           to the wrong agent.
@@ -89,7 +90,7 @@ export default function PhoneMismatchBanner() {
 
   // phoneState.state === 'bridge-unreachable'
   return (
-    <div className="fixed top-0 left-0 right-0 z-[9999] bg-red-600 text-white px-4 py-2 flex items-center justify-between text-sm shadow-lg">
+    <div className="fixed top-[52px] left-0 right-0 z-40 bg-red-600 text-white px-4 py-2 flex items-center justify-between text-sm shadow-lg">
       <span>
         Softphone not detected. Calls won&apos;t attribute correctly.
       </span>
