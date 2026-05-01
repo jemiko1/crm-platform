@@ -51,6 +51,7 @@ To force careful when Claude would default to fast: say "be careful" or "review 
 - `/feature <name>` — new branch + explorer scan
 - `/fix <description>` — quick fix flow
 - `/done` — comprehensive: rename branch, review, typecheck, lint, test, commit, push, PR
+- `/cleanup` — audit and clean local merged branches + git stashes (interactive, opt-in only — safe with parallel sessions)
 - `/review` — show me the current branch diff with severity flags
 - `/audit` — repo-wide health check (typecheck/lint/tests/console.log/raw fetch sweeps)
 - `/bridge` — VM bridge ops
