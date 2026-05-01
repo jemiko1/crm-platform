@@ -113,6 +113,9 @@ tmp-*
 .claude/worktrees/
 .worktrees/
 
+# Claude Code session-runtime artifacts
+.claude/scheduled_tasks.lock
+
 # Baseline dumps (large binary backups — source-of-truth lives on PBX + VM + git tags).
 # The committed manifests under docs/baselines/*.md are the pointers. The actual
 # dumps MUST NOT be committed (contain full DB contents + .env secrets).
