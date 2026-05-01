@@ -90,6 +90,24 @@ export class TelephonyGateway
       });
     };
 
+    // When the Asterisk reconciliation cron detects a registration delta
+    // (e.g. a MicroSIP user just registered, or a softphone vanished from
+    // Asterisk's contact list), push the change to dashboards and the
+    // operator's own room. Source-tagged `asteriskFlip: true` so the UI
+    // can distinguish reconciliation events from heartbeat events for
+    // diagnostics.
+    this.presenceService.onAsteriskFlip = (userId, extension, sipRegistered) => {
+      const envelope = {
+        userId,
+        extension,
+        sipRegistered,
+        asteriskFlip: true,
+        timestamp: new Date().toISOString(),
+      };
+      this.server.to('dashboard').emit('agent:status', envelope);
+      this.server.to(`agent:${userId}`).emit('agent:status', envelope);
+    };
+
     // Operator break events — dashboards need these live so the "On break"
     // badge + Breaks tab update without polling. Dashboard gets both
     // started/ended; the operator's own agent room ALSO gets them so

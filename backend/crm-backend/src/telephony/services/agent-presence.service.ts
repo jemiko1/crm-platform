@@ -2,19 +2,44 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { AgentPresenceState } from '../dto/agent-presence.dto';
+import { AsteriskSyncService } from '../sync/asterisk-sync.service';
 
 /**
- * Tracks whether each operator's softphone is actually SIP-registered with
- * Asterisk. Without this, an operator who clicks "available" in CRM can
- * silently have their SIP registration expire (e.g. after a network blip);
- * Asterisk routes their inbound call to voicemail while the manager board
- * still shows them as available.
+ * Tracks whether each operator is currently SIP-registered with Asterisk.
  *
- * The softphone calls `POST /v1/telephony/agents/presence` every 30s while
- * logged in, and immediately on registration state changes. Stale heartbeats
- * (>90s silence) are swept to `sipRegistered=false` by the cron below, so
- * the state reflects reality even when the softphone crashes without sending
- * an unregister.
+ * Two complementary write sources keep the `TelephonyExtension.sipRegistered`
+ * flag honest, with **Asterisk as the authoritative source of truth**:
+ *
+ * 1. **CRM softphone heartbeat** (`POST /v1/telephony/agents/presence`) —
+ *    every 30s while logged in, plus immediately on register/unregister.
+ *    Drives the per-user-keyed `reportState()` path. Useful as a faster
+ *    signal when the operator uses our Electron softphone, but DOES NOT
+ *    cover MicroSIP, Zoiper, hardware desk phones, or any non-CRM SIP
+ *    client — those clients just SIP-register and don't talk to our
+ *    backend at all.
+ *
+ * 2. **Asterisk reconciliation poll** (`runAsteriskReconciliation` cron) —
+ *    every 60s, asks Asterisk via AMI `pjsip show endpoints` for the
+ *    registration status of every linked extension and reconciles the DB
+ *    to match Asterisk's view. This is the authoritative path: if Asterisk
+ *    sees the contact, the operator IS registered, regardless of which SIP
+ *    client they use. Self-heals after AMI bridge restarts, missed events,
+ *    or any drift between DB and reality.
+ *
+ * 3. **Stale-heartbeat sweep** (`runStaleRegistrationSweep`) — every 30s,
+ *    flips registered → unregistered if no signal in 90s. Belt-and-braces
+ *    safety net for the "everything broken" case where reconciliation also
+ *    fails.
+ *
+ * Conflict rules:
+ * - Reconciliation refreshes `sipLastSeenAt` whenever Asterisk says
+ *   registered (so the stale sweep doesn't trip a healthy operator).
+ * - Reconciliation flips registered → unregistered immediately when
+ *   Asterisk disagrees with the DB — Asterisk is the truth for SIP.
+ * - The softphone heartbeat continues to update both fields as before; if
+ *   it disagrees with Asterisk, the next reconciliation cycle wins.
+ *
+ * See CLAUDE.md Silent Override Risks for the dual-writer documentation.
  */
 @Injectable()
 export class AgentPresenceService {
@@ -22,7 +47,25 @@ export class AgentPresenceService {
   /** How long silence is tolerated before we assume the softphone is dead. */
   static readonly STALE_AFTER_MS = 90_000;
 
-  constructor(private readonly prisma: PrismaService) {}
+  /**
+   * `pjsip show endpoints` reports a status string per endpoint. These are
+   * the values that mean "Asterisk has at least one Reachable contact for
+   * this endpoint" — i.e. the operator IS registered. "Unavailable",
+   * "Unknown", and any other unexpected value mean unregistered.
+   */
+  private static readonly REGISTERED_STATUSES = new Set<string>([
+    'not in use',
+    'in use',
+    'busy',
+    'ringing',
+    'on hold',
+    'ring, in use',
+  ]);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly asteriskSync: AsteriskSyncService,
+  ) {}
 
   /**
    * Record a presence heartbeat from a softphone.
@@ -186,4 +229,165 @@ export class AgentPresenceService {
    * `agent:status` without creating a circular import.
    */
   onStaleFlipped?: (userId: string, extension: string) => void;
+
+  /**
+   * Reconcile the DB's view of `sipRegistered` against Asterisk's view for
+   * every linked extension. Asterisk is authoritative — if its view differs
+   * from the DB the DB is updated to match.
+   *
+   * Returns the set of extensions whose registered state actually changed,
+   * so the caller can emit `agent:status` only for the deltas.
+   *
+   * Behavior:
+   * - Endpoint registered in Asterisk, DB says false → flip to true,
+   *   refresh `sipLastSeenAt`.
+   * - Endpoint registered in Asterisk, DB also true → only refresh
+   *   `sipLastSeenAt` (no agent:status emit; prevents the stale sweep from
+   *   tripping a healthy operator).
+   * - Endpoint not registered in Asterisk, DB says true → flip to false.
+   *   `sipLastSeenAt` is left alone so the existing freshness logic in the
+   *   live page (PR #334) still snaps the operator to OFFLINE.
+   * - Endpoint not registered in Asterisk, DB also false → no-op.
+   * - Pool extensions (`crmUserId IS NULL`) are excluded — they have no
+   *   operator to report for.
+   *
+   * If Asterisk's status map is empty (AMI down, sync disabled, command
+   * failed), this is a NO-OP. We do NOT pessimistically flip everyone to
+   * unregistered — that would create a presence outage every time AMI
+   * blips. The stale-heartbeat sweep is the safety net for that case.
+   */
+  async reconcileFromAsterisk(
+    asteriskStatuses: Record<string, string>,
+    now: Date = new Date(),
+  ): Promise<
+    Array<{ crmUserId: string; extension: string; sipRegistered: boolean }>
+  > {
+    if (Object.keys(asteriskStatuses).length === 0) return [];
+
+    const linked = await this.prisma.telephonyExtension.findMany({
+      where: { isActive: true, crmUserId: { not: null } },
+      select: {
+        id: true,
+        crmUserId: true,
+        extension: true,
+        sipRegistered: true,
+      },
+    });
+
+    const flipsToRegistered: string[] = []; // ext.id values
+    const flipsToUnregistered: string[] = []; // ext.id values
+    const refreshOnly: string[] = []; // ext.id values — already true, just refresh sipLastSeenAt
+
+    const changed: Array<{
+      crmUserId: string;
+      extension: string;
+      sipRegistered: boolean;
+    }> = [];
+
+    for (const ext of linked) {
+      if (!ext.crmUserId) continue;
+      const status = asteriskStatuses[ext.extension];
+      const registeredInAsterisk =
+        typeof status === 'string' &&
+        AgentPresenceService.REGISTERED_STATUSES.has(status.toLowerCase());
+
+      if (registeredInAsterisk) {
+        if (!ext.sipRegistered) {
+          flipsToRegistered.push(ext.id);
+          changed.push({
+            crmUserId: ext.crmUserId,
+            extension: ext.extension,
+            sipRegistered: true,
+          });
+        } else {
+          refreshOnly.push(ext.id);
+        }
+      } else {
+        if (ext.sipRegistered) {
+          flipsToUnregistered.push(ext.id);
+          changed.push({
+            crmUserId: ext.crmUserId,
+            extension: ext.extension,
+            sipRegistered: false,
+          });
+        }
+      }
+    }
+
+    // Three batched updates instead of N round-trips. With 100+ operators
+    // each cron tick would otherwise issue 100+ updates against the same
+    // table. Grouping by target state lets Postgres handle them in three
+    // statements regardless of operator count.
+    if (flipsToRegistered.length > 0) {
+      await this.prisma.telephonyExtension.updateMany({
+        where: { id: { in: flipsToRegistered } },
+        data: { sipRegistered: true, sipLastSeenAt: now },
+      });
+    }
+    if (flipsToUnregistered.length > 0) {
+      await this.prisma.telephonyExtension.updateMany({
+        where: { id: { in: flipsToUnregistered } },
+        data: { sipRegistered: false },
+      });
+    }
+    if (refreshOnly.length > 0) {
+      await this.prisma.telephonyExtension.updateMany({
+        where: { id: { in: refreshOnly } },
+        data: { sipLastSeenAt: now },
+      });
+    }
+
+    if (changed.length > 0) {
+      this.logger.log(
+        `Asterisk reconciliation: ${flipsToRegistered.length} → registered, ${flipsToUnregistered.length} → unregistered (${refreshOnly.length} refreshed)`,
+      );
+    }
+
+    return changed;
+  }
+
+  /**
+   * Cron entry point for Asterisk reconciliation. Runs every 60 seconds.
+   *
+   * 60s is the right cadence because:
+   * - It's faster than the existing 5-minute `asterisk-sync` cron (which
+   *   runs heavier work like queue + endpoint config sync).
+   * - It's slow enough to not hammer Asterisk under high registration churn.
+   * - Operators expect dashboard updates within ~1 minute when they
+   *   register, which matches.
+   *
+   * Overlap-guarded: skips if a previous run is still in flight. AMI down
+   * is a graceful skip — the next call event or heartbeat will keep the
+   * dashboard moving until AMI comes back.
+   */
+  @Cron('0 * * * * *')
+  async runAsteriskReconciliation(): Promise<void> {
+    if (this.reconciling) return;
+    this.reconciling = true;
+    try {
+      const statuses = await this.asteriskSync.getEndpointStatuses();
+      const changed = await this.reconcileFromAsterisk(statuses);
+      for (const flip of changed) {
+        this.onAsteriskFlip?.(flip.crmUserId, flip.extension, flip.sipRegistered);
+      }
+    } catch (err: any) {
+      this.logger.error(`Asterisk reconciliation failed: ${err.message}`);
+    } finally {
+      this.reconciling = false;
+    }
+  }
+
+  private reconciling = false;
+
+  /**
+   * Hook invoked for each extension whose registered state was flipped by
+   * the Asterisk reconciliation cron. Set by the telephony gateway in
+   * `onModuleInit` so the gateway can emit `agent:status` without creating
+   * a circular import. Mirrors the `onStaleFlipped` pattern.
+   */
+  onAsteriskFlip?: (
+    userId: string,
+    extension: string,
+    sipRegistered: boolean,
+  ) => void;
 }
