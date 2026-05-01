@@ -170,7 +170,7 @@ Flag any situation where a value lives in more than one place. **Full PR-history
 26. **FreePBX queue members** are `Local/<ext>@from-queue/n`, NOT `PJSIP/<ext>` (AMI `QueuePause`). And `asterisk-manager` rejects with two error shapes — read `err.message` as a property.
 27. **Outbound calls:** attribute at `call_start` (no `AgentConnect` for OUT). Close stale AGENT leg on `AgentConnect` to avoid double-counting.
 28. **Queue membership** writes to FreePBX MariaDB `queues_details`, NOT AMI (supersedes #296's AMI approach).
-29. **Softphone trusts FreePBX self-signed via SPKI pinning** (v1.12.1) — do NOT replace with public CA, do NOT bypass non-pinned hosts.
+29. **Softphone trusts FreePBX self-signed via hostname-scoped override** (v1.14.0, replacing the SPKI pin from v1.12.1). The override accepts any TLS cert presented at `pbx.asg.ge` / `5.10.34.153`; everything else goes through Chromium's normal verifier. The perimeter is the FreePBX firewall's IP-whitelist of office public IPs — a cert pin would have been belt-and-braces for an internal-MITM attack on a managed LAN, traded against fleet-wide outage on cert rotation. Do NOT widen the override to additional hosts. Do NOT remove the override (PBX has no public-CA cert today).
 30. **`asterisk-sync` cleanup** hard-deletes CRM extensions when missing from FreePBX. Single safety guard: AMI fetch must succeed first.
 31. **Extension auto-rebind** via `extension:changed` event: rebind if idle, soft-defer if on a call. **Never drop active call.**
 32. **SSO handoff:** native Electron Allow/Deny dialog is the security boundary. Never weaken.

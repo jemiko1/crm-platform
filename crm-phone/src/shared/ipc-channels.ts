@@ -47,6 +47,19 @@ export const IPC = {
   APP_HIDE: "app:hide",
   APP_MINIMIZE: "app:minimize",
   APP_OPEN_EXTERNAL: "app:open-external",
+  /**
+   * Two-step clean shutdown (v1.14.0). Main process emits PREPARE_QUIT
+   * before destroying the window so the renderer can SIP-unregister
+   * cleanly (REGISTER Expires:0 → wait for Asterisk ACK). Renderer
+   * acknowledges with QUIT_READY when it's done. Main has a 5s timeout
+   * fallback in case the renderer is hung — the app exits regardless.
+   *
+   * Window-close [X] does NOT trigger this flow — only tray Quit and the
+   * APP_QUIT IPC do, matching the standard softphone pattern (close =
+   * minimize to tray, keep registered; explicit Quit = unregister + exit).
+   */
+  APP_PREPARE_QUIT: "app:prepare-quit",
+  APP_QUIT_READY: "app:quit-ready",
 
   UPDATE_CHECK: "update:check",
   UPDATE_STATUS: "update:status",

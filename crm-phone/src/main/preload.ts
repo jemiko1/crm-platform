@@ -92,6 +92,23 @@ contextBridge.exposeInMainWorld("crmPhone", {
     hide: () => ipcRenderer.send(IPC.APP_HIDE),
     minimize: () => ipcRenderer.send(IPC.APP_MINIMIZE),
     openExternal: (url: string) => ipcRenderer.invoke(IPC.APP_OPEN_EXTERNAL, url),
+    /**
+     * Two-step clean shutdown (v1.14.0). Subscribe to PREPARE_QUIT in the
+     * renderer; perform SIP unregister + any other teardown that needs to
+     * run while the renderer is still alive; then call `notifyQuitReady()`
+     * so main exits. Window-close [X] does NOT fire this — only tray Quit
+     * and explicit `app.quit()` do.
+     */
+    onPrepareQuit: (cb: () => void) => {
+      // `once` not `on` — quitCleanly() only fires APP_PREPARE_QUIT a
+      // single time per main-process lifetime, and accepting a second
+      // dispatch would call `sipService.unregister()` twice (the second
+      // being a no-op, but still — defense in depth).
+      const handler = () => cb();
+      ipcRenderer.once(IPC.APP_PREPARE_QUIT, handler);
+      return () => ipcRenderer.removeListener(IPC.APP_PREPARE_QUIT, handler);
+    },
+    notifyQuitReady: () => ipcRenderer.send(IPC.APP_QUIT_READY),
   },
   updater: {
     checkForUpdates: () => ipcRenderer.invoke(IPC.UPDATE_CHECK),

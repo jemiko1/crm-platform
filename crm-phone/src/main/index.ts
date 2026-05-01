@@ -78,6 +78,62 @@ if (!app.isPackaged && process.platform === "win32") {
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let sipRegistered = false;
+/**
+ * Set when a clean-quit flow is in progress so the window's "close"
+ * handler stops swallowing close events and lets the destroy go through.
+ * Without this, our `e.preventDefault()` close handler keeps the app
+ * alive even when we've explicitly asked it to quit.
+ */
+let isQuitting = false;
+
+/**
+ * Two-step clean shutdown. Tells the renderer to SIP-unregister cleanly
+ * (REGISTER `Expires:0` → wait for Asterisk ACK), waits up to 5s for
+ * acknowledgement, then exits. The 5s ceiling guarantees the app always
+ * exits — even when the renderer is hung — at the cost of a slightly
+ * stale Asterisk contact (cleaned up by the qualify-timeout in 60s).
+ *
+ * Window-close [X] does NOT call this — close hides to tray. This
+ * function is invoked only by the tray "Quit" menu and the renderer's
+ * `app.quit()` IPC.
+ */
+function quitCleanly(): void {
+  if (isQuitting) return;
+  isQuitting = true;
+
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    app.quit();
+    return;
+  }
+
+  let resolved = false;
+  const finish = () => {
+    if (resolved) return;
+    resolved = true;
+    ipcMain.removeListener(IPC.APP_QUIT_READY, finish);
+    mainWindow?.destroy();
+    app.quit();
+  };
+
+  ipcMain.once(IPC.APP_QUIT_READY, finish);
+  // 5s timeout — the renderer's own SIP `unregister()` already self-caps
+  // at ~3s waiting for the Asterisk ACK, so 5s gives it room to finish
+  // plus a bit of slack for IPC + event-loop overhead. Anything longer
+  // and the operator stares at a frozen "Quit" click.
+  setTimeout(() => {
+    if (!resolved) {
+      console.log('[quit] renderer did not ACK PREPARE_QUIT in 5s — forcing exit');
+      finish();
+    }
+  }, 5000);
+
+  try {
+    mainWindow.webContents.send(IPC.APP_PREPARE_QUIT);
+  } catch (err) {
+    // Renderer may already be torn down (e.g. crashed). Force-exit.
+    finish();
+  }
+}
 
 const isDev = !app.isPackaged;
 const RENDERER_URL = isDev
@@ -133,6 +189,12 @@ function createWindow(): void {
   });
 
   mainWindow.on("close", (e) => {
+    // Default close [X] = hide to tray, keep SIP registered. Standard
+    // softphone behavior — operators expect the app to keep receiving
+    // calls when they close the window. Only `quitCleanly()` (tray Quit
+    // or explicit `app.quit()` IPC) sets `isQuitting=true` to let the
+    // close-then-destroy go through.
+    if (isQuitting) return;
     e.preventDefault();
     mainWindow?.hide();
   });
@@ -167,7 +229,7 @@ function createTray(): void {
       },
       {
         label: "Quit",
-        click: () => { mainWindow?.destroy(); app.quit(); },
+        click: () => quitCleanly(),
       },
     ]);
     tray?.setContextMenu(menu);
@@ -555,7 +617,7 @@ function setupIpc(): void {
     try { return fs.readFileSync(logFile, "utf-8"); } catch { return "No log file"; }
   });
 
-  ipcMain.on(IPC.APP_QUIT, () => { mainWindow?.destroy(); app.quit(); });
+  ipcMain.on(IPC.APP_QUIT, () => quitCleanly());
   ipcMain.on(IPC.APP_SHOW, () => { mainWindow?.show(); mainWindow?.focus(); });
   // Minimize to taskbar. setSkipTaskbar(false) first because a previously
   // hidden window (hide()) loses its taskbar slot on Windows — restoring
@@ -672,16 +734,12 @@ app.whenReady().then(async () => {
     mainWindow?.focus();
   });
 
-  // B2 — DO NOT install a blanket setCertificateVerifyProc override.
-  // Any override that passes `0` (trust) unconditionally accepts MITM
-  // certs on every untrusted network the operator uses. crm28.asg.ge
-  // is Let's Encrypt-signed; Electron's default verifier handles it.
-  //
-  // What WE install here is narrower: trust ONLY one specific cert
-  // (by SPKI hash) at ONLY the configured PBX host. Every other HTTPS
-  // request goes through Chromium's default verifier unchanged. This
-  // is the standard certificate-pinning pattern; see pbx-cert-pin.ts
-  // for the full audit-posture writeup and rotation procedure.
+  // Hostname-scoped TLS-trust override for the FreePBX self-signed cert.
+  // Trust is restricted to `pbx.asg.ge` / `5.10.34.153`; every other
+  // HTTPS connection (CRM web, auto-updater, OpenAI, etc.) uses
+  // Chromium's normal public-CA validation. The perimeter is the
+  // FreePBX firewall's IP-whitelist of office public IPs — see
+  // pbx-cert-pin.ts and CLAUDE.md Silent Override Risk #29.
   installPbxCertPin();
 
   // H11 — auto-grant only the permissions we actually need (microphone
