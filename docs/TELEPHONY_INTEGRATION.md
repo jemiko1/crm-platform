@@ -797,13 +797,33 @@ Genesys / Five9 / Talkdesk:
 
 See `audit/STATS_STANDARDS.md` for full rationale and edge cases.
 
-### AgentPresenceService (PR #260)
+### AgentPresenceService (PR #260, extended for Asterisk reconciliation)
 
-Real-time stale-agent detection. When an agent's Socket.IO connection goes
-silent for > N minutes, the service emits an `agent.stale` event to the
-`/telephony` gateway. Call Center Manager dashboards subscribe and flip the
-agent's presence indicator live (previously relied on a 1-minute cron, so
-up to 60s of stale state was visible).
+Tracks `TelephonyExtension.sipRegistered` so the live monitoring page
+(`/app/call-center/live`) reflects who can actually take calls. Three
+complementary write paths, with **Asterisk as the authoritative source**:
+
+1. **CRM softphone heartbeat** (`POST /v1/telephony/agents/presence`,
+   user-keyed) — fastest signal when the operator uses our Electron
+   softphone. Does NOT cover MicroSIP, Zoiper, hardware desk phones.
+2. **Asterisk reconciliation cron** (`runAsteriskReconciliation`, every
+   60s, extension-keyed) — calls `AsteriskSyncService.getEndpointStatuses()`
+   (AMI `pjsip show endpoints`) and reconciles every linked extension.
+   Asterisk wins on conflict. Refreshes `sipLastSeenAt` for already-
+   registered ops so the stale sweep doesn't trip them; flipping to
+   unregistered does NOT touch the timestamp so the live page's freshness
+   logic still snaps the operator to OFFLINE.
+3. **Stale-heartbeat sweep** (`runStaleRegistrationSweep`, every 30s,
+   90s threshold) — belt-and-braces safety net for the "everything broken"
+   case where reconciliation also fails.
+
+Reliability rules (Silent Override Risk #37):
+- Empty `getEndpointStatuses()` (AMI down, sync disabled, command failed)
+  is a **NO-OP**. Never pessimistically flip everyone offline on AMI blips.
+- Both sweeps emit `agent:status` over `/telephony` Socket.IO with a source
+  tag (`sipStaleFlip` or `asteriskFlip`) so dashboards refresh without
+  polling.
+- Cron overlap-guarded via per-method boolean flags.
 
 Implementation: `backend/crm-backend/src/telephony/services/agent-presence.service.ts`.
 
